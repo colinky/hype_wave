@@ -1,0 +1,11 @@
+.env
+.DS_Store
+.venv/
+.secrets/
+oauth.json
+AuthKey_*.p8
+__pycache__/
+.vscode/
+debug_*.py
+test_*.py   
+scratch/

@@ -1,0 +1,1205 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hype Wave | Music Chart</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --bg-color: #050505;
+            --card-bg: rgba(255, 255, 255, 0.05);
+            --accent-color: #00d4ff;
+            --accent-gradient: linear-gradient(135deg, #007cf0 0%, #00d4ff 100%);
+            --text-primary: #ffffff;
+            --text-secondary: #b0b0b0;
+            --glass-border: rgba(255, 255, 255, 0.1);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Outfit', sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-primary);
+            overflow-x: hidden;
+            min-height: 100vh;
+        }
+
+        /* Hero Section */
+        header {
+            padding: 60px 20px;
+            text-align: center;
+            background: radial-gradient(circle at top right, rgba(0, 212, 255, 0.15), transparent);
+        }
+
+        .info-trigger {
+            display: inline-flex;
+            align-items: center;
+            cursor: help;
+            margin-left: 6px;
+            color: var(--text-secondary);
+            position: relative;
+            vertical-align: middle;
+        }
+
+        .tooltip {
+            visibility: hidden;
+            width: 260px;
+            background: rgba(15, 15, 15, 0.98);
+            color: var(--text-primary);
+            text-align: left;
+            border-radius: 12px;
+            padding: 14px;
+            position: absolute;
+            z-index: 1000;
+            bottom: 140%;
+            left: 50%;
+            transform: translateX(-50%) translateY(10px);
+            opacity: 0;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            font-size: 0.8rem;
+            line-height: 1.5;
+            border: 1px solid var(--glass-border);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            pointer-events: none;
+            white-space: normal;
+        }
+
+        .info-trigger:hover .tooltip,
+        .info-trigger.active .tooltip {
+            visibility: visible;
+            opacity: 1;
+            transform: translateX(-50%) translateY(0);
+        }
+
+        .header-desc {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            color: var(--text-secondary);
+            font-size: 1.1rem;
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        .yt-playlist-icon {
+            display: inline-flex;
+            align-items: center;
+            transition: transform 0.2s ease;
+        }
+
+        .yt-playlist-icon:hover {
+            transform: scale(1.1);
+        }
+
+        h1 {
+            font-size: 3.5rem;
+            font-weight: 800;
+            letter-spacing: -2px;
+            background: var(--accent-gradient);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 10px;
+        }
+
+        /* Main Content */
+        main {
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .chart-container {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        /* Song Card */
+        .song-card {
+            display: grid;
+            grid-template-columns: 60px 80px 70px 1fr 100px 110px;
+            align-items: center;
+            padding: 20px;
+            background: var(--card-bg);
+            border: 1px solid var(--glass-border);
+            border-radius: 20px;
+            backdrop-filter: blur(10px);
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            cursor: default;
+            animation: slideUp 0.6s ease-out forwards;
+            opacity: 0;
+        }
+
+        @keyframes slideUp {
+            from {
+                transform: translateY(30px);
+                opacity: 0;
+            }
+
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+
+        .song-card:hover {
+            background: rgba(255, 255, 255, 0.08);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+        }
+
+        .rank {
+            font-size: 1.5rem;
+            font-weight: 800;
+            color: var(--text-secondary);
+        }
+
+        .trend {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.9rem;
+            font-weight: 600;
+        }
+
+        .trend.up {
+            color: #00ff88;
+        }
+
+        .trend.down {
+            color: #ff3333;
+        }
+
+        .trend.new {
+            color: var(--accent-color);
+        }
+
+        .trend.new-wave {
+            color: #00f2ff;
+            font-weight: 800;
+            text-shadow: 0 0 15px rgba(0, 242, 255, 0.6);
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.7; }
+            100% { opacity: 1; }
+        }
+
+        .album-art {
+            width: 50px;
+            height: 50px;
+            background: #222;
+            border-radius: 12px;
+            overflow: hidden;
+            background-image: var(--accent-gradient);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 800;
+            font-size: 0.8rem;
+        }
+
+        .info h3 {
+            font-size: 1.2rem;
+            margin-bottom: 4px;
+        }
+
+        .info p {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+
+        .index-value {
+            text-align: right;
+            font-weight: 600;
+        }
+
+        .index-label {
+            font-size: 0.7rem;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 2px;
+        }
+
+        .index-num {
+            color: var(--accent-color);
+            font-size: 1.1rem;
+        }
+
+        .service-links {
+            display: flex;
+            gap: 12px;
+            justify-content: center;
+        }
+
+        .service-link {
+            opacity: 0.6;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+        }
+
+        .service-link:hover {
+            opacity: 1;
+            transform: translateY(-3px);
+        }
+
+        /* Footer */
+        footer {
+            text-align: center;
+            padding: 60px 20px;
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+
+        /* Featured WAVE 카드 전용 스타일 및 파동 애니메이션 */
+        .featured-wave-card {
+            position: relative;
+            overflow: hidden;
+            border: 1px solid rgba(0, 212, 255, 0.3) !important;
+            background: linear-gradient(135deg, rgba(0, 212, 255, 0.1) 0%, rgba(255, 255, 255, 0.05) 100%) !important;
+            z-index: 1;
+        }
+
+        .featured-wave-card::before {
+            content: '';
+            position: absolute;
+            top: var(--mouse-y, 50%);
+            left: var(--mouse-x, 50%);
+            width: 300px;
+            height: 300px;
+            background: radial-gradient(circle, rgba(0, 212, 255, 0.4) 0%, transparent 70%);
+            transform: translate(-50%, -50%) scale(0);
+            opacity: 0;
+            z-index: -1;
+            transition: transform 0.8s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.6s ease;
+            pointer-events: none;
+        }
+
+        .featured-wave-card:hover,
+        .featured-wave-card.is-touching {
+            border-color: rgba(0, 212, 255, 0.6) !important;
+            background: linear-gradient(135deg, rgba(0, 212, 255, 0.15) 0%, rgba(255, 255, 255, 0.1) 100%) !important;
+            box-shadow: 0 0 40px rgba(0, 212, 255, 0.25) !important;
+        }
+
+        .featured-wave-card:hover::before,
+        .featured-wave-card.is-touching::before {
+            transform: translate(-50%, -50%) scale(3);
+            opacity: 1;
+        }
+
+        .trend-chart-container {
+            background: var(--card-bg);
+            border: 1px solid var(--glass-border);
+            border-radius: 24px;
+            padding: 24px;
+            margin-bottom: 40px;
+            backdrop-filter: blur(10px);
+            height: 500px;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Segmented Control for Chart Type */
+        .chart-type-group {
+            display: flex;
+            background: var(--card-bg);
+            border: 1px solid var(--glass-border);
+            border-radius: 10px;
+            padding: 4px;
+            gap: 4px;
+        }
+
+        .type-btn {
+            background: transparent;
+            border: none;
+            color: var(--text-secondary);
+            padding: 6px 16px;
+            border-radius: 7px;
+            font-family: 'Outfit';
+            font-weight: 600;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            white-space: nowrap;
+        }
+
+        .type-btn:hover {
+            color: var(--text-primary);
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .type-btn.active {
+            background: var(--accent-gradient);
+            color: var(--text-primary);
+            box-shadow: 0 4px 12px rgba(0, 212, 255, 0.2);
+        }
+
+        /* Layout Helpers */
+        .trend-title {
+            font-size: 1.2rem;
+            margin-bottom: 20px;
+            color: var(--text-secondary);
+            font-weight: 600;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+        }
+
+        .controls {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .date-select {
+            background: var(--card-bg);
+            color: var(--text-primary);
+            border: 1px solid var(--glass-border);
+            padding: 8px 12px;
+            border-radius: 8px;
+            font-family: 'Outfit';
+            font-weight: 600;
+            cursor: pointer;
+            outline: none;
+            border-bottom: 2px solid var(--accent-color);
+        }
+
+        /* controls 레이아웃 */
+        .controls-main {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .date-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        /* 모바일 전용 last-update: 데스크톱에서는 숨김 */
+        .last-update-mobile {
+            display: none;
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            white-space: nowrap;
+        }
+
+        /* 텍스트 overflow 기본 방지 */
+        .song-card,
+        .info,
+        .info h3,
+        .info p {
+            min-width: 0;
+        }
+
+        /* ===== RESPONSIVE: must be last in stylesheet ===== */
+        @media (max-width: 600px) {
+            h1 {
+                font-size: 2rem;
+                letter-spacing: -1px;
+            }
+
+            header {
+                padding: 36px 16px 24px;
+            }
+
+            .header-desc {
+                font-size: 0.85rem;
+            }
+
+            main {
+                padding: 12px;
+            }
+
+            /* 모바일 카드: info가 두 행 스패닝, index/links가 우측 상하 분리 */
+            .song-card {
+                display: grid;
+                grid-template-columns: 36px 48px 1fr auto;
+                grid-template-rows: auto auto;
+                grid-template-areas:
+                    "rank art info index"
+                    "rank art info links";
+                padding: 12px 10px;
+                gap: 4px 8px;
+                border-radius: 14px;
+                align-items: center;
+            }
+
+            .rank {
+                grid-area: rank;
+                font-size: 1.1rem;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                align-self: center;
+            }
+
+            .trend-box {
+                display: none;
+            }
+
+            .album-art {
+                grid-area: art;
+                width: 48px;
+                height: 48px;
+                align-self: center;
+            }
+
+            .info {
+                grid-area: info;
+                min-width: 0;
+                align-self: center;
+                display: flex;
+                flex-direction: column;
+                justify-content: center;
+                gap: 2px;
+            }
+
+            .info h3 {
+                font-size: 0.9rem;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+            }
+
+            .info p {
+                font-size: 0.72rem;
+                white-space: normal;
+                display: -webkit-box;
+                -webkit-line-clamp: 2;
+                -webkit-box-orient: vertical;
+                overflow: hidden;
+            }
+
+            .service-links {
+                grid-area: links;
+                justify-content: flex-end;
+                gap: 8px;
+                align-self: center;
+            }
+
+            .service-link {
+                padding: 6px;
+                margin: -6px;
+            }
+
+            .service-link svg {
+                width: 16px;
+                height: 16px;
+            }
+
+            .index-value {
+                grid-area: index;
+                display: flex;
+                flex-direction: column;
+                align-items: flex-end;
+                justify-content: center;
+                min-width: 54px;
+                align-self: center;
+            }
+
+            .index-num {
+                font-size: 0.95rem;
+            }
+
+            .index-label {
+                font-size: 0.6rem;
+            }
+
+            .trend-chart-container {
+                height: 360px;
+                padding: 16px;
+                border-radius: 16px;
+                margin-bottom: 20px;
+            }
+
+            .trend-title {
+                font-size: 0.85rem;
+                margin-bottom: 12px;
+            }
+
+            /* controls: 날짜+업데이트 위, 타입바 아래 */
+            .controls {
+                flex-direction: column;
+                align-items: stretch;
+                gap: 8px;
+            }
+
+            .controls-main {
+                flex-direction: column;
+                align-items: stretch;
+                gap: 8px;
+            }
+
+            .date-row {
+                width: 100%;
+            }
+
+            /* 모바일: 위치 스위칭 */
+            #last-update { display: none; }
+            .last-update-mobile { display: inline; margin-left: auto; }
+
+            .date-select {
+                font-size: 0.85rem;
+                padding: 6px 10px;
+            }
+
+            .chart-type-group {
+                width: 100%;
+                justify-content: space-between;
+            }
+
+            .type-btn {
+                flex: 1;
+                font-size: 0.8rem;
+                padding: 5px 10px;
+            }
+
+            /* 툴팁 모바일 위치 보정 */
+            .tooltip {
+                width: 220px;
+                left: auto;
+                right: -10px;
+                transform: translateX(0) translateY(10px);
+            }
+
+            .info-trigger:hover .tooltip,
+            .info-trigger.active .tooltip {
+                transform: translateX(0) translateY(0);
+            }
+        }
+
+        /* 매우 작은 화면 추가 보정 */
+        @media (max-width: 360px) {
+            h1 { font-size: 1.7rem; }
+
+            .song-card {
+                grid-template-columns: 30px 42px 1fr auto;
+                padding: 10px 8px;
+            }
+
+            .album-art {
+                width: 42px;
+                height: 42px;
+            }
+
+            .index-value {
+                min-width: 46px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <header>
+        <h1>HYPE WAVE</h1>
+        <p class="header-desc">
+            <span id="header-motto">Catch Tomorrow's Hype Today</span>
+            <span class="info-trigger">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+                <span class="tooltip" id="logic-tooltip">...</span>
+            </span>
+            <a id="yt-playlist-link" href="https://music.youtube.com/playlist?list=PLtawHGpcUVZXKVkfIElFeaWB6g6d1o9Dr" target="_blank" title="Listen in YouTube Music" class="yt-playlist-icon">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M12 22C17.5228 22 22 17.5228 22 12C22 6.47715 17.5228 2 12 2C6.47715 2 2 6.47715 2 12C2 17.5228 6.47715 22 12 22Z" fill="#FF0000"/>
+                    <path d="M12 18C15.3137 18 18 15.3137 18 12C18 8.68629 15.3137 6 12 6C8.68629 6 6 8.68629 6 12C6 15.3137 8.68629 18 12 18Z" fill="white"/>
+                    <path d="M12 15C13.6569 15 15 13.6569 15 12C15 10.3431 13.6569 9 12 9C10.3431 9 9 10.3431 9 12C9 13.6569 10.3431 15 12 15Z" fill="#FF0000"/>
+                    <path d="M10.5 10V14L14 12L10.5 10Z" fill="white"/>
+                </svg>
+            </a>
+        </p>
+    </header>
+
+    <main>
+        <div class="trend-chart-container">
+            <h2 class="trend-title">TOP 10 HYPE TREND (LAST 31 DAYS)</h2>
+            <div style="flex: 1; min-height: 0; position: relative;">
+                <canvas id="hypeTrendChart"></canvas>
+            </div>
+        </div>
+
+        <div class="controls">
+            <div class="controls-main">
+                <div class="date-row">
+                    <select id="date-selector" class="date-select">
+                        <option value="">Loading dates...</option>
+                    </select>
+                    <!-- 모바일 전용: 날짜 드롭다운 옆에 표시 -->
+                    <span class="last-update-mobile">Loading...</span>
+                </div>
+                <div class="chart-type-group" id="chart-type-selector">
+                    <button type="button" class="type-btn active" data-value="hype">Hype</button>
+                    <button type="button" class="type-btn" data-value="apple">Apple</button>
+                    <button type="button" class="type-btn" data-value="melon">Melon</button>
+                </div>
+            </div>
+            <!-- 데스크톱 전용: controls 우측에 표시 -->
+            <div id="last-update" style="font-size: 0.8rem; color: var(--text-secondary);">Loading latest data...</div>
+        </div>
+        <div class="chart-container" id="chart-container">
+            <!-- Cards will be injected here -->
+        </div>
+    </main>
+
+    <footer>
+        &copy; 2026 colinky.github.io | Powered by Hype Wave Engine
+    </footer>
+
+    <script>
+        let globalHistory = {};
+        let availableDates = [];
+        let trendChartInstance = null;
+        let currentChartType = 'hype';
+        let highlightedDatasetIndex = null;
+
+        async function loadChart() {
+            try {
+                // Set language-based motto
+                const motto = document.getElementById('header-motto');
+                const logicTooltip = document.getElementById('logic-tooltip');
+                const infoTrigger = document.querySelector('.info-trigger');
+                const userLang = navigator.language || navigator.userLanguage;
+                if (userLang && userLang.startsWith('ko')) {
+                    motto.textContent = "애플의 내일과 멜론의 오늘 사이, 폭발 직전의 모멘텀을 포착하는 더 트렌디한 HYPE 차트";
+                    logicTooltip.textContent = "애플뮤직(트렌드)과 멜론(대중성) 차트를 통합 분석합니다. 최상위권의 파급력과 신규 진입 곡의 상승 모멘텀을 가중 평균하여 화제성 지수를 산출합니다.";
+                } else {
+                    motto.textContent = "Catch Tomorrow's Hype Today";
+                    logicTooltip.textContent = "Integrates Apple Music trends with Melon popularity. Calculated via weighted average of top-tier impact and rising momentum.";
+                }
+
+                // Tooltip toggle logic for mobile
+                infoTrigger.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    infoTrigger.classList.toggle('active');
+                });
+                document.addEventListener('click', () => {
+                    infoTrigger.classList.remove('active');
+                });
+
+                const response = await fetch('api/history.json');
+                globalHistory = await response.json();
+
+                availableDates = Object.keys(globalHistory).sort((a, b) => b.localeCompare(a));
+
+                const selector = document.getElementById('date-selector');
+                selector.innerHTML = '';
+
+                // 날짜별 라벨 처리를 위한 기준 날짜 계산
+                const latestParts = availableDates[0].split('-').map(Number);
+                const latestDateObj = new Date(latestParts[0], latestParts[1] - 1, latestParts[2]);
+                
+                const formatDate = (d) => {
+                    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+                };
+
+                const weekAgoStr = formatDate(new Date(new Date(latestDateObj).setDate(latestDateObj.getDate() - 7)));
+                const monthAgoDate = new Date(latestDateObj);
+                monthAgoDate.setMonth(monthAgoDate.getMonth() - 1);
+                const monthAgoStr = formatDate(monthAgoDate);
+
+                availableDates.forEach((date, i) => {
+                    let label = date;
+                    if (i === 0) label += " (today)";
+                    else if (i === 1) label += " (yesterday)";
+                    else if (date === weekAgoStr) label += " (1 week ago)";
+                    else if (date === monthAgoStr) label += " (1 month ago)";
+
+                    const option = document.createElement('option');
+                    option.value = date;
+                    option.innerText = label;
+                    selector.appendChild(option);
+                });
+
+                selector.addEventListener('change', (e) => {
+                    renderChart(e.target.value);
+                });
+
+                const typeButtons = document.querySelectorAll('.type-btn');
+                typeButtons.forEach(btn => {
+                    btn.addEventListener('click', () => {
+                        typeButtons.forEach(b => b.classList.remove('active'));
+                        btn.classList.add('active');
+                        currentChartType = btn.getAttribute('data-value');
+
+                        // 차트 타입에 따라 상단 플레이리스트 링크 업데이트
+                        const playlistLink = document.getElementById('yt-playlist-link');
+                        const playlistUrls = {
+                            'hype': 'https://music.youtube.com/playlist?list=PLtawHGpcUVZXKVkfIElFeaWB6g6d1o9Dr',
+                            'apple': 'https://music.youtube.com/playlist?list=PLtawHGpcUVZWeko8ek3LWy9gav1sg9FFw',
+                            'melon': 'https://music.youtube.com/playlist?list=PLtawHGpcUVZVwAYjPC7Jvc3BTZkQ1G966'
+                        };
+                        if (playlistLink && playlistUrls[currentChartType]) {
+                            playlistLink.href = playlistUrls[currentChartType];
+                        }
+
+                        renderChart(selector.value);
+                    });
+                });
+
+                if (availableDates.length > 0) {
+                    const updateText = `Updated on: ${availableDates[0]}`;
+                    document.getElementById('last-update').innerText = updateText;
+                    document.querySelectorAll('.last-update-mobile').forEach(el => el.textContent = updateText);
+                    
+                    renderChart(availableDates[0]);
+                    renderTrendChart();
+                }
+            } catch (err) {
+                console.error("Failed to load history data:", err);
+                document.getElementById('last-update').innerText = "Failed to load data.";
+            }
+        }
+
+        function renderTrendChart() {
+            const latestDate = availableDates[0];
+            if (!latestDate || !globalHistory[latestDate]) {
+                console.warn("트렌드 차트를 생성할 데이터가 없습니다.");
+                return;
+            }
+
+            const top10Today = globalHistory[latestDate].slice(0, window.innerWidth <= 600 ? 5 : 10);
+            const isMobile = window.innerWidth <= 600;
+            const chartTitle = document.querySelector('.trend-title');
+            if (chartTitle) {
+                chartTitle.textContent = window.innerWidth <= 600
+                    ? 'TOP 5 HYPE TREND (LAST 31 DAYS)'
+                    : 'TOP 10 HYPE TREND (LAST 31 DAYS)';
+            }
+
+            const colors = [
+                '#ff3366', '#00ff88', '#3366ff', '#ffcc33', '#cc33ff',
+                '#00ffff', '#ff9900', '#88ff00', '#ff00ff', '#0088ff'
+            ];
+            
+            // 최신 날짜 기준 직전 31일간의 고정 타임라인 생성 (왼쪽 -> 오른쪽)
+            const latestDateParts = latestDate.split('-').map(Number);
+            const displayDates = [];
+            for (let i = 30; i >= 0; i--) {
+                const d = new Date(latestDateParts[0], latestDateParts[1] - 1, latestDateParts[2]);
+                d.setDate(d.getDate() - i);
+                const y = d.getFullYear();
+                const m = String(d.getMonth() + 1).padStart(2, '0');
+                const day = String(d.getDate()).padStart(2, '0');
+                displayDates.push(`${y}-${m}-${day}`);
+            }
+
+            const datasets = top10Today.map((song, i) => {
+                return {
+                    label: song.title,
+                    data: displayDates.map(date => {
+                        const songOnDate = globalHistory[date]?.find(s => s.video_id === song.video_id);
+                        return songOnDate ? songOnDate.hype_index : null;
+                    }),
+                    borderColor: colors[i] + '44', 
+                    backgroundColor: colors[i] + '66',
+                    tension: 0.4,
+                    pointRadius: isMobile ? 4 : 5,
+                    pointBorderWidth: 0,
+                    pointHoverRadius: isMobile ? 9 : 10,
+                    borderWidth: 1.5,
+                    spanGaps: true
+                };
+            });
+
+            // 강조 효과 적용 함수
+            const applyHighlight = (chart, index) => {
+                // 모바일 터치 후 남을 수 있는 Chart.js 내부 hover/active 상태 초기화
+                chart.tooltip.setActiveElements([], { x: 0, y: 0 });
+                chart.setActiveElements([]);
+
+                if (highlightedDatasetIndex === index) {
+                    // 이미 강조된 상태에서 다시 클릭하면 초기화
+                    highlightedDatasetIndex = null;
+                    chart.data.datasets.forEach((ds, i) => {
+                        ds.borderWidth = 1.5;
+                        ds.borderColor = colors[i] + '44';
+                        ds.backgroundColor = colors[i] + '66';
+                        ds.pointRadius = isMobile ? 4 : 5;
+                        ds.pointHoverRadius = isMobile ? 9 : 10;
+                        ds.pointBorderWidth = 0;
+                    });
+                } else {
+                    // 선택한 데이터셋만 범례 스타일(불투명, 굵은 선)로 변경
+                    highlightedDatasetIndex = index;
+                    chart.data.datasets.forEach((ds, i) => {
+                        const isTarget = i === index;
+                        if (isTarget) {
+                            ds.borderWidth = 3;
+                            ds.borderColor = colors[i];
+                            ds.backgroundColor = colors[i];
+                            ds.pointRadius = isMobile ? 6 : 7.5;
+                            ds.pointHoverRadius = isMobile ? 9 : 10;
+                            ds.pointBorderWidth = 0;
+                        } else {
+                            ds.borderWidth = 1.5;
+                            ds.borderColor = colors[i] + '44';
+                            ds.backgroundColor = colors[i] + '66';
+                            ds.pointRadius = isMobile ? 4 : 5;
+                            ds.pointHoverRadius = isMobile ? 9 : 10;
+                            ds.pointBorderWidth = 0;
+                        }
+                    });
+                }
+                chart.update();
+            };
+
+            if (trendChartInstance) {
+                trendChartInstance.destroy();
+                highlightedDatasetIndex = null;
+            }
+
+            const ctx = document.getElementById('hypeTrendChart').getContext('2d');
+            trendChartInstance = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: displayDates.map(d => d.split('-').slice(1).join('/')),
+                    datasets: datasets
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    animation: {
+                        duration: 600,
+                        easing: 'easeOutQuart'
+                    },
+                    onClick: (event, elements) => {
+                        if (elements.length > 0) {
+                            applyHighlight(trendChartInstance, elements[0].datasetIndex);
+                        } else if (highlightedDatasetIndex !== null) {
+                            applyHighlight(trendChartInstance, highlightedDatasetIndex);
+                        }
+                    },
+                    interaction: {
+                        mode: 'nearest',
+                        intersect: true,
+                    },
+                    plugins: {
+                        legend: {
+                            position: window.innerWidth < 768 ? 'bottom' : 'right',
+                            align: 'center',
+                            onClick: (e, legendItem, legend) => {
+                                const chart = legend.chart;
+                                const dsIndex = legendItem.datasetIndex;
+                                applyHighlight(chart, dsIndex);
+
+                                // 강조 상태면 가장 우측 마커에 툴팁 표시, 해제면 툴팁 닫기
+                                if (highlightedDatasetIndex !== null) {
+                                    const data = chart.data.datasets[highlightedDatasetIndex].data;
+                                    let rightmostIdx = -1;
+                                    for (let i = data.length - 1; i >= 0; i--) {
+                                        if (data[i] !== null && data[i] !== undefined) {
+                                            rightmostIdx = i;
+                                            break;
+                                        }
+                                    }
+                                    if (rightmostIdx !== -1) {
+                                        chart.tooltip.setActiveElements(
+                                            [{ datasetIndex: highlightedDatasetIndex, index: rightmostIdx }],
+                                            { x: 0, y: 0 }
+                                        );
+                                        chart.update();
+                                    }
+                                } else {
+                                    chart.tooltip.setActiveElements([], { x: 0, y: 0 });
+                                    chart.update();
+                                }
+                            },
+                            labels: {
+                                color: '#b0b0b0',
+                                padding: isMobile ? 17 : 20,
+                                font: { family: 'Outfit', size: isMobile ? 12 : 14.4, weight: '600' },
+                                usePointStyle: true,
+                                pointStyle: 'circle',
+                                boxWidth: isMobile ? 9 : 10,
+                                boxHeight: isMobile ? 9 : 10,
+                                generateLabels: (chart) => {
+                                    const original = Chart.defaults.plugins.legend.labels.generateLabels(chart);
+                                    original.forEach((label, i) => {
+                                        // 선택된 상태에 따라 범례 마커 투명도 조절
+                                        const isSelected = highlightedDatasetIndex === i;
+                                        label.fillStyle = isSelected ? colors[i] : colors[i] + '66';
+                                        label.strokeStyle = isSelected ? colors[i] : colors[i] + '44';
+                                        // 노래 제목이 너무 길면 자르기
+                                        if (label.text.length > 15) label.text = label.text.substring(0, 15) + '...';
+                                    });
+                                    return original;
+                                }
+                            }
+                        },
+                        tooltip: {
+                            backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                            titleFont: { family: 'Outfit', size: isMobile ? 12 : 14, weight: '800' },
+                            bodyFont: { family: 'Outfit', size: 12 },
+                            padding: isMobile ? 10 : 12,
+                            cornerRadius: 10,
+                            displayColors: true,
+                            callbacks: {
+                                label: (context) => {
+                                    // 하단 카드와 동일하게 소수점 버림 처리하여 표시
+                                    return `${context.dataset.label}: ${Math.floor(context.parsed.y)}`;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            grid: { 
+                                display: false 
+                            },
+                            ticks: { 
+                                color: '#808080', 
+                                font: { family: 'Outfit', size: isMobile ? 10 : 12 },
+                                maxRotation: 0,
+                                autoSkip: true,
+                                maxTicksLimit: isMobile ? 6 : 10
+                            }
+                        },
+                        y: {
+                            min: 0,
+                            max: 120,
+                            beginAtZero: true,
+                            grid: { color: 'rgba(255, 255, 255, 0.05)', drawBorder: false },
+                            ticks: { 
+                                color: '#808080', 
+                                font: { family: 'Outfit', size: isMobile ? 10 : 12 },
+                                stepSize: 20
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function getWaveDuration(song, selectedDate) {
+            let days = 0;
+            const startIndex = availableDates.indexOf(selectedDate);
+            if (startIndex === -1) return 0;
+            
+            for (let i = startIndex; i < availableDates.length; i++) {
+                const date = availableDates[i];
+                const hSong = globalHistory[date]?.find(s => s.video_id === song.video_id);
+                if (hSong && hSong.is_wave) {
+                    days++;
+                } else {
+                    break;
+                }
+            }
+            return days;
+        }
+
+        function createSongCard(song, index, selectedDate, isFeatured) {
+            const currentIndex = availableDates.indexOf(selectedDate);
+            const yesterdayData = availableDates[currentIndex + 1] ? globalHistory[availableDates[currentIndex + 1]] : null;
+
+            let trendHtml = '';
+            let rankDiffHtml = '';
+
+            if (yesterdayData) {
+                let currentRankValue, prevRankValue;
+                if (currentChartType === 'apple') {
+                    currentRankValue = song.apple_rank;
+                    const prevSong = yesterdayData.find(s => s.video_id === song.video_id);
+                    prevRankValue = prevSong ? prevSong.apple_rank : null;
+                } else if (currentChartType === 'melon') {
+                    currentRankValue = song.melon_rank;
+                    const prevSong = yesterdayData.find(s => s.video_id === song.video_id);
+                    prevRankValue = prevSong ? prevSong.melon_rank : null;
+                } else {
+                    currentRankValue = index + 1;
+                    const prevIdx = yesterdayData.findIndex(s => s.video_id === song.video_id);
+                    prevRankValue = prevIdx !== -1 ? prevIdx + 1 : null;
+                }
+
+                if (currentRankValue && prevRankValue) {
+                    const diff = prevRankValue - currentRankValue;
+                    if (diff > 0) {
+                        rankDiffHtml = `<span class="trend up">▲ ${diff}</span>`;
+                    } else if (diff < 0) {
+                        rankDiffHtml = `<span class="trend down">▼ ${Math.abs(diff)}</span>`;
+                    } else {
+                        rankDiffHtml = `<span class="trend">-</span>`;
+                    }
+                }
+            }
+
+            if (song.is_new_wave) {
+                trendHtml = `<span class="trend new-wave">🌊 NEW WAVE</span>`;
+            } else {
+                trendHtml = rankDiffHtml || '<span class="trend new">NEW</span>';
+            }
+
+            const card = document.createElement('div');
+            card.className = 'song-card';
+            card.style.animationDelay = `${index * 0.05}s`;
+
+            if (isFeatured) {
+                const updatePos = (clientX, clientY) => {
+                    const rect = card.getBoundingClientRect();
+                    card.style.setProperty('--mouse-x', `${clientX - rect.left}px`);
+                    card.style.setProperty('--mouse-y', `${clientY - rect.top}px`);
+                };
+
+                card.addEventListener('mousemove', (e) => updatePos(e.clientX, e.clientY));
+
+                // 모바일 터치 이벤트 대응
+                card.addEventListener('touchstart', (e) => {
+                    card.classList.add('is-touching');
+                    updatePos(e.touches[0].clientX, e.touches[0].clientY);
+                }, { passive: true });
+
+                card.addEventListener('touchmove', (e) => {
+                    updatePos(e.touches[0].clientX, e.touches[0].clientY);
+                }, { passive: true });
+
+                card.addEventListener('touchend', () => card.classList.remove('is-touching'));
+                card.addEventListener('touchcancel', () => card.classList.remove('is-touching'));
+            }
+
+            const appleRank = song.apple_rank ? `Apple #${song.apple_rank}` : 'Apple Out';
+            const melonRank = song.melon_rank ? `Melon #${song.melon_rank}` : 'Melon Out';
+            const displayRank = currentChartType === 'apple' ? song.apple_rank : (currentChartType === 'melon' ? song.melon_rank : index + 1);
+
+            const artId = isFeatured ? `art-featured-${song.video_id}` : `art-${index}`;
+
+            const query = encodeURIComponent(`${song.title} ${song.artist}`);
+            const appleLink = song.apple_url || `https://music.apple.com/kr/search?term=${query}`;
+            const melonLink = song.melon_url || `https://www.melon.com/search/total/index.htm?q=${query}`;
+            const ytLink = `https://music.youtube.com/search?q=${song.video_id}`;
+
+            const waveIcon = song.is_wave ? '<span style="margin-left:4px; font-size:0.8rem;">🌊</span>' : '';
+
+            card.innerHTML = `
+                <div class="rank">${isFeatured ? '🔥' : displayRank}</div>
+                <div class="trend-box">${trendHtml}</div>
+                <div class="album-art" id="${artId}">
+                    ${song.title[0] || '?'}
+                </div>
+                <div class="info">
+                    <h3>${song.title}</h3>
+                    <p>${song.artist} • ${song.album}</p>
+                    <p style="font-size: 0.75rem; margin-top: 5px; color: var(--accent-color); font-weight: 600;">
+                        ${appleRank} <span style="color:var(--text-secondary);font-weight:300;">|</span> ${melonRank}
+                    </p>
+                </div>
+                <div class="service-links">
+                    <a href="${appleLink}" target="_blank" class="service-link" title="Apple Music">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="#FA243C"><path d="M19.43,7.56c-0.29-0.12-0.62-0.08-0.87,0.11L12.5,12.56V4c0-0.55-0.45-1-1-1s-1,0.45-1,1v10.51 c-0.56-0.34-1.22-0.51-1.92-0.46c-1.63,0.11-2.94,1.48-3.01,3.11c-0.08,1.86,1.21,3.41,3,3.41c1.37,0,2.54-0.93,2.89-2.2 c0.02-0.08,0.04-0.17,0.04-0.26V8.92l4.89-3.77c0.44-0.34,1.07-0.03,1.07,0.53v1.65c0,0.3,0.13,0.58,0.36,0.78l0,0 c0.31,0.26,0.78,0.21,1.03-0.12l0.25-0.33C19.86,8.23,19.72,7.68,19.43,7.56z"/></svg>
+                    </a>
+                    <a href="${melonLink}" target="_blank" class="service-link" title="Melon">
+                        <svg width="20" height="20" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="#00CD3C"/><text x="12" y="15.5" text-anchor="middle" fill="white" font-size="11px" font-family="Arial" font-weight="bold">M</text></svg>
+                    </a>
+                    <a href="${ytLink}" target="_blank" class="service-link" title="YouTube Music">
+                        <svg width="20" height="20" viewBox="0 0 24 24"><path d="M12 22C17.5228 22 22 17.5228 22 12C22 6.47715 17.5228 2 12 2C6.47715 2 2 6.47715 2 12C2 17.5228 6.47715 22 12 22Z" fill="#FF0000"/><path d="M10 8.5V15.5L14.5 12L10 8.5Z" fill="white"/></svg>
+                    </a>
+                </div>
+                <div class="index-value">
+                    <div class="index-label">Hype Index</div>
+                    <div class="index-num">${Math.floor(song.hype_index)}${waveIcon}</div>
+                </div>
+            `;
+
+            const artDiv = card.querySelector(`#${artId}`);
+            const tryLoadImage = (url, nextFallback) => {
+                if (!url) { nextFallback(); return; }
+                const img = new Image();
+                img.src = url;
+                img.onload = () => {
+                    artDiv.style.backgroundImage = `url('${url}')`;
+                    artDiv.style.backgroundSize = 'cover';
+                    artDiv.style.backgroundPosition = 'center';
+                    artDiv.innerText = '';
+                };
+                img.onerror = nextFallback;
+            };
+
+            const fallbackToText = () => {
+                artDiv.style.background = 'var(--accent-gradient)';
+                artDiv.innerText = song.title[0] || '?';
+            };
+
+            const tryYouTubeThumbnail = () => {
+                const ytUrl = `https://i.ytimg.com/vi/${song.video_id}/mqdefault.jpg`;
+                tryLoadImage(ytUrl, fallbackToText);
+            };
+
+            tryLoadImage(song.artwork_url, tryYouTubeThumbnail);
+            return card;
+        }
+
+        function renderChart(selectedDate) {
+            try {
+                let todayData = globalHistory[selectedDate];
+                if (!todayData) return;
+
+                todayData = [...todayData]; // Shallow copy
+                if (currentChartType === 'apple') {
+                    todayData = todayData.filter(s => s.apple_rank !== null)
+                                         .sort((a, b) => a.apple_rank - b.apple_rank);
+                } else if (currentChartType === 'melon') {
+                    todayData = todayData.filter(s => s.melon_rank !== null)
+                                         .sort((a, b) => a.melon_rank - b.melon_rank);
+                } else {
+                    todayData.sort((a, b) => a.hype_rank - b.hype_rank);
+                    todayData = todayData.slice(0, 100);
+                }
+
+                const container = document.getElementById('chart-container');
+                container.innerHTML = '';
+                const fragment = document.createDocumentFragment();
+
+                // Featured NEW WAVE 로직: Hype 순위가 가장 높은 NEW WAVE 곡 찾기
+                const newWaveSongs = todayData.filter(s => s.is_new_wave).sort((a, b) => a.hype_rank - b.hype_rank);
+                const featuredWave = newWaveSongs.length > 0 ? newWaveSongs[0] : null;
+
+                if (featuredWave && currentChartType == 'hype') {
+                    const featuredLabel = document.createElement('div');
+                    featuredLabel.style.cssText = 'font-size: 0.8rem; font-weight: 800; color: #00d4ff; margin-bottom: 12px; letter-spacing: 2px; text-transform: uppercase; padding-left: 10px;';
+                    featuredLabel.innerHTML = '🌊 New Hype Wave Now';
+                    fragment.appendChild(featuredLabel);
+                    
+                    const featuredCard = createSongCard(featuredWave, -1, selectedDate, true);
+                    featuredCard.classList.add('featured-wave-card');
+                    fragment.appendChild(featuredCard);
+
+                    const separator = document.createElement('div');
+                    separator.style.cssText = 'height: 1px; background: var(--glass-border); margin: 10px 0; opacity: 0.5;';
+                    fragment.appendChild(separator);
+                }
+
+                todayData.forEach((song, index) => {
+                    const card = createSongCard(song, index, selectedDate, false);
+                    fragment.appendChild(card);
+                });
+                container.appendChild(fragment);
+            } catch (error) {
+                console.error('Error rendering data:', error);
+                document.getElementById('chart-container').innerHTML = '<p style="text-align:center; color:red;">데이터를 표시하는 중 오류가 발생했습니다.</p>';
+            }
+        }
+
+        window.onload = loadChart;
+    </script>
+</body>
+
+</html>

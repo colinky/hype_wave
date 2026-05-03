@@ -1,0 +1,96 @@
+name: Daily Unified Music Sync
+
+on:
+  workflow_dispatch:
+  schedule:
+    # 17:10 KST every day. GitHub Actions cron uses UTC.
+    - cron: "10 8 * * *"
+
+concurrency:
+  group: daily-unified-music-sync
+  cancel-in-progress: false
+
+jobs:
+  sync-all:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    permissions:
+      contents: write
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Restore Sync Logs Cache
+        uses: actions/cache/restore@v4
+        with:
+          path: logs/
+          key: sync-logs-${{ github.run_id }}
+          restore-keys: |
+            sync-logs-
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Restore YouTube Music browser auth file from secret
+        shell: bash
+        env:
+          YTMUSIC_BROWSER_JSON: ${{ secrets.YTMUSIC_BROWSER_JSON }}
+        run: |
+          set -euo pipefail
+          mkdir -p .secrets logs
+          printf '%s' "$YTMUSIC_BROWSER_JSON" > .secrets/browser.json
+          chmod 600 .secrets/browser.json
+
+      - name: Run Enabled Sync Tasks
+        shell: bash
+        env:
+          YTMUSIC_AUTH_FILE: .secrets/browser.json
+        run: |
+          set -euo pipefail
+          python sync_all.py
+
+      - name: Upload All Sync Logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: all-sync-logs
+          path: logs/
+          if-no-files-found: ignore
+
+      - name: Save Sync Logs Cache
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: logs/
+          key: sync-logs-${{ github.run_id }}
+
+      - name: Commit and Push Historical Web Data
+        if: success()
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          
+          # 변경된 데이터 파일들 추가 (디렉토리가 없거나 파일이 없는 경우 대비)
+          mkdir -p crawl
+          # -f 플래그를 사용하여 .gitignore에 있는 logs 폴더 내의 json 파일들을 강제로 포함시킵니다.
+          git add -f crawl/*.json 2>/dev/null || true
+          git add -f docs/api/history.json 2>/dev/null || true
+          git add -f logs/**/*.json 2>/dev/null || true
+          
+          if ! git diff --cached --quiet; then
+            git commit -m "chore: auto-update charts and history [$(date +'%Y-%m-%d')]"
+            git push origin HEAD:${{ github.ref_name }}
+          else
+            echo "No changes to commit"
+          fi
+
+
+
+          
