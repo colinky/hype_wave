@@ -1,6 +1,6 @@
 [
   {
-    "rank": 4,
+    "rank": 8,
     "title": "Square Circle",
     "artist": "HeyMen",
     "album": "",
@@ -22,11 +22,11 @@
     "artist_score": 1.0,
     "album_score": 0.0,
     "yt_result_type": "song",
-    "query": "네모난 원 HeyMen",
+    "query": "네모난 원 HeyMen topic",
     "status": "failed"
   },
   {
-    "rank": 51,
+    "rank": 54,
     "title": "HANRORO: Indie Korea",
     "artist": "HANRORO",
     "album": "",
@@ -40,11 +40,11 @@
     "url": "https://open.spotify.com/track/3rb7PFB21Qw7oZ5MOVxDyM",
     "artwork_url": "",
     "video_id": null,
-    "yt_title": "Even if you leave,",
+    "yt_title": "Can I Be Me?",
     "yt_artist": "HANRORO",
-    "yt_album": "Even if you leave,",
-    "score": 0.389,
-    "title_score": 0.389,
+    "yt_album": "Can I Be Me?",
+    "score": 0.467,
+    "title_score": 0.467,
     "artist_score": 1.0,
     "album_score": 0.0,
     "yt_result_type": "song",
