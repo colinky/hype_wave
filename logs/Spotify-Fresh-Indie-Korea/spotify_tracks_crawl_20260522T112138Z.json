@@ -1,0 +1,992 @@
+[
+  {
+    "rank": 1,
+    "title": "is blue",
+    "artist": "blueberryclub, sido",
+    "album": "",
+    "apple_id": "0mPZqSKcck4JJY0R4x3FZR",
+    "url": "https://open.spotify.com/track/0mPZqSKcck4JJY0R4x3FZR",
+    "source": "spotify_embed_scrape",
+    "artwork_url": ""
+  },
+  {
+    "rank": 2,
+    "title": "Sanha Express",
+    "artist": "sanha",
+    "album": "",
+    "apple_id": "2RrPNyH9ncokySNU3wJnQ1",
+    "url": "https://open.spotify.com/track/2RrPNyH9ncokySNU3wJnQ1",
+    "source": "spotify_embed_scrape",
+    "artwork_url": ""
+  },
+  {
+    "rank": 3,
+    "title": "Time Stop Button (feat. Minjeong)",
+    "artist": "Raw Rabbit, Minjeong",
+    "album": "",
+    "apple_id": "5hZKcq4GLoSn33VkuJkgls",
+    "url": "https://open.spotify.com/track/5hZKcq4GLoSn33VkuJkgls",
+    "source": "spotify_embed_scrape",
+    "artwork_url": ""
+  },
+  {
+    "rank": 4,
+    "title": "Planting time",
+    "artist": "Kangziwon",
+    "album": "",
+    "apple_id": "3ogcgknvPI6P5lM7U54HHc",
+    "url": "https://open.spotify.com/track/3ogcgknvPI6P5lM7U54HHc",
+    "source": "spotify_embed_scrape",
+    "artwork_url": ""
+  },
+  {
+    "rank": 5,
+    "title": "bluescreen",
+    "artist": "JI SUYEON",
+    "album": "",
+    "apple_id": "3ZXW65JwQ2hwQab4dOSP9b",
+    "url": "https://open.spotify.com/track/3ZXW65JwQ2hwQab4dOSP9b",
+    "source": "spotify_embed_scrape",
+    "artwork_url": ""
+  },
+  {
+    "rank": 6,
+    "title": "front door",
+    "artist": "Ahfoné",
+    "album": "",
+    "apple_id": "6WU5lafC33nPm39Qc81zlG",
+    "url": "https://open.spotify.com/track/6WU5lafC33nPm39Qc81zlG",
+    "source": "spotify_embed_scrape",
+    "artwork_url": ""
+  },
+  {
+    "rank": 7,
+    "title": "Orange",
+    "artist": "Yeonwoo",
+    "album": "",
+    "apple_id": "3nrorWOmfweHzDtiCLZrJE",
+    "url": "https://open.spotify.com/track/3nrorWOmfweHzDtiCLZrJE",
+    "source": "spotify_embed_scrape",
+    "artwork_url": ""
+  },
+  {
+    "rank": 8,
+    "title": "Square Circle",
+    "artist": "HeyMen",
+    "album": "",
+    "apple_id": "4FybV0CZtaoAU9EF6IfS4b",
+    "url": "https://open.spotify.com/track/4FybV0CZtaoAU9EF6IfS4b",
+    "source": "spotify_embed_scrape",
+    "artwork_url": ""
+  },
+  {
+    "rank": 9,
+    "title": "POV",
+    "artist": "RYUL",
+    "album": "POV",
+    "apple_id": "0dFcb7vqApkNmR34V4GvsC",
+    "url": "https://open.spotify.com/track/0dFcb7vqApkNmR34V4GvsC",
+    "source": "spotify_embed_scrape",
+    "artwork_url": ""
+  },
+  {
+    "rank": 10,
+    "title": "Bloom and Wither",
+    "artist": "Saebit",
+    "album": "",
+    "apple_id": "2dkWvjHWcll9kepV7F2NBF",
+    "url": "https://open.spotify.com/track/2dkWvjHWcll9kepV7F2NBF",
+    "source": "spotify_embed_scrape",
+    "artwork_url": ""
+  },
+  {
+    "rank": 11,
+    "title": "Paper Chase",
+    "artist": "FRankly",
+    "album": "",
+    "apple_id": "4lUs1YqwoJ4hKYlfYWZkA3",
+    "url": "https://open.spotify.com/track/4lUs1YqwoJ4hKYlfYWZkA3",
+    "source": "spotify_embed_scrape",
+    "artwork_url": ""
+  },
+  {
+    "rank": 12,
+    "title": "GET JIGGY!",
+    "artist": "Luci Gang, Rohann",
+    "album": "",
+    "apple_id": "2RvB8W3b4a0viQh6jMBjnQ",
+    "url": "https://open.spotify.com/track/2RvB8W3b4a0viQh6jMBjnQ",
+    "source": "spotify_embed_scrape",
+    "artwork_url": ""
+  },
+  {
+    "rank": 13,
+    "title": "Wish You Knew",
+    "artist": "Hong Taeyeon",
+    "album": "",
+    "apple_id": "4YaZmlnaguWNgdxAHRB9hM",
+    "url": "https://open.spotify.com/track/4YaZmlnaguWNgdxAHRB9hM",
+    "source": "spotify_embed_scrape",
+    "artwork_url": ""
+  },
+  {
+    "rank": 14,
+    "title": "undefined",
+    "artist": "imzoo",
+    "album": "",
+    "apple_id": "6kkBsWMqkyqe3RtSYUuUGl",
+    "url": "https://open.spotify.com/track/6kkBsWMqkyqe3RtSYUuUGl",
+    "source": "spotify_embed_scrape",
+    "artwork_url": ""
+  },
+  {
+    "rank": 15,
+    "title": "CRUSH",
+    "artist": "SUNNYKEY",
+    "album": "CRUSH",
+    "apple_id": "3pvv80CFNW04bi7rl8X9md",
+    "url": "https://open.spotify.com/track/3pvv80CFNW04bi7rl8X9md",
+    "source": "spotify_embed_scrape",
+    "artwork_url": ""
+  },
+  {
+    "rank": 16,
+    "title": "Girls (feat. Kid Milli)",
+    "artist": "Purynn, Kid Milli",
+    "album": "",
+    "apple_id": "1lLBCFBp6mQo2t1iY1kEGf",
+    "url": "https://open.spotify.com/track/1lLBCFBp6mQo2t1iY1kEGf",
+    "source": "spotify_embed_scrape",
+    "artwork_url": ""
+  },
+  {
+    "rank": 17,
+    "title": "90s",
+    "artist": "Potatoi",
+    "album": "",
+    "apple_id": "7IVGLhH6xnEJisC9k429sc",
+    "url": "https://open.spotify.com/track/7IVGLhH6xnEJisC9k429sc",
+    "source": "spotify_embed_scrape",
+    "artwork_url": ""
+  },
+  {
+    "rank": 18,
+    "title": "typing",
+    "artist": "COII",
+    "album": "",
+    "apple_id": "0nfupRtfOEtb4UZaOHw9q5",
+    "url": "https://open.spotify.com/track/0nfupRtfOEtb4UZaOHw9q5",
+    "source": "spotify_embed_scrape",
+    "artwork_url": ""
+  },
+  {
+    "rank": 19,
+    "title": "Unstable",
+    "artist": "Itzel",
+    "album": "",
+    "apple_id": "3r9wYjqmVN43nsJ52DSEpp",
+    "url": "https://open.spotify.com/track/3r9wYjqmVN43nsJ52DSEpp",
+    "source": "spotify_embed_scrape",
+    "artwork_url": ""
+  },
+  {
+    "rank": 20,
+    "title": "me, myself and cat",
+    "artist": "Kyurin",
+    "album": "",
+    "apple_id": "25zaajzCkPGYHF3rTalHti",
+    "url": "https://open.spotify.com/track/25zaajzCkPGYHF3rTalHti",
+    "source": "spotify_embed_scrape",
+    "artwork_url": ""
+  },
+  {
+    "rank": 21,
+    "title": "sway",
+    "artist": "Tokai",
+    "album": "",
+    "apple_id": "78KWPtzyxqY36h1Z4OcgbJ",
+    "url": "https://open.spotify.com/track/78KWPtzyxqY36h1Z4OcgbJ",
+    "source": "spotify_embed_scrape",
+    "artwork_url": ""
+  },
+  {
+    "rank": 22,
+    "title": "Flower",
+    "artist": "gongwon",
+    "album": "",
+    "apple_id": "4rvPYhCiaSqv24S4UxqFvJ",
+    "url": "https://open.spotify.com/track/4rvPYhCiaSqv24S4UxqFvJ",
+    "source": "spotify_embed_scrape",
+    "artwork_url": ""
+  },
+  {
+    "rank": 23,
+    "title": "what is love?",
+    "artist": "LIUNICORN",
+    "album": "",
+    "apple_id": "6KhsWBgYEJuqvtXRTwJYdw",
+    "url": "https://open.spotify.com/track/6KhsWBgYEJuqvtXRTwJYdw",
+    "source": "spotify_embed_scrape",
+    "artwork_url": ""
+  },
+  {
+    "rank": 24,
+    "title": "I don’t care I like u",
+    "artist": "chorim",
+    "album": "",
+    "apple_id": "2mbjfGSPSFCIxoauRghoB0",
+    "url": "https://open.spotify.com/track/2mbjfGSPSFCIxoauRghoB0",
+    "source": "spotify_embed_scrape",
+    "artwork_url": ""
+  },
+  {
+    "rank": 25,
+    "title": "Lines For Today",
+    "artist": "Wavemeans",
+    "album": "",
+    "apple_id": "51JY7adOGiJuEYuydofe12",
+    "url": "https://open.spotify.com/track/51JY7adOGiJuEYuydofe12",
+    "source": "spotify_embed_scrape",
+    "artwork_url": ""
+  },
+  {
+    "rank": 26,
+    "title": "One-way Love (Feat. h3hyeon)",
+    "artist": "Ryeojin, h3hyeon",
+    "album": "",
+    "apple_id": "6MmTxJOXZW3OKgQZ7a7nkn",
+    "url": "https://open.spotify.com/track/6MmTxJOXZW3OKgQZ7a7nkn",
+    "source": "spotify_embed_scrape",
+    "artwork_url": ""
+  },
+  {
+    "rank": 27,
+    "title": "New Babe",
+    "artist": "yawn, min",
+    "album": "",
+    "apple_id": "2XHO4Qu3rfqt8WgPulBwCu",
+    "url": "https://open.spotify.com/track/2XHO4Qu3rfqt8WgPulBwCu",
+    "source": "spotify_embed_scrape",
+    "artwork_url": ""
+  },
+  {
+    "rank": 28,
+    "title": "Should be you",
+    "artist": "can’t be blue",
+    "album": "Prussian Blue",
+    "apple_id": "2SJeAcqIJA2lSZldU4q27z",
+    "url": "https://open.spotify.com/track/2SJeAcqIJA2lSZldU4q27z",
+    "source": "spotify_embed_scrape",
+    "artwork_url": ""
+  },
+  {
+    "rank": 29,
+    "title": "Trace",
+    "artist": "CHOSNG",
+    "album": "",
+    "apple_id": "4NisfxvLivDgaosC7s6ejt",
+    "url": "https://open.spotify.com/track/4NisfxvLivDgaosC7s6ejt",
+    "source": "spotify_embed_scrape",
+    "artwork_url": ""
+  },
+  {
+    "rank": 30,
+    "title": "echo",
+    "artist": "gongwon",
+    "album": "",
+    "apple_id": "6znYZ3QSDGuVde8I0LV5kR",
+    "url": "https://open.spotify.com/track/6znYZ3QSDGuVde8I0LV5kR",
+    "source": "spotify_embed_scrape",
+    "artwork_url": ""
+  },
+  {
+    "rank": 31,
+    "title": "fallen",
+    "artist": "kyuman, Dopein",
+    "album": "",
+    "apple_id": "14mDHG6i0nOWK2BKXk6eev",
+    "url": "https://open.spotify.com/track/14mDHG6i0nOWK2BKXk6eev",
+    "source": "spotify_embed_scrape",
+    "artwork_url": ""
+  },
+  {
+    "rank": 32,
+    "title": "Dear Memories",
+    "artist": "Haeun",
+    "album": "",
+    "apple_id": "5O2nUFXjUepJEzLAxIirDZ",
+    "url": "https://open.spotify.com/track/5O2nUFXjUepJEzLAxIirDZ",
+    "source": "spotify_embed_scrape",
+    "artwork_url": ""
+  },
+  {
+    "rank": 33,
+    "title": "Mute is Off",
+    "artist": "INSEONG",
+    "album": "Crossfade:",
+    "apple_id": "6pHBcS2aQTIvUpKB20SJMU",
+    "url": "https://open.spotify.com/track/6pHBcS2aQTIvUpKB20SJMU",
+    "source": "spotify_embed_scrape",
+    "artwork_url": ""
+  },
+  {
+    "rank": 34,
+    "title": "Eau de Toilette",
+    "artist": "roon",
+    "album": "",
+    "apple_id": "48f8OnjJdC3Y0mffvj9Xff",
+    "url": "https://open.spotify.com/track/48f8OnjJdC3Y0mffvj9Xff",
+    "source": "spotify_embed_scrape",
+    "artwork_url": ""
+  },
+  {
+    "rank": 35,
+    "title": "Youth",
+    "artist": "Kim Siwon",
+    "album": "",
+    "apple_id": "6clmN7YzxNFd8FR2O7yrtz",
+    "url": "https://open.spotify.com/track/6clmN7YzxNFd8FR2O7yrtz",
+    "source": "spotify_embed_scrape",
+    "artwork_url": ""
+  },
+  {
+    "rank": 36,
+    "title": "horse",
+    "artist": "Homeboy, Luckypink4ever",
+    "album": "",
+    "apple_id": "59FYfmeeHiPVgYfHd75TiH",
+    "url": "https://open.spotify.com/track/59FYfmeeHiPVgYfHd75TiH",
+    "source": "spotify_embed_scrape",
+    "artwork_url": ""
+  },
+  {
+    "rank": 37,
+    "title": "우주인",
+    "artist": "오전:오후",
+    "album": "",
+    "apple_id": "07oZw64EhC450udta5BAip",
+    "url": "https://open.spotify.com/track/07oZw64EhC450udta5BAip",
+    "source": "spotify_embed_scrape",
+    "artwork_url": ""
+  },
+  {
+    "rank": 38,
+    "title": "Wave To Home",
+    "artist": "Muhwa",
+    "album": "",
+    "apple_id": "51KFJlb69QIH94YodF6Xay",
+    "url": "https://open.spotify.com/track/51KFJlb69QIH94YodF6Xay",
+    "source": "spotify_embed_scrape",
+    "artwork_url": ""
+  },
+  {
+    "rank": 39,
+    "title": "No Worry Salon",
+    "artist": "sanha",
+    "album": "",
+    "apple_id": "0qTny0XZx8NOzJLjiOLQoU",
+    "url": "https://open.spotify.com/track/0qTny0XZx8NOzJLjiOLQoU",
+    "source": "spotify_embed_scrape",
+    "artwork_url": ""
+  },
+  {
+    "rank": 40,
+    "title": "Take-Off",
+    "artist": "LETO",
+    "album": "",
+    "apple_id": "76vuTnayDmrSqcsXMBsUKH",
+    "url": "https://open.spotify.com/track/76vuTnayDmrSqcsXMBsUKH",
+    "source": "spotify_embed_scrape",
+    "artwork_url": ""
+  },
+  {
+    "rank": 41,
+    "title": "socks",
+    "artist": "Mitty",
+    "album": "",
+    "apple_id": "7wkUcJctXuRrG7eNVD8Ivx",
+    "url": "https://open.spotify.com/track/7wkUcJctXuRrG7eNVD8Ivx",
+    "source": "spotify_embed_scrape",
+    "artwork_url": ""
+  },
+  {
+    "rank": 42,
+    "title": "Stay by My Side",
+    "artist": "JUROKEY",
+    "album": "",
+    "apple_id": "5EFEOUuM7PpnT23rqzz1Qz",
+    "url": "https://open.spotify.com/track/5EFEOUuM7PpnT23rqzz1Qz",
+    "source": "spotify_embed_scrape",
+    "artwork_url": ""
+  },
+  {
+    "rank": 43,
+    "title": "Starving",
+    "artist": "onthedal",
+    "album": "",
+    "apple_id": "18JFKESC4ZJTiydyE0LIot",
+    "url": "https://open.spotify.com/track/18JFKESC4ZJTiydyE0LIot",
+    "source": "spotify_embed_scrape",
+    "artwork_url": ""
+  },
+  {
+    "rank": 44,
+    "title": "Message (with Gist)",
+    "artist": "Suen, Gist",
+    "album": "",
+    "apple_id": "5qYfMMCvenoDhXp6upn3iL",
+    "url": "https://open.spotify.com/track/5qYfMMCvenoDhXp6upn3iL",
+    "source": "spotify_embed_scrape",
+    "artwork_url": ""
+  },
+  {
+    "rank": 45,
+    "title": "Chicken Nugget",
+    "artist": "ALEPH",
+    "album": "XYZ",
+    "apple_id": "53g9iU4mze3AqTmUjYeUaN",
+    "url": "https://open.spotify.com/track/53g9iU4mze3AqTmUjYeUaN",
+    "source": "spotify_embed_scrape",
+    "artwork_url": ""
+  },
+  {
+    "rank": 46,
+    "title": "Bye Goodbye",
+    "artist": "Crackshot",
+    "album": "",
+    "apple_id": "0h2mqEsooUgwtweQhLDoHe",
+    "url": "https://open.spotify.com/track/0h2mqEsooUgwtweQhLDoHe",
+    "source": "spotify_embed_scrape",
+    "artwork_url": ""
+  },
+  {
+    "rank": 47,
+    "title": "Propose",
+    "artist": "Samui",
+    "album": "",
+    "apple_id": "3KwlazkaekeKfyvDsrsrYd",
+    "url": "https://open.spotify.com/track/3KwlazkaekeKfyvDsrsrYd",
+    "source": "spotify_embed_scrape",
+    "artwork_url": ""
+  },
+  {
+    "rank": 48,
+    "title": "Milk Choco Quik",
+    "artist": "RIO",
+    "album": "",
+    "apple_id": "3WrnIg2bCuP2nBkkdIfIsR",
+    "url": "https://open.spotify.com/track/3WrnIg2bCuP2nBkkdIfIsR",
+    "source": "spotify_embed_scrape",
+    "artwork_url": ""
+  },
+  {
+    "rank": 49,
+    "title": "PATIO",
+    "artist": "Izykite",
+    "album": "sunkissed",
+    "apple_id": "3pYuavyK9gyWxq1jdAJuKP",
+    "url": "https://open.spotify.com/track/3pYuavyK9gyWxq1jdAJuKP",
+    "source": "spotify_embed_scrape",
+    "artwork_url": ""
+  },
+  {
+    "rank": 50,
+    "title": "Trophy Girl",
+    "artist": "Summer Soul",
+    "album": "",
+    "apple_id": "6ylX6AKRS9hZ5NZbpjYBzz",
+    "url": "https://open.spotify.com/track/6ylX6AKRS9hZ5NZbpjYBzz",
+    "source": "spotify_embed_scrape",
+    "artwork_url": ""
+  },
+  {
+    "rank": 51,
+    "title": "hunger",
+    "artist": "seul",
+    "album": "",
+    "apple_id": "2r9fdCVI9fmyYDDXt5DKR9",
+    "url": "https://open.spotify.com/track/2r9fdCVI9fmyYDDXt5DKR9",
+    "source": "spotify_embed_scrape",
+    "artwork_url": ""
+  },
+  {
+    "rank": 52,
+    "title": "Love me private",
+    "artist": "BABO",
+    "album": "",
+    "apple_id": "6IjrtcCPJ2m19zXoutpYsF",
+    "url": "https://open.spotify.com/track/6IjrtcCPJ2m19zXoutpYsF",
+    "source": "spotify_embed_scrape",
+    "artwork_url": ""
+  },
+  {
+    "rank": 53,
+    "title": "Quantum Physics",
+    "artist": "TheyNeverChange",
+    "album": "",
+    "apple_id": "3QidtOi1QqRuY2jvLITZSz",
+    "url": "https://open.spotify.com/track/3QidtOi1QqRuY2jvLITZSz",
+    "source": "spotify_embed_scrape",
+    "artwork_url": ""
+  },
+  {
+    "rank": 54,
+    "title": "HANRORO: Indie Korea",
+    "artist": "HANRORO",
+    "album": "",
+    "apple_id": "3rb7PFB21Qw7oZ5MOVxDyM",
+    "url": "https://open.spotify.com/track/3rb7PFB21Qw7oZ5MOVxDyM",
+    "source": "spotify_embed_scrape",
+    "artwork_url": ""
+  },
+  {
+    "rank": 55,
+    "title": "Keep On",
+    "artist": "Balming Tiger",
+    "album": "Gongbu",
+    "apple_id": "2kLxc1zc9dFFSAMGv0bf2C",
+    "url": "https://open.spotify.com/track/2kLxc1zc9dFFSAMGv0bf2C",
+    "source": "spotify_embed_scrape",
+    "artwork_url": ""
+  },
+  {
+    "rank": 56,
+    "title": "After the Curtain",
+    "artist": "GYE0M",
+    "album": "",
+    "apple_id": "1qMNSTLsr12MLhUq0s6oZX",
+    "url": "https://open.spotify.com/track/1qMNSTLsr12MLhUq0s6oZX",
+    "source": "spotify_embed_scrape",
+    "artwork_url": ""
+  },
+  {
+    "rank": 57,
+    "title": "Would you?",
+    "artist": "ALEPH, Jehwwn",
+    "album": "",
+    "apple_id": "6jWfqmdlDf0aVIW8vT9E0C",
+    "url": "https://open.spotify.com/track/6jWfqmdlDf0aVIW8vT9E0C",
+    "source": "spotify_embed_scrape",
+    "artwork_url": ""
+  },
+  {
+    "rank": 58,
+    "title": "heaven and hell",
+    "artist": "wave to earth",
+    "album": "heaven and hell",
+    "apple_id": "5FZoGATKGIzrC7seHkZmfP",
+    "url": "https://open.spotify.com/track/5FZoGATKGIzrC7seHkZmfP",
+    "source": "spotify_embed_scrape",
+    "artwork_url": ""
+  },
+  {
+    "rank": 59,
+    "title": "May, be",
+    "artist": "NIve",
+    "album": "",
+    "apple_id": "2EzW4c95YjAfy3tVQPawrl",
+    "url": "https://open.spotify.com/track/2EzW4c95YjAfy3tVQPawrl",
+    "source": "spotify_embed_scrape",
+    "artwork_url": ""
+  },
+  {
+    "rank": 60,
+    "title": "Echo",
+    "artist": "Darin",
+    "album": "",
+    "apple_id": "08uirDi1mfmqvrSIlWDR7e",
+    "url": "https://open.spotify.com/track/08uirDi1mfmqvrSIlWDR7e",
+    "source": "spotify_embed_scrape",
+    "artwork_url": ""
+  },
+  {
+    "rank": 61,
+    "title": "Come to me",
+    "artist": "Park Chan Young",
+    "album": "",
+    "apple_id": "51AT2GdTdgyEG0D1w4AO2j",
+    "url": "https://open.spotify.com/track/51AT2GdTdgyEG0D1w4AO2j",
+    "source": "spotify_embed_scrape",
+    "artwork_url": ""
+  },
+  {
+    "rank": 62,
+    "title": "Violet",
+    "artist": "DORI",
+    "album": "",
+    "apple_id": "7L84lVh5grXqZqm89UO4fa",
+    "url": "https://open.spotify.com/track/7L84lVh5grXqZqm89UO4fa",
+    "source": "spotify_embed_scrape",
+    "artwork_url": ""
+  },
+  {
+    "rank": 63,
+    "title": "Untitled_08",
+    "artist": "데이먼스 이어 Damons year",
+    "album": "",
+    "apple_id": "4dQtKYJ9S4tR8JZPoPSIhy",
+    "url": "https://open.spotify.com/track/4dQtKYJ9S4tR8JZPoPSIhy",
+    "source": "spotify_embed_scrape",
+    "artwork_url": ""
+  },
+  {
+    "rank": 64,
+    "title": "Too Young, Too Unready",
+    "artist": "Blue Mangtto",
+    "album": "",
+    "apple_id": "4SeEnAVNJI697SWzF7a5De",
+    "url": "https://open.spotify.com/track/4SeEnAVNJI697SWzF7a5De",
+    "source": "spotify_embed_scrape",
+    "artwork_url": ""
+  },
+  {
+    "rank": 65,
+    "title": "STOP",
+    "artist": "aiai, homs",
+    "album": "",
+    "apple_id": "62rJ7J9AIDMG72Qwgecs5E",
+    "url": "https://open.spotify.com/track/62rJ7J9AIDMG72Qwgecs5E",
+    "source": "spotify_embed_scrape",
+    "artwork_url": ""
+  },
+  {
+    "rank": 66,
+    "title": "UFO",
+    "artist": "ZIN CHOI",
+    "album": "",
+    "apple_id": "7nUCrjYiberecjvOxVHYF6",
+    "url": "https://open.spotify.com/track/7nUCrjYiberecjvOxVHYF6",
+    "source": "spotify_embed_scrape",
+    "artwork_url": ""
+  },
+  {
+    "rank": 67,
+    "title": "Lemonade",
+    "artist": "Otis Lim",
+    "album": "",
+    "apple_id": "0CWdKdDpnK6R6c0sRKnyAR",
+    "url": "https://open.spotify.com/track/0CWdKdDpnK6R6c0sRKnyAR",
+    "source": "spotify_embed_scrape",
+    "artwork_url": ""
+  },
+  {
+    "rank": 68,
+    "title": "Home",
+    "artist": "Balming Tiger",
+    "album": "Gongbu",
+    "apple_id": "73ZXHRLk5zJEjyStIOex2F",
+    "url": "https://open.spotify.com/track/73ZXHRLk5zJEjyStIOex2F",
+    "source": "spotify_embed_scrape",
+    "artwork_url": ""
+  },
+  {
+    "rank": 69,
+    "title": "Find You",
+    "artist": "BOL4",
+    "album": "",
+    "apple_id": "7lhuwwTReovk2mqGUNvy2M",
+    "url": "https://open.spotify.com/track/7lhuwwTReovk2mqGUNvy2M",
+    "source": "spotify_embed_scrape",
+    "artwork_url": ""
+  },
+  {
+    "rank": 70,
+    "title": "Under The Blue Moon",
+    "artist": "O.O.O",
+    "album": "",
+    "apple_id": "5lgjWj5fEdcp365k59SiOM",
+    "url": "https://open.spotify.com/track/5lgjWj5fEdcp365k59SiOM",
+    "source": "spotify_embed_scrape",
+    "artwork_url": ""
+  },
+  {
+    "rank": 71,
+    "title": "Heart of Gold",
+    "artist": "Crystal Tea",
+    "album": "",
+    "apple_id": "3ei1nPTxRlGUWYfNMTCds9",
+    "url": "https://open.spotify.com/track/3ei1nPTxRlGUWYfNMTCds9",
+    "source": "spotify_embed_scrape",
+    "artwork_url": ""
+  },
+  {
+    "rank": 72,
+    "title": "lemon",
+    "artist": "Kangziwon",
+    "album": "",
+    "apple_id": "45K6rDTeTFcpQlVmWbqlyS",
+    "url": "https://open.spotify.com/track/45K6rDTeTFcpQlVmWbqlyS",
+    "source": "spotify_embed_scrape",
+    "artwork_url": ""
+  },
+  {
+    "rank": 73,
+    "title": "victim mentality",
+    "artist": "METP",
+    "album": "",
+    "apple_id": "48GvrfUWFnrxOxkiSthRIO",
+    "url": "https://open.spotify.com/track/48GvrfUWFnrxOxkiSthRIO",
+    "source": "spotify_embed_scrape",
+    "artwork_url": ""
+  },
+  {
+    "rank": 74,
+    "title": "S G T A P E - 03",
+    "artist": "Silica Gel",
+    "album": "S G T A P E - 03",
+    "apple_id": "0VELcxzskuExJTuqpiTPdk",
+    "url": "https://open.spotify.com/track/0VELcxzskuExJTuqpiTPdk",
+    "source": "spotify_embed_scrape",
+    "artwork_url": ""
+  },
+  {
+    "rank": 75,
+    "title": "The spring you never knew (with Yoojongkwon)",
+    "artist": "saevom, Yoo Jongkwon",
+    "album": "",
+    "apple_id": "6l8TVn5TPpQmIWJgIOrmQk",
+    "url": "https://open.spotify.com/track/6l8TVn5TPpQmIWJgIOrmQk",
+    "source": "spotify_embed_scrape",
+    "artwork_url": ""
+  },
+  {
+    "rank": 76,
+    "title": "Comma",
+    "artist": "He_eul, Yeonwoo",
+    "album": "",
+    "apple_id": "3gBs86VssqBzMq0QuAZEx1",
+    "url": "https://open.spotify.com/track/3gBs86VssqBzMq0QuAZEx1",
+    "source": "spotify_embed_scrape",
+    "artwork_url": ""
+  },
+  {
+    "rank": 77,
+    "title": "Longtime Lovers",
+    "artist": "Lee Yerin",
+    "album": "",
+    "apple_id": "5tLxk8bnXhp5nIzENZnYb2",
+    "url": "https://open.spotify.com/track/5tLxk8bnXhp5nIzENZnYb2",
+    "source": "spotify_embed_scrape",
+    "artwork_url": ""
+  },
+  {
+    "rank": 78,
+    "title": "A Song For My Cat",
+    "artist": "Aden",
+    "album": "",
+    "apple_id": "3UbERtoQkWDDe0LmTMy4Dp",
+    "url": "https://open.spotify.com/track/3UbERtoQkWDDe0LmTMy4Dp",
+    "source": "spotify_embed_scrape",
+    "artwork_url": ""
+  },
+  {
+    "rank": 79,
+    "title": "Green Mango",
+    "artist": "jisokuryClub",
+    "album": "",
+    "apple_id": "7HI3dV26p9W8S19RwwCIzc",
+    "url": "https://open.spotify.com/track/7HI3dV26p9W8S19RwwCIzc",
+    "source": "spotify_embed_scrape",
+    "artwork_url": ""
+  },
+  {
+    "rank": 80,
+    "title": "Maybe Okay",
+    "artist": "Jang HeeWon",
+    "album": "",
+    "apple_id": "3yaog9HA9UgGjDYrg5MtEP",
+    "url": "https://open.spotify.com/track/3yaog9HA9UgGjDYrg5MtEP",
+    "source": "spotify_embed_scrape",
+    "artwork_url": ""
+  },
+  {
+    "rank": 81,
+    "title": "Back to You",
+    "artist": "KYUL",
+    "album": "",
+    "apple_id": "6lveODyI410pzcdlS9HMRw",
+    "url": "https://open.spotify.com/track/6lveODyI410pzcdlS9HMRw",
+    "source": "spotify_embed_scrape",
+    "artwork_url": ""
+  },
+  {
+    "rank": 82,
+    "title": "Beautiful, even now",
+    "artist": "ALEPH",
+    "album": "",
+    "apple_id": "4RjZyA4jkR5q5WiZ3FNFxt",
+    "url": "https://open.spotify.com/track/4RjZyA4jkR5q5WiZ3FNFxt",
+    "source": "spotify_embed_scrape",
+    "artwork_url": ""
+  },
+  {
+    "rank": 83,
+    "title": "GAME OVER ?",
+    "artist": "HANRORO",
+    "album": "",
+    "apple_id": "3Ce7m66BjXf97IDrvUVGbP",
+    "url": "https://open.spotify.com/track/3Ce7m66BjXf97IDrvUVGbP",
+    "source": "spotify_embed_scrape",
+    "artwork_url": ""
+  },
+  {
+    "rank": 84,
+    "title": "Flowering",
+    "artist": "Boramiyu",
+    "album": "",
+    "apple_id": "0xy1eGLBSa6SFxyEzg9gtn",
+    "url": "https://open.spotify.com/track/0xy1eGLBSa6SFxyEzg9gtn",
+    "source": "spotify_embed_scrape",
+    "artwork_url": ""
+  },
+  {
+    "rank": 85,
+    "title": "Moving on",
+    "artist": "615",
+    "album": "",
+    "apple_id": "5fbz2WBSO0X0UKn9ruqFrM",
+    "url": "https://open.spotify.com/track/5fbz2WBSO0X0UKn9ruqFrM",
+    "source": "spotify_embed_scrape",
+    "artwork_url": ""
+  },
+  {
+    "rank": 86,
+    "title": "Like a Bird, Like a Fish",
+    "artist": "GYE0M",
+    "album": "",
+    "apple_id": "4xpfEYzoPiUC5nO5swt9bk",
+    "url": "https://open.spotify.com/track/4xpfEYzoPiUC5nO5swt9bk",
+    "source": "spotify_embed_scrape",
+    "artwork_url": ""
+  },
+  {
+    "rank": 87,
+    "title": "Bruised",
+    "artist": "roon",
+    "album": "",
+    "apple_id": "24suBl4SGNDcRF4quflSFo",
+    "url": "https://open.spotify.com/track/24suBl4SGNDcRF4quflSFo",
+    "source": "spotify_embed_scrape",
+    "artwork_url": ""
+  },
+  {
+    "rank": 88,
+    "title": "This Life Feels Ruined",
+    "artist": "1415",
+    "album": "",
+    "apple_id": "7e4kQ0rFWMazzPRHaib9qq",
+    "url": "https://open.spotify.com/track/7e4kQ0rFWMazzPRHaib9qq",
+    "source": "spotify_embed_scrape",
+    "artwork_url": ""
+  },
+  {
+    "rank": 89,
+    "title": "slow day",
+    "artist": "Ingyeong Choi",
+    "album": "",
+    "apple_id": "6wBV7hsXeg7GAMXGbDen4T",
+    "url": "https://open.spotify.com/track/6wBV7hsXeg7GAMXGbDen4T",
+    "source": "spotify_embed_scrape",
+    "artwork_url": ""
+  },
+  {
+    "rank": 90,
+    "title": "Ember",
+    "artist": "Jung Woo",
+    "album": "",
+    "apple_id": "0J2Wi2fua93HE7KIX56oy5",
+    "url": "https://open.spotify.com/track/0J2Wi2fua93HE7KIX56oy5",
+    "source": "spotify_embed_scrape",
+    "artwork_url": ""
+  },
+  {
+    "rank": 91,
+    "title": "Mayday!",
+    "artist": "KURO",
+    "album": "",
+    "apple_id": "1UD0ZI6X92zIX6qDKu79CG",
+    "url": "https://open.spotify.com/track/1UD0ZI6X92zIX6qDKu79CG",
+    "source": "spotify_embed_scrape",
+    "artwork_url": ""
+  },
+  {
+    "rank": 92,
+    "title": "Fall Into The Sky",
+    "artist": "DADADA",
+    "album": "",
+    "apple_id": "13e8aevTarVIQWjcvHvoYq",
+    "url": "https://open.spotify.com/track/13e8aevTarVIQWjcvHvoYq",
+    "source": "spotify_embed_scrape",
+    "artwork_url": ""
+  },
+  {
+    "rank": 93,
+    "title": "who is this woman?",
+    "artist": "g0nny",
+    "album": "",
+    "apple_id": "6tirHqOUs1n3C9gCIhS28f",
+    "url": "https://open.spotify.com/track/6tirHqOUs1n3C9gCIhS28f",
+    "source": "spotify_embed_scrape",
+    "artwork_url": ""
+  },
+  {
+    "rank": 94,
+    "title": "h.a.u.",
+    "artist": "Darin",
+    "album": "",
+    "apple_id": "2WBTC9fwx8yCrScT60NWHq",
+    "url": "https://open.spotify.com/track/2WBTC9fwx8yCrScT60NWHq",
+    "source": "spotify_embed_scrape",
+    "artwork_url": ""
+  },
+  {
+    "rank": 95,
+    "title": "PLAN A",
+    "artist": "JongYeon",
+    "album": "",
+    "apple_id": "6k1CqsKG53lBKrRfrcMm6l",
+    "url": "https://open.spotify.com/track/6k1CqsKG53lBKrRfrcMm6l",
+    "source": "spotify_embed_scrape",
+    "artwork_url": ""
+  },
+  {
+    "rank": 96,
+    "title": "Whoever, Someone",
+    "artist": "Krr",
+    "album": "",
+    "apple_id": "2i6xxAfoNGjg1wD4maNStS",
+    "url": "https://open.spotify.com/track/2i6xxAfoNGjg1wD4maNStS",
+    "source": "spotify_embed_scrape",
+    "artwork_url": ""
+  },
+  {
+    "rank": 97,
+    "title": "The Closing",
+    "artist": "Gogohawk",
+    "album": "",
+    "apple_id": "79gSOQWHxGXVBIhjAhICRR",
+    "url": "https://open.spotify.com/track/79gSOQWHxGXVBIhjAhICRR",
+    "source": "spotify_embed_scrape",
+    "artwork_url": ""
+  },
+  {
+    "rank": 98,
+    "title": "Godspeed",
+    "artist": "Far East Asian Tigers",
+    "album": "",
+    "apple_id": "7BoDS7yidANiu8l7RSX4f2",
+    "url": "https://open.spotify.com/track/7BoDS7yidANiu8l7RSX4f2",
+    "source": "spotify_embed_scrape",
+    "artwork_url": ""
+  },
+  {
+    "rank": 99,
+    "title": "Give me a Sin",
+    "artist": "나잠 수, MOONSUN",
+    "album": "",
+    "apple_id": "1Z7ppeuMBD3yZwSKfl0c1I",
+    "url": "https://open.spotify.com/track/1Z7ppeuMBD3yZwSKfl0c1I",
+    "source": "spotify_embed_scrape",
+    "artwork_url": ""
+  }
+]
