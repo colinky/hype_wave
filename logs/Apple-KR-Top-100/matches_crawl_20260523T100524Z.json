@@ -205,7 +205,7 @@
     "album_score": 1.0,
     "yt_result_type": "song",
     "query": "BOOMPALA LE SSERAFIM 'PUREFLOW', Pt. 1",
-    "status": "cached_match"
+    "status": "matched"
   },
   {
     "rank": 9,
@@ -2441,7 +2441,7 @@
     "album_score": 1.0,
     "yt_result_type": "song",
     "query": "DAY BY DAY T-ara",
-    "status": "cached_match"
+    "status": "matched"
   },
   {
     "rank": 95,

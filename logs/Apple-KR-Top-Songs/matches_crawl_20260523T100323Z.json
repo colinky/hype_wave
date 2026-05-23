@@ -2674,7 +2674,7 @@
     "artist_score": 1.0,
     "album_score": 0.967,
     "yt_result_type": "song",
-    "query": "4 Seasons (1.12) YANGHONGWON 3 Steps Forward, 2 Steps Back",
+    "query": "4 Seasons (1.12) Young B 3 Steps Forward, 2 Steps Back",
     "status": "matched"
   },
   {
@@ -4198,7 +4198,7 @@
     "album_ko": "BUMPA - Single",
     "apple_id": "6769704893",
     "url": "https://music.apple.com/kr/album/bumpa/6769704892?i=6769704893",
-    "artwork_url": "",
+    "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/3f/e9/ec/3fe9ecd2-0bb1-ac2c-43c4-7e616e05a296/cover_KM0024649_1.jpg/100x100bb.jpg",
     "video_id": "_QAsLRbNfuI",
     "yt_title": "BUMPA",
     "yt_artist": "BIBI",
@@ -4209,7 +4209,7 @@
     "album_score": 1.0,
     "yt_result_type": "song",
     "query": "BUMPA BIBI",
-    "status": "cached_match"
+    "status": "matched"
   },
   {
     "rank": 163,
@@ -4640,7 +4640,7 @@
     "album_ko": "사춘기 하 (思春記 下)",
     "apple_id": "1191276302",
     "url": "https://music.apple.com/us/album/last-goodbye/1191276096?i=1191276302",
-    "artwork_url": "",
+    "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music122/v4/9a/fa/45/9afa45ec-7823-7e58-5580-27c01cdd709d/akmu_cover.jpg/100x100bb.jpg",
     "video_id": "G7TqsFwWTM0",
     "yt_title": "Last Goodbye",
     "yt_artist": "AKMU",
@@ -4651,7 +4651,7 @@
     "album_score": 1.0,
     "yt_result_type": "song",
     "query": "Last Goodbye AKMU WINTER",
-    "status": "cached_match"
+    "status": "matched"
   },
   {
     "rank": 180,
@@ -4822,7 +4822,7 @@
     "album_ko": "애증 - Single",
     "apple_id": "1888110750",
     "url": "https://music.apple.com/us/album/game-over/1888110749?i=1888110750",
-    "artwork_url": "",
+    "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music221/v4/da/20/3f/da203f39-e086-da2b-3344-e770e53b4f8a/8800323979364.jpg/100x100bb.jpg",
     "video_id": "PYpOJyl3Sbg",
     "yt_title": "GAME OVER ?",
     "yt_artist": "HANRORO",
@@ -4833,7 +4833,7 @@
     "album_score": 1.0,
     "yt_result_type": "song",
     "query": "GAME OVER ? HANRORO LOVE&HATE",
-    "status": "cached_match"
+    "status": "matched"
   },
   {
     "rank": 187,
@@ -4900,7 +4900,7 @@
     "album_ko": "성장 - THE 3RD MINI ALBUM - EP",
     "apple_id": "1743749267",
     "url": "https://music.apple.com/us/album/popcorn/1743749264?i=1743749267",
-    "artwork_url": "",
+    "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music221/v4/c8/f8/7c/c8f87c57-f335-2faa-5260-5bd6de49cc9f/191953349695.jpg/100x100bb.jpg",
     "video_id": "IhKjZk5AYRg",
     "yt_title": "Popcorn",
     "yt_artist": "D.O.",
@@ -4911,7 +4911,7 @@
     "album_score": 1.0,
     "yt_result_type": "song",
     "query": "Popcorn D.O. BLOSSOM - THE 3RD MINI ALBUM",
-    "status": "cached_match"
+    "status": "matched"
   },
   {
     "rank": 190,
@@ -5004,7 +5004,7 @@
     "album_ko": "summer flows 0.02 - EP",
     "apple_id": "1781856632",
     "url": "https://music.apple.com/us/album/seasons/1781856626?i=1781856632",
-    "artwork_url": "",
+    "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/fa/c5/61/fac561dc-8db4-b2e9-d3db-6e246da72bfa/5054197890017.jpg/100x100bb.jpg",
     "video_id": "M7R7-qnTsFw",
     "yt_title": "seasons",
     "yt_artist": "wave to earth",
@@ -5015,7 +5015,7 @@
     "album_score": 1.0,
     "yt_result_type": "song",
     "query": "seasons wave to earth summer flows 0.02",
-    "status": "cached_match"
+    "status": "matched"
   },
   {
     "rank": 194,
@@ -5030,7 +5030,7 @@
     "album_ko": "ICEMAN",
     "apple_id": "6769568596",
     "url": "https://music.apple.com/us/album/janice-stfu/6769568449?i=6769568596",
-    "artwork_url": "",
+    "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music221/v4/f1/b2/cd/f1b2cd28-6edc-4dde-61a6-ff5f5ef94cd7/26UMGIM63614.rgb.jpg/100x100bb.jpg",
     "video_id": "x30_IHP1x3s",
     "yt_title": "Janice STFU",
     "yt_artist": "Drake",
@@ -5041,7 +5041,7 @@
     "album_score": 1.0,
     "yt_result_type": "song",
     "query": "Janice STFU Drake ICEMAN",
-    "status": "cached_match"
+    "status": "matched"
   },
   {
     "rank": 195,
@@ -5056,7 +5056,7 @@
     "album_ko": "봄여름가을겨울 (Still Life) - Single",
     "apple_id": "1616762366",
     "url": "https://music.apple.com/us/album/still-life/1616762362?i=1616762366",
-    "artwork_url": "",
+    "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music122/v4/f6/67/3a/f6673a7c-e2bc-8084-f8b6-523cad1ab277/BIGBANG_Still_Life.jpg/100x100bb.jpg",
     "video_id": "XJL-lduf174",
     "yt_title": "봄여름가을겨울 (Still Life)",
     "yt_artist": "BIGBANG",
@@ -5067,7 +5067,7 @@
     "album_score": 1.0,
     "yt_result_type": "song",
     "query": "Still Life BIGBANG",
-    "status": "cached_match"
+    "status": "matched"
   },
   {
     "rank": 196,
@@ -5108,7 +5108,7 @@
     "album_ko": "ALLDAY PROJECT - EP",
     "apple_id": "1856773664",
     "url": "https://music.apple.com/kr/album/look-at-me/1856773662?i=1856773664",
-    "artwork_url": "",
+    "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music221/v4/66/4d/75/664d75e9-885f-6a68-aedc-6e1fa93dba02/ALLDAY_PROJECT_EP_ALLDAY_PROJECT_COVER_3000px.jpg/100x100bb.jpg",
     "video_id": "SYtQV-Mz_8w",
     "yt_title": "LOOK AT ME",
     "yt_artist": "ALLDAY PROJECT",
@@ -5119,7 +5119,7 @@
     "album_score": 1.0,
     "yt_result_type": "song",
     "query": "LOOK AT ME ALLDAY PROJECT",
-    "status": "cached_match"
+    "status": "matched"
   },
   {
     "rank": 198,
@@ -5160,7 +5160,7 @@
     "album_ko": "Merry Go Round - EP",
     "apple_id": "1720724479",
     "url": "https://music.apple.com/us/album/eternal-love/1720724415?i=1720724479",
-    "artwork_url": "",
+    "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music126/v4/d5/89/5d/d5895d26-d6ef-4908-83fb-26b71e8a90d8/191953322636.jpg/100x100bb.jpg",
     "video_id": "dYnU0DZ_iQc",
     "yt_title": "Eternal love",
     "yt_artist": "볼빨간사춘기",
@@ -5171,7 +5171,7 @@
     "album_score": 1.0,
     "yt_result_type": "song",
     "query": "Eternal love BOL4 Merry Go Round",
-    "status": "cached_match"
+    "status": "matched"
   },
   {
     "rank": 200,

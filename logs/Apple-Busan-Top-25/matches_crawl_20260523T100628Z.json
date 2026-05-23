@@ -491,7 +491,7 @@
     "album_score": 1.0,
     "yt_result_type": "song",
     "query": "Suddenly I.O.I I.O.I 3rd MINI ALBUM (I.O.I : LOOP)",
-    "status": "cached_match"
+    "status": "matched"
   },
   {
     "rank": 20,
@@ -595,7 +595,7 @@
     "album_score": 1.0,
     "yt_result_type": "song",
     "query": "BOOMPALA LE SSERAFIM 'PUREFLOW', Pt. 1",
-    "status": "cached_match"
+    "status": "matched"
   },
   {
     "rank": 24,
@@ -621,7 +621,7 @@
     "album_score": 1.0,
     "yt_result_type": "song",
     "query": "GO! CORTIS COLOR OUTSIDE THE LINES",
-    "status": "cached_match"
+    "status": "matched"
   },
   {
     "rank": 25,
@@ -647,6 +647,6 @@
     "album_score": 1.0,
     "yt_result_type": "song",
     "query": "JoyRide CORTIS COLOR OUTSIDE THE LINES",
-    "status": "cached_match"
+    "status": "matched"
   }
 ]
