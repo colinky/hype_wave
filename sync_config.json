@@ -1,91 +1,161 @@
 [
-  {
-    "name": "Apple-KR-Top-Songs",
-    "enabled": true,
-    "type": "apple",
-    "source_urls": [
-      "https://music.apple.com/kr/new/top-charts/songs"
-    ],
-    "target_id": "PLtawHGpcUVZXESVtlr4-HkbpRJQhhYZnr",
-    "apple_chart_limit": 200
-  },
-  {
-    "name": "Apple-KR-Top-100",
-    "enabled": true,
-    "type": "apple",
-    "source_urls": [
-      "https://music.apple.com/us/playlist/top-100-south-korea/pl.d3d10c32fbc540b38e266367dc8cb00c"
-    ],
-    "target_id": "PLtawHGpcUVZWeko8ek3LWy9gav1sg9FFw",
-    "apple_chart_limit": 100,
-    "archive": true
-  },
-  {
-    "name": "Apple-Seoul-Top-25",
-    "enabled": true,
-    "type": "apple",
-    "source_urls": [
-      "https://music.apple.com/us/playlist/top-25-seoul/pl.d6f003a501da4b3c9d33b0c7b8cfa0ae"
-    ],
-    "target_id": "PLtawHGpcUVZWrHIqj-huLBKgOiKVFkNLJ",
-    "apple_chart_limit": 25
-  },
-  {
-    "name": "Apple-Busan-Top-25",
-    "enabled": true,
-    "type": "apple",
-    "source_urls": [
-      "https://music.apple.com/us/playlist/top-25-busan/pl.b4a7b0c2558941f68b329cde7774139a"
-    ],
-    "target_id": "PLtawHGpcUVZUUiQ122rfx-_OFMJNgPlFT",
-    "apple_chart_limit": 25
-  },
-  {
-    "name": "Spotify-Hot-Hits-Korea",
-    "enabled": true,
-    "type": "spotify",
-    "source_urls": [
-      "https://open.spotify.com/playlist/37i9dQZF1DWT9uTRZAYj0c"
-    ],
-    "target_id": "PLtawHGpcUVZXOcgkI1oL0--mJiKZ5eGMI"
-  },
-  {
-    "name": "Spotify-Fresh-Indie-Korea",
-    "enabled": true,
-    "type": "spotify",
-    "source_urls": [
-      "https://open.spotify.com/playlist/37i9dQZF1DX7vZYLzFGQXc",
-      "https://open.spotify.com/playlist/37i9dQZF1DXdTb8AG95jne"
-    ],
-    "schedule": "Friday",    
-    "target_id": "PLtawHGpcUVZUx53FaaLkidRHrOB7ebxDH",
-    "shuffle": true
-  },
-  {
-    "name": "Melon-KR-Top-100-Weekly",
-    "enabled": true,
-    "type": "melon",
-    "source_urls": [
-      "https://www.melon.com/chart/week/index.htm"
-    ],
-    "schedule": "Monday",
-    "target_id": "PLtawHGpcUVZUzXhe99b4vMV9YF7IIFvir"
-  },
-  {
-    "name": "Melon-KR-Top-100-Daily",
-    "enabled": true,
-    "type": "melon",
-    "source_urls": [
-      "https://www.melon.com/chart/day/index.htm"
-    ],
-    "target_id": "PLtawHGpcUVZVwAYjPC7Jvc3BTZkQ1G966",
-    "archive": true
-  },
-  {
-    "name": "Hype-Wave-Daily",
-    "enabled": true,
-    "type": "hypex",
-    "target_id": "PLtawHGpcUVZXKVkfIElFeaWB6g6d1o9Dr",
-    "limit": 100
-  }
+    {
+        "job_name": "KR-Top-Songs",
+        "enabled": true,
+        "service": "apple",
+        "frequency": "daily",
+        "list_type": "chart",
+        "playlist_name": "app_krcc_to_ytm",
+        "source_urls": [
+            "https://music.apple.com/kr/new/top-charts/songs"
+        ],
+        "target_id": "PLtawHGpcUVZXESVtlr4-HkbpRJQhhYZnr",
+        "entity_limit": 200
+    },
+    {
+        "job_name": "KR-Top-100",
+        "enabled": true,
+        "service": "apple",
+        "frequency": "daily",
+        "list_type": "chart",
+        "playlist_name": "app_krc_to_ytm",
+        "include_in_hype": true,
+        "hype_group": "apple",
+        "hype_weight": 0.4,
+        "source_urls": [
+            "https://music.apple.com/us/playlist/top-100-south-korea/pl.d3d10c32fbc540b38e266367dc8cb00c"
+        ],
+        "target_id": "PLtawHGpcUVZWeko8ek3LWy9gav1sg9FFw",
+        "entity_limit": 100
+    },
+    {
+        "job_name": "Seoul-Top-25",
+        "enabled": true,
+        "service": "apple",
+        "frequency": "daily",
+        "list_type": "chart",
+        "playlist_name": "app_selxxv_to_ytm",
+        "source_urls": [
+            "https://music.apple.com/us/playlist/top-25-seoul/pl.d6f003a501da4b3c9d33b0c7b8cfa0ae"
+        ],
+        "target_id": "PLtawHGpcUVZWrHIqj-huLBKgOiKVFkNLJ",
+        "entity_limit": 25
+    },
+    {
+        "job_name": "Busan-Top-25",
+        "enabled": true,
+        "service": "apple",
+        "frequency": "daily",
+        "list_type": "chart",
+        "playlist_name": "app_bsnxxv_to_ytm",
+        "source_urls": [
+            "https://music.apple.com/us/playlist/top-25-busan/pl.b4a7b0c2558941f68b329cde7774139a"
+        ],
+        "target_id": "PLtawHGpcUVZUUiQ122rfx-_OFMJNgPlFT",
+        "entity_limit": 25
+    },
+    {
+        "job_name": "Hot-Hits-Korea",
+        "enabled": true,
+        "service": "spotify",
+        "frequency": "weekly",
+        "list_type": "playlist",
+        "playlist_name": "spt_krc_to_ytm",
+        "source_urls": [
+            "https://open.spotify.com/playlist/37i9dQZF1DWT9uTRZAYj0c"
+        ],
+        "schedule": "Friday",
+        "target_id": "PLtawHGpcUVZXOcgkI1oL0--mJiKZ5eGMI"
+    },
+    {
+        "job_name": "Fresh-Indie-Korea",
+        "enabled": true,
+        "service": "spotify",
+        "frequency": "weekly",
+        "list_type": "playlist",
+        "playlist_name": "spt_krind_to_ytm",
+        "source_urls": [
+            "https://open.spotify.com/playlist/37i9dQZF1DX7vZYLzFGQXc",
+            "https://open.spotify.com/playlist/37i9dQZF1DXdTb8AG95jne"
+        ],
+        "schedule": "Friday",
+        "target_id": "PLtawHGpcUVZUx53FaaLkidRHrOB7ebxDH",
+        "shuffle": true
+    },
+    {
+        "job_name": "Top-100-Weekly",
+        "enabled": true,
+        "service": "melon",
+        "frequency": "weekly",
+        "list_type": "chart",
+        "playlist_name": "mel_krwc_to_ytm",
+        "source_urls": [
+            "https://www.melon.com/chart/week/index.htm"
+        ],
+        "schedule": "Monday",
+        "target_id": "PLtawHGpcUVZUzXhe99b4vMV9YF7IIFvir"
+    },
+    {
+        "job_name": "Top-100-Daily",
+        "enabled": true,
+        "service": "melon",
+        "frequency": "daily",
+        "list_type": "chart",
+        "playlist_name": "mel_krdc_to_ytm",
+        "source_urls": [
+            "https://www.melon.com/chart/day/index.htm"
+        ],
+        "target_id": "PLtawHGpcUVZVwAYjPC7Jvc3BTZkQ1G966"
+    },
+    {
+        "job_name": "Gen-Z-Daily",
+        "enabled": true,
+        "service": "melon_gen",
+        "frequency": "daily",
+        "list_type": "chart",
+        "playlist_name": "mel_zdc_to_ytm",
+        "include_in_hype": true,
+        "hype_group": "melon_genz",
+        "hype_weight": 0.6,
+        "source_urls": [
+            {
+                "gen": 1,
+                "url": "https://kkosvc.melon.com/mwk/chart/gen.htm?gen=1",
+                "weight": 0.6
+            },
+            {
+                "gen": 2,
+                "url": "https://kkosvc.melon.com/mwk/chart/gen.htm?gen=2",
+                "weight": 0.4
+            }
+        ],
+        "target_id": "PLtawHGpcUVZXC7USbMWiv9sbdFAHpTKqL",
+        "entity_limit": 100
+    },
+    {
+        "job_name": "Weekly-Hot-100",
+        "enabled": true,
+        "service": "ytmusic",
+        "frequency": "weekly",
+        "list_type": "chart",
+        "playlist_name": "yt_krwc_to_ytm",
+        "include_in_hype": true,
+        "hype_group": "ytmusic",
+        "hype_weight": 0.0,
+        "source_urls": [
+            "https://charts.youtube.com/charts/TopSongs/kr/weekly"
+        ],
+        "schedule": "Sunday",
+        "target_id": "PLtawHGpcUVZWJV93R_C0xb8rnW1wx79Yx"
+    },
+    {
+        "job_name": "Hype-Wave-Daily",
+        "enabled": true,
+        "service": "hypex",
+        "frequency": "daily",
+        "list_type": "playlist",
+        "playlist_name": "hype_wave_daily",
+        "target_id": "PLtawHGpcUVZXKVkfIElFeaWB6g6d1o9Dr",
+        "entity_limit": 100
+    }
 ]

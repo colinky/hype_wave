@@ -1,23 +1,6 @@
 {
-  "artists": [
-    [
-      "Young B",
-      "YANGHONGWON",
-      "양홍원"
-    ]
-  ],
+  "artists": [],
   "titles": [],
-  "albums": [
-    [
-      "항해",
-      "SAILING"
-    ]
-  ],
-  "overrides": {
-    "echo|gongwon": "QUaQNJc1w_g",
-    "메아리|gongwon": "QUaQNJc1w_g",
-    "어떻게 이별까지 사랑하겠어, 널 사랑하는 거지|AKMU (악뮤)": "KczYjTVrK_o",
-    "시작의 아이|마크툽 (MAKTUB)": "23U2t6ecnFQ",
-    "TOO BAD (feat. Anderson .Paak)|G-DRAGON": "JaMblWT0SXY"
-  }
+  "albums": [],
+  "overrides": {}
 }

@@ -33,11 +33,12 @@ import requests
 
 from ytmusic_playlist_sync import (
     MatchResult,
-    SourceTrack as AppleTrack,
+    SourceTrack,
     env_or_arg,
     load_dotenv,
     load_match_cache,
     make_ytmusic,
+    match_from_prev,
     normalize_text,
     search_youtube_music,
     update_ytmusic_playlist,
@@ -125,25 +126,25 @@ def format_artwork_url(url: str, size: int = 100) -> str:
     return url.replace("{w}", str(size)).replace("{h}", str(size))
 
 
-def parse_tracks_from_chart_api(payload: dict[str, Any]) -> list[AppleTrack]:
-    songs = payload.get("results", {}).get("songs", [])
-    if not songs:
-        return []
-
-    tracks: list[AppleTrack] = []
-    for idx, item in enumerate(songs[0].get("data", []), 1):
+def parse_tracks_from_chart_api(payload: dict[str, Any]) -> list[SourceTrack]:
+    """Parse tracks brief info from Apple Music charts API endpoint."""
+    songs_data = payload.get("results", {}).get("songs", [])[0].get("data", []) if payload.get("results", {}).get("songs") else []
+    tracks: list[SourceTrack] = []
+    
+    for idx, item in enumerate(songs_data, 1):
         attrs = item.get("attributes", {})
         title = attrs.get("name", "").strip()
         if not title:
             continue
+            
         tracks.append(
-            AppleTrack(
+            SourceTrack(
                 rank=idx,
                 title=title,
                 artist=attrs.get("artistName", "").strip(),
+                service="apple",
                 album=attrs.get("albumName", "").strip(),
-                apple_id=str(item.get("id", "") or ""),
-                url=attrs.get("url", ""),
+                song_id=str(item.get("id", "") or ""),
                 source="apple_web_chart_api",
                 artwork_url=format_artwork_url(attrs.get("artwork", {}).get("url", ""), 100),
             )
@@ -152,7 +153,7 @@ def parse_tracks_from_chart_api(payload: dict[str, Any]) -> list[AppleTrack]:
     return tracks
 
 
-def fetch_apple_chart_tracks(page_url: str, *, limit: int) -> tuple[str, str, list[AppleTrack], str]:
+def fetch_apple_chart_tracks(page_url: str, *, limit: int) -> tuple[str, str, list[SourceTrack], str]:
     page_html = fetch_html(page_url)
     token = find_apple_web_token(page_html, page_url)
     chart_url = find_chart_url(page_html, limit=limit)
@@ -193,7 +194,7 @@ def fetch_apple_chart_tracks(page_url: str, *, limit: int) -> tuple[str, str, li
     if not ids:
         raise RuntimeError("No tracks were extracted from Apple Music charts API.")
 
-    rank_by_id = {apple_id: idx + 1 for idx, apple_id in enumerate(ids)}
+    rank_by_id = {song_id: idx + 1 for idx, song_id in enumerate(ids)}
     song_id_to_artist_id = {}
     for item in songs_data:
         sid = item.get("id")
@@ -202,7 +203,7 @@ def fetch_apple_chart_tracks(page_url: str, *, limit: int) -> tuple[str, str, li
             song_id_to_artist_id[sid] = rel_artists[0]["id"]
 
     # Fetch English metadata from US storefront using collected IDs
-    tracks_en: list[AppleTrack] = []
+    tracks_en: list[SourceTrack] = []
     for i in range(0, len(ids), 100):
         chunk = ids[i : i + 100]
         ids_str = ",".join(chunk)
@@ -233,28 +234,28 @@ def fetch_apple_chart_tracks(page_url: str, *, limit: int) -> tuple[str, str, li
                 for art_item in us_art_resp.json().get("data", []):
                     id_to_en_artist_name[art_item["id"]] = art_item["attributes"].get("name")
 
-        for apple_id in chunk:
+        for song_id in chunk:
             # Prefer English Song, fallback to Korean Song
-            attrs = id_to_en_attrs.get(apple_id) or id_to_kr_attrs.get(apple_id, {})
-            rank = rank_by_id[apple_id]
+            attrs = id_to_en_attrs.get(song_id) or id_to_kr_attrs.get(song_id, {})
+            rank = rank_by_id[song_id]
             
             # If we used KR fallback, try to at least use the English Artist Name
             artist_name = attrs.get("artistName", "").strip()
-            if apple_id not in id_to_en_attrs:
-                art_id = song_id_to_artist_id.get(apple_id)
+            if song_id not in id_to_en_attrs:
+                art_id = song_id_to_artist_id.get(song_id)
                 if art_id and art_id in id_to_en_artist_name:
                     artist_name = id_to_en_artist_name[art_id]
 
-            source_label = "apple_web_chart_api_us_lookup" if apple_id in id_to_en_attrs else "apple_web_chart_api_kr_fallback"
+            source_label = "apple_web_chart_api_us_lookup" if song_id in id_to_en_attrs else "apple_web_chart_api_kr_fallback"
             
             tracks_en.append(
-                AppleTrack(
+                SourceTrack(
                     rank=rank,
                     title=attrs.get("name", "").strip(),
                     artist=artist_name,
+                    service="apple",
                     album=attrs.get("albumName", "").strip(),
-                    apple_id=apple_id,
-                    url=attrs.get("url", ""),
+                    song_id=song_id,
                     source=source_label,
                     artwork_url=format_artwork_url(attrs.get("artwork", {}).get("url", ""), 100),
                 )
@@ -308,78 +309,74 @@ def extract_track_lockup_object(page_html: str) -> dict[str, Any]:
     return json.loads(raw_json)
 
 
-def parse_tracks_from_track_lockup(page_html: str) -> list[AppleTrack]:
-    track_list = extract_track_lockup_object(page_html)
-    items = track_list.get("items", [])
-    tracks: list[AppleTrack] = []
-
-    for idx, item in enumerate(items, 1):
-        title = item.get("title", "").strip()
-        subtitle_links = item.get("subtitleLinks", [])
-        tertiary_links = item.get("tertiaryLinks", [])
-        content_descriptor = item.get("contentDescriptor", {})
-        identifiers = content_descriptor.get("identifiers", {})
-
-        artists = [link.get("title", "").strip() for link in subtitle_links if link.get("title")]
-        album = tertiary_links[0].get("title", "").strip() if tertiary_links else ""
-        apple_id = str(identifiers.get("storeAdamID", "") or "")
-        url = content_descriptor.get("url", "")
-
-        if title:
-            tracks.append(
-                AppleTrack(
-                    rank=idx,
-                    title=title,
-                    artist=", ".join(artists),
-                    album=album,
-                    apple_id=apple_id,
-                    url=url,
-                    artwork_url=item.get("artwork", {}).get("url", "").replace("{w}x{h}", "100x100") if item.get("artwork") else "",
+def parse_tracks_from_track_lockup(page_html: str) -> list[SourceTrack]:
+    """Fallback: Parse tracks from trackLockup JSON objects embedded in the HTML."""
+    tracks: list[SourceTrack] = []
+    
+    while True:
+        try:
+            lockup = extract_track_lockup_object(page_html)
+            if not lockup:
+                break
+            
+            # Remove processed block to find the next one
+            marker_index = page_html.find('"itemKind":"trackLockup"')
+            page_html = page_html[marker_index + len('"itemKind":"trackLockup"') :]
+            
+            title = lockup.get("title", "").strip()
+            artist = lockup.get("artists", [{}])[0].get("name", "").strip()
+            if title:
+                tracks.append(
+                    SourceTrack(
+                        rank=0,
+                        title=title,
+                        artist=artist,
+                        service="apple",
+                        source="track_lockup",
+                    )
                 )
-            )
-
+        except Exception:
+            break
     return tracks
 
 
-def parse_tracks_from_json_ld(page_html: str) -> list[AppleTrack]:
-    pattern = re.compile(
-        r'<script[^>]+type=["\']application/ld\+json["\'][^>]*>(.*?)</script>',
-        re.DOTALL | re.IGNORECASE,
-    )
-
-    for match in pattern.finditer(page_html):
-        raw = html_lib.unescape(match.group(1).strip())
-        try:
-            payload = json.loads(raw)
-        except json.JSONDecodeError:
-            continue
-
-        candidates = payload if isinstance(payload, list) else [payload]
-        for candidate in candidates:
-            if candidate.get("@type") != "MusicPlaylist":
-                continue
-
-            tracks = []
-            for idx, item in enumerate(candidate.get("track", []), 1):
+def parse_tracks_from_json_ld(page_html: str) -> list[SourceTrack]:
+    """Fallback: Parse tracks from schema.org MusicPlaylist JSON-LD."""
+    soup = BeautifulSoup(page_html, "html.parser")
+    ld_script = soup.find("script", type="application/ld+json")
+    if not ld_script:
+        return []
+        
+    try:
+        data = json.loads(ld_script.string or "")
+        
+        # Apple Music playlist page data is normally nested inside an MusicPlaylist object
+        tracks_data = data.get("track", []) if data.get("@type") == "MusicPlaylist" else []
+        
+        tracks = []
+        for idx, item in enumerate(tracks_data, 1):
+            if item.get("@type") == "MusicRecording":
                 title = item.get("name", "").strip()
                 if not title:
                     continue
                 tracks.append(
-                    AppleTrack(
+                    SourceTrack(
                         rank=idx,
                         title=title,
                         artist="",
-                        url=item.get("url", ""),
+                        service="apple",
                         source="json_ld",
                     )
                 )
             if tracks:
                 return tracks
+    except Exception:
+        pass
 
     return []
 
 
-def fetch_apple_tracks(playlist_url: str, *, chart_limit: int) -> tuple[str, str, list[AppleTrack], str]:
+def fetch_apple_tracks(playlist_url: str, *, chart_limit: int) -> tuple[str, str, list[SourceTrack], str]:
     if "/new/top-charts/songs" in playlist_url:
         return fetch_apple_chart_tracks(playlist_url, limit=chart_limit)
 
@@ -416,7 +413,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--yt-oauth-client-id")
     parser.add_argument("--yt-oauth-client-secret")
     parser.add_argument("--yt-playlist-id")
+    parser.add_argument("--job-name")
+    parser.add_argument("--playlist-name")
     parser.add_argument("--log-dir")
+    parser.add_argument("--db-path", default="hype_wave_data.db")
+    parser.add_argument("--history-json", default="docs/api/history.json")
+    parser.add_argument("--no-db-cache", action="store_true")
     parser.add_argument("--min-score", type=float, default=DEFAULT_MIN_SCORE)
     parser.add_argument("--min-title-score", type=float, default=DEFAULT_MIN_TITLE_SCORE)
     parser.add_argument("--min-artist-score", type=float, default=DEFAULT_MIN_ARTIST_SCORE)
@@ -449,6 +451,11 @@ def main() -> int:
     )
     yt_playlist_id = env_or_arg(args.yt_playlist_id, "YTMUSIC_PLAYLIST_ID")
     log_dir = Path(args.log_dir or os.environ.get("LOG_DIR", "logs")).expanduser()
+    db_path = Path(args.db_path).expanduser()
+    job_name = args.job_name or log_dir.name
+    playlist_name = args.playlist_name or job_name
+    if not args.no_db_cache:
+        os.environ["HYPE_DB_PATH"] = str(db_path)
     min_score = float(os.environ.get("MATCH_MIN_SCORE", args.min_score))
     min_title_score = float(os.environ.get("MATCH_MIN_TITLE_SCORE", args.min_title_score))
     min_artist_score = float(os.environ.get("MATCH_MIN_ARTIST_SCORE", args.min_artist_score))
@@ -459,9 +466,9 @@ def main() -> int:
     kst_now = datetime.now(timezone.utc).astimezone(timezone(timedelta(hours=9)))
     update_date_str = kst_now.strftime("%Y-%m-%d")
 
-    all_tracks: list[AppleTrack] = []
-    tracks_ko_map: dict[str, AppleTrack] = {}
-    seen_apple_ids: set[str] = set()
+    all_tracks: list[SourceTrack] = []
+    tracks_ko_map: dict[str, SourceTrack] = {}
+    seen_song_ids: set[str] = set()
     combined_desc_parts = []
 
     for url in playlist_urls:
@@ -484,8 +491,8 @@ def main() -> int:
                         chart_limit=int(os.environ.get("APPLE_CHART_LIMIT", args.apple_chart_limit)),
                     )
                     for t in tracks_ko:
-                        if t.apple_id:
-                            tracks_ko_map[t.apple_id] = t
+                        if t.song_id:
+                            tracks_ko_map[t.song_id] = t
                 elif "/new/top-charts/" in url:
                     page_html_ko = fetch_html(url)
                     token_ko = find_apple_web_token(page_html_ko, url)
@@ -502,8 +509,8 @@ def main() -> int:
                     if resp_ko.status_code == 200:
                         tracks_ko = parse_tracks_from_chart_api(resp_ko.json())
                         for t in tracks_ko:
-                            if t.apple_id:
-                                tracks_ko_map[t.apple_id] = t
+                            if t.song_id:
+                                tracks_ko_map[t.song_id] = t
                             tracks_ko_map[str(t.rank)] = t
             except Exception as exc:
                 LOG.warning("Failed to fetch Korean fallback tracks for %s: %s", url, exc)
@@ -511,11 +518,11 @@ def main() -> int:
             # Deduplicate and aggregate
             new_count = 0
             for t in tracks:
-                if t.apple_id and t.apple_id not in seen_apple_ids:
-                    seen_apple_ids.add(t.apple_id)
+                if t.song_id and t.song_id not in seen_song_ids:
+                    seen_song_ids.add(t.song_id)
                     all_tracks.append(t)
                     new_count += 1
-                elif not t.apple_id: # Fallback for items without ID
+                elif not t.song_id:
                     all_tracks.append(t)
                     new_count += 1
             LOG.info("Added %d new tracks from '%s' (Total: %d)", new_count, p_name, len(all_tracks))
@@ -547,8 +554,6 @@ def main() -> int:
         min_artist_score,
         search_limit,
     )
-    write_json(log_dir / f"apple_tracks_crawl_{started_at}.json", [asdict(track) for track in all_tracks])
-
     ytmusic = make_ytmusic(yt_auth, yt_oauth_client_id, yt_oauth_client_secret)
     matches: list[MatchResult] = []
     seen_video_ids: set[str] = set()
@@ -557,7 +562,7 @@ def main() -> int:
     match_cache = load_match_cache(log_dir)
 
     for track in all_tracks:
-        track_ko = tracks_ko_map.get(track.apple_id) or tracks_ko_map.get(str(track.rank))
+        track_ko = tracks_ko_map.get(track.song_id) or tracks_ko_map.get(str(track.rank))
         
         # Check cache first
         t_norm = normalize_text(track.title)
@@ -565,7 +570,32 @@ def main() -> int:
         cache_key = f"{t_norm}|{a_norm}"
         
         match = None
-        if cache_key in match_cache:
+        if not args.no_db_cache:
+            try:
+                from hype_db import get_cached_match
+                cached = get_cached_match(
+                    db_path,
+                    service="apple",
+                    song_id=track.song_id,
+                    title=track.title,
+                    artist=track.artist,
+                    album=track.album,
+                )
+                if cached and cached.get("status") == "manual_blocked":
+                    match = MatchResult(
+                        rank=track.rank,
+                        title=track.title,
+                        artist=track.artist,
+                        album=track.album,
+                        service="apple",
+                        song_id=track.song_id,
+                        status="manual_blocked",
+                    )
+                elif cached and cached.get("video_id"):
+                    match = match_from_prev(track, cached, track_ko=track_ko, status=cached.get("status", "cached_match"))
+            except Exception as exc:
+                LOG.warning("DB cache lookup failed for %s: %s", track.title, exc)
+        if not match and cache_key in match_cache:
             prev = match_cache[cache_key]
             # Only reuse cache if it was a perfect match (score >= 1.0)
             if prev.get("video_id") and prev.get("score", 0) >= 1.0:
@@ -580,8 +610,7 @@ def main() -> int:
                 title_ko=track_ko.title if track_ko else prev.get("title_ko", ""),
                 artist_ko=track_ko.artist if track_ko else prev.get("artist_ko", ""),
                 album_ko=track_ko.album if track_ko else prev.get("album_ko", ""),
-                apple_id=track.apple_id,
-                url=track.url,
+                song_id=track.song_id,
                 video_id=prev["video_id"],
                 yt_title=prev.get("yt_title", ""),
                 yt_artist=prev.get("yt_artist", ""),
@@ -607,6 +636,14 @@ def main() -> int:
                 ignore_video_ids=seen_video_ids,
             )
         if match.video_id and match.video_id in seen_video_ids:
+            LOG.warning(
+                "duplicate_skipped: '%s' / '%s' — video_id %s already in playlist (source: %s)",
+                track.title,
+                track.artist,
+                match.video_id,
+                match.status,
+            )
+            match.query = f"dup_of:{match.video_id}"
             match.status = "duplicate_skipped"
             match.video_id = None
         elif match.video_id:
@@ -629,9 +666,21 @@ def main() -> int:
     failed = [match for match in matches if not match.video_id]
     LOG.info("Matched %d/%d tracks. Failed/skipped %d.", len(matched_video_ids), len(all_tracks), len(failed))
 
-    write_json(log_dir / f"matches_crawl_{started_at}.json", [asdict(match) for match in matches])
-    write_json(log_dir / "latest_matches_crawl.json", [asdict(match) for match in matches])
-    write_json(log_dir / "latest_failed_crawl.json", [asdict(match) for match in failed])
+    if not args.dry_run:
+        try:
+            from hype_db import export_frontend_history, persist_crawl_run
+            persist_crawl_run(
+                db_path,
+                service="apple",
+                job_name=job_name,
+                chart_date=update_date_str,
+                started_at=started_at,
+                tracks=all_tracks,
+                matches=matches,
+            )
+            export_frontend_history(db_path, args.history_json)
+        except Exception as exc:
+            LOG.warning("Failed to persist Apple run to DB: %s", exc)
 
     if args.shuffle:
         LOG.info("Shuffling %d tracks before saving to playlist.", len(matched_video_ids))
@@ -643,6 +692,10 @@ def main() -> int:
         matched_video_ids,
         description=full_desc,
         dry_run=args.dry_run,
+        db_path=db_path,
+        service="apple",
+        job_name=job_name,
+        playlist_name=playlist_name,
     )
 
     LOG.info("Done. dry_run=%s", args.dry_run)

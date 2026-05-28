@@ -9,3 +9,7 @@ __pycache__/
 debug_*.py
 test_*.py   
 scratch/
+next_patch/
+.antigravitycli/
+*.db
+*.db-journal
