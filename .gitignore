@@ -8,6 +8,8 @@ __pycache__/
 .vscode/
 debug_*.py
 test_*.py   
+utils/
+logs/
 scratch/
 next_patch/
 .antigravitycli/

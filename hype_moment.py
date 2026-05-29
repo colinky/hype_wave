@@ -93,7 +93,7 @@ def main():
     update_date_str = kst_now.strftime("%Y-%m-%d")
     
     desc = f"Hype Wave Daily\n"
-    desc += f"Based on Apple Music, Melon Gen-Z, and YouTube Music charts.\n\n"
+    desc += f"Based on Apple Music, Melon, and YT Music charts.\n\n"
     desc += "Top 3 Hype Now:\n"
     for i, (vid, stats) in enumerate(top_songs[:3], 1):
         m = stats["metadata"]

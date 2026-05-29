@@ -30,6 +30,7 @@ from typing import Any
 from urllib.parse import parse_qsl, urlencode, urljoin, urlparse, urlunparse
 
 import requests
+from bs4 import BeautifulSoup
 
 from ytmusic_playlist_sync import (
     MatchResult,
@@ -335,7 +336,9 @@ def parse_tracks_from_track_lockup(page_html: str) -> list[SourceTrack]:
                         source="track_lockup",
                     )
                 )
-        except Exception:
+        except Exception as exc:
+            if not tracks:
+                LOG.warning("trackLockup extraction failed: %s", exc)
             break
     return tracks
 
@@ -368,8 +371,8 @@ def parse_tracks_from_json_ld(page_html: str) -> list[SourceTrack]:
                         source="json_ld",
                     )
                 )
-            if tracks:
-                return tracks
+        if tracks:
+            return tracks
     except Exception:
         pass
 
@@ -387,11 +390,87 @@ def fetch_apple_tracks(playlist_url: str, *, chart_limit: int) -> tuple[str, str
     desc_match = re.search(r'<meta (?:property="og:description"|name="description") content="([^"]+)"', page_html)
     playlist_desc = html_lib.unescape(desc_match.group(1)) if desc_match else ""
 
-    try:
-        tracks = parse_tracks_from_track_lockup(page_html)
-        source = "track_lockup"
-    except Exception as exc:
-        LOG.warning("trackLockup parse failed: %s", exc)
+    # Try Catalog API first
+    playlist_match = re.search(
+        r"music\.apple\.com/([^/]+)/playlist/(?:[^/]+/)?(pl\.[a-zA-Z0-9\-]+)", playlist_url
+    )
+    if playlist_match:
+        storefront, playlist_id = playlist_match.groups()
+        try:
+            token = find_apple_web_token(page_html, playlist_url)
+            
+            # Fetch playlist name and description via API if possible
+            playlist_api_url = f"https://api.music.apple.com/v1/catalog/{storefront}/playlists/{playlist_id}"
+            playlist_resp = requests.get(
+                playlist_api_url,
+                headers={
+                    "Authorization": f"Bearer {token}",
+                    "Origin": "https://music.apple.com",
+                    "Referer": playlist_url,
+                },
+                timeout=30,
+            )
+            if playlist_resp.status_code == 200:
+                p_data = playlist_resp.json().get("data", [])[0]
+                playlist_name = p_data.get("attributes", {}).get("name", playlist_name)
+                playlist_desc = p_data.get("attributes", {}).get("description", {}).get("standard", playlist_desc)
+            
+            # Fetch playlist tracks via paginated tracks endpoint
+            tracks_url = f"https://api.music.apple.com/v1/catalog/{storefront}/playlists/{playlist_id}/tracks?limit=100"
+            api_tracks = []
+            while tracks_url:
+                resp = requests.get(
+                    tracks_url,
+                    headers={
+                        "Authorization": f"Bearer {token}",
+                        "Origin": "https://music.apple.com",
+                        "Referer": playlist_url,
+                    },
+                    timeout=30,
+                )
+                resp.raise_for_status()
+                data = resp.json()
+                api_tracks.extend(data.get("data", []))
+                
+                next_path = data.get("next")
+                if next_path:
+                    tracks_url = urljoin("https://api.music.apple.com", next_path)
+                else:
+                    tracks_url = None
+
+            tracks = []
+            for idx, item in enumerate(api_tracks, 1):
+                attrs = item.get("attributes", {})
+                title = attrs.get("name", "").strip()
+                if not title:
+                    continue
+                tracks.append(
+                    SourceTrack(
+                        rank=idx,
+                        title=title,
+                        artist=attrs.get("artistName", "").strip(),
+                        service="apple",
+                        album=attrs.get("albumName", "").strip(),
+                        song_id=item.get("id", ""),
+                        source="apple_web_playlist_api",
+                        artwork_url=format_artwork_url(attrs.get("artwork", {}).get("url", ""), 100),
+                    )
+                )
+            if tracks:
+                LOG.info(
+                    "Successfully fetched %d tracks via Apple Music playlist API (source: apple_web_playlist_api)",
+                    len(tracks),
+                )
+                return playlist_name, playlist_desc, tracks, "apple_web_playlist_api"
+        except Exception as exc:
+            LOG.warning("Failed to fetch tracks via playlist API, falling back to page parsing: %s", exc)
+
+    # Fallback to scraping
+    tracks = parse_tracks_from_track_lockup(page_html)
+    source = "track_lockup"
+
+    if not tracks:
+        LOG.warning("trackLockup returned 0 tracks, falling back to JSON-LD")
         tracks = parse_tracks_from_json_ld(page_html)
         source = "json_ld"
 

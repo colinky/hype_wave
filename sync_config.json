@@ -5,7 +5,7 @@
         "service": "apple",
         "frequency": "daily",
         "list_type": "chart",
-        "playlist_name": "app_krcc_to_ytm",
+        "playlist_name": "apl_krcc_to_ytm",
         "source_urls": [
             "https://music.apple.com/kr/new/top-charts/songs"
         ],
@@ -18,7 +18,7 @@
         "service": "apple",
         "frequency": "daily",
         "list_type": "chart",
-        "playlist_name": "app_krc_to_ytm",
+        "playlist_name": "apl_krc_to_ytm",
         "include_in_hype": true,
         "hype_group": "apple",
         "hype_weight": 0.4,
@@ -34,7 +34,7 @@
         "service": "apple",
         "frequency": "daily",
         "list_type": "chart",
-        "playlist_name": "app_selxxv_to_ytm",
+        "playlist_name": "apl_selxxv_to_ytm",
         "source_urls": [
             "https://music.apple.com/us/playlist/top-25-seoul/pl.d6f003a501da4b3c9d33b0c7b8cfa0ae"
         ],
@@ -47,7 +47,7 @@
         "service": "apple",
         "frequency": "daily",
         "list_type": "chart",
-        "playlist_name": "app_bsnxxv_to_ytm",
+        "playlist_name": "apl_bsnxxv_to_ytm",
         "source_urls": [
             "https://music.apple.com/us/playlist/top-25-busan/pl.b4a7b0c2558941f68b329cde7774139a"
         ],
@@ -88,7 +88,7 @@
         "service": "melon",
         "frequency": "weekly",
         "list_type": "chart",
-        "playlist_name": "mel_krwc_to_ytm",
+        "playlist_name": "mln_krwc_to_ytm",
         "source_urls": [
             "https://www.melon.com/chart/week/index.htm"
         ],
@@ -101,7 +101,7 @@
         "service": "melon",
         "frequency": "daily",
         "list_type": "chart",
-        "playlist_name": "mel_krdc_to_ytm",
+        "playlist_name": "mln_krdc_to_ytm",
         "source_urls": [
             "https://www.melon.com/chart/day/index.htm"
         ],
@@ -113,7 +113,7 @@
         "service": "melon_gen",
         "frequency": "daily",
         "list_type": "chart",
-        "playlist_name": "mel_zdc_to_ytm",
+        "playlist_name": "mln_zdc_to_ytm",
         "include_in_hype": true,
         "hype_group": "melon_genz",
         "hype_weight": 0.6,
