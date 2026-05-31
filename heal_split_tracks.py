@@ -12,6 +12,9 @@ This repairs the "split track UID" problem where:
   - But `소문의 낙원` is already in tracks via Apple → canonical_yt_video_id 6Xa1VDLACPo
   - After healing, the ytmusic rank is properly aggregated in hype_report_for_date.
 
+If SUPABASE_DB_URL is set in the environment, it automatically connects to the hosted
+PostgreSQL database instead of the local SQLite database.
+
 Usage:
     python heal_split_tracks.py [--db-path hype_wave_data.db] [--dry-run]
 """
@@ -23,6 +26,7 @@ import re
 import sqlite3
 import unicodedata
 from pathlib import Path
+from typing import Any
 
 logging.basicConfig(
     level=logging.INFO,
@@ -73,7 +77,7 @@ def _meta_key(title: str | None, artist: str | None, album: str | None = "") -> 
 # Core healing logic
 # ---------------------------------------------------------------------------
 
-def find_canonical_uid(conn: sqlite3.Connection, title: str, artist: str) -> str | None:
+def find_canonical_uid(conn: Any, title: str, artist: str) -> str | None:
     """Search metadata_lookup_index for a canonical track using cleaned title."""
     cleaned = _clean_title(title)
     # Try original then cleaned title
@@ -111,7 +115,7 @@ def find_canonical_uid(conn: sqlite3.Connection, title: str, artist: str) -> str
     return None
 
 
-def _merge_into(conn: sqlite3.Connection, loser_uid: str, winner_uid: str, dry_run: bool) -> None:
+def _merge_into(conn: Any, loser_uid: str, winner_uid: str, dry_run: bool) -> None:
     """Rebind all loser's platform_song_ids to winner, migrate index, delete loser."""
     if not dry_run:
         conn.execute(
@@ -136,161 +140,169 @@ def _merge_into(conn: sqlite3.Connection, loser_uid: str, winner_uid: str, dry_r
 
 
 def heal(db_path: Path, dry_run: bool) -> int:
-    conn = sqlite3.connect(db_path)
-    conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA journal_mode=WAL")
+    import os
+    import sys
+    # Add project root to sys.path if not present
+    project_root = Path(__file__).resolve().parent
+    if str(project_root) not in sys.path:
+        sys.path.insert(0, str(project_root))
+    import hype_db
 
     # ── Pass 1: unbound YTMusic song_ids ────────────────────────────────────
-    unbound = conn.execute(
-        """
-        SELECT DISTINCT po.song_id
-        FROM playlist_order po
-        WHERE po.service = 'ytmusic'
-          AND NOT EXISTS (
-              SELECT 1 FROM platform_song_ids ps
-              WHERE ps.service = 'ytmusic' AND ps.song_id = po.song_id
-          )
-        """
-    ).fetchall()
+    with hype_db.connect(db_path) as conn:
+        if not os.environ.get("SUPABASE_DB_URL"):
+            conn.execute("PRAGMA journal_mode=WAL")
 
-    LOG.info("Pass 1 — Found %d unbound YTMusic song_ids in playlist_order", len(unbound))
+        unbound = conn.execute(
+            """
+            SELECT DISTINCT po.song_id
+            FROM playlist_order po
+            WHERE po.service = 'ytmusic'
+              AND NOT EXISTS (
+                  SELECT 1 FROM platform_song_ids ps
+                  WHERE ps.service = 'ytmusic' AND ps.song_id = po.song_id
+              )
+            """
+        ).fetchall()
 
-    healed = 0
-    skipped = 0
-    for row in unbound:
-        song_id = row[0]
-        tl = conn.execute(
-            "SELECT title_ko, title_en, artist_ko, artist_en FROM track_list "
-            "WHERE service = 'ytmusic' AND song_id = ?",
-            (song_id,),
-        ).fetchone()
-        if not tl:
-            skipped += 1
-            continue
+        LOG.info("Pass 1 — Found %d unbound YTMusic song_ids in playlist_order", len(unbound))
 
-        title = tl["title_ko"] or tl["title_en"] or ""
-        artist = tl["artist_ko"] or tl["artist_en"] or ""
+        healed = 0
+        skipped = 0
+        for row in unbound:
+            song_id = row[0]
+            tl = conn.execute(
+                "SELECT title_ko, title_en, artist_ko, artist_en FROM track_list "
+                "WHERE service = 'ytmusic' AND song_id = ?",
+                (song_id,),
+            ).fetchone()
+            if not tl:
+                skipped += 1
+                continue
 
-        yt_vid_row = conn.execute(
-            "SELECT track_uid FROM yt_video_ids WHERE video_id = ?", (song_id,)
-        ).fetchone()
-        if yt_vid_row:
-            canonical_uid = yt_vid_row[0]
-            strategy = "video_id"
-        else:
-            canonical_uid = find_canonical_uid(conn, title, artist)
-            strategy = "metadata"
+            title = tl["title_ko"] or tl["title_en"] or ""
+            artist = tl["artist_ko"] or tl["artist_en"] or ""
 
-        if not canonical_uid:
-            skipped += 1
-            continue
+            yt_vid_row = conn.execute(
+                "SELECT track_uid FROM yt_video_ids WHERE video_id = ?", (song_id,)
+            ).fetchone()
+            if yt_vid_row:
+                canonical_uid = yt_vid_row[0]
+                strategy = "video_id"
+            else:
+                canonical_uid = find_canonical_uid(conn, title, artist)
+                strategy = "metadata"
 
-        canon_row = conn.execute(
-            "SELECT canonical_yt_video_id, match_status FROM tracks WHERE track_uid = ?",
-            (canonical_uid,),
-        ).fetchone()
-        if not canon_row or not canon_row["canonical_yt_video_id"]:
-            skipped += 1
-            continue
+            if not canonical_uid:
+                skipped += 1
+                continue
 
-        LOG.info(
-            "[P1] [%s] '%s' / '%s' → %s (video: %s, strategy: %s)",
-            song_id, title, artist, canonical_uid,
-            canon_row["canonical_yt_video_id"], strategy,
-        )
+            canon_row = conn.execute(
+                "SELECT canonical_yt_video_id, match_status FROM tracks WHERE track_uid = ?",
+                (canonical_uid,),
+            ).fetchone()
+            if not canon_row or not canon_row["canonical_yt_video_id"]:
+                skipped += 1
+                continue
 
-        if not dry_run:
-            conn.execute(
-                """
-                INSERT INTO platform_song_ids(service, song_id, track_uid)
-                VALUES ('ytmusic', ?, ?)
-                ON CONFLICT(service, song_id) DO UPDATE SET track_uid = excluded.track_uid
-                """,
-                (song_id, canonical_uid),
+            LOG.info(
+                "[P1] [%s] '%s' / '%s' → %s (video: %s, strategy: %s)",
+                song_id, title, artist, canonical_uid,
+                canon_row["canonical_yt_video_id"], strategy,
             )
-            conn.execute(
-                "INSERT OR IGNORE INTO yt_video_ids(video_id, track_uid, is_canonical) VALUES (?, ?, 0)",
-                (song_id, canonical_uid),
+
+            if not dry_run:
+                conn.execute(
+                    """
+                    INSERT INTO platform_song_ids(service, song_id, track_uid)
+                    VALUES ('ytmusic', ?, ?)
+                    ON CONFLICT(service, song_id) DO UPDATE SET track_uid = excluded.track_uid
+                    """,
+                    (song_id, canonical_uid),
+                )
+                conn.execute(
+                    "INSERT OR IGNORE INTO yt_video_ids(video_id, track_uid, is_canonical) VALUES (?, ?, 0)",
+                    (song_id, canonical_uid),
+                )
+                conn.commit()
+
+            healed += 1
+
+        LOG.info("Pass 1 done. healed=%d skipped=%d", healed, skipped)
+
+        # ── Pass 2: cross-service wrong bindings (BOOMPALA pattern) ─────────────
+        # Scan all bound tracks for cases where the artist field contains en+ko
+        # (e.g. 'LE SSERAFIM (르세라핌)') and a better-scoring canonical exists
+        # via the parens-stripped artist.
+        LOG.info("Pass 2 — Scanning for cross-service wrong bindings...")
+
+        bound_rows = conn.execute(
+            """
+            SELECT ps.service, ps.song_id, ps.track_uid,
+                   COALESCE(tl.title_ko, tl.title_en, '') AS title,
+                   COALESCE(tl.artist_ko, tl.artist_en, '') AS artist,
+                   COALESCE(mi_max.best_score, 0) AS current_score
+            FROM platform_song_ids ps
+            LEFT JOIN track_list tl ON tl.service = ps.service AND tl.song_id = ps.song_id
+            LEFT JOIN (
+                SELECT track_uid, MAX(score) AS best_score
+                FROM metadata_lookup_index GROUP BY track_uid
+            ) mi_max ON mi_max.track_uid = ps.track_uid
+            JOIN tracks t ON t.track_uid = ps.track_uid
+            WHERE t.canonical_yt_video_id IS NOT NULL AND t.canonical_yt_video_id != ''
+              AND t.match_status NOT IN ('failed', 'duplicate_skipped', 'manual_blocked')
+            """
+        ).fetchall()
+
+        merged = 0
+        for row in bound_rows:
+            title = row["title"]
+            artist = row["artist"]
+            if not title or not artist:
+                continue
+
+            stripped_artist = re.sub(r"\s*[\(\[][^\)\]]*[\)\]]\s*", " ", artist).strip()
+            if stripped_artist == artist:
+                continue  # No parens in artist — not this pattern
+
+            better_uid = find_canonical_uid(conn, title, stripped_artist)
+            if not better_uid or better_uid == row["track_uid"]:
+                continue
+
+            better_score = conn.execute(
+                "SELECT MAX(score) FROM metadata_lookup_index WHERE track_uid = ?", (better_uid,)
+            ).fetchone()[0] or 0
+
+            if better_score <= row["current_score"]:
+                continue
+
+            LOG.info(
+                "[P2] '%s' / '%s' — %s/%s: %s → %s (score %.2f → %.2f)",
+                title, artist,
+                row["service"], row["song_id"],
+                row["track_uid"][:18], better_uid[:18],
+                row["current_score"], better_score,
             )
-            conn.commit()
 
-        healed += 1
+            if not dry_run:
+                _merge_into(conn, row["track_uid"], better_uid, dry_run=False)
 
-    LOG.info("Pass 1 done. healed=%d skipped=%d", healed, skipped)
+            merged += 1
 
-    # ── Pass 2: cross-service wrong bindings (BOOMPALA pattern) ─────────────
-    # Scan all bound tracks for cases where the artist field contains en+ko
-    # (e.g. 'LE SSERAFIM (르세라핌)') and a better-scoring canonical exists
-    # via the parens-stripped artist.
-    LOG.info("Pass 2 — Scanning for cross-service wrong bindings...")
-
-    bound_rows = conn.execute(
-        """
-        SELECT ps.service, ps.song_id, ps.track_uid,
-               COALESCE(tl.title_ko, tl.title_en, '') AS title,
-               COALESCE(tl.artist_ko, tl.artist_en, '') AS artist,
-               COALESCE(mi_max.best_score, 0) AS current_score
-        FROM platform_song_ids ps
-        LEFT JOIN track_list tl ON tl.service = ps.service AND tl.song_id = ps.song_id
-        LEFT JOIN (
-            SELECT track_uid, MAX(score) AS best_score
-            FROM metadata_lookup_index GROUP BY track_uid
-        ) mi_max ON mi_max.track_uid = ps.track_uid
-        JOIN tracks t ON t.track_uid = ps.track_uid
-        WHERE t.canonical_yt_video_id IS NOT NULL AND t.canonical_yt_video_id != ''
-          AND t.match_status NOT IN ('failed', 'duplicate_skipped', 'manual_blocked')
-        """
-    ).fetchall()
-
-    merged = 0
-    for row in bound_rows:
-        title = row["title"]
-        artist = row["artist"]
-        if not title or not artist:
-            continue
-
-        stripped_artist = re.sub(r"\s*[\(\[][^\)\]]*[\)\]]\s*", " ", artist).strip()
-        if stripped_artist == artist:
-            continue  # No parens in artist — not this pattern
-
-        better_uid = find_canonical_uid(conn, title, stripped_artist)
-        if not better_uid or better_uid == row["track_uid"]:
-            continue
-
-        better_score = conn.execute(
-            "SELECT MAX(score) FROM metadata_lookup_index WHERE track_uid = ?", (better_uid,)
-        ).fetchone()[0] or 0
-
-        if better_score <= row["current_score"]:
-            continue
-
-        LOG.info(
-            "[P2] '%s' / '%s' — %s/%s: %s → %s (score %.2f → %.2f)",
-            title, artist,
-            row["service"], row["song_id"],
-            row["track_uid"][:18], better_uid[:18],
-            row["current_score"], better_score,
-        )
-
-        if not dry_run:
-            _merge_into(conn, row["track_uid"], better_uid, dry_run=False)
-
-        merged += 1
-
-    LOG.info("Pass 2 done. merged=%d", merged)
-    conn.close()
-    LOG.info("Total — healed=%d merged=%d dry_run=%s", healed, merged, dry_run)
-    return healed + merged
+        LOG.info("Pass 2 done. merged=%d", merged)
+        LOG.info("Total — healed=%d merged=%d dry_run=%s", healed, merged, dry_run)
+        return healed + merged
 
 
 def main() -> int:
+    import os
     p = argparse.ArgumentParser(description="Heal split track UIDs in hype_wave_data.db")
     p.add_argument("--db-path", default="hype_wave_data.db")
     p.add_argument("--dry-run", action="store_true", help="Show what would be healed without writing")
     args = p.parse_args()
 
     db_path = Path(args.db_path).expanduser()
-    if not db_path.exists():
+    if not os.environ.get("SUPABASE_DB_URL") and not db_path.exists():
         LOG.error("DB not found: %s", db_path)
         return 1
 

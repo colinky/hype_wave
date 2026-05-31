@@ -1591,6 +1591,11 @@ def update_ytmusic_playlist(
     job_name: str = "",
     playlist_name: str = "",
 ) -> None:
+    """Updates the target YouTube Music playlist and records the update run inside the database.
+
+    If `SUPABASE_DB_URL` environment variable is set, it records the update audit inside the
+    remote Supabase PostgreSQL database. Otherwise, it falls back to the SQLite DB at `db_path`.
+    """
     if (description or playlist_name) and not dry_run:
         try:
             kwargs: dict[str, str] = {}

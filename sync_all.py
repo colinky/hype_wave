@@ -17,7 +17,7 @@ logging.basicConfig(
 """
 모든 동기화 작업을 순차적으로 실행하는 통합 스크립트입니다.
 1. sync_config.json을 읽어 실행할 작업을 결정합니다.
-2. SQLite DB 캐시 연쇄 효과를 활용하여 동기화를 극대화합니다.
+2. 데이터베이스 캐시(Supabase PostgreSQL 또는 SQLite 로컬 폴백) 연쇄 효과를 활용하여 동기화를 극대화합니다.
 """
 LOG = logging.getLogger("sync_all")
 

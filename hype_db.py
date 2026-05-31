@@ -1,9 +1,21 @@
 from __future__ import annotations
 
+"""
+hype_db.py
+----------
+Database interface for the Hype Wave project.
+Supports dual connection engines:
+1. Supabase PostgreSQL (Production): Used if `SUPABASE_DB_URL` is set in the environment.
+2. Local SQLite: Used as a fallback for offline development or local testing.
+
+Standardizes SQLite operators (GLOB, INSTR) to standard SQL for seamless engine translation.
+"""
+
 import hashlib
 import json
 import logging
 import re
+import os
 import sqlite3
 import unicodedata
 from contextlib import contextmanager
@@ -326,23 +338,147 @@ def match_method_for_status(status: str | None, query: str | None = "") -> tuple
     return "search", "search", False
 
 
+class PostgresRow(dict):
+    """PostgreSQL result row representation that mimics SQLite's Row object behavior.
+
+    Allows accessing database columns both by string key (e.g., row['title'])
+    and by integer index (e.g., row[0]).
+    """
+    def __init__(self, description, row_tuple):
+        self._row_tuple = row_tuple
+        super().__init__({desc[0]: val for desc, val in zip(description, row_tuple)})
+        
+    def __getitem__(self, item):
+        if isinstance(item, int):
+            return self._row_tuple[item]
+        return super().__getitem__(item)
+
+
+class PostgresCursorWrapper:
+    """Cursor wrapper for PostgreSQL query execution.
+
+    Translates psycopg2 cursor results into a list of PostgresRow objects
+    to ensure full code compatibility with scripts expecting sqlite3.Row results.
+    """
+    def __init__(self, cursor):
+        self.cursor = cursor
+        
+    def fetchall(self):
+        try:
+            rows = self.cursor.fetchall()
+            desc = self.cursor.description
+            return [PostgresRow(desc, r) for r in rows] if rows is not None else []
+        except Exception:
+            return []
+            
+    def fetchone(self):
+        try:
+            row = self.cursor.fetchone()
+            desc = self.cursor.description
+            return PostgresRow(desc, row) if row is not None else None
+        except Exception:
+            return None
+            
+    @property
+    def lastrowid(self):
+        # Placeholder property to emulate sqlite3.Cursor.lastrowid
+        return None
+
+
+class PostgresConnectionWrapper:
+    """Connection wrapper for PostgreSQL that acts like a sqlite3.Connection.
+
+    Translates SQLite query syntax into standard SQL accepted by PostgreSQL:
+    1. Replaces '?' placeholders with '%s'.
+    2. Translates SQLite 'GLOB' patterns to standard 'LIKE' constraints.
+    3. Converts SQLite 'INSTR' functions to equivalent standard SQL 'LIKE' expressions.
+    4. Escapes literal '%' symbols (e.g., standard LIKE operators) to '%%' for psycopg2 formatting.
+    """
+    def __init__(self, conn):
+        self.conn = conn
+        self.row_factory = None  # SQLite compatibility dummy
+        
+    def execute(self, sql: str, parameters=None):
+        # Replaces '?' placeholders with '%s' only when NOT enclosed inside single quotes
+        sql_pg = re.sub(r"\?(?=(?:[^']*'[^']*')*[^']*$)", "%s", sql)
+        # Dynamic compatibility conversion for LIKE standard patterns
+        sql_pg = sql_pg.replace("GLOB '????-??-??'", "LIKE '____-__-__'")
+        sql_pg = sql_pg.replace("INSTR(reference_period, '-W') = 0", "reference_period NOT LIKE '%-W%'")
+        sql_pg = sql_pg.replace("INSTR(reference_period, '-W') > 0", "reference_period LIKE '%-W%'")
+        
+        # Escape literal % characters for psycopg2 by protecting %s placeholders
+        sql_pg = sql_pg.replace('%s', '__PARAM_PLACEHOLDER__')
+        sql_pg = sql_pg.replace('%', '%%')
+        sql_pg = sql_pg.replace('__PARAM_PLACEHOLDER__', '%s')
+        
+        cursor = self.conn.cursor()
+        cursor.execute(sql_pg, parameters or ())
+        return PostgresCursorWrapper(cursor)
+        
+    def commit(self):
+        self.conn.commit()
+        
+    def rollback(self):
+        self.conn.rollback()
+        
+    def close(self):
+        self.conn.close()
+
+
 @contextmanager
 def connect(db_path: str | Path):
-    conn = sqlite3.connect(str(db_path))
-    conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA foreign_keys = ON")
-    conn.execute("PRAGMA journal_mode = WAL")
-    try:
-        yield conn
-        conn.commit()
-    except BaseException:
-        conn.rollback()
-        raise
-    finally:
-        conn.close()
+    """Database connection context manager supporting dual engines.
+
+    Prioritizes Supabase PostgreSQL connection if `SUPABASE_DB_URL` environment
+    variable is set, returning a wrapped connection mimicking sqlite3.
+    Otherwise, falls back to a local SQLite database connection at `db_path`.
+    """
+    pg_url = os.environ.get("SUPABASE_DB_URL")
+    if pg_url:
+        import psycopg2
+        import time
+        retries = 3
+        delay = 1.0
+        raw_conn = None
+        for i in range(retries):
+            try:
+                raw_conn = psycopg2.connect(pg_url)
+                break
+            except psycopg2.OperationalError as exc:
+                if i == retries - 1:
+                    LOG.error("Failed to connect to Supabase PostgreSQL after %d attempts: %s", retries, exc)
+                    raise exc
+                wait_time = delay * (2 ** i)
+                LOG.warning("Supabase connection failed. Retrying in %.1fs... (%d/%d): %s", wait_time, i + 1, retries, exc)
+                time.sleep(wait_time)
+        
+        conn = PostgresConnectionWrapper(raw_conn)
+        try:
+            yield conn
+            conn.commit()
+        except BaseException:
+            conn.rollback()
+            raise
+        finally:
+            conn.close()
+    else:
+        conn = sqlite3.connect(str(db_path))
+        conn.row_factory = sqlite3.Row
+        conn.execute("PRAGMA foreign_keys = ON")
+        conn.execute("PRAGMA journal_mode = WAL")
+        try:
+            yield conn
+            conn.commit()
+        except BaseException:
+            conn.rollback()
+            raise
+        finally:
+            conn.close()
 
 
 def init_db(db_path: str | Path) -> None:
+    if os.environ.get("SUPABASE_DB_URL"):
+        return
     path = Path(db_path)
     path.parent.mkdir(parents=True, exist_ok=True)
     with connect(path) as conn:
@@ -430,7 +566,9 @@ def run_schema_migrations(conn: sqlite3.Connection) -> None:
         LOG.warning("Failed to run Spotify weekly date recovery migration: %s", exc)
 
 
-def init_schema(conn: sqlite3.Connection) -> None:
+def init_schema(conn: Any) -> None:
+    if os.environ.get("SUPABASE_DB_URL") or type(conn).__name__ == "PostgresConnectionWrapper":
+        return
     run_schema_migrations(conn)
     conn.execute("PRAGMA foreign_keys = OFF")
     conn.executescript(
@@ -1300,12 +1438,13 @@ def record_conflict(
     payload = payload or {}
     conn.execute(
         """
-        INSERT OR IGNORE INTO review_conflicts(
+        INSERT INTO review_conflicts(
             conflict_id, service, song_id, job_name, source_variant, reference_period, title, artist,
             album, query, score, source_file, existing_track_uid, incoming_track_uid,
             existing_video_id, incoming_video_id, reason, created_at
         )
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT (conflict_id) DO NOTHING
         """,
         (
             hashlib.sha1(seed.encode("utf-8")).hexdigest(),
@@ -1749,13 +1888,27 @@ def record_match_attempt(
     match_method, origin_method, _ = match_method_for_status(row.get("status"), row.get("query"))
     conn.execute(
         """
-        INSERT OR REPLACE INTO match_attempts(
+        INSERT INTO match_attempts(
             run_id, service, song_id, track_uid, rank_order,
             video_id, score, title_score, artist_score,
             album_score, yt_result_type, query, status, match_method, origin_method,
             created_at
         )
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT (run_id, service, song_id) DO UPDATE SET
+            track_uid = EXCLUDED.track_uid,
+            rank_order = EXCLUDED.rank_order,
+            video_id = EXCLUDED.video_id,
+            score = EXCLUDED.score,
+            title_score = EXCLUDED.title_score,
+            artist_score = EXCLUDED.artist_score,
+            album_score = EXCLUDED.album_score,
+            yt_result_type = EXCLUDED.yt_result_type,
+            query = EXCLUDED.query,
+            status = EXCLUDED.status,
+            match_method = EXCLUDED.match_method,
+            origin_method = EXCLUDED.origin_method,
+            created_at = EXCLUDED.created_at
         """,
         (
             run_id,
@@ -1791,12 +1944,24 @@ def record_match_candidates(
     for index, candidate in enumerate(candidates, 1):
         conn.execute(
             """
-            INSERT OR REPLACE INTO match_candidates(
+            INSERT INTO match_candidates(
                 run_id, service, song_id, rank_order, candidate_order, video_id,
                 yt_title, yt_artist, yt_album, score, title_score, artist_score,
                 album_score, yt_result_type, query, created_at
             )
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT (run_id, service, song_id, rank_order, candidate_order) DO UPDATE SET
+                video_id = EXCLUDED.video_id,
+                yt_title = EXCLUDED.yt_title,
+                yt_artist = EXCLUDED.yt_artist,
+                yt_album = EXCLUDED.yt_album,
+                score = EXCLUDED.score,
+                title_score = EXCLUDED.title_score,
+                artist_score = EXCLUDED.artist_score,
+                album_score = EXCLUDED.album_score,
+                yt_result_type = EXCLUDED.yt_result_type,
+                query = EXCLUDED.query,
+                created_at = EXCLUDED.created_at
             """,
             (
                 run_id,
@@ -1836,6 +2001,68 @@ def get_expected_track_count(job_name: str) -> int | None:
     return None
 
 
+def _persist_crawled_tracks_impl(
+    conn: Any,
+    service: str,
+    job_name: str,
+    source_variant: str,
+    chart_date: str,
+    reference_period: str | None,
+    chart_period: str | None,
+    tracks: Iterable[Any],
+) -> None:
+    track_rows = [row_dict(t) for t in tracks]
+    ref_p = reference_period or chart_period
+    resolved_period = reference_period_for_date(job_name, chart_date, ref_p)
+    if resolved_period and not (normalized_service(service) == "melon" and job_name == "Gen-Z-Daily" and source_variant == "combined"):
+        LOG.info("Cleaning up existing playlist_order records for %s / %s / %s (period: %s)", service, job_name, source_variant, resolved_period)
+        conn.execute(
+            """
+            DELETE FROM playlist_order
+            WHERE service = ? AND job_name = ? AND source_variant = ? AND reference_period = ?
+            """,
+            (normalized_service(service), job_name, source_variant, resolved_period)
+        )
+
+    for track in track_rows:
+        song_id = normalize_song_id(service, track)
+        if not song_id:
+            continue
+        
+        existing_uid = find_track_by_service_song(conn, service, song_id)
+        if existing_uid:
+            track_uid = existing_uid
+        else:
+            track_uid = stable_uid(f"unmatched:{service}:{song_id}")
+        
+        ensure_track(
+            conn,
+            track_uid=track_uid,
+            status="unmatched",
+        )
+        
+        upsert_track_list_metadata(
+            conn,
+            service=service,
+            song_id=song_id,
+            track_uid=track_uid,
+            row=track,
+        )
+        
+        upsert_chart_rank(
+            conn,
+            service=service,
+            job_name=job_name,
+            source_variant=source_variant,
+            chart_date=chart_date,
+            reference_period=resolved_period,
+            song_id=song_id,
+            track_uid=track_uid,
+            rank_order=int(track.get("rank") or 0),
+            album_id=infer_album_id(service, track),
+        )
+
+
 def persist_crawled_tracks(
     db_path: str | Path,
     *,
@@ -1846,6 +2073,7 @@ def persist_crawled_tracks(
     reference_period: str | None = None,
     chart_period: str | None = None,
     tracks: Iterable[Any],
+    conn: Any = None,
 ) -> None:
     init_db(db_path)
     job_name = require_job_name(job_name)
@@ -1867,57 +2095,111 @@ def persist_crawled_tracks(
                 f"Set BYPASS_TRACK_COUNT_VAL=true to bypass."
             )
 
-    with connect(db_path) as conn:
-        ref_p = reference_period or chart_period
-        resolved_period = reference_period_for_date(job_name, chart_date, ref_p)
-        if resolved_period and not (normalized_service(service) == "melon" and job_name == "Gen-Z-Daily" and source_variant == "combined"):
-            LOG.info("Cleaning up existing playlist_order records for %s / %s / %s (period: %s)", service, job_name, source_variant, resolved_period)
-            conn.execute(
-                """
-                DELETE FROM playlist_order
-                WHERE service = ? AND job_name = ? AND source_variant = ? AND reference_period = ?
-                """,
-                (normalized_service(service), job_name, source_variant, resolved_period)
-            )
-
-        for track in track_rows:
-            song_id = normalize_song_id(service, track)
-            if not song_id:
-                continue
-            
-            existing_uid = find_track_by_service_song(conn, service, song_id)
-            if existing_uid:
-                track_uid = existing_uid
-            else:
-                track_uid = stable_uid(f"unmatched:{service}:{song_id}")
-            
-            ensure_track(
-                conn,
-                track_uid=track_uid,
-                status="unmatched",
-            )
-            
-            upsert_track_list_metadata(
-                conn,
-                service=service,
-                song_id=song_id,
-                track_uid=track_uid,
-                row=track,
-            )
-            
-            upsert_chart_rank(
-                conn,
-                service=service,
-                job_name=job_name,
-                source_variant=source_variant,
-                chart_date=chart_date,
-                reference_period=resolved_period,
-                song_id=song_id,
-                track_uid=track_uid,
-                rank_order=int(track.get("rank") or 0),
-                album_id=infer_album_id(service, track),
-            )
+    if conn is not None:
+        _persist_crawled_tracks_impl(conn, service, job_name, source_variant, chart_date, reference_period, chart_period, tracks)
         conn.commit()
+    else:
+        with connect(db_path) as new_conn:
+            _persist_crawled_tracks_impl(new_conn, service, job_name, source_variant, chart_date, reference_period, chart_period, tracks)
+
+
+def _persist_crawl_run_impl(
+    conn: Any,
+    service: str,
+    job_name: str,
+    source_variant: str,
+    chart_date: str,
+    reference_period: str | None,
+    chart_period: str | None,
+    started_at: str,
+    tracks: Iterable[Any],
+    matches: Iterable[Any],
+) -> None:
+    track_rows = [row_dict(t) for t in tracks]
+    match_rows = [row_dict(m) for m in matches]
+    ref_p = reference_period or chart_period
+    resolved_period = reference_period_for_date(job_name, chart_date, ref_p)
+    if resolved_period and not (normalized_service(service) == "melon" and job_name == "Gen-Z-Daily" and source_variant == "combined"):
+        LOG.info("Cleaning up existing playlist_order records for %s / %s / %s (period: %s)", service, job_name, source_variant, resolved_period)
+        conn.execute(
+            """
+            DELETE FROM playlist_order
+            WHERE service = ? AND job_name = ? AND source_variant = ? AND reference_period = ?
+            """,
+            (normalized_service(service), job_name, source_variant, resolved_period)
+        )
+
+    run_id = start_match_run(
+        conn,
+        service=service,
+        job_name=job_name,
+        source_variant=source_variant,
+        started_at=started_at,
+        source="crawler",
+        total_tracks=len(track_rows),
+    )
+    track_by_song = {}
+    for track in track_rows:
+        song_id = normalize_song_id(service, track)
+        if song_id:
+            track_by_song[song_id] = track
+
+    matched_count = 0
+    failed_count = 0
+    cache_hits = 0
+    proxy_hits = 0
+    for match in match_rows:
+        song_id = normalize_song_id(service, match)
+        source_row = track_by_song.get(song_id, match)
+        track_uid = upsert_track_match(conn, service=service, source_row=source_row, match_row=match)
+        if match.get("video_id") and match.get("status") != "duplicate_skipped":
+            matched_count += 1
+        else:
+            failed_count += 1
+        if match.get("status") == "cached_match" or match.get("query") == "db_cache":
+            cache_hits += 1
+        if match.get("status") == "proxy_matched":
+            proxy_hits += 1
+        if song_id:
+            if not (normalized_service(service) == "melon" and job_name == "Gen-Z-Daily" and source_variant == "combined"):
+                upsert_chart_rank(
+                    conn,
+                    service=service,
+                    job_name=job_name,
+                    source_variant=source_variant,
+                    chart_date=chart_date,
+                    reference_period=reference_period or chart_period,
+                    song_id=song_id,
+                    track_uid=track_uid,
+                    rank_order=int(match.get("rank") or source_row.get("rank") or 0),
+                    album_id=infer_album_id(service, source_row),
+                )
+            record_match_attempt(
+                conn,
+                run_id=run_id,
+                service=service,
+                song_id=song_id,
+                track_uid=track_uid,
+                row=match,
+            )
+            if match.get("candidates"):
+                record_match_candidates(
+                    conn,
+                    run_id=run_id,
+                    service=service,
+                    song_id=song_id,
+                    rank_order=int(match.get("rank") or source_row.get("rank") or 0),
+                    candidates=match.get("candidates") or [],
+                )
+    conn.execute(
+        """
+        UPDATE match_runs
+        SET matched_tracks = ?, failed_tracks = ?, cache_hits = ?, proxy_hits = ?
+        WHERE run_id = ?
+        """,
+        (matched_count, failed_count, cache_hits, proxy_hits, run_id),
+    )
+    cleanup_old_attempts_and_candidates(conn, days=15)
 
 
 def persist_crawl_run(
@@ -1932,6 +2214,7 @@ def persist_crawl_run(
     started_at: str,
     tracks: Iterable[Any],
     matches: Iterable[Any],
+    conn: Any = None,
 ) -> None:
     init_db(db_path)
     job_name = require_job_name(job_name)
@@ -1954,92 +2237,12 @@ def persist_crawl_run(
                 f"Set BYPASS_TRACK_COUNT_VAL=true to bypass."
             )
 
-    with connect(db_path) as conn:
-        # Prevent duplication by cleaning up existing chart records for the same period
-        ref_p = reference_period or chart_period
-        resolved_period = reference_period_for_date(job_name, chart_date, ref_p)
-        if resolved_period and not (normalized_service(service) == "melon" and job_name == "Gen-Z-Daily" and source_variant == "combined"):
-            LOG.info("Cleaning up existing playlist_order records for %s / %s / %s (period: %s)", service, job_name, source_variant, resolved_period)
-            conn.execute(
-                """
-                DELETE FROM playlist_order
-                WHERE service = ? AND job_name = ? AND source_variant = ? AND reference_period = ?
-                """,
-                (normalized_service(service), job_name, source_variant, resolved_period)
-            )
-
-        run_id = start_match_run(
-            conn,
-            service=service,
-            job_name=job_name,
-            source_variant=source_variant,
-            started_at=started_at,
-            source="crawler",
-            total_tracks=len(track_rows),
-        )
-        track_by_song = {}
-        for track in track_rows:
-            song_id = normalize_song_id(service, track)
-            if song_id:
-                track_by_song[song_id] = track
-
-        matched_count = 0
-        failed_count = 0
-        cache_hits = 0
-        proxy_hits = 0
-        for match in match_rows:
-            song_id = normalize_song_id(service, match)
-            source_row = track_by_song.get(song_id, match)
-            track_uid = upsert_track_match(conn, service=service, source_row=source_row, match_row=match)
-            if match.get("video_id") and match.get("status") != "duplicate_skipped":
-                matched_count += 1
-            else:
-                failed_count += 1
-            if match.get("status") == "cached_match" or match.get("query") == "db_cache":
-                cache_hits += 1
-            if match.get("status") == "proxy_matched":
-                proxy_hits += 1
-            if song_id:
-                if not (normalized_service(service) == "melon" and job_name == "Gen-Z-Daily" and source_variant == "combined"):
-                    upsert_chart_rank(
-                        conn,
-                        service=service,
-                        job_name=job_name,
-                        source_variant=source_variant,
-                        chart_date=chart_date,
-                        reference_period=reference_period or chart_period,
-                        song_id=song_id,
-                        track_uid=track_uid,
-                        rank_order=int(match.get("rank") or source_row.get("rank") or 0),
-                        album_id=infer_album_id(service, source_row),
-                    )
-                record_match_attempt(
-                    conn,
-                    run_id=run_id,
-                    service=service,
-                    song_id=song_id,
-                    track_uid=track_uid,
-                    row=match,
-                )
-                if match.get("candidates"):
-                    record_match_candidates(
-                        conn,
-                        run_id=run_id,
-                        service=service,
-                        song_id=song_id,
-                        rank_order=int(match.get("rank") or source_row.get("rank") or 0),
-                        candidates=match.get("candidates") or [],
-                    )
-        conn.execute(
-            """
-            UPDATE match_runs
-            SET matched_tracks = ?, failed_tracks = ?, cache_hits = ?, proxy_hits = ?
-            WHERE run_id = ?
-            """,
-            (matched_count, failed_count, cache_hits, proxy_hits, run_id),
-        )
-        cleanup_old_attempts_and_candidates(conn, days=15)
+    if conn is not None:
+        _persist_crawl_run_impl(conn, service, job_name, source_variant, chart_date, reference_period, chart_period, started_at, tracks, matches)
         conn.commit()
+    else:
+        with connect(db_path) as new_conn:
+            _persist_crawl_run_impl(new_conn, service, job_name, source_variant, chart_date, reference_period, chart_period, started_at, tracks, matches)
 
 
 def repair_failed_source_bindings(conn: sqlite3.Connection) -> dict[str, int]:
@@ -2222,6 +2425,42 @@ def _verify_cached_title(
     return best_sim >= threshold
 
 
+def _get_cached_match_impl(
+    conn: Any,
+    service: str,
+    song_id: str,
+    title: str,
+    artist: str,
+    album: str,
+) -> dict[str, Any] | None:
+    service = normalized_service(service)
+    override = manual_override(conn, service, song_id)
+    if override and override["action"] == "block":
+        return {"status": "manual_blocked"}
+    if override and override["canonical_yt_video_id"]:
+        return _cache_row_for_video(conn, override["canonical_yt_video_id"], status="manual_override")
+    track_uid = find_track_by_service_song(conn, service, song_id)
+    if track_uid:
+        cached = _cache_row_for_track(conn, track_uid)
+        if cached:
+            # 소스 메타데이터 검증: 잘못된 song_id→track_uid 바인딩 감지
+            if title and not _verify_cached_title(conn, track_uid, title, artist):
+                LOG.warning(
+                    "Cache rejected for %s:%s — title mismatch with '%s'",
+                    service, song_id, title,
+                )
+                return None  # fallback to search
+            return cached
+    track_uid = find_track_by_metadata(conn, title, artist, album)
+    if track_uid:
+        cached = _cache_row_for_track(conn, track_uid)
+        if cached:
+            if title and not _verify_cached_title(conn, track_uid, title, artist):
+                return None
+            return cached
+    return None
+
+
 def get_cached_match(
     db_path: str | Path,
     *,
@@ -2230,38 +2469,18 @@ def get_cached_match(
     title: str = "",
     artist: str = "",
     album: str = "",
+    conn: Any = None,
 ) -> dict[str, Any] | None:
     path = Path(db_path)
-    if not path.exists():
+    if not path.exists() and not os.environ.get("SUPABASE_DB_URL"):
         return None
-    with connect(path) as conn:
-        init_schema(conn)
-        service = normalized_service(service)
-        override = manual_override(conn, service, song_id)
-        if override and override["action"] == "block":
-            return {"status": "manual_blocked"}
-        if override and override["canonical_yt_video_id"]:
-            return _cache_row_for_video(conn, override["canonical_yt_video_id"], status="manual_override")
-        track_uid = find_track_by_service_song(conn, service, song_id)
-        if track_uid:
-            cached = _cache_row_for_track(conn, track_uid)
-            if cached:
-                # 소스 메타데이터 검증: 잘못된 song_id→track_uid 바인딩 감지
-                if title and not _verify_cached_title(conn, track_uid, title, artist):
-                    LOG.warning(
-                        "Cache rejected for %s:%s — title mismatch with '%s'",
-                        service, song_id, title,
-                    )
-                    return None  # fallback to search
-                return cached
-        track_uid = find_track_by_metadata(conn, title, artist, album)
-        if track_uid:
-            cached = _cache_row_for_track(conn, track_uid)
-            if cached:
-                if title and not _verify_cached_title(conn, track_uid, title, artist):
-                    return None
-                return cached
-        return None
+        
+    if conn is not None:
+        return _get_cached_match_impl(conn, service, song_id, title, artist, album)
+        
+    with connect(path) as new_conn:
+        init_schema(new_conn)
+        return _get_cached_match_impl(new_conn, service, song_id, title, artist, album)
 
 
 def _cache_row_for_video(conn: sqlite3.Connection, video_id: str, *, status: str) -> dict[str, Any] | None:
@@ -2321,7 +2540,7 @@ def _cache_row_for_track(conn: sqlite3.Connection, track_uid: str, *, status: st
 
 def build_match_cache(db_path: str | Path) -> dict[str, dict[str, Any]]:
     path = Path(db_path)
-    if not path.exists():
+    if not path.exists() and not os.environ.get("SUPABASE_DB_URL"):
         return {}
     cache: dict[str, dict[str, Any]] = {}
     with connect(path) as conn:
@@ -2383,20 +2602,26 @@ def record_playlist_update(
         for index, video_id in enumerate(existing, 1):
             conn.execute(
                 """
-                INSERT OR REPLACE INTO playlist_update_items(
+                INSERT INTO playlist_update_items(
                     update_run_id, action, video_id, item_order, created_at
                 )
                 VALUES (?, 'existing', ?, ?, ?)
+                ON CONFLICT (update_run_id, action, video_id) DO UPDATE SET
+                    item_order = EXCLUDED.item_order,
+                    created_at = EXCLUDED.created_at
                 """,
                 (run_id, video_id, index, now),
             )
         for index, video_id in enumerate(requested, 1):
             conn.execute(
                 """
-                INSERT OR REPLACE INTO playlist_update_items(
+                INSERT INTO playlist_update_items(
                     update_run_id, action, video_id, item_order, created_at
                 )
                 VALUES (?, 'requested', ?, ?, ?)
+                ON CONFLICT (update_run_id, action, video_id) DO UPDATE SET
+                    item_order = EXCLUDED.item_order,
+                    created_at = EXCLUDED.created_at
                 """,
                 (run_id, video_id, index, now),
             )
@@ -2406,7 +2631,7 @@ def record_playlist_update(
 
 def export_frontend_history(db_path: str | Path, output_path: str | Path, *, days: int = 31) -> dict[str, list[dict[str, Any]]]:
     path = Path(db_path)
-    if not path.exists():
+    if not path.exists() and not os.environ.get("SUPABASE_DB_URL"):
         return {}
     with connect(path) as conn:
         apple_playlists = [
@@ -2419,7 +2644,7 @@ def export_frontend_history(db_path: str | Path, output_path: str | Path, *, day
             SELECT DISTINCT reference_period AS chart_date
             FROM playlist_order
             WHERE job_name IN ({placeholders})
-              AND reference_period GLOB '????-??-??'
+              AND reference_period LIKE '____-__-__'
             ORDER BY chart_date DESC
             LIMIT ?
             """,
@@ -2469,8 +2694,8 @@ def hype_report_for_date(
             SELECT service, job_name, source_variant,
                    MAX(reference_period) AS eff_period
             FROM playlist_order
-            WHERE (INSTR(reference_period, '-W') = 0 AND reference_period < ?)
-               OR (INSTR(reference_period, '-W') > 0 AND reference_period <= ?)
+            WHERE (reference_period NOT LIKE '%-W%' AND reference_period < ?)
+               OR (reference_period LIKE '%-W%' AND reference_period <= ?)
             GROUP BY service, job_name, source_variant
         )
         SELECT
@@ -2589,15 +2814,9 @@ def hype_report_for_date(
 
     report = []
     for item in grouped.values():
-        gen1 = item.pop("_gen1_rank", None)
-        gen2 = item.pop("_gen2_rank", None)
+        item.pop("_gen1_rank", None)
+        item.pop("_gen2_rank", None)
         score_parts = item.pop("_score_parts", {})
-        if gen1 or gen2:
-            genz_score = calculate_combined_genz_score(gen1, gen2, gen1_weight, gen2_weight)
-            melon_genz_weight = (input_config.get("Gen-Z-Daily") or {}).get("hype_weight")
-            if melon_genz_weight is None:
-                melon_genz_weight = DEFAULT_HYPE_WEIGHTS["melon_genz"]
-            score_parts["melon_genz"] = max(score_parts.get("melon_genz", 0.0), genz_score * melon_genz_weight)
         hype_index = sum(score_parts.values())
         apple_rank = item["apple_rank"] or 101
         melon_rank = item["melon_rank"] or 101

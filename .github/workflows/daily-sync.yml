@@ -41,26 +41,22 @@ jobs:
           printf '%s' "$YTMUSIC_BROWSER_JSON" > .secrets/browser.json
           chmod 600 .secrets/browser.json
 
-      - name: Restore DB from Supabase Storage
-        env:
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-        run: python sync_db_storage.py download
+      - name: Cache YouTube Music Bilingual Cache
+        uses: actions/cache@v4
+        with:
+          path: ytmusic_cache.db
+          key: ytmusic-cache-${{ github.run_id }}
+          restore-keys: |
+            ytmusic-cache-
 
       - name: Run Enabled Sync Tasks
         shell: bash
         env:
           YTMUSIC_AUTH_FILE: .secrets/browser.json
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
         run: |
           set -euo pipefail
           python sync_all.py
-
-      - name: Upload updated DB to Supabase Storage
-        if: success()
-        env:
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-        run: python sync_db_storage.py upload
 
       - name: Commit and Push Historical Web Data
         if: success()

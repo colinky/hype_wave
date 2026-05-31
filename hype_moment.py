@@ -1,4 +1,11 @@
 #!/usr/bin/env python3
+"""
+hype_moment.py
+--------------
+Aggregates the daily Hype Index metrics and updates the Hypex playlist on YouTube Music.
+If SUPABASE_DB_URL is set in the environment, it queries and updates audits directly in
+the remote Supabase PostgreSQL database instead of the local SQLite database.
+"""
 import argparse
 import json
 import logging
@@ -53,7 +60,7 @@ def main():
             LOG.warning(f"Failed to load history for WAVE detection: {e}")
 
     # 2. 지수 계산 실행. DB source of truth만 사용합니다.
-    if not db_path.exists():
+    if not os.environ.get("SUPABASE_DB_URL") and not db_path.exists():
         LOG.error("DB not found: %s", db_path)
         return
     try:
@@ -78,7 +85,7 @@ def main():
     except Exception as exc:
         LOG.error("DB hype calculation failed: %s", exc)
         return
-    
+        
     if not hype_results:
         LOG.error("No songs found to aggregate.")
         return
@@ -108,7 +115,7 @@ def main():
         video_ids,
         description=desc,
         dry_run=args.dry_run,
-        db_path=db_path if db_path.exists() else None,
+        db_path=db_path if (db_path.exists() or os.environ.get("SUPABASE_DB_URL")) else None,
         service="hypex",
         job_name=args.job_name,
         playlist_name=args.playlist_name,

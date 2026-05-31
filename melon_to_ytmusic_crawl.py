@@ -59,7 +59,7 @@ _ALBUM_NAME_CACHE: dict[str, dict[str, Any]] = {}
 
 def load_album_cache(db_path: Path, ttl_days: int = DEFAULT_ALBUM_CACHE_TTL) -> None:
     """앨범명 캐시를 DB에서 로드합니다."""
-    if db_path and db_path.exists():
+    if db_path and (db_path.exists() or os.environ.get("SUPABASE_DB_URL")):
         try:
             from hype_db import connect, init_db
             init_db(db_path)
@@ -81,7 +81,7 @@ def load_album_cache(db_path: Path, ttl_days: int = DEFAULT_ALBUM_CACHE_TTL) -> 
 
 def save_album_cache(db_path: Path):
     """현재 메모리의 캐시를 DB로 저장합니다."""
-    if db_path and db_path.exists() and _ALBUM_NAME_CACHE:
+    if db_path and (db_path.exists() or os.environ.get("SUPABASE_DB_URL")) and _ALBUM_NAME_CACHE:
         try:
             from hype_db import connect, init_db, utc_now_iso
             init_db(db_path)
