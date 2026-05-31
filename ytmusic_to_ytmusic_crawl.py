@@ -797,7 +797,9 @@ def main() -> int:
                     reference_period=reference_period,
                     tracks=raw_tracks,
                     conn=conn,
+                    commit=False,
                 )
+                conn.commit()
                 LOG.info("Persisted raw chart order for %s to playlist_order table.", args.job_name)
             except Exception as exc:
                 LOG.error("Failed to persist raw chart order to DB: %s", exc)

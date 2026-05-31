@@ -75,7 +75,9 @@ def process_matching_pipeline(
                     reference_period=reference_period or chart_period,
                     tracks=all_tracks,
                     conn=conn,
+                    commit=False,
                 )
+                conn.commit()
                 LOG.info("Persisted raw chart order for %s to playlist_order table.", job_name)
             except Exception as exc:
                 LOG.error("Failed to persist raw chart order to DB: %s", exc)

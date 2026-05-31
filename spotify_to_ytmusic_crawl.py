@@ -481,6 +481,64 @@ def fetch_spotify_tracks_scraped(
         raise RuntimeError(f"Failed to parse Spotify JSON: {exc}")
 
 
+def load_targeted_spotify_cache(
+    db_path: Path,
+    tracks: list[SourceTrack],
+    *,
+    no_db_cache: bool,
+) -> dict[str, dict[str, Any]]:
+    if no_db_cache or not tracks:
+        return {}
+    if not db_path.exists() and not os.environ.get("SUPABASE_DB_URL"):
+        return {}
+    try:
+        from hype_db import connect, get_bulk_cached_matches
+
+        with connect(db_path) as conn:
+            return get_bulk_cached_matches(conn, service="spotify", tracks=tracks)
+    except Exception as exc:
+        LOG.warning("Failed to load targeted Spotify cache: %s", exc)
+        return {}
+
+
+def apply_spotify_album_cache(
+    tracks: list[SourceTrack],
+    cache_by_song_id: dict[str, dict[str, Any]],
+) -> int:
+    filled = 0
+    for track in tracks:
+        if track.album:
+            continue
+        cached = cache_by_song_id.get(track.song_id or "")
+        if not cached:
+            continue
+        album = str(cached.get("album") or cached.get("yt_album") or "").strip()
+        if album:
+            track.album = album
+            filled += 1
+    return filled
+
+
+def enrich_spotify_albums_with_musicbrainz(
+    tracks: list[SourceTrack],
+    *,
+    use_musicbrainz: bool,
+) -> int:
+    if not use_musicbrainz:
+        return 0
+    enriched = 0
+    for track in tracks:
+        if track.album:
+            continue
+        album_name = get_album_from_musicbrainz(track.title, track.artist)
+        if album_name:
+            track.album = album_name
+            enriched += 1
+    if enriched:
+        LOG.info("Enriched %d Spotify album names via MusicBrainz", enriched)
+    return enriched
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Spotify playlist to YouTube Music crawler (Scraping version)."
@@ -535,15 +593,6 @@ def main() -> int:
     if not args.no_db_cache:
         os.environ["HYPE_DB_PATH"] = str(db_path)
     
-    # Load previous results from DB to speed up matching AND lazy MusicBrainz
-    match_cache = {}
-    if not args.no_db_cache:
-        try:
-            from hype_db import build_match_cache
-            match_cache = build_match_cache(db_path)
-        except Exception as exc:
-            LOG.warning("Failed to load DB match cache: %s", exc)
-    
     min_score = float(os.environ.get("MATCH_MIN_SCORE", args.min_score))
     min_title_score = float(os.environ.get("MATCH_MIN_TITLE_SCORE", args.min_title_score))
     min_artist_score = float(os.environ.get("MATCH_MIN_ARTIST_SCORE", args.min_artist_score))
@@ -574,8 +623,7 @@ def main() -> int:
                     url,
                     market="US",
                     limit=track_limit,
-                    use_musicbrainz=use_musicbrainz,
-                    match_cache=match_cache,
+                    use_musicbrainz=False,
                 )
                 
                 # Check validation if there's an expected count (based on job_name)
@@ -596,18 +644,23 @@ def main() -> int:
                 # Always add to description parts to maintain order and show name
                 desc_text = f"[{p_name}] {p_desc}".strip() if p_desc else f"[{p_name}]"
                 combined_desc_parts.append(desc_text)
-                
-                # Check if we need Korean fallback for any new tracks
-                needs_ko_fallback = False
-                for t in tracks:
-                    t_norm = normalize_text(t.title)
-                    a_norm = normalize_text(t.artist)
-                    cache_key = f"{t_norm}|{a_norm}"
-                    
-                    # If a song is NOT in cache, we need to try getting its Korean metadata
-                    if cache_key not in match_cache:
-                        needs_ko_fallback = True
-                        break
+
+                targeted_cache = load_targeted_spotify_cache(
+                    db_path,
+                    tracks,
+                    no_db_cache=args.no_db_cache,
+                )
+                cache_album_count = apply_spotify_album_cache(tracks, targeted_cache)
+                if cache_album_count:
+                    LOG.info("Filled %d Spotify album names from targeted DB cache.", cache_album_count)
+                musicbrainz_count = enrich_spotify_albums_with_musicbrainz(
+                    tracks,
+                    use_musicbrainz=use_musicbrainz,
+                )
+                if musicbrainz_count:
+                    source = f"{source}+musicbrainz"
+
+                needs_ko_fallback = any((track.song_id or "") not in targeted_cache for track in tracks)
                 
                 if needs_ko_fallback:
                     # Fetch Korean fallback version (market=KR)
@@ -617,9 +670,9 @@ def main() -> int:
                             url,
                             market="KR",
                             limit=track_limit,
-                            use_musicbrainz=use_musicbrainz,
-                            match_cache=match_cache,
+                            use_musicbrainz=False,
                         )
+                        apply_spotify_album_cache(tracks_ko, targeted_cache)
                         for t in tracks_ko:
                             if t.song_id:
                                 tracks_ko_map[t.song_id] = t

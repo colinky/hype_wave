@@ -2283,6 +2283,7 @@ def persist_crawled_tracks(
     chart_period: str | None = None,
     tracks: Iterable[Any],
     conn: Any = None,
+    commit: bool = True,
 ) -> None:
     init_db(db_path)
     job_name = require_job_name(job_name)
@@ -2306,7 +2307,8 @@ def persist_crawled_tracks(
 
     if conn is not None:
         _persist_crawled_tracks_impl(conn, service, job_name, source_variant, chart_date, reference_period, chart_period, tracks)
-        conn.commit()
+        if commit:
+            conn.commit()
     else:
         with connect(db_path) as new_conn:
             _persist_crawled_tracks_impl(new_conn, service, job_name, source_variant, chart_date, reference_period, chart_period, tracks)
@@ -3288,32 +3290,28 @@ def record_playlist_update(
                 now,
             ),
         )
-        for index, video_id in enumerate(existing, 1):
-            conn.execute(
-                """
-                INSERT INTO playlist_update_items(
-                    update_run_id, action, video_id, item_order, created_at
-                )
-                VALUES (?, 'existing', ?, ?, ?)
-                ON CONFLICT (update_run_id, action, video_id) DO UPDATE SET
-                    item_order = EXCLUDED.item_order,
-                    created_at = EXCLUDED.created_at
-                """,
-                (run_id, video_id, index, now),
+        item_sql = """
+            INSERT INTO playlist_update_items(
+                update_run_id, action, video_id, item_order, created_at
             )
-        for index, video_id in enumerate(requested, 1):
-            conn.execute(
-                """
-                INSERT INTO playlist_update_items(
-                    update_run_id, action, video_id, item_order, created_at
-                )
-                VALUES (?, 'requested', ?, ?, ?)
-                ON CONFLICT (update_run_id, action, video_id) DO UPDATE SET
-                    item_order = EXCLUDED.item_order,
-                    created_at = EXCLUDED.created_at
-                """,
-                (run_id, video_id, index, now),
-            )
+            VALUES (?, ?, ?, ?, ?)
+            ON CONFLICT (update_run_id, action, video_id, item_order) DO UPDATE SET
+                created_at = EXCLUDED.created_at
+            """
+        conn.executemany(
+            item_sql,
+            [
+                (run_id, "existing", video_id, index, now)
+                for index, video_id in enumerate(existing, 1)
+            ],
+        )
+        conn.executemany(
+            item_sql,
+            [
+                (run_id, "requested", video_id, index, now)
+                for index, video_id in enumerate(requested, 1)
+            ],
+        )
         conn.commit()
     return run_id
 
