@@ -19,7 +19,6 @@ LOG = logging.getLogger("hypex_aggregator")
 
 def main():
     parser = argparse.ArgumentParser(description="Generate Hypex aggregated playlist.")
-    parser.add_argument("--logs-dir", default="logs", help="Directory containing crawl logs")
     parser.add_argument("--db-path", default="hype_wave_data.db")
     parser.add_argument("--history-json", default="docs/api/history.json")
     parser.add_argument("--yt-playlist-id", required=True, help="Target YouTube Music Playlist ID")
@@ -30,7 +29,6 @@ def main():
     parser.add_argument("--dry-run", action="store_true")
     args = parser.parse_args()
 
-    logs_path = Path(args.logs_dir)
     db_path = Path(args.db_path).expanduser()
     
     # 1. WAVE 판별을 위해 어제 히스토리에서 애플 차트 곡 ID 추출
@@ -59,12 +57,11 @@ def main():
         LOG.error("DB not found: %s", db_path)
         return
     try:
-        from hype_db import connect, export_frontend_history, hype_report_for_date, init_schema
+        from hype_db import connect, export_frontend_history, hype_report_for_date
         hype_results = []
         with connect(db_path) as conn:
-            init_schema(conn)
             latest = conn.execute(
-                "SELECT chart_period AS chart_date FROM playlist_order WHERE job_name IN ('KR-Top-100', 'KR-Top-Songs') AND chart_period GLOB '????-??-??' ORDER BY chart_period DESC LIMIT 1"
+                "SELECT reference_period AS chart_date FROM playlist_order WHERE job_name IN ('KR-Top-100', 'KR-Top-Songs') AND reference_period GLOB '????-??-??' ORDER BY reference_period DESC LIMIT 1"
             ).fetchone()
             if latest:
                 report = hype_report_for_date(conn, latest["chart_date"], previous_apple_videos=previous_apple_videos)
@@ -103,29 +100,6 @@ def main():
 
     LOG.info(f"Aggregated {len(video_ids)} songs for Hypex playlist.")
     
-    # Save the results for transparency
-    report = []
-    # Hype 점수와 상관없이 전체 곡(합집합)을 report에 담아야 Apple/Melon 탭에서 누락되지 않습니다.
-    for i, (vid, stats) in enumerate(hype_results, 1):
-        apple_rank = stats["ranks"].get("Apple-Hype-Input", 101)
-        melon_rank = stats["ranks"].get("Melon-Gen-Z", 101)
-        report.append({
-            "hype_rank": i,
-            "hype_index": round(stats["score"], 2),
-            "apple_rank": apple_rank if apple_rank <= 100 else None,
-            "melon_rank": melon_rank if melon_rank <= 100 else None,
-            **stats["metadata"]
-        })
-    
-    # 오늘 데이터를 추가합니다. (두 차트의 합집합을 고려하여 최대 200위까지 저장)
-    history_data[today_str] = report[:200]
-    
-    # 1달간의 히스토리를 유지합니다. (최대 31개 이력)
-    sorted_dates = sorted(history_data.keys(), reverse=True)
-    history_data = {d: history_data[d] for d in sorted_dates[:31]}
-    
-    LOG.info("Updated frontend history from DB at %s", args.history_json)
-
     # Sync to YTMusic
     ytmusic = make_ytmusic(args.yt_auth)
     update_ytmusic_playlist(

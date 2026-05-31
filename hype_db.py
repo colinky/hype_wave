@@ -6,19 +6,20 @@ import logging
 import re
 import sqlite3
 import unicodedata
+from contextlib import contextmanager
 from dataclasses import asdict, is_dataclass
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Iterable
 
-from hype_scoring import calculate_rank_score
+from hype_scoring import calculate_combined_genz_score, calculate_rank_score
 
 LOG = logging.getLogger("hype_db")
 
 
 KST = timezone(timedelta(hours=9))
 MATCHED_STATUSES = {"matched", "cached_match", "proxy_matched", "manual_override"}
-DEFAULT_HYPE_WEIGHTS = {"apple": 0.4, "melon_genz": 0.6, "ytmusic": 0.0}
+DEFAULT_HYPE_WEIGHTS = {"apple": 0.4, "melon_genz": 0.4, "ytmusic": 0.2}
 
 
 def utc_now_iso() -> str:
@@ -45,6 +46,44 @@ def metadata_key(title: str | None, artist: str | None, album: str | None = "") 
 
 def compact_metadata_key(title: str | None, artist: str | None) -> str:
     return f"{normalize_text(title)}|{normalize_text(artist)}"
+
+
+def strip_parens_from_title(title: str | None) -> str:
+    """Remove ALL parenthetical/bracketed groups from a title.
+
+    Used as a last-resort fallback key so that chart entries with short titles
+    can match canonical tracks whose full title includes production credits etc.
+
+    Example:
+      'KISS KISS KISS (Prod. by Hukky Shibaseki)' → 'KISS KISS KISS'
+      '소문의 낙원 (Live)'                          → '소문의 낙원'   (also handled by clean_track_title)
+    """
+    stripped = re.sub(r"\s*[\(\[][^\)\]]*[\)\]]\s*", " ", (title or "")).strip()
+    return stripped or (title or "")
+
+
+# Patterns that denote a performance/video variant of a track rather than the studio recording.
+# These are stripped from the title when looking up a canonical counterpart.
+_VARIANT_SUFFIX_RE = re.compile(
+    r"[\(\[\s]*"
+    r"(?:live|live\s+ver(?:sion)?|live\s+performance|acoustic|acoustic\s+ver(?:sion)?"
+    r"|mv|m/v|music\s+video|official\s+video|official\s+mv|performance\s+video"
+    r"|stage|stage\s+ver(?:sion)?|dance\s+ver(?:sion)?|visualizer)"
+    r"[\)\]\s]*$",
+    re.IGNORECASE,
+)
+
+
+def clean_track_title(title: str | None) -> str:
+    """Strip performance/video variant suffixes to get the canonical studio title.
+
+    Examples:
+      '소문의 낙원 (Live)'  → '소문의 낙원'
+      '갑자기 (MV)'        → '갑자기'
+      'Song (Live Ver.)'   → 'Song'
+    """
+    cleaned = _VARIANT_SUFFIX_RE.sub("", (title or "")).strip()
+    return cleaned or (title or "")
 
 
 def stable_uid(seed: str) -> str:
@@ -119,22 +158,74 @@ def job_frequency(job_name: str, config_path: str | Path | None = None) -> str:
     return "daily"
 
 
-def chart_period_for_date(job_name: str, chart_date: str, chart_period: str | None = None) -> str:
+def job_list_type(job_name: str, config_path: str | Path | None = None) -> str:
+    for task in load_sync_config(config_path):
+        if str(task.get("job_name") or "").strip() == str(job_name or "").strip():
+            return str(task.get("list_type") or "chart").strip().lower() or "chart"
+    return "chart"
+
+
+def job_service(job_name: str, config_path: str | Path | None = None) -> str:
+    for task in load_sync_config(config_path):
+        if str(task.get("job_name") or "").strip() == str(job_name or "").strip():
+            return str(task.get("service") or "").strip().lower()
+    return ""
+
+
+def reference_period_for_date(job_name: str, chart_date: str, reference_period: str | None = None) -> str:
     frequency = job_frequency(job_name)
-    if chart_period:
-        value = str(chart_period).strip()
+    list_type = job_list_type(job_name)
+    service = job_service(job_name)
+    if reference_period:
+        value = str(reference_period).strip()
         if re.match(r"\d{4}-W\d{2}$", value):
             return value
-        if re.match(r"\d{4}-\d{2}-\d{2}$", value) and frequency != "weekly":
+        if re.match(r"\d{4}-\d{2}-\d{2}$", value):
             return value
     date_value = parse_crawl_date(chart_date) or kst_today()
-    if frequency == "weekly":
+    if list_type == "playlist":
+        schedule_day = None
+        for task in load_sync_config():
+            if str(task.get("job_name") or "").strip() == str(job_name or "").strip():
+                schedule_day = task.get("schedule")
+                break
+        if schedule_day:
+            try:
+                from datetime import datetime, timedelta
+                dt = datetime.strptime(date_value, "%Y-%m-%d")
+                day_map = {
+                    "monday": 0, "tuesday": 1, "wednesday": 2, "thursday": 3,
+                    "friday": 4, "saturday": 5, "sunday": 6
+                }
+                target_wd = day_map.get(schedule_day.lower())
+                if target_wd is not None:
+                    current_wd = dt.weekday()
+                    diff = (current_wd - target_wd) % 7
+                    aligned_dt = dt - timedelta(days=diff)
+                    return aligned_dt.strftime("%Y-%m-%d")
+            except Exception as e:
+                LOG.warning("Failed to align playlist schedule date: %s", e)
+        return date_value
+
+    if frequency == "weekly" and list_type == "chart":
         try:
+            from datetime import datetime
             dt = datetime.strptime(date_value, "%Y-%m-%d")
             iso_year, iso_week, _ = dt.isocalendar()
             return f"{iso_year}-W{iso_week:02d}"
         except ValueError:
             return date_value
+
+    if frequency == "daily" and list_type == "chart":
+        if not reference_period and job_service(job_name) == "apple":
+            try:
+                from datetime import datetime, timedelta
+                dt = datetime.strptime(date_value, "%Y-%m-%d")
+                return (dt - timedelta(days=1)).strftime("%Y-%m-%d")
+            except Exception:
+                pass
+        return date_value
+
     return date_value
 
 
@@ -186,7 +277,7 @@ def build_track_url(service: str, song_id: str | None, album_id: str | None = ""
 
 
 def _sync_config_path() -> Path:
-    return Path(__file__).resolve().parent / "sync_config_v2.json"
+    return Path(__file__).resolve().parent / "sync_config.json"
 
 
 def load_sync_config(config_path: str | Path | None = None) -> list[dict[str, Any]]:
@@ -197,7 +288,13 @@ def load_sync_config(config_path: str | Path | None = None) -> list[dict[str, An
 
 def hype_inputs(config_path: str | Path | None = None) -> dict[str, dict[str, Any]]:
     out: dict[str, dict[str, Any]] = {}
-    for task in load_sync_config(config_path):
+    config_list = load_sync_config(config_path)
+    if not config_list:
+        raise FileNotFoundError(
+            "Configuration file 'sync_config.json' not found or empty. "
+            "Please ensure sync_config.json exists in the root directory."
+        )
+    for task in config_list:
         if not task.get("include_in_hype"):
             continue
         job_name = str(task.get("job_name") or "").strip()
@@ -206,13 +303,11 @@ def hype_inputs(config_path: str | Path | None = None) -> dict[str, dict[str, An
         group = str(task.get("hype_group") or "").strip()
         weight = float(task.get("hype_weight") or DEFAULT_HYPE_WEIGHTS.get(group, 1.0))
         out[job_name] = {**task, "hype_group": group, "hype_weight": weight}
-    if out:
-        return out
-    return {
-        "KR-Top-100": {"hype_group": "apple", "hype_weight": 0.4},
-        "Gen-Z-Daily": {"hype_group": "melon_genz", "hype_weight": 0.6},
-        "Weekly-Hot-100": {"hype_group": "ytmusic", "hype_weight": 0.0},
-    }
+    if not out:
+        raise ValueError(
+            "No jobs found with 'include_in_hype': true in the configuration file!"
+        )
+    return out
 
 
 def match_method_for_status(status: str | None, query: str | None = "") -> tuple[str, str, bool]:
@@ -231,11 +326,20 @@ def match_method_for_status(status: str | None, query: str | None = "") -> tuple
     return "search", "search", False
 
 
-def connect(db_path: str | Path) -> sqlite3.Connection:
+@contextmanager
+def connect(db_path: str | Path):
     conn = sqlite3.connect(str(db_path))
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys = ON")
-    return conn
+    conn.execute("PRAGMA journal_mode = WAL")
+    try:
+        yield conn
+        conn.commit()
+    except BaseException:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
 
 
 def init_db(db_path: str | Path) -> None:
@@ -245,7 +349,89 @@ def init_db(db_path: str | Path) -> None:
         init_schema(conn)
 
 
+def run_schema_migrations(conn: sqlite3.Connection) -> None:
+    # 1. Rename column in playlist_order
+    if table_exists(conn, "playlist_order"):
+        cols = table_columns(conn, "playlist_order")
+        if "chart_period" in cols and "reference_period" not in cols:
+            LOG.info("Migrating table playlist_order: renaming chart_period to reference_period")
+            conn.execute("ALTER TABLE playlist_order RENAME COLUMN chart_period TO reference_period")
+            conn.execute("DROP INDEX IF EXISTS idx_playlist_order_job_period")
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_playlist_order_job_period ON playlist_order(job_name, reference_period)")
+
+    # 2. Rename column in manual_overrides
+    if table_exists(conn, "manual_overrides"):
+        cols = table_columns(conn, "manual_overrides")
+        if "chart_period" in cols and "reference_period" not in cols:
+            LOG.info("Migrating table manual_overrides: renaming chart_period to reference_period")
+            conn.execute("ALTER TABLE manual_overrides RENAME COLUMN chart_period TO reference_period")
+
+    # 3. Rename column in review_conflicts
+    if table_exists(conn, "review_conflicts"):
+        cols = table_columns(conn, "review_conflicts")
+        if "chart_period" in cols and "reference_period" not in cols:
+            LOG.info("Migrating table review_conflicts: renaming chart_period to reference_period")
+            conn.execute("ALTER TABLE review_conflicts RENAME COLUMN chart_period TO reference_period")
+
+    # 4. Apply one-time migration: daily chart date shift (-1 day)
+    try:
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS schema_migrations (
+                version TEXT PRIMARY KEY,
+                applied_at TEXT NOT NULL,
+                description TEXT
+            )
+            """
+        )
+        row = conn.execute("SELECT 1 FROM schema_migrations WHERE version = 'reference_period_daily_shift'").fetchone()
+        if not row:
+            LOG.info("Skipping one-time migration: daily chart date shift (-1 day) (Disabled to prevent duplicate shifts)")
+            from datetime import datetime, timezone
+            conn.execute(
+                "INSERT INTO schema_migrations(version, applied_at, description) VALUES (?, ?, ?)",
+                ("reference_period_daily_shift", datetime.now(timezone.utc).isoformat(), "Shift Apple/Melon daily chart dates by -1 day (Disabled)")
+            )
+            conn.commit()
+    except Exception as exc:
+        LOG.warning("Failed to run daily chart date shift migration: %s", exc)
+
+    # 5. Spotify Weekly W## format recovery to Friday date
+    try:
+        row = conn.execute("SELECT 1 FROM schema_migrations WHERE version = 'spotify_weekly_date_recovery'").fetchone()
+        if not row:
+            LOG.info("Applying one-time migration: Spotify weekly ISO week recovery to scheduled Friday date")
+            rows = conn.execute("SELECT DISTINCT reference_period FROM playlist_order WHERE service = 'spotify' AND INSTR(reference_period, '-W') > 0").fetchall()
+            for r in rows:
+                iso_week = r[0]
+                match = re.match(r"(\d{4})-W(\d{2})", iso_week)
+                if match:
+                    year = int(match.group(1))
+                    week = int(match.group(2))
+                    from datetime import datetime, timedelta
+                    jan4 = datetime(year, 1, 4)
+                    iso_year, iso_wk, iso_wd = jan4.isocalendar()
+                    monday_wk1 = jan4 - timedelta(days=iso_wd - 1)
+                    friday_of_target_wk = monday_wk1 + timedelta(weeks=week - 1, days=4)
+                    friday_date_str = friday_of_target_wk.strftime("%Y-%m-%d")
+                    
+                    conn.execute(
+                        "UPDATE playlist_order SET reference_period = ? WHERE service = 'spotify' AND reference_period = ?",
+                        (friday_date_str, iso_week)
+                    )
+                    LOG.info("Converted Spotify week %s to Friday date %s", iso_week, friday_date_str)
+            from datetime import datetime, timezone
+            conn.execute(
+                "INSERT INTO schema_migrations(version, applied_at, description) VALUES (?, ?, ?)",
+                ("spotify_weekly_date_recovery", datetime.now(timezone.utc).isoformat(), "Recover Spotify weekly ISO week to scheduled Friday date")
+            )
+            conn.commit()
+    except Exception as exc:
+        LOG.warning("Failed to run Spotify weekly date recovery migration: %s", exc)
+
+
 def init_schema(conn: sqlite3.Connection) -> None:
+    run_schema_migrations(conn)
     conn.execute("PRAGMA foreign_keys = OFF")
     conn.executescript(
         """
@@ -312,10 +498,10 @@ def init_schema(conn: sqlite3.Connection) -> None:
             service TEXT NOT NULL,
             job_name TEXT NOT NULL,
             source_variant TEXT NOT NULL DEFAULT 'default',
-            chart_period TEXT NOT NULL,
+            reference_period TEXT NOT NULL,
             song_id TEXT NOT NULL,
             rank_order INTEGER NOT NULL,
-            PRIMARY KEY (service, job_name, source_variant, chart_period, song_id)
+            PRIMARY KEY (service, job_name, source_variant, reference_period, song_id)
         );
 
         CREATE TABLE IF NOT EXISTS match_runs (
@@ -390,7 +576,7 @@ def init_schema(conn: sqlite3.Connection) -> None:
             song_id TEXT NOT NULL,
             job_name TEXT,
             source_variant TEXT,
-            chart_period TEXT,
+            reference_period TEXT,
             title TEXT,
             artist TEXT,
             album TEXT,
@@ -452,7 +638,7 @@ def init_schema(conn: sqlite3.Connection) -> None:
     conn.execute("CREATE INDEX IF NOT EXISTS idx_tracks_canonical_yt ON tracks(canonical_yt_video_id)")
     conn.execute("CREATE INDEX IF NOT EXISTS idx_platform_song_ids_track ON platform_song_ids(track_uid)")
     conn.execute("CREATE INDEX IF NOT EXISTS idx_match_attempts_video ON match_attempts(video_id)")
-    conn.execute("CREATE INDEX IF NOT EXISTS idx_playlist_order_job_period ON playlist_order(job_name, chart_period)")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_playlist_order_job_period ON playlist_order(job_name, reference_period)")
     repair_stats = repair_failed_source_bindings(conn)
     if repair_stats.get("updated_bindings") or repair_stats.get("merged_tracks"):
         conn.execute(
@@ -593,7 +779,7 @@ def _rebuild_index_tables(conn: sqlite3.Connection) -> None:
 
 
 def _rebuild_playlist_order(conn: sqlite3.Connection) -> None:
-    target = {"service", "job_name", "source_variant", "chart_period", "song_id", "rank_order"}
+    target = {"service", "job_name", "source_variant", "reference_period", "song_id", "rank_order"}
     if not table_exists(conn, "playlist_order"):
         return
     if table_columns(conn, "playlist_order") == target:
@@ -601,7 +787,7 @@ def _rebuild_playlist_order(conn: sqlite3.Connection) -> None:
             """
             SELECT DISTINCT job_name
             FROM playlist_order
-            WHERE chart_period GLOB '????-??-??'
+            WHERE reference_period GLOB '????-??-??'
             """
         ).fetchall()
         needs_period_normalize = any(job_frequency(row["job_name"]) == "weekly" for row in date_period_jobs)
@@ -616,10 +802,10 @@ def _rebuild_playlist_order(conn: sqlite3.Connection) -> None:
             service TEXT NOT NULL,
             job_name TEXT NOT NULL,
             source_variant TEXT NOT NULL DEFAULT 'default',
-            chart_period TEXT NOT NULL,
+            reference_period TEXT NOT NULL,
             song_id TEXT NOT NULL,
             rank_order INTEGER NOT NULL,
-            PRIMARY KEY(service, job_name, source_variant, chart_period, song_id)
+            PRIMARY KEY(service, job_name, source_variant, reference_period, song_id)
         )
         """
     )
@@ -628,21 +814,21 @@ def _rebuild_playlist_order(conn: sqlite3.Connection) -> None:
         legacy_name = str(data.get("playlist_name") or "")
         job_name = legacy_to_job_name(data.get("job_name") or legacy_name)
         variant = _source_variant_from_legacy(legacy_name, str(data.get("source_variant") or ""))
-        date_value = data.get("chart_period_end") or data.get("chart_period_start") or data.get("crawl_time") or data.get("chart_period")
-        chart_period = chart_period_for_date(job_name, str(date_value or ""), str(data.get("chart_period") or ""))
+        date_value = data.get("chart_period_end") or data.get("chart_period_start") or data.get("crawl_time") or data.get("chart_period") or data.get("reference_period")
+        reference_period = reference_period_for_date(job_name, str(date_value or ""), str(data.get("reference_period") or data.get("chart_period") or ""))
         service = normalized_service(data.get("service"))
         song_id = str(data.get("song_id") or "").strip()
         rank_order = int(data.get("rank_order") or 0)
-        if not service or not job_name or not song_id or not chart_period or not rank_order:
+        if not service or not job_name or not song_id or not reference_period or not rank_order:
             continue
         conn.execute(
             f"""
-            INSERT INTO {temp_table}(service, job_name, source_variant, chart_period, song_id, rank_order)
+            INSERT INTO {temp_table}(service, job_name, source_variant, reference_period, song_id, rank_order)
             VALUES (?, ?, ?, ?, ?, ?)
-            ON CONFLICT(service, job_name, source_variant, chart_period, song_id) DO UPDATE SET
+            ON CONFLICT(service, job_name, source_variant, reference_period, song_id) DO UPDATE SET
                 rank_order = excluded.rank_order
             """,
-            (service, job_name, variant, chart_period, song_id, rank_order),
+            (service, job_name, variant, reference_period, song_id, rank_order),
         )
     conn.execute("DROP TABLE playlist_order")
     conn.execute(f"ALTER TABLE {temp_table} RENAME TO playlist_order")
@@ -798,7 +984,7 @@ def _rebuild_match_candidates(conn: sqlite3.Connection) -> None:
 
 def _rebuild_review_conflicts(conn: sqlite3.Connection) -> None:
     target = {
-        "conflict_id", "service", "song_id", "job_name", "source_variant", "chart_period",
+        "conflict_id", "service", "song_id", "job_name", "source_variant", "reference_period",
         "title", "artist", "album", "query", "score", "source_file", "existing_track_uid",
         "incoming_track_uid", "existing_video_id", "incoming_video_id", "reason", "status", "created_at",
     }
@@ -814,7 +1000,7 @@ def _rebuild_review_conflicts(conn: sqlite3.Connection) -> None:
             song_id TEXT NOT NULL,
             job_name TEXT,
             source_variant TEXT,
-            chart_period TEXT,
+            reference_period TEXT,
             title TEXT,
             artist TEXT,
             album TEXT,
@@ -835,11 +1021,11 @@ def _rebuild_review_conflicts(conn: sqlite3.Connection) -> None:
         data = dict(row)
         legacy_name = str(data.get("playlist_name") or "")
         job_name = legacy_to_job_name(data.get("job_name") or legacy_name)
-        period = chart_period_for_date(job_name, str(data.get("chart_period") or data.get("crawl_time") or data.get("created_at") or ""))
+        period = reference_period_for_date(job_name, str(data.get("reference_period") or data.get("chart_period") or data.get("crawl_time") or data.get("created_at") or ""))
         conn.execute(
             """
             INSERT OR REPLACE INTO review_conflicts(
-                conflict_id, service, song_id, job_name, source_variant, chart_period, title,
+                conflict_id, service, song_id, job_name, source_variant, reference_period, title,
                 artist, album, query, score, source_file, existing_track_uid, incoming_track_uid,
                 existing_video_id, incoming_video_id, reason, status, created_at
             )
@@ -954,8 +1140,9 @@ def _create_views(conn: sqlite3.Connection) -> None:
             p.service,
             p.job_name,
             p.source_variant,
-            p.chart_period,
-            p.chart_period AS chart_date,
+            p.reference_period,
+            p.reference_period AS chart_period,
+            p.reference_period AS chart_date,
             p.song_id,
             ps.track_uid,
             p.rank_order,
@@ -999,6 +1186,29 @@ def find_track_by_video(conn: sqlite3.Connection, video_id: str | None) -> str |
 
 def find_track_by_metadata(conn: sqlite3.Connection, title: str, artist: str, album: str = "") -> str | None:
     keys = [metadata_key(title, artist, album), compact_metadata_key(title, artist)]
+    # Fallback 1: strip performance variant suffixes (Live, MV, Acoustic …)
+    # e.g. '소문의 낙원 (Live)' → '소문의 낙원'
+    cleaned = clean_track_title(title)
+    if cleaned != title:
+        keys.append(compact_metadata_key(cleaned, artist))
+        if album:
+            keys.append(metadata_key(cleaned, artist, album))
+    # Fallback 2: strip ALL parenthetical content from the *query* title
+    # e.g. 'KISS KISS KISS' matches index key for 'KISS KISS KISS (Prod. by Hukky Shibaseki)'
+    stripped_title = strip_parens_from_title(title)
+    if stripped_title != title and stripped_title != cleaned:
+        keys.append(compact_metadata_key(stripped_title, artist))
+        if album:
+            keys.append(metadata_key(stripped_title, artist, album))
+    # Fallback 3: strip parenthetical content from the *artist*
+    # e.g. Melon stores 'LE SSERAFIM (르세라핌)' — strip → 'LE SSERAFIM'
+    # which matches Apple's existing 'boompala|le sserafim' index key.
+    stripped_artist = strip_parens_from_title(artist)
+    if stripped_artist != artist:
+        keys.append(compact_metadata_key(title, stripped_artist))
+        keys.append(compact_metadata_key(cleaned, stripped_artist))
+        if album:
+            keys.append(metadata_key(title, stripped_artist, album))
     for key in keys:
         row = conn.execute(
             "SELECT track_uid FROM metadata_lookup_index WHERE lookup_key = ?",
@@ -1007,6 +1217,7 @@ def find_track_by_metadata(conn: sqlite3.Connection, title: str, artist: str, al
         if row:
             return row["track_uid"]
     return None
+
 
 
 def manual_override(conn: sqlite3.Connection, service: str, song_id: str) -> sqlite3.Row | None:
@@ -1090,7 +1301,7 @@ def record_conflict(
     conn.execute(
         """
         INSERT OR IGNORE INTO review_conflicts(
-            conflict_id, service, song_id, job_name, source_variant, chart_period, title, artist,
+            conflict_id, service, song_id, job_name, source_variant, reference_period, title, artist,
             album, query, score, source_file, existing_track_uid, incoming_track_uid,
             existing_video_id, incoming_video_id, reason, created_at
         )
@@ -1102,9 +1313,9 @@ def record_conflict(
             song_id,
             payload.get("job_name") or legacy_to_job_name(payload.get("playlist_name") or payload.get("chart_type") or ""),
             normalize_source_variant(payload.get("source_variant")),
-            chart_period_for_date(
+            reference_period_for_date(
                 payload.get("job_name") or legacy_to_job_name(payload.get("playlist_name") or payload.get("chart_type") or ""),
-                payload.get("chart_period") or payload.get("extracted_at") or payload.get("crawl_time") or "",
+                payload.get("reference_period") or payload.get("chart_period") or payload.get("extracted_at") or payload.get("crawl_time") or "",
             ),
             payload.get("title") or payload.get("title_ko") or payload.get("title_en") or "",
             payload.get("artist") or payload.get("artist_ko") or payload.get("artist_en") or "",
@@ -1190,6 +1401,24 @@ def upsert_metadata_lookup(conn: sqlite3.Connection, *, track_uid: str, row: dic
         key_score_pairs = [(full_key, score)]
         if compact_key != full_key:
             key_score_pairs.append((compact_key, score * 0.8))
+        # Fallback: parens-stripped title key (score*0.6) so that short chart titles
+        # (e.g. 'KISS KISS KISS') can match a canonical title with extra credits.
+        # Only added when stripping actually changes the title.
+        stripped_title = strip_parens_from_title(title)
+        if stripped_title != title and stripped_title:
+            stripped_full_key = metadata_key(stripped_title, artist, album)
+            stripped_compact_key = compact_metadata_key(stripped_title, artist)
+            key_score_pairs.append((stripped_compact_key, score * 0.6))
+            if stripped_full_key != stripped_compact_key:
+                key_score_pairs.append((stripped_full_key, score * 0.6))
+        # Fallback: parens-stripped artist key (score*0.6)
+        # Handles 'LE SSERAFIM (르세라핌)' → 'LE SSERAFIM' so future Melon entries
+        # find the canonical track already created by Apple/Spotify/YTMusic.
+        stripped_artist = strip_parens_from_title(artist)
+        if stripped_artist != artist and stripped_artist:
+            key_score_pairs.append((compact_metadata_key(title, stripped_artist), score * 0.6))
+            if stripped_title != title:
+                key_score_pairs.append((compact_metadata_key(stripped_title, stripped_artist), score * 0.6))
         for key, effective_score in key_score_pairs:
             if not key.strip("|"):
                 continue
@@ -1441,6 +1670,7 @@ def upsert_chart_rank(
     job_name: str = "",
     source_variant: str = "default",
     chart_date: str,
+    reference_period: str | None = None,
     chart_period: str | None = None,
     song_id: str,
     track_uid: str,
@@ -1452,16 +1682,17 @@ def upsert_chart_rank(
     service = normalized_service(service)
     job_name = require_job_name(job_name)
     source_variant = normalize_source_variant(source_variant)
-    period = chart_period_for_date(job_name, chart_date, chart_period)
+    ref_p = reference_period or chart_period
+    period = reference_period_for_date(job_name, chart_date, ref_p)
     if not period:
         return
     conn.execute(
         """
         INSERT INTO playlist_order(
-            service, job_name, source_variant, chart_period, song_id, rank_order
+            service, job_name, source_variant, reference_period, song_id, rank_order
         )
         VALUES (?, ?, ?, ?, ?, ?)
-        ON CONFLICT(service, job_name, source_variant, chart_period, song_id) DO UPDATE SET
+        ON CONFLICT(service, job_name, source_variant, reference_period, song_id) DO UPDATE SET
             rank_order = excluded.rank_order
         """,
         (
@@ -1594,6 +1825,101 @@ def cleanup_old_attempts_and_candidates(conn: sqlite3.Connection, days: int = 15
     conn.execute("DELETE FROM match_candidates WHERE datetime(created_at) < datetime('now', '-' || ? || ' days')", (days,))
 
 
+def get_expected_track_count(job_name: str) -> int | None:
+    job = str(job_name).lower().strip()
+    if "top-songs" in job:
+        return 200
+    if "top-100" in job or "hot-100" in job or "gen-z" in job:
+        return 100
+    if "top-25" in job:
+        return 25
+    return None
+
+
+def persist_crawled_tracks(
+    db_path: str | Path,
+    *,
+    service: str,
+    job_name: str = "",
+    source_variant: str = "default",
+    chart_date: str,
+    reference_period: str | None = None,
+    chart_period: str | None = None,
+    tracks: Iterable[Any],
+) -> None:
+    init_db(db_path)
+    job_name = require_job_name(job_name)
+    source_variant = normalize_source_variant(source_variant)
+    track_rows = [row_dict(t) for t in tracks]
+    
+    # Validation check: Ensure the track count matches the expected count
+    expected = get_expected_track_count(job_name)
+    if expected is not None and len(track_rows) != expected:
+        if os.environ.get("BYPASS_TRACK_COUNT_VAL") == "true":
+            LOG.warning(
+                "Track count validation bypassed. Job '%s' has %d tracks, expected %d.",
+                job_name, len(track_rows), expected
+            )
+        else:
+            raise ValueError(
+                f"Validation Error: Job '{job_name}' has {len(track_rows)} tracks, "
+                f"but expected exactly {expected} tracks. Aborting database persistence to prevent corruption. "
+                f"Set BYPASS_TRACK_COUNT_VAL=true to bypass."
+            )
+
+    with connect(db_path) as conn:
+        ref_p = reference_period or chart_period
+        resolved_period = reference_period_for_date(job_name, chart_date, ref_p)
+        if resolved_period and not (normalized_service(service) == "melon" and job_name == "Gen-Z-Daily" and source_variant == "combined"):
+            LOG.info("Cleaning up existing playlist_order records for %s / %s / %s (period: %s)", service, job_name, source_variant, resolved_period)
+            conn.execute(
+                """
+                DELETE FROM playlist_order
+                WHERE service = ? AND job_name = ? AND source_variant = ? AND reference_period = ?
+                """,
+                (normalized_service(service), job_name, source_variant, resolved_period)
+            )
+
+        for track in track_rows:
+            song_id = normalize_song_id(service, track)
+            if not song_id:
+                continue
+            
+            existing_uid = find_track_by_service_song(conn, service, song_id)
+            if existing_uid:
+                track_uid = existing_uid
+            else:
+                track_uid = stable_uid(f"unmatched:{service}:{song_id}")
+            
+            ensure_track(
+                conn,
+                track_uid=track_uid,
+                status="unmatched",
+            )
+            
+            upsert_track_list_metadata(
+                conn,
+                service=service,
+                song_id=song_id,
+                track_uid=track_uid,
+                row=track,
+            )
+            
+            upsert_chart_rank(
+                conn,
+                service=service,
+                job_name=job_name,
+                source_variant=source_variant,
+                chart_date=chart_date,
+                reference_period=resolved_period,
+                song_id=song_id,
+                track_uid=track_uid,
+                rank_order=int(track.get("rank") or 0),
+                album_id=infer_album_id(service, track),
+            )
+        conn.commit()
+
+
 def persist_crawl_run(
     db_path: str | Path,
     *,
@@ -1601,6 +1927,7 @@ def persist_crawl_run(
     job_name: str = "",
     source_variant: str = "default",
     chart_date: str,
+    reference_period: str | None = None,
     chart_period: str | None = None,
     started_at: str,
     tracks: Iterable[Any],
@@ -1611,7 +1938,36 @@ def persist_crawl_run(
     source_variant = normalize_source_variant(source_variant)
     track_rows = [row_dict(t) for t in tracks]
     match_rows = [row_dict(m) for m in matches]
+    
+    # Validation check: Ensure the track count matches the expected count
+    expected = get_expected_track_count(job_name)
+    if expected is not None and len(track_rows) != expected:
+        if os.environ.get("BYPASS_TRACK_COUNT_VAL") == "true":
+            LOG.warning(
+                "Track count validation bypassed. Job '%s' has %d tracks, expected %d.",
+                job_name, len(track_rows), expected
+            )
+        else:
+            raise ValueError(
+                f"Validation Error: Job '{job_name}' has {len(track_rows)} tracks, "
+                f"but expected exactly {expected} tracks. Aborting database persistence to prevent corruption. "
+                f"Set BYPASS_TRACK_COUNT_VAL=true to bypass."
+            )
+
     with connect(db_path) as conn:
+        # Prevent duplication by cleaning up existing chart records for the same period
+        ref_p = reference_period or chart_period
+        resolved_period = reference_period_for_date(job_name, chart_date, ref_p)
+        if resolved_period and not (normalized_service(service) == "melon" and job_name == "Gen-Z-Daily" and source_variant == "combined"):
+            LOG.info("Cleaning up existing playlist_order records for %s / %s / %s (period: %s)", service, job_name, source_variant, resolved_period)
+            conn.execute(
+                """
+                DELETE FROM playlist_order
+                WHERE service = ? AND job_name = ? AND source_variant = ? AND reference_period = ?
+                """,
+                (normalized_service(service), job_name, source_variant, resolved_period)
+            )
+
         run_id = start_match_run(
             conn,
             service=service,
@@ -1651,7 +2007,7 @@ def persist_crawl_run(
                         job_name=job_name,
                         source_variant=source_variant,
                         chart_date=chart_date,
-                        chart_period=chart_period,
+                        reference_period=reference_period or chart_period,
                         song_id=song_id,
                         track_uid=track_uid,
                         rank_order=int(match.get("rank") or source_row.get("rank") or 0),
@@ -2053,7 +2409,6 @@ def export_frontend_history(db_path: str | Path, output_path: str | Path, *, day
     if not path.exists():
         return {}
     with connect(path) as conn:
-        init_schema(conn)
         apple_playlists = [
             name for name, item in hype_inputs().items()
             if item.get("hype_group") == "apple"
@@ -2061,16 +2416,23 @@ def export_frontend_history(db_path: str | Path, output_path: str | Path, *, day
         placeholders = ",".join("?" for _ in apple_playlists)
         date_rows = conn.execute(
             f"""
-            SELECT DISTINCT chart_period AS chart_date
+            SELECT DISTINCT reference_period AS chart_date
             FROM playlist_order
             WHERE job_name IN ({placeholders})
-              AND chart_period GLOB '????-??-??'
+              AND reference_period GLOB '????-??-??'
             ORDER BY chart_date DESC
             LIMIT ?
             """,
             (*apple_playlists, days),
         ).fetchall()
-        dates = [row["chart_date"] for row in date_rows]
+        dates = []
+        for row in date_rows:
+            try:
+                from datetime import datetime, timedelta
+                dt = datetime.strptime(row["chart_date"], "%Y-%m-%d")
+                dates.append((dt + timedelta(days=1)).strftime("%Y-%m-%d"))
+            except Exception:
+                dates.append(row["chart_date"])
         history: dict[str, list[dict[str, Any]]] = {}
         previous_apple_videos: set[str] = set()
         for date in sorted(dates):
@@ -2093,22 +2455,22 @@ def hype_report_for_date(
     previous_apple_videos = previous_apple_videos or set()
     input_config = hype_inputs()
     ytmusic_jobs = [name for name, item in input_config.items() if item.get("hype_group") == "ytmusic"]
-    # target_week: 주별 차트(ytmusic, Spotify 등)의 carry-forward 기준 ISO 주 (예: '2026-W18')
-    target_week = chart_period_for_date(ytmusic_jobs[0], chart_date) if ytmusic_jobs else chart_date
+    # target_week: 주별 차트(ytmusic 등)의 carry-forward 기준 ISO 주 (예: '2026-W18')
+    target_week = reference_period_for_date(ytmusic_jobs[0], chart_date) if ytmusic_jobs else chart_date
     rows = conn.execute(
         """
         WITH effective AS (
             -- 각 (service, job_name, source_variant) 조합에 대해
-            -- 해당 날짜 이하의 가장 최신 chart_period를 선택합니다 (전체 소스 carry-forward).
-            --   일별 차트 (Apple, Melon): chart_period = 날짜 형식 (예: '2026-05-27')
-            --     → INSTR(chart_period, '-W') = 0 이므로 chart_date 기준 비교
-            --   주별 차트 (ytmusic, Spotify): chart_period = ISO 주 형식 (예: '2026-W18')
-            --     → INSTR(chart_period, '-W') > 0 이므로 target_week 기준 비교
+            -- 해당 날짜 이하의 가장 최신 reference_period를 선택합니다 (전체 소스 carry-forward).
+            --   일별 차트 (Apple, Melon) 및 Spotify 주간 playlist: reference_period = 날짜 형식 (예: '2026-05-27')
+            --     → INSTR(reference_period, '-W') = 0 이므로 chart_date 기준 비교
+            --   주별 차트 (ytmusic): reference_period = ISO 주 형식 (예: '2026-W18')
+            --     → INSTR(reference_period, '-W') > 0 이므로 target_week 기준 비교
             SELECT service, job_name, source_variant,
-                   MAX(chart_period) AS eff_period
+                   MAX(reference_period) AS eff_period
             FROM playlist_order
-            WHERE (INSTR(chart_period, '-W') = 0 AND chart_period <= ?)
-               OR (INSTR(chart_period, '-W') > 0 AND chart_period <= ?)
+            WHERE (INSTR(reference_period, '-W') = 0 AND reference_period < ?)
+               OR (INSTR(reference_period, '-W') > 0 AND reference_period <= ?)
             GROUP BY service, job_name, source_variant
         )
         SELECT
@@ -2132,7 +2494,7 @@ def hype_report_for_date(
           ON e.service = p.service
          AND e.job_name = p.job_name
          AND e.source_variant = p.source_variant
-         AND p.chart_period = e.eff_period
+         AND p.reference_period = e.eff_period
         JOIN platform_song_ids ps
           ON ps.service = p.service
          AND ps.song_id = p.song_id
@@ -2145,6 +2507,20 @@ def hype_report_for_date(
         """,
         (chart_date, target_week),
     ).fetchall()
+    
+    # Load Generation-wise weights dynamically from sync_config
+    gen_z_task = input_config.get("Gen-Z-Daily") or {}
+    gen1_weight = 0.60
+    gen2_weight = 0.40
+    source_urls = gen_z_task.get("source_urls", [])
+    if isinstance(source_urls, list):
+        for src in source_urls:
+            if isinstance(src, dict):
+                if str(src.get("gen")) == "1":
+                    gen1_weight = float(src.get("weight") or 0.60)
+                elif str(src.get("gen")) == "2":
+                    gen2_weight = float(src.get("weight") or 0.40)
+
     grouped: dict[str, dict[str, Any]] = {}
     for row in rows:
         uid = row["video_id"]
@@ -2217,8 +2593,11 @@ def hype_report_for_date(
         gen2 = item.pop("_gen2_rank", None)
         score_parts = item.pop("_score_parts", {})
         if gen1 or gen2:
-            genz_score = calculate_rank_score(gen1) * 0.60 + calculate_rank_score(gen2) * 0.40
-            score_parts["melon_genz"] = max(score_parts.get("melon_genz", 0.0), genz_score * DEFAULT_HYPE_WEIGHTS["melon_genz"])
+            genz_score = calculate_combined_genz_score(gen1, gen2, gen1_weight, gen2_weight)
+            melon_genz_weight = (input_config.get("Gen-Z-Daily") or {}).get("hype_weight")
+            if melon_genz_weight is None:
+                melon_genz_weight = DEFAULT_HYPE_WEIGHTS["melon_genz"]
+            score_parts["melon_genz"] = max(score_parts.get("melon_genz", 0.0), genz_score * melon_genz_weight)
         hype_index = sum(score_parts.values())
         apple_rank = item["apple_rank"] or 101
         melon_rank = item["melon_rank"] or 101

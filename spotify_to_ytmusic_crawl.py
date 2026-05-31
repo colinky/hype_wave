@@ -31,27 +31,19 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
-import requests
-
 from ytmusic_playlist_sync import (
-    MatchResult,
     SourceTrack,
-    artist_variants,
     env_or_arg,
     load_dotenv,
-    load_match_cache,
     make_ytmusic,
     normalize_text,
-    search_youtube_music,
-    similarity,
-    cleanup_old_logs,
     update_ytmusic_playlist,
     write_json,
-    artist_variants,
-    title_variants,
-    album_variants,
-    match_from_prev,
+    get_resilient_session,
 )
+from crawler_common import process_matching_pipeline
+
+http_session = get_resilient_session()
 
 
 DEFAULT_SPOTIFY_PLAYLIST_URL = "https://open.spotify.com/playlist/37i9dQZF1DWT9uTRZAYj0c"
@@ -327,7 +319,7 @@ def get_album_from_musicbrainz(title: str, artist: str) -> str:
     for query in queries:
         try:
             musicbrainz_rate_limit()
-            response = requests.get(
+            response = http_session.get(
                 "https://musicbrainz.org/ws/2/recording",
                 params={"query": query, "limit": 10, "fmt": "json"},
                 headers=headers,
@@ -392,7 +384,7 @@ def fetch_spotify_tracks_scraped(
         "locale": "ko" if market == "KR" else "en",
     }
     
-    response = requests.get(embed_url, headers=headers, params=params, timeout=30)
+    response = http_session.get(embed_url, headers=headers, params=params, timeout=30)
     response.raise_for_status()
     
     html = response.text
@@ -502,7 +494,6 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--yt-playlist-id")
     parser.add_argument("--job-name")
     parser.add_argument("--playlist-name")
-    parser.add_argument("--log-dir")
     parser.add_argument("--db-path", default="hype_wave_data.db")
     parser.add_argument("--history-json", default="docs/api/history.json")
     parser.add_argument("--no-db-cache", action="store_true")
@@ -511,7 +502,6 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--min-artist-score", type=float, default=DEFAULT_MIN_ARTIST_SCORE)
     parser.add_argument("--search-limit", type=int, default=DEFAULT_SEARCH_LIMIT)
     parser.add_argument("--use-musicbrainz", default=None, help="true/false. Enrich missing Spotify album names with MusicBrainz (default: true)")
-    parser.add_argument("--apple-proxy-data", help="Path to one or more Apple matches_crawl.json files to use as metadata proxy")
     parser.add_argument("--shuffle", action="store_true", help="Shuffle the tracks before saving them to the YouTube Music playlist")
     parser.add_argument("--dry-run", action="store_true")
     return parser.parse_args()
@@ -539,15 +529,20 @@ def main() -> int:
         "YTMUSIC_OAUTH_CLIENT_SECRET", ""
     )
     yt_playlist_id = env_or_arg(args.yt_playlist_id, "YTMUSIC_PLAYLIST_ID")
-    log_dir = Path(args.log_dir or os.environ.get("LOG_DIR", "logs")).expanduser()
-    job_name = args.job_name or log_dir.name
+    job_name = args.job_name or "spotify"
     playlist_name = args.playlist_name or job_name
     db_path = Path(args.db_path).expanduser()
     if not args.no_db_cache:
         os.environ["HYPE_DB_PATH"] = str(db_path)
     
-    # Load previous results to speed up matching AND lazy MusicBrainz
-    match_cache = load_match_cache(log_dir)
+    # Load previous results from DB to speed up matching AND lazy MusicBrainz
+    match_cache = {}
+    if not args.no_db_cache:
+        try:
+            from hype_db import build_match_cache
+            match_cache = build_match_cache(db_path)
+        except Exception as exc:
+            LOG.warning("Failed to load DB match cache: %s", exc)
     
     min_score = float(os.environ.get("MATCH_MIN_SCORE", args.min_score))
     min_title_score = float(os.environ.get("MATCH_MIN_TITLE_SCORE", args.min_title_score))
@@ -559,72 +554,6 @@ def main() -> int:
         args.use_musicbrainz if args.use_musicbrainz is not None else os.environ.get("USE_MUSICBRAINZ"),
         default=True,
     )
-    
-   # Legacy JSON proxy loading is disabled; DB metadata_lookup_index is the proxy cache.
-    apple_proxy: dict[str, dict[str, Any]] = {}
-    proxy_paths = ""
-
-    if proxy_paths:
-        for p_path in proxy_paths.split(","):
-            p_path = p_path.strip()
-            if not p_path:
-                continue
-            path = Path(p_path)
-            if path.exists():
-                try:
-                    with open(path, "r", encoding="utf-8") as f:
-                        proxy_list = json.load(f)
-                        for item in proxy_list:
-                            # Index by ALL possible combinations of titles and artists for maximum robustness
-                            all_titles = [item.get("title"), item.get("title_ko"), item.get("title_en")]
-                            all_artists = [item.get("artist"), item.get("artist_ko"), item.get("artist_en")]
-                            
-                            for t in all_titles:
-                                for a in all_artists:
-                                    if not t or not a: continue
-                                    t_norm = normalize_text(t)
-                                    a_norm = normalize_text(a)
-                                    if t_norm and a_norm:
-                                        apple_proxy[f"{t_norm}|{a_norm}"] = item
-                            # 프록시 조회를 위해 곡명, 아티스트, 앨범명의 모든 변형 조합을 키로 등록
-                            titles = set()
-                            for k in ["title", "title_ko", "title_en"]:
-                                if item.get(k): titles.update(title_variants(item[k]))
-
-                            artists = set()
-                            for k in ["artist", "artist_ko", "artist_en"]:
-                                if item.get(k): artists.update(artist_variants(item[k]))
-
-                            albums = set()
-                            for k in ["album", "album_ko", "album_en"]:
-                                if item.get(k): albums.update(album_variants(item[k]))
-                            if not albums: albums.add("") # 앨범명이 없는 경우 대비
-
-                            # 품질 점수(Reliability) 계산 로직 강화
-                            # 공식 음원('song') 우선순위 및 앨범 점수 반영
-                            type_bonus = 0.1 if item.get("yt_result_type") == "song" else 0.0
-                            quality = (item.get("score", 0.0) + type_bonus) * (0.5 + (item.get("album_score", 1.0) * 0.5))
-
-                            for t in titles:
-                                for a in artists:
-                                    for al in albums:
-                                        keys = [
-                                            f"{normalize_text(t)}|{normalize_text(a)}|{normalize_text(al)}",
-                                            f"{normalize_text(t)}|{normalize_text(a)}"
-                                        ]
-                                        for key in keys:
-                                            # 더 품질이 좋은 매칭 결과가 있다면 덮어쓰지 않음
-                                            existing = apple_proxy.get(key)
-                                            if existing:
-                                                existing_q = existing.get("score", 0.0) * (0.5 + (existing.get("album_score", 1.0) * 0.5))
-                                                if existing_q >= quality:
-                                                    continue
-                                            apple_proxy[key] = item
-
-                    LOG.info("Loaded %d proxy entries (with variants) from %s", len(proxy_list), path.name)
-                except Exception as exc:
-                    LOG.warning("Failed to load apple proxy data from %s: %s", path, exc)
-    
     started_at = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
 
     kst_now = datetime.now(timezone.utc).astimezone(timezone(timedelta(hours=9)))
@@ -635,67 +564,87 @@ def main() -> int:
     seen_spotify_ids: set[str] = set()
     combined_desc_parts = []
     
+    max_retries = 3
     for url in spotify_urls:
         LOG.info("Processing Spotify playlist: %s", url)
-        try:
-            # Fetch English version (market=US)
-            p_name, p_desc, tracks, source = fetch_spotify_tracks_scraped(
-                url,
-                market="US",
-                limit=track_limit,
-                use_musicbrainz=use_musicbrainz,
-                match_cache=match_cache,
-            )
-            
-            # Always add to description parts to maintain order and show name
-            desc_text = f"[{p_name}] {p_desc}".strip() if p_desc else f"[{p_name}]"
-            combined_desc_parts.append(desc_text)
-            
-            # Check if we need Korean fallback for any new tracks
-            needs_ko_fallback = False
-            for t in tracks:
-                t_norm = normalize_text(t.title)
-                a_norm = normalize_text(t.artist)
-                cache_key = f"{t_norm}|{a_norm}"
+        for attempt in range(1, max_retries + 1):
+            try:
+                # Fetch English version (market=US)
+                p_name, p_desc, tracks, source = fetch_spotify_tracks_scraped(
+                    url,
+                    market="US",
+                    limit=track_limit,
+                    use_musicbrainz=use_musicbrainz,
+                    match_cache=match_cache,
+                )
                 
-                # If a song is NOT in cache, we need to try getting its Korean metadata
-                if cache_key not in match_cache:
-                    needs_ko_fallback = True
-                    break
-            
-            if needs_ko_fallback:
-                # Fetch Korean fallback version (market=KR)
-                try:
-                    LOG.info("New tracks detected. Fetching Korean metadata fallback from Spotify (KR)...")
-                    _, _, tracks_ko, _ = fetch_spotify_tracks_scraped(
-                        url,
-                        market="KR",
-                        limit=track_limit,
-                        use_musicbrainz=use_musicbrainz,
-                        match_cache=match_cache,
-                    )
-                    for t in tracks_ko:
-                        if t.song_id:
-                            tracks_ko_map[t.song_id] = t
-                except Exception as exc:
-                    LOG.warning("Failed to fetch Korean fallback tracks for %s: %s", url, exc)
-            else:
-                LOG.info("All tracks in '%s' are already in cache. Skipping Korean metadata fallback fetch.", p_name)
+                # Check validation if there's an expected count (based on job_name)
+                from hype_db import get_expected_track_count
+                expected = get_expected_track_count(job_name)
+                if expected is not None and len(tracks) != expected:
+                    if os.environ.get("BYPASS_TRACK_COUNT_VAL") == "true":
+                        LOG.warning(
+                            "Track count validation bypassed. Scraped %d tracks, expected %d.",
+                            len(tracks), expected
+                        )
+                    else:
+                        raise ValueError(
+                            f"Validation Error: Scraped {len(tracks)} tracks, "
+                            f"but expected exactly {expected} tracks."
+                        )
+                
+                # Always add to description parts to maintain order and show name
+                desc_text = f"[{p_name}] {p_desc}".strip() if p_desc else f"[{p_name}]"
+                combined_desc_parts.append(desc_text)
+                
+                # Check if we need Korean fallback for any new tracks
+                needs_ko_fallback = False
+                for t in tracks:
+                    t_norm = normalize_text(t.title)
+                    a_norm = normalize_text(t.artist)
+                    cache_key = f"{t_norm}|{a_norm}"
+                    
+                    # If a song is NOT in cache, we need to try getting its Korean metadata
+                    if cache_key not in match_cache:
+                        needs_ko_fallback = True
+                        break
+                
+                if needs_ko_fallback:
+                    # Fetch Korean fallback version (market=KR)
+                    try:
+                        LOG.info("New tracks detected. Fetching Korean metadata fallback from Spotify (KR)...")
+                        _, _, tracks_ko, _ = fetch_spotify_tracks_scraped(
+                            url,
+                            market="KR",
+                            limit=track_limit,
+                            use_musicbrainz=use_musicbrainz,
+                            match_cache=match_cache,
+                        )
+                        for t in tracks_ko:
+                            if t.song_id:
+                                tracks_ko_map[t.song_id] = t
+                    except Exception as exc:
+                        LOG.warning("Failed to fetch Korean fallback tracks for %s: %s", url, exc)
+                else:
+                    LOG.info("All tracks in '%s' are already in cache. Skipping Korean metadata fallback fetch.", p_name)
 
-            # Deduplicate and aggregate
-            new_count = 0
-            for t in tracks:
-                dedupe_key = t.song_id or f"{normalize_text(t.title)}|{normalize_text(t.artist)}"
-                if dedupe_key not in seen_spotify_ids:
-                    seen_spotify_ids.add(dedupe_key)
-                    all_tracks.append(t)
-                    new_count += 1
-            LOG.info("Added %d new tracks from '%s' (Total: %d)", new_count, p_name, len(all_tracks))
-            
-        except Exception as exc:
-            LOG.error("Failed to scrape Spotify URL %s: %s", url, exc)
-            if len(spotify_urls) == 1:
-                return 1
+                # Deduplicate and aggregate
+                new_count = 0
+                for t in tracks:
+                    dedupe_key = t.song_id or f"{normalize_text(t.title)}|{normalize_text(t.artist)}"
+                    if dedupe_key not in seen_spotify_ids:
+                        seen_spotify_ids.add(dedupe_key)
+                        all_tracks.append(t)
+                        new_count += 1
+                LOG.info("Added %d new tracks from '%s' (Total: %d)", new_count, p_name, len(all_tracks))
+                break  # Success, exit retry loop
+            except Exception as exc:
+                LOG.error("Attempt %d failed to scrape/validate Spotify URL %s: %s", attempt, url, exc)
+                if attempt == max_retries:
+                    if len(spotify_urls) == 1:
+                        return 1
+                else:
+                    time.sleep(2)
 
     if not all_tracks:
         LOG.error("No tracks collected from any of the provided URLs.")
@@ -721,215 +670,24 @@ def main() -> int:
     )
     LOG.info("MusicBrainz album enrichment: %s", use_musicbrainz)
     ytmusic = make_ytmusic(yt_auth, yt_oauth_client_id, yt_oauth_client_secret)
-    matches: list[MatchResult] = []
-    seen_video_ids: set[str] = set()
-    
-    # Matching loop
-    for track in all_tracks:
-        track_ko = None
-        proxy_item = None
-        
-        t_norm = normalize_text(track.title)
-        a_norm = normalize_text(track.artist)
-        
-        # Check cache first
-        cache_key = f"{t_norm}|{a_norm}"
-        match = None
-        if not args.no_db_cache:
-            try:
-                from hype_db import get_cached_match
-                cached = get_cached_match(
-                    db_path,
-                    service="spotify",
-                    song_id=track.song_id,
-                    title=track.title,
-                    artist=track.artist,
-                    album=track.album,
-                )
-                if cached and cached.get("status") == "manual_blocked":
-                    match = MatchResult(
-                        rank=track.rank,
-                        title=track.title,
-                        artist=track.artist,
-                        album=track.album,
-                        service="spotify",
-                        song_id=track.song_id,
-                        status="manual_blocked",
-                    )
-                elif cached and cached.get("video_id"):
-                    match = match_from_prev(track, cached, status=cached.get("status", "cached_match"))
-            except Exception as exc:
-                LOG.warning("DB cache lookup failed for %s: %s", track.title, exc)
-        if not match and cache_key in match_cache:
-            prev = match_cache[cache_key]
-            # Only reuse cache if it was a perfect match (score >= 1.0)
-            if prev.get("video_id") and prev.get("score", 0) >= 1.0:
-                match = MatchResult(
-                    rank=track.rank,
-                    title=track.title,
-                    artist=track.artist,
-                    album=track.album,
-                    title_en=prev.get("title_en", track.title),
-                    artist_en=prev.get("artist_en", track.artist),
-                    album_en=prev.get("album_en", track.album),
-                    title_ko=prev.get("title_ko", track.title),
-                    artist_ko=prev.get("artist_ko", track.artist),
-                    album_ko=prev.get("album_ko", track.album),
-                    song_id=track.song_id,
-                    video_id=prev["video_id"],
-                    yt_title=prev.get("yt_title", ""),
-                    yt_artist=prev.get("yt_artist", ""),
-                    yt_album=prev.get("yt_album", ""),
-                    score=prev.get("score", 1.0),
-                    title_score=prev.get("title_score", 1.0),
-                    artist_score=prev.get("artist_score", 1.0),
-                    album_score=prev.get("album_score", 1.0),
-                    yt_result_type=prev.get("yt_result_type", "song"),
-                    query=prev.get("query", "cached"),
-                    status="cached_match"
-                )
-
-        if not match:
-            track_ko = tracks_ko_map.get(track.song_id)
-            
-            # Use Apple proxy data to enrich search
-            # Try finding proxy by full title, or parts of title if it contains parentheses
-            proxy_item = apple_proxy.get(f"{t_norm}|{a_norm}")
-            if not proxy_item and "(" in track.title:
-                # Try matching just the part before or inside parentheses
-                parts = re.findall(r"([^()]+)", track.title)
-                for part in parts:
-                    p_norm = normalize_text(part)
-                    if p_norm and f"{p_norm}|{a_norm}" in apple_proxy:
-                        proxy_item = apple_proxy[f"{p_norm}|{a_norm}"]
-                        break
-
-            if proxy_item:
-                # Create a synthetic track_ko if we don't have one from Spotify but have one from Apple
-                if not track_ko and proxy_item.get("title_ko"):
-                    track_ko = SourceTrack(
-                        rank=track.rank,
-                        title=proxy_item["title_ko"],
-                        artist=proxy_item.get("artist_ko", track.artist),
-                        album=proxy_item.get("album_ko", track.album),
-                        source="apple_proxy"
-                    )
-                
-                # Enrich English metadata if it's better in Apple
-                if proxy_item.get("title_en") and similarity(track.title, proxy_item["title_en"]) > 0.8:
-                    track.title = proxy_item["title_en"]
-                if proxy_item.get("artist_en") and similarity(track.artist, proxy_item["artist_en"]) < 0.9:
-                    track.artist = proxy_item["artist_en"]                    
-                if not track.album and proxy_item.get("album_en"):
-                    track.album = proxy_item["album_en"]
-                if proxy_item.get("artwork_url"):
-                    track.artwork_url = proxy_item["artwork_url"]
-
-                # *** PROXY FIRST: If proxy has a high-confidence video_id, use it directly ***
-                # Don't bother searching if we already have a verified answer
-                if proxy_item.get("video_id") and proxy_item.get("score", 0) >= 0.85:
-                    p = proxy_item
-                    match = MatchResult(
-                        rank=track.rank,
-                        title=track.title,
-                        artist=track.artist,
-                        album=track.album,
-                        title_en=p.get("title_en", track.title),
-                        artist_en=p.get("artist_en", track.artist),
-                        album_en=p.get("album_en", track.album),
-                        title_ko=p.get("title_ko", track_ko.title if track_ko else ""),
-                        artist_ko=p.get("artist_ko", track_ko.artist if track_ko else ""),
-                        album_ko=p.get("album_ko", track_ko.album if track_ko else ""),
-                        song_id=track.song_id,
-                        artwork_url=track.artwork_url,
-                        video_id=p["video_id"],
-                        yt_title=p.get("yt_title", ""),
-                        yt_artist=p.get("yt_artist", ""),
-                        yt_album=p.get("yt_album", ""),
-                        score=p.get("score", 1.0),
-                        title_score=p.get("title_score", 1.0),
-                        artist_score=p.get("artist_score", 1.0),
-                        album_score=p.get("album_score", 1.0),
-                        yt_result_type=p.get("yt_result_type", "song"),
-                        query=p.get("query", "proxy"),
-                        status="proxy_matched"
-                    )
-
-            if not match:
-                match = search_youtube_music(
-                    ytmusic,
-                    track,
-                    track_ko=track_ko,
-                    min_score=min_score,
-                    min_title_score=min_title_score,
-                    min_artist_score=min_artist_score,
-                    limit=search_limit,
-                    ignore_video_ids=seen_video_ids,
-                )
-        
-        # If match failed but we have a proxy video_id, try a direct match as last resort
-        if not match.video_id and proxy_item and proxy_item.get("video_id"):
-            LOG.info("Match failed for '%s', trying proxy video_id: %s", track.title, proxy_item["video_id"])
-            try:
-                # We can't easily verify the video_id without a call, but search_youtube_music
-                # could be modified to accept a hint. For now, let's just log and maybe 
-                # we can trust the proxy if it was recently matched.
-                # In this case, we'll just use it if the proxy item had a high score.
-                if proxy_item.get("score", 0) >= 0.85:
-                    match.video_id = proxy_item["video_id"]
-                    match.status = "proxy_matched"
-                    match.score = proxy_item.get("score", 0.9)
-                    match.yt_title = proxy_item.get("yt_title", "")
-                    match.yt_artist = proxy_item.get("yt_artist", "")
-            except Exception:
-                pass
-
-        if match.video_id and match.video_id in seen_video_ids:
-            LOG.warning(
-                "duplicate_skipped: '%s' / '%s' — video_id %s already in playlist (source: %s)",
-                track.title,
-                track.artist,
-                match.video_id,
-                match.status,
-            )
-            match.query = f"dup_of:{match.video_id}"
-            match.status = "duplicate_skipped"
-            match.video_id = None
-        elif match.video_id:
-            seen_video_ids.add(match.video_id)
-
-        matches.append(match)
-        LOG.info(
-            "[%03d/%03d] %s %.3f - %s / %s / %s",
-            track.rank,
-            len(all_tracks),
-            match.status,
-            match.score,
-            track.title,
-            track.artist,
-            track.album,
-        )
-        time.sleep(0.2)
-
-    matched_video_ids = [match.video_id for match in matches if match.video_id]
-    failed = [match for match in matches if not match.video_id]
-    LOG.info("Matched %d/%d tracks. Failed/skipped %d.", len(matched_video_ids), len(all_tracks), len(failed))
-
-    if not args.dry_run:
-        try:
-            from hype_db import export_frontend_history, persist_crawl_run
-            persist_crawl_run(
-                db_path,
-                service="spotify",
-                job_name=job_name,
-                chart_date=update_date_str,
-                started_at=started_at,
-                tracks=all_tracks,
-                matches=matches,
-            )
-            export_frontend_history(db_path, args.history_json)
-        except Exception as exc:
-            LOG.warning("Failed to persist Spotify run to DB: %s", exc)
+    matched_video_ids = process_matching_pipeline(
+        all_tracks=all_tracks,
+        tracks_ko_map=tracks_ko_map,
+        ytmusic=ytmusic,
+        db_path=db_path,
+        service="spotify",
+        job_name=job_name,
+        source_variant="default",
+        update_date_str=update_date_str,
+        started_at=started_at,
+        no_db_cache=args.no_db_cache,
+        min_score=min_score,
+        min_title_score=min_title_score,
+        min_artist_score=min_artist_score,
+        search_limit=search_limit,
+        dry_run=args.dry_run,
+        history_json=args.history_json,
+    )
 
     if args.shuffle:
         LOG.info("Shuffling %d tracks before saving to playlist.", len(matched_video_ids))

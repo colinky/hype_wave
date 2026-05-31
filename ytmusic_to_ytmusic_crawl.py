@@ -635,7 +635,6 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--track-limit", type=int, default=100)
     p.add_argument("--search-limit", type=int, default=10)
     p.add_argument("--resolve-threshold", type=float, default=0.86)
-    p.add_argument("--log-dir")
     p.add_argument("--db-only", action="store_true", help="Persist DB/export only and skip YouTube Music playlist updates")
     p.add_argument("--no-resolve", action="store_true", help="Import chart rows without resolving chart videos through YTMusic search")
     p.add_argument("--dry-run", action="store_true")
@@ -647,8 +646,6 @@ def main() -> int:
     load_dotenv(args.env_file)
     logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s", datefmt="%Y-%m-%d %H:%M:%S")
 
-    log_dir = Path(args.log_dir or os.environ.get("LOG_DIR", "logs")).expanduser()
-    log_dir.mkdir(parents=True, exist_ok=True)
     started_at = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
 
     use_youtube_charts = bool(args.prefer_youtube_charts and not args.use_source_playlist)
@@ -656,7 +653,9 @@ def main() -> int:
     chart_period_end = args.chart_period_end or inferred_end
     chart_period_start = args.chart_period_start or default_week_start(chart_period_end)
     needs_ytmusic_for_source = not args.youtube_charts_csv and not use_youtube_charts
-    needs_ytmusic = needs_ytmusic_for_source or not args.db_only
+    # Even when --db-only, we need ytmusic client to resolve Live/MV → song type
+    # (unless --no-resolve is set). Without it, every cache-miss creates a split unmatched track_uid.
+    needs_ytmusic = needs_ytmusic_for_source or not args.db_only or not args.no_resolve
     yt_auth = env_or_arg(args.yt_auth, "YTMUSIC_AUTH_FILE", required=needs_ytmusic)
     yt_playlist_id = env_or_arg(args.yt_playlist_id, "YTMUSIC_PLAYLIST_ID", required=not args.db_only)
     yt_client_id = args.yt_oauth_client_id or os.environ.get("YTMUSIC_OAUTH_CLIENT_ID", "")
@@ -708,9 +707,10 @@ def main() -> int:
                 comparison["title_mismatch_count"],
                 comparison["artist_mismatch_count"],
             )
-        report_path = Path(args.source_report_json).expanduser() if args.source_report_json else log_dir / f"youtube_charts_source_{compact_date(chart_period_end) or started_at}.json"
-        write_json(report_path, source_report)
-        LOG.info("Wrote YouTube Charts source report: %s", report_path)
+        if args.source_report_json:
+            report_path = Path(args.source_report_json).expanduser()
+            write_json(report_path, source_report)
+            LOG.info("Wrote YouTube Charts source report: %s", report_path)
 
     if chart_entries:
         entries = [
@@ -742,6 +742,46 @@ def main() -> int:
         return 1
 
     db_path = Path(args.db_path).expanduser()
+
+    # Persist raw crawled tracks to playlist_order immediately (if not dry-run)
+    from hype_db import reference_period_for_date
+    reference_period = reference_period_for_date(args.job_name, chart_period_end)
+    if not args.dry_run:
+        try:
+            from hype_db import persist_crawled_tracks
+            raw_tracks = []
+            for row in entries:
+                song_id = row.get("original_video_id") or ""
+                raw_tracks.append({
+                    "rank": row.get("rank"),
+                    "service": "ytmusic",
+                    "song_id": song_id,
+                    "title": row.get("original_title") or "",
+                    "artist": row.get("original_artist_or_channel") or "",
+                    "album": row.get("album") or "",
+                    "source": row.get("source", "youtube_music_playlist"),
+                    "title_en": row.get("title_en", ""),
+                    "artist_en": row.get("artist_en", ""),
+                    "album_en": row.get("album_en", ""),
+                    "title_ko": row.get("title_ko", ""),
+                    "artist_ko": row.get("artist_ko", ""),
+                    "album_ko": row.get("album_ko", ""),
+                    "artwork_url": row.get("artwork_url", ""),
+                })
+            persist_crawled_tracks(
+                db_path,
+                service="ytmusic",
+                job_name=args.job_name,
+                source_variant="default",
+                chart_date=chart_period_end,
+                reference_period=reference_period,
+                tracks=raw_tracks,
+            )
+            LOG.info("Persisted raw chart order for %s to playlist_order table.", args.job_name)
+        except Exception as exc:
+            LOG.error("Failed to persist raw chart order to DB: %s", exc)
+            raise exc
+
     resolved_rows: list[dict[str, Any]] = []
     video_ids: list[str] = []
     seen: set[str] = set()
@@ -857,8 +897,8 @@ def main() -> int:
     }
     chart_date = chart_period_end
     playlist_name = args.playlist_name or args.job_name
-    from hype_db import chart_period_for_date
-    chart_period = chart_period_for_date(args.job_name, chart_date)
+    from hype_db import reference_period_for_date
+    reference_period = reference_period_for_date(args.job_name, chart_date)
     if not args.dry_run:
         try:
             from hype_db import export_frontend_history, persist_crawl_run
@@ -910,7 +950,7 @@ def main() -> int:
                 job_name=args.job_name,
                 source_variant="default",
                 chart_date=chart_date,
-                chart_period=chart_period,
+                reference_period=reference_period,
                 started_at=started_at,
                 tracks=tracks,
                 matches=matches,

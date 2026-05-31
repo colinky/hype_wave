@@ -4,7 +4,7 @@
         "enabled": true,
         "service": "apple",
         "frequency": "daily",
-        "list_type": "chart",
+        "list_type": "playlist",
         "playlist_name": "apl_krcc_to_ytm",
         "source_urls": [
             "https://music.apple.com/kr/new/top-charts/songs"
@@ -116,7 +116,7 @@
         "playlist_name": "mln_zdc_to_ytm",
         "include_in_hype": true,
         "hype_group": "melon_genz",
-        "hype_weight": 0.6,
+        "hype_weight": 0.4,
         "source_urls": [
             {
                 "gen": 1,
@@ -141,7 +141,7 @@
         "playlist_name": "yt_krwc_to_ytm",
         "include_in_hype": true,
         "hype_group": "ytmusic",
-        "hype_weight": 0.0,
+        "hype_weight": 0.2,
         "source_urls": [
             "https://charts.youtube.com/charts/TopSongs/kr/weekly"
         ],

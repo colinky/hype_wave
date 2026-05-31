@@ -8,7 +8,6 @@ import sys
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-from ytmusic_playlist_sync import cleanup_old_logs
 
 logging.basicConfig(
     level=logging.INFO,
@@ -18,8 +17,7 @@ logging.basicConfig(
 """
 모든 동기화 작업을 순차적으로 실행하는 통합 스크립트입니다.
 1. sync_config.json을 읽어 실행할 작업을 결정합니다.
-2. 이전 작업들에서 생성된 매칭 결과(logs/)를 수집하여 다음 작업의 '프록시 데이터'로 전달합니다.
-3. Apple Music -> Spotify -> Melon -> Hype Index 순으로 실행하여 데이터 연쇄 효과를 극대화합니다.
+2. SQLite DB 캐시 연쇄 효과를 활용하여 동기화를 극대화합니다.
 """
 LOG = logging.getLogger("sync_all")
 
@@ -80,13 +78,8 @@ def main():
     skipped_count = 0
     failed_tasks = []
     
-    # Root logs directory for the whole project
-    logs_root = script_dir / "logs"
-    logs_root.mkdir(parents=True, exist_ok=True)
 
-    # 1. 작업 시작 전 오래된 로그 정리 (7일 기준)
-    LOG.info("Cleaning up old logs...")
-    cleanup_old_logs(logs_root) # rglob("*")을 사용하므로 루트 호출만으로 충분함
+
 
     for task in tasks:
         job_name = task.get("job_name") or task.get("name") or "Unknown-Job"
@@ -107,17 +100,6 @@ def main():
 
         LOG.info(f"=== Starting Task: {job_name} ({task_type}) ===")
         
-        # Collect proxy data from all previous match results
-        proxy_data_paths = []
-        if task_type in ("spotify", "melon", "melon_gen", "hype", "hypex"):
-            if logs_root.exists():
-                for d in logs_root.iterdir():
-                    if d.is_dir():
-                        # Use ANY latest_matches_crawl.json as a potential proxy source
-                        p_file = d / "latest_matches_crawl.json"
-                        if p_file.exists():
-                            proxy_data_paths.append(str(p_file))
-        
         entity_limit = task.get("entity_limit") or task.get("apple_chart_limit") or task.get("limit")
         cmd = [sys.executable]
         if task_type == "apple":
@@ -132,15 +114,11 @@ def main():
                 cmd.extend(["--spotify-track-limit", str(entity_limit)])
             if "use_musicbrainz" in task:
                 cmd.extend(["--use-musicbrainz", str(task["use_musicbrainz"]).lower()])
-            if proxy_data_paths:
-                cmd.extend(["--apple-proxy-data", ",".join(proxy_data_paths)])
         elif task_type == "melon":
             cmd.append(str(script_dir / "melon_to_ytmusic_crawl.py"))
             cmd.extend(["--melon-urls"] + source_urls)
             if entity_limit:
                 cmd.extend(["--track-limit", str(entity_limit)])
-            if proxy_data_paths:
-                cmd.extend(["--apple-proxy-data", ",".join(proxy_data_paths)])
         elif task_type == "melon_gen":
             cmd.append(str(script_dir / "melon_gen_to_ytmusic_crawl.py"))
             gens = [str(item["gen"]) for item in source_urls if isinstance(item, dict) and "gen" in item]
@@ -148,8 +126,6 @@ def main():
                 cmd.extend(["--melon-generation-gens"] + gens)
             if entity_limit:
                 cmd.extend(["--track-limit", str(entity_limit)])
-            if proxy_data_paths:
-                cmd.extend(["--apple-proxy-data", ",".join(proxy_data_paths)])
         elif task_type == "ytmusic":
             cmd.append(str(script_dir / "ytmusic_to_ytmusic_crawl.py"))
             for url in source_urls:
@@ -172,13 +148,6 @@ def main():
         cmd.extend(["--job-name", job_name])
         cmd.extend(["--playlist-name", playlist_name])
         
-        # Handle log directory arguments (hype_moment uses --logs-dir, others use --log-dir)
-        if task_type == "hypex":
-            cmd.extend(["--logs-dir", str(logs_root)])
-        else:
-            task_log_dir = logs_root / job_name
-            cmd.extend(["--log-dir", str(task_log_dir)])
-
         if task.get("shuffle"):
             cmd.append("--shuffle")
 
@@ -187,27 +156,22 @@ def main():
             result = subprocess.run(cmd, check=True)
             LOG.info(f"Successfully finished task: {job_name}")
 
-            # 2. 작업 성공 시 crawl 데이터 아카이빙 (sync_config.json의 archive 필드 기준)
-            should_archive = bool(task.get("archive", False))
-
-            if should_archive:
-                task_log_dir = logs_root / job_name
-                # 방금 생성된 트랙 크롤링 로그 파일을 찾아 crawl/ 폴더로 복사
-                track_logs = list(task_log_dir.glob("*_tracks_crawl_*.json"))
-                if track_logs:
-                    latest_track_log = max(track_logs, key=lambda p: p.stat().st_mtime)
-                    crawl_dir = script_dir / "crawl"
-                    crawl_dir.mkdir(exist_ok=True)
-                    
-                    kst_now = datetime.now(timezone.utc) + timedelta(hours=9)
-                    date_str = kst_now.strftime("%Y-%m-%d")
-                    
-                    # task_type 대신 고유한 name을 사용하여 파일 덮어쓰기 방지
-                    target_archive = crawl_dir / f"{job_name}_{date_str}.json"
-                    shutil.copy2(latest_track_log, target_archive)
-                    LOG.info(f"Archived latest track data to {target_archive}")
-
             success_count += 1
+
+            # After each ytmusic crawl, heal any split track UIDs so that
+            # hype_moment aggregation sees all services correctly unified.
+            if task_type == "ytmusic":
+                heal_script = script_dir / "heal_split_tracks.py"
+                db_path = script_dir / "hype_wave_data.db"
+                if heal_script.exists() and db_path.exists():
+                    try:
+                        heal_cmd = [sys.executable, str(heal_script), "--db-path", str(db_path)]
+                        LOG.info(f"Running heal_split_tracks after '{job_name}'...")
+                        subprocess.run(heal_cmd, check=True)
+                        LOG.info("heal_split_tracks completed.")
+                    except subprocess.CalledProcessError as he:
+                        LOG.warning(f"heal_split_tracks failed (non-fatal): exit code {he.returncode}")
+
         except subprocess.CalledProcessError as e:
             LOG.error(f"Task '{job_name}' failed with exit code {e.returncode}")
             failed_tasks.append(job_name)

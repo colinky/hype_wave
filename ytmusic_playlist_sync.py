@@ -4,6 +4,7 @@ import json
 import logging
 import os
 import re
+import sqlite3
 import time
 import unicodedata
 from dataclasses import dataclass
@@ -12,6 +13,9 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
+import requests
+from requests.adapters import HTTPAdapter
+from urllib3.util import Retry
 from ytmusicapi import YTMusic
 
 try:
@@ -21,6 +25,25 @@ except ImportError:  # pragma: no cover - compatibility with older ytmusicapi.
 
 
 LOG = logging.getLogger("ytmusic_playlist_sync")
+
+
+def get_resilient_session(retries: int = 3, backoff_factor: float = 0.3) -> requests.Session:
+    """
+    자동 재시도와 백오프가 탑재된 HTTP Session 객체 생성.
+    """
+    session = requests.Session()
+    retry_policy = Retry(
+        total=retries,
+        read=retries,
+        connect=retries,
+        backoff_factor=backoff_factor,
+        status_forcelist=(429, 500, 502, 503, 504),
+        raise_on_status=False,
+    )
+    adapter = HTTPAdapter(max_retries=retry_policy)
+    session.mount("http://", adapter)
+    session.mount("https://", adapter)
+    return session
 
 
 @lru_cache(maxsize=8192)
@@ -277,7 +300,6 @@ class BilingualCache:
         self._init_db()
 
     def _init_db(self):
-        import sqlite3
         try:
             with sqlite3.connect(self.db_path) as conn:
                 conn.execute("""
@@ -303,7 +325,6 @@ class BilingualCache:
             LOG.error("Failed to initialize BilingualCache database %s: %s", self.db_path, e)
 
     def get_artist(self, artist_id: str) -> list[str] | None:
-        import sqlite3
         try:
             with sqlite3.connect(self.db_path) as conn:
                 row = conn.execute(
@@ -317,7 +338,6 @@ class BilingualCache:
         return None
 
     def set_artist(self, artist_id: str, names: list[str]):
-        import sqlite3
         from datetime import datetime, timezone
         try:
             names_json = json.dumps(names)
@@ -331,7 +351,6 @@ class BilingualCache:
             LOG.warning("Failed to set artist in cache: %s", e)
 
     def get_song(self, video_id: str) -> dict[str, str] | None:
-        import sqlite3
         try:
             with sqlite3.connect(self.db_path) as conn:
                 row = conn.execute(
@@ -356,7 +375,6 @@ class BilingualCache:
 
 
     def set_song(self, video_id: str, details: dict[str, str]):
-        import sqlite3
         from datetime import datetime, timezone
         try:
             now_str = datetime.now(timezone.utc).isoformat()
@@ -510,6 +528,21 @@ def similarity(left: str, right: str, is_title: bool = False) -> float:
     if not left_norm or not right_norm:
         return 0.0
     if left_norm == right_norm:
+        if is_title:
+            def extract_feat(text: str) -> str:
+                # Match (feat. X) or [feat. X]
+                match = re.search(r"\((?:feat\.?|ft\.?)\s*([^)]+)\)", text, re.IGNORECASE)
+                if not match:
+                    match = re.search(r"\[(?:feat\.?|ft\.?)\s*([^\]]+)\]", text, re.IGNORECASE)
+                if not match:
+                    match = re.search(r"\b(?:feat\.?|ft\.?)\s*(.+)$", text, re.IGNORECASE)
+                return normalize_text(match.group(1)) if match else ""
+
+            feat_l = extract_feat(left)
+            feat_r = extract_feat(right)
+            if feat_l != feat_r:
+                # Mismatch in featuring artist: apply penalty (0.85 instead of 1.0)
+                return 0.85
         return 1.0
 
     # 1-2 digit number mismatch check (e.g. "Part 1" vs "Part 2", "Untitled 08" vs "Untitled 07")
@@ -521,8 +554,18 @@ def similarity(left: str, right: str, is_title: bool = False) -> float:
     if is_title and left_norm in right_norm:
         if right_norm.startswith(left_norm):
             remaining = right_norm[len(left_norm):].strip()
-            if not remaining or all(ord(c) < 128 or c.isspace() for c in remaining):
+            # Don't treat as subset match if remaining contains a version/variant specifier.
+            # e.g. source='BOOMPALA', candidate='BOOMPALA (KIM CHAEWON ver.)' → different recording.
+            _is_variant_suffix = bool(re.search(
+                r"\b(ver\.?|version|edition|remix|inst\.?|instrumental|cover|arrange|feat\.?|ft\.?)\b",
+                remaining, re.IGNORECASE,
+            ))
+            if not remaining or (
+                not _is_variant_suffix
+                and all(ord(c) < 128 or c.isspace() for c in remaining)
+            ):
                 return 0.95
+
 
     from collections import Counter
     left_counts = Counter(left_norm.split())
@@ -1633,48 +1676,4 @@ def make_ytmusic(auth_file: str, client_id: str = "", client_secret: str = "", l
     else:
         yt.headers.update({"Accept-Language": "en-US,en;q=0.9"})
     return yt
-
-
-def load_match_cache(log_dir: Path) -> dict[str, dict[str, Any]]:
-    """Loads DB-backed match cache.
-
-    Runtime no longer treats latest_matches_crawl.json as cache/source of truth.
-    Set HYPE_DB_PATH to enable normalized metadata cache lookup.
-    """
-    db_path = os.environ.get("HYPE_DB_PATH", "")
-    if db_path:
-        try:
-            from hype_db import build_match_cache
-            cache = build_match_cache(db_path)
-            if cache:
-                LOG.info("Loaded %d entries from DB match cache.", len(cache))
-            return cache
-        except Exception as exc:
-            LOG.warning("Failed to load DB match cache from %s: %s", db_path, exc)
-    return {}
-
-
-def cleanup_old_logs(log_dir: Path, days: int = 7) -> None:
-    """log_dir 내에서 생성된 지 'days'일 이상 된 파일을 삭제합니다."""
-    now = time.time()
-    cutoff = now - (days * 86400)
-    if not log_dir.exists():
-        return
-
-    # 삭제 대상에서 제외할 중요한 파일 패턴
-    keep_files = {
-        "hype_wave_data.db",
-        "hype_wave_data.db-shm",
-        "hype_wave_data.db-wal",
-        "history.json",
-        "matching_alias.json",
-    }
-
-    for item in log_dir.rglob("*"):
-        if item.is_file() and item.name not in keep_files and item.stat().st_mtime < cutoff:
-            try:
-                item.unlink()
-                LOG.info("Deleted old log file: %s/%s", item.parent.name, item.name)
-            except Exception as e:
-                LOG.warning("Failed to delete %s: %s", item.name, e)
 

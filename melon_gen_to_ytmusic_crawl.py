@@ -35,7 +35,7 @@ from melon_to_ytmusic_crawl import (
     run_tracks_pipeline,
 )
 from ytmusic_playlist_sync import SourceTrack, load_dotenv, unique_values, write_json
-from hype_scoring import calculate_rank_score
+from hype_scoring import calculate_combined_genz_score
 
 
 DEFAULT_MELON_GEN_URL = "https://kkosvc.melon.com/mwk/chart/gen.htm?gen={gen}"
@@ -98,7 +98,7 @@ def extract_generation_label(soup: BeautifulSoup, gen: str) -> str:
     return f"gen={gen}"
 
 
-def parse_melon_generation_tracks(html: str, gen: str, *, limit: int = 100, ttl_days: int = 31) -> tuple[str, str, list[SourceTrack]]:
+def parse_melon_generation_tracks(html: str, gen: str, *, limit: int = 100, ttl_days: int = 31) -> tuple[str, str, str, list[SourceTrack]]:
     """Parse only the Melon generation-chart specific track fields.
 
     Everything after this SourceTrack list is handed to melon_to_ytmusic_crawl.run_tracks_pipeline
@@ -106,7 +106,24 @@ def parse_melon_generation_tracks(html: str, gen: str, *, limit: int = 100, ttl_
     """
     soup = BeautifulSoup(html, "html.parser")
     generation_label = extract_generation_label(soup, gen)
+    
+    # Parse date from DOM (e.g. "05.29 기준") with year-end boundary correction
     chart_date = datetime.now(timezone.utc).astimezone(timezone(timedelta(hours=9))).strftime("%Y-%m-%d")
+    date_el = soup.select_one(".btn-box__date label")
+    if date_el:
+        text = date_el.get_text(strip=True)
+        match = re.search(r"(\d{2})\.(\d{2})", text)
+        if match:
+            try:
+                kst_now = datetime.now(timezone.utc).astimezone(timezone(timedelta(hours=9)))
+                current_year = kst_now.year
+                target_dt = datetime(current_year, int(match.group(1)), int(match.group(2)))
+                # If target date falls in the future relative to execution time, it belongs to the previous year
+                if target_dt.date() > kst_now.date():
+                    target_dt = datetime(current_year - 1, int(match.group(1)), int(match.group(2)))
+                chart_date = target_dt.strftime("%Y-%m-%d")
+            except ValueError:
+                pass
 
     items = soup.select(".song.d-listen.list-song__item.list-song__item_theme_rank")
     if not items:
@@ -186,15 +203,14 @@ def parse_melon_generation_tracks(html: str, gen: str, *, limit: int = 100, ttl_
 
     playlist_name = f"Melon Generation Chart {gen}0s"
     playlist_desc = f"{playlist_name}"
-    return playlist_name, playlist_desc, tracks
+    return playlist_name, playlist_desc, chart_date, tracks
 
 
 def merge_melon_generation_tracks(
     tracks_gen1: list[SourceTrack],
     tracks_gen2: list[SourceTrack],
     *,
-    top_k: int = 50,
-    log_dir: str
+    top_k: int = 50
 ) -> tuple[str, str, list[SourceTrack]]:
     """
     Merge gen=1 and gen=2 tracks into Generation Z chart.
@@ -204,6 +220,27 @@ def merge_melon_generation_tracks(
     """
 
     from collections import defaultdict
+    import json
+    from pathlib import Path
+
+    gen1_weight = 0.60
+    gen2_weight = 0.40
+    try:
+        config_path = Path("sync_config.json")
+        if config_path.exists():
+            with open(config_path, "r", encoding="utf-8") as f:
+                tasks = json.load(f)
+                for task in tasks:
+                    if task.get("job_name") == "Gen-Z-Daily":
+                        source_urls = task.get("source_urls", [])
+                        for src in source_urls:
+                            if isinstance(src, dict):
+                                if str(src.get("gen")) == "1":
+                                    gen1_weight = float(src.get("weight") or 0.60)
+                                elif str(src.get("gen")) == "2":
+                                    gen2_weight = float(src.get("weight") or 0.40)
+    except Exception:
+        pass
 
     def normalize_key(title: str, artist: str) -> str:
         return re.sub(r"\s+", "", f"{title.lower()}::{artist.lower()}")
@@ -237,10 +274,9 @@ def merge_melon_generation_tracks(
         gen1_rank = v.get("gen1_rank")
         gen2_rank = v.get("gen2_rank")
 
-        gen1 = calculate_rank_score(gen1_rank)
-        gen2 = calculate_rank_score(gen2_rank)
-
-        combined_score = gen1 * 0.60 + gen2 * 0.40
+        combined_score = calculate_combined_genz_score(
+            gen1_rank, gen2_rank, gen1_weight, gen2_weight
+        )
 
         scored.append(
             {
@@ -278,9 +314,6 @@ def merge_melon_generation_tracks(
             "combined_score": round(item["combined_score"], 2),
         })
 
-    log_dir = Path(log_dir or os.environ.get("LOG_DIR", "logs")).expanduser()
-    log_dir.mkdir(parents=True, exist_ok=True)
-
     # 4. top_k 선택
     top = scored[:top_k]
 
@@ -311,7 +344,7 @@ def merge_melon_generation_tracks(
     return playlist_name, playlist_desc, merged_tracks, merge_rows
 
 
-def fetch_melon_generation_tracks(gen: str, *, limit: int = 100, ttl_days: int = 31) -> tuple[str, str, list[SourceTrack]]:
+def fetch_melon_generation_tracks(gen: str, *, limit: int = 100, ttl_days: int = 31) -> tuple[str, str, str, list[SourceTrack]]:
     url = DEFAULT_MELON_GEN_URL.format(gen=gen)
     headers = {
         "User-Agent": (
@@ -339,7 +372,6 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--job-name")
     parser.add_argument("--playlist-name")
     parser.add_argument("--chart-date")
-    parser.add_argument("--log-dir")
     parser.add_argument("--db-path", default="hype_wave_data.db")
     parser.add_argument("--history-json", default="docs/api/history.json")
     parser.add_argument("--no-db-cache", action="store_true")
@@ -348,9 +380,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--min-artist-score", type=float, default=DEFAULT_MIN_ARTIST_SCORE)
     parser.add_argument("--search-limit", type=int, default=DEFAULT_SEARCH_LIMIT)
     parser.add_argument("--album-cache-ttl", type=int, default=31, help="TTL in days for album name cache")
-    parser.add_argument("--apple-proxy-data", help="Path to one or more Apple matches_crawl.json files to use as metadata proxy")
     parser.add_argument("--shuffle", action="store_true", help="Shuffle the tracks before saving them to the YouTube Music playlist")
     parser.add_argument("--dry-run", action="store_true")
+    parser.add_argument("--db-only", action="store_true", help="Only parse and save raw tracks to DB, skip matching and playlist updates")
     return parser.parse_args()
 
 
@@ -364,22 +396,10 @@ def main() -> int:
         LOG.error("No Melon generation ids provided.")
         return 1
 
-    # 로그 디렉토리 및 하위 폴더 결정
-    base_log_dir = Path(args.log_dir or os.environ.get("LOG_DIR", "logs")).expanduser()
-
-    # sync_all 등에서 전달받은 경로가 단순 logs 루트이거나 지정되지 않은 경우에만 자동 폴더 생성
-    if not args.log_dir or Path(args.log_dir).name == "logs":
-        if len(melon_generation_gens) == 1:
-            gen_id = melon_generation_gens[0]
-            subfolder = f"Melon-Gen{gen_id}-Top-100-Daily"
-            args.log_dir = str(base_log_dir / subfolder) if base_log_dir.name == "logs" else str(base_log_dir)
-        else:
-            args.log_dir = str(base_log_dir / "Melon-Gen-Z-Top-100-Daily")
-
-    log_dir = Path(args.log_dir).expanduser()
+    db_path = Path(args.db_path).expanduser()
     if not args.no_db_cache:
-        os.environ["HYPE_DB_PATH"] = str(Path(args.db_path).expanduser())
-    cache_path = load_album_cache(log_dir, ttl_days=args.album_cache_ttl)
+        os.environ["HYPE_DB_PATH"] = str(db_path)
+    load_album_cache(db_path, ttl_days=args.album_cache_ttl)
 
     gen_tracks_map: dict[int, list[SourceTrack]] = {}
     gen_desc_map: dict[int, str] = {}
@@ -387,24 +407,73 @@ def main() -> int:
     all_tracks: list[SourceTrack] = []
     combined_desc_parts: list[str] = []
 
+    max_retries = 3
     for gen in melon_generation_gens:
         LOG.info("Processing Melon generation chart: gen=%s", gen)
+        limit = args.track_limit
+        for attempt in range(1, max_retries + 1):
+            try:
+                playlist_name, playlist_desc, c_date, tracks = fetch_melon_generation_tracks(
+                    gen,
+                    limit=limit,
+                    ttl_days=args.album_cache_ttl,
+                )
+                
+                # Validation check: Ensure the track count matches the expected limit
+                if len(tracks) != limit:
+                    if os.environ.get("BYPASS_TRACK_COUNT_VAL") == "true":
+                        LOG.warning(
+                            "Track count validation bypassed. Scraped %d tracks, expected %d.",
+                            len(tracks), limit
+                        )
+                    else:
+                        raise ValueError(
+                            f"Validation Error: Scraped {len(tracks)} tracks, "
+                            f"but expected exactly {limit} tracks."
+                        )
+                
+                if c_date:
+                    args.chart_date = c_date
+
+                gen_tracks_map[int(gen)] = tracks
+                gen_desc_map[int(gen)] = playlist_desc
+
+                LOG.info("Added %d tracks from '%s'", len(tracks), playlist_name)
+                break  # Success, exit retry loop
+            except Exception as exc:
+                LOG.error("Attempt %d failed to scrape/validate Melon generation chart gen=%s: %s", attempt, gen, exc)
+                if attempt == max_retries:
+                    if len(melon_generation_gens) == 1:
+                        return 1
+                    else:
+                        return 1
+                else:
+                    time.sleep(2)
+
+    # Persist raw crawled tracks for split gen10/gen20 immediately to playlist_order
+    if not args.dry_run:
         try:
-            playlist_name, playlist_desc, tracks = fetch_melon_generation_tracks(
-                gen,
-                limit=args.track_limit,
-                ttl_days=args.album_cache_ttl,
-            )
-
-            gen_tracks_map[int(gen)] = tracks
-            gen_desc_map[int(gen)] = playlist_desc
-
-            LOG.info("Added %d tracks from '%s'", len(tracks), playlist_name)
-
+            from hype_db import persist_crawled_tracks
+            job_name = args.job_name or "Gen-Z-Daily"
+            chart_date = args.chart_date or datetime.now(timezone.utc).astimezone(timezone(timedelta(hours=9))).strftime("%Y-%m-%d")
+            
+            for gen_id, source_variant in ((1, "gen10"), (2, "gen20")):
+                tracks = gen_tracks_map.get(gen_id, [])
+                if not tracks:
+                    continue
+                persist_crawled_tracks(
+                    db_path,
+                    service="melon",
+                    job_name=job_name,
+                    source_variant=source_variant,
+                    chart_date=chart_date,
+                    reference_period=chart_date,
+                    tracks=tracks,
+                )
+            LOG.info("Persisted split Melon Gen-Z raw tracks (gen10/gen20) to playlist_order table.")
         except Exception as exc:
-            LOG.error("Failed to scrape Melon generation chart gen=%s: %s", gen, exc)
-            if len(melon_generation_gens) == 1:
-                return 1
+            LOG.error("Failed to persist split Melon Gen-Z raw tracks to DB: %s", exc)
+            raise exc
 
     # ㅁ merge 조건: gen=1,2 둘 다 있는 경우만
     if set(map(int, melon_generation_gens)) == {1, 2}:
@@ -417,7 +486,6 @@ def main() -> int:
             tracks1,
             tracks2,
             top_k=args.top_k,
-            log_dir=args.log_dir,
         )
 
         combined_desc_parts = [playlist_desc]
@@ -429,23 +497,24 @@ def main() -> int:
             combined_desc_parts.append(gen_desc_map.get(int(gen), ""))
 
     # 업데이트된 캐시 저장
-    save_album_cache(cache_path)
+    save_album_cache(db_path)
 
     args.source_variant = "combined"
     args.job_name = args.job_name or "Gen-Z-Daily"
     args.playlist_name = args.playlist_name or "mel_zdc_to_ytm"
+    chart_date = args.chart_date or datetime.now(timezone.utc).astimezone(timezone(timedelta(hours=9))).strftime("%Y-%m-%d")
     result = run_tracks_pipeline(
         args,
         all_tracks,
         combined_desc_parts,
         log_prefix="melon_gen",
         empty_message="No tracks collected from any of the provided Melon generation charts.",
+        reference_period=chart_date,
     )
     if result == 0 and not args.no_db_cache and not args.dry_run:
         try:
             from hype_db import export_frontend_history, persist_crawl_run
 
-            chart_date = args.chart_date or datetime.now(timezone.utc).astimezone(timezone(timedelta(hours=9))).strftime("%Y-%m-%d")
             started_at = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
             job_name = args.job_name or "mel_zdc_to_ytm"
             for gen_id, source_variant in ((1, "gen10"), (2, "gen20")):
@@ -458,6 +527,7 @@ def main() -> int:
                     job_name=job_name,
                     source_variant=source_variant,
                     chart_date=chart_date,
+                    reference_period=chart_date,
                     started_at=f"{started_at}_gen{gen_id}",
                     tracks=tracks,
                     matches=tracks,

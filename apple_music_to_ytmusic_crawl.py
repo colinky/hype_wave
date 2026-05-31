@@ -29,22 +29,19 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import parse_qsl, urlencode, urljoin, urlparse, urlunparse
 
-import requests
-from bs4 import BeautifulSoup
-
 from ytmusic_playlist_sync import (
-    MatchResult,
     SourceTrack,
     env_or_arg,
     load_dotenv,
-    load_match_cache,
     make_ytmusic,
-    match_from_prev,
     normalize_text,
-    search_youtube_music,
     update_ytmusic_playlist,
     write_json,
+    get_resilient_session,
 )
+from crawler_common import process_matching_pipeline
+
+http_session = get_resilient_session()
 
 
 DEFAULT_APPLE_PLAYLIST_URL = "https://music.apple.com/us/playlist/top-100-south-korea/pl.d3d10c32fbc540b38e266367dc8cb00c"
@@ -68,7 +65,7 @@ def fetch_html(url: str) -> str:
         "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
         "Accept-Language": "en-US,en;q=0.9,ko-KR;q=0.8,ko;q=0.7",
     }
-    response = requests.get(url, headers=headers, timeout=30)
+    response = http_session.get(url, headers=headers, timeout=30)
     response.raise_for_status()
     return response.content.decode("utf-8", errors="replace")
 
@@ -86,7 +83,7 @@ def find_apple_web_token(page_html: str, page_url: str) -> str:
 
     for source in candidate_sources:
         script_url = urljoin(page_url, source)
-        response = requests.get(script_url, headers=headers, timeout=30)
+        response = http_session.get(script_url, headers=headers, timeout=30)
         response.raise_for_status()
         script_text = response.content.decode("utf-8", errors="replace")
         match = token_pattern.search(script_text)
@@ -159,7 +156,7 @@ def fetch_apple_chart_tracks(page_url: str, *, limit: int) -> tuple[str, str, li
     token = find_apple_web_token(page_html, page_url)
     chart_url = find_chart_url(page_html, limit=limit)
     LOG.info("Chart API URL: %s", chart_url)
-    response = requests.get(
+    response = http_session.get(
         chart_url,
         headers={
             "Authorization": f"Bearer {token}",
@@ -184,7 +181,7 @@ def fetch_apple_chart_tracks(page_url: str, *, limit: int) -> tuple[str, str, li
         chunk = brief_ids[i : i + 100]
         ids_str = ",".join(chunk)
         kr_songs_url = f"https://api.music.apple.com/v1/catalog/kr/songs?ids={ids_str}&include=artists"
-        kr_resp = requests.get(kr_songs_url, headers={"Authorization": f"Bearer {token}", "Origin": "https://music.apple.com"}, timeout=30)
+        kr_resp = http_session.get(kr_songs_url, headers={"Authorization": f"Bearer {token}", "Origin": "https://music.apple.com"}, timeout=30)
         if kr_resp.status_code == 200:
             songs_data.extend(kr_resp.json().get("data", []))
 
@@ -209,7 +206,7 @@ def fetch_apple_chart_tracks(page_url: str, *, limit: int) -> tuple[str, str, li
         chunk = ids[i : i + 100]
         ids_str = ",".join(chunk)
         us_songs_url = f"https://api.music.apple.com/v1/catalog/us/songs?ids={ids_str}"
-        us_resp = requests.get(
+        us_resp = http_session.get(
             us_songs_url,
             headers={
                 "Authorization": f"Bearer {token}",
@@ -230,7 +227,7 @@ def fetch_apple_chart_tracks(page_url: str, *, limit: int) -> tuple[str, str, li
         if needed_artist_ids:
             artists_str = ",".join(list(needed_artist_ids)[:100])
             us_art_url = f"https://api.music.apple.com/v1/catalog/us/artists?ids={artists_str}"
-            us_art_resp = requests.get(us_art_url, headers={"Authorization": f"Bearer {token}", "Origin": "https://music.apple.com"}, timeout=30)
+            us_art_resp = http_session.get(us_art_url, headers={"Authorization": f"Bearer {token}", "Origin": "https://music.apple.com"}, timeout=30)
             if us_art_resp.status_code == 200:
                 for art_item in us_art_resp.json().get("data", []):
                     id_to_en_artist_name[art_item["id"]] = art_item["attributes"].get("name")
@@ -401,7 +398,7 @@ def fetch_apple_tracks(playlist_url: str, *, chart_limit: int) -> tuple[str, str
             
             # Fetch playlist name and description via API if possible
             playlist_api_url = f"https://api.music.apple.com/v1/catalog/{storefront}/playlists/{playlist_id}"
-            playlist_resp = requests.get(
+            playlist_resp = http_session.get(
                 playlist_api_url,
                 headers={
                     "Authorization": f"Bearer {token}",
@@ -419,7 +416,7 @@ def fetch_apple_tracks(playlist_url: str, *, chart_limit: int) -> tuple[str, str
             tracks_url = f"https://api.music.apple.com/v1/catalog/{storefront}/playlists/{playlist_id}/tracks?limit=100"
             api_tracks = []
             while tracks_url:
-                resp = requests.get(
+                resp = http_session.get(
                     tracks_url,
                     headers={
                         "Authorization": f"Bearer {token}",
@@ -494,7 +491,6 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--yt-playlist-id")
     parser.add_argument("--job-name")
     parser.add_argument("--playlist-name")
-    parser.add_argument("--log-dir")
     parser.add_argument("--db-path", default="hype_wave_data.db")
     parser.add_argument("--history-json", default="docs/api/history.json")
     parser.add_argument("--no-db-cache", action="store_true")
@@ -529,9 +525,8 @@ def main() -> int:
         "YTMUSIC_OAUTH_CLIENT_SECRET", ""
     )
     yt_playlist_id = env_or_arg(args.yt_playlist_id, "YTMUSIC_PLAYLIST_ID")
-    log_dir = Path(args.log_dir or os.environ.get("LOG_DIR", "logs")).expanduser()
     db_path = Path(args.db_path).expanduser()
-    job_name = args.job_name or log_dir.name
+    job_name = args.job_name or "apple_music"
     playlist_name = args.playlist_name or job_name
     if not args.no_db_cache:
         os.environ["HYPE_DB_PATH"] = str(db_path)
@@ -550,66 +545,84 @@ def main() -> int:
     seen_song_ids: set[str] = set()
     combined_desc_parts = []
 
+    max_retries = 3
     for url in playlist_urls:
         LOG.info("Processing Apple Music playlist: %s", url)
-        try:
-            p_name, p_desc, tracks, source = fetch_apple_tracks(
-                url,
-                chart_limit=int(os.environ.get("APPLE_CHART_LIMIT", args.apple_chart_limit)),
-            )
-            
-            # Always add to description parts to maintain order and show name
-            desc_text = f"[{p_name}] {p_desc}".strip() if p_desc else f"[{p_name}]"
-            combined_desc_parts.append(desc_text)
-
-            # Fetch Korean fallback tracks for this URL
+        chart_limit = int(os.environ.get("APPLE_CHART_LIMIT", args.apple_chart_limit))
+        for attempt in range(1, max_retries + 1):
             try:
-                if "/us/" in url:
-                    _, _, tracks_ko, _ = fetch_apple_tracks(
-                        url.replace("/us/", "/kr/"),
-                        chart_limit=int(os.environ.get("APPLE_CHART_LIMIT", args.apple_chart_limit)),
-                    )
-                    for t in tracks_ko:
-                        if t.song_id:
-                            tracks_ko_map[t.song_id] = t
-                elif "/new/top-charts/" in url:
-                    page_html_ko = fetch_html(url)
-                    token_ko = find_apple_web_token(page_html_ko, url)
-                    chart_url_ko = find_chart_url(page_html_ko, limit=int(os.environ.get("APPLE_CHART_LIMIT", args.apple_chart_limit)))
-                    parsed_ko = urlparse(chart_url_ko)
-                    query_ko = dict(parse_qsl(parsed_ko.query, keep_blank_values=True))
-                    query_ko["l"] = "ko"
-                    chart_url_ko = urlunparse((parsed_ko.scheme, parsed_ko.netloc, parsed_ko.path, parsed_ko.params, urlencode(query_ko), parsed_ko.fragment))
-                    resp_ko = requests.get(
-                        chart_url_ko,
-                        headers={"Authorization": f"Bearer {token_ko}", "Origin": "https://music.apple.com"},
-                        timeout=30,
-                    )
-                    if resp_ko.status_code == 200:
-                        tracks_ko = parse_tracks_from_chart_api(resp_ko.json())
+                p_name, p_desc, tracks, source = fetch_apple_tracks(
+                    url,
+                    chart_limit=chart_limit,
+                )
+                
+                # Validation check: Ensure the track count matches the expected limit
+                if len(tracks) != chart_limit:
+                    if os.environ.get("BYPASS_TRACK_COUNT_VAL") == "true":
+                        LOG.warning(
+                            "Track count validation bypassed. Scraped %d tracks, expected %d.",
+                            len(tracks), chart_limit
+                        )
+                    else:
+                        raise ValueError(
+                            f"Validation Error: Scraped {len(tracks)} tracks, "
+                            f"but expected exactly {chart_limit} tracks."
+                        )
+                
+                # Always add to description parts to maintain order and show name
+                desc_text = f"[{p_name}] {p_desc}".strip() if p_desc else f"[{p_name}]"
+                combined_desc_parts.append(desc_text)
+
+                # Fetch Korean fallback tracks for this URL
+                try:
+                    if "/us/" in url:
+                        _, _, tracks_ko, _ = fetch_apple_tracks(
+                            url.replace("/us/", "/kr/"),
+                            chart_limit=chart_limit,
+                        )
                         for t in tracks_ko:
                             if t.song_id:
                                 tracks_ko_map[t.song_id] = t
-                            tracks_ko_map[str(t.rank)] = t
+                    elif "/new/top-charts/" in url:
+                        page_html_ko = fetch_html(url)
+                        token_ko = find_apple_web_token(page_html_ko, url)
+                        chart_url_ko = find_chart_url(page_html_ko, limit=chart_limit)
+                        parsed_ko = urlparse(chart_url_ko)
+                        query_ko = dict(parse_qsl(parsed_ko.query, keep_blank_values=True))
+                        query_ko["l"] = "ko"
+                        chart_url_ko = urlunparse((parsed_ko.scheme, parsed_ko.netloc, parsed_ko.path, parsed_ko.params, urlencode(query_ko), parsed_ko.fragment))
+                        resp_ko = http_session.get(
+                            chart_url_ko,
+                            headers={"Authorization": f"Bearer {token_ko}", "Origin": "https://music.apple.com"},
+                            timeout=30,
+                        )
+                        if resp_ko.status_code == 200:
+                            tracks_ko = parse_tracks_from_chart_api(resp_ko.json())
+                            for t in tracks_ko:
+                                if t.song_id:
+                                    tracks_ko_map[t.song_id] = t
+                                tracks_ko_map[str(t.rank)] = t
+                except Exception as exc:
+                    LOG.warning("Failed to fetch Korean fallback tracks for %s: %s", url, exc)
+
+                # Deduplicate and aggregate
+                new_count = 0
+                for t in tracks:
+                    if t.song_id and t.song_id not in seen_song_ids:
+                        seen_song_ids.add(t.song_id)
+                        all_tracks.append(t)
+                        new_count += 1
+                    elif not t.song_id:
+                        all_tracks.append(t)
+                        new_count += 1
+                LOG.info("Added %d new tracks from '%s' (Total: %d)", new_count, p_name, len(all_tracks))
+                break  # Success, exit retry loop
             except Exception as exc:
-                LOG.warning("Failed to fetch Korean fallback tracks for %s: %s", url, exc)
-
-            # Deduplicate and aggregate
-            new_count = 0
-            for t in tracks:
-                if t.song_id and t.song_id not in seen_song_ids:
-                    seen_song_ids.add(t.song_id)
-                    all_tracks.append(t)
-                    new_count += 1
-                elif not t.song_id:
-                    all_tracks.append(t)
-                    new_count += 1
-            LOG.info("Added %d new tracks from '%s' (Total: %d)", new_count, p_name, len(all_tracks))
-
-        except Exception as exc:
-            LOG.error("Failed to fetch tracks from Apple Music URL %s: %s", url, exc)
-            if len(playlist_urls) == 1:
-                return 1
+                LOG.error("Attempt %d failed to scrape/validate Apple Music URL %s: %s", attempt, url, exc)
+                if attempt == max_retries:
+                    return 1
+                else:
+                    time.sleep(2)
 
     if not all_tracks:
         LOG.error("No tracks collected from any of the provided URLs.")
@@ -634,132 +647,24 @@ def main() -> int:
         search_limit,
     )
     ytmusic = make_ytmusic(yt_auth, yt_oauth_client_id, yt_oauth_client_secret)
-    matches: list[MatchResult] = []
-    seen_video_ids: set[str] = set()
-    
-    # Load previous results to speed up matching
-    match_cache = load_match_cache(log_dir)
-
-    for track in all_tracks:
-        track_ko = tracks_ko_map.get(track.song_id) or tracks_ko_map.get(str(track.rank))
-        
-        # Check cache first
-        t_norm = normalize_text(track.title)
-        a_norm = normalize_text(track.artist)
-        cache_key = f"{t_norm}|{a_norm}"
-        
-        match = None
-        if not args.no_db_cache:
-            try:
-                from hype_db import get_cached_match
-                cached = get_cached_match(
-                    db_path,
-                    service="apple",
-                    song_id=track.song_id,
-                    title=track.title,
-                    artist=track.artist,
-                    album=track.album,
-                )
-                if cached and cached.get("status") == "manual_blocked":
-                    match = MatchResult(
-                        rank=track.rank,
-                        title=track.title,
-                        artist=track.artist,
-                        album=track.album,
-                        service="apple",
-                        song_id=track.song_id,
-                        status="manual_blocked",
-                    )
-                elif cached and cached.get("video_id"):
-                    match = match_from_prev(track, cached, track_ko=track_ko, status=cached.get("status", "cached_match"))
-            except Exception as exc:
-                LOG.warning("DB cache lookup failed for %s: %s", track.title, exc)
-        if not match and cache_key in match_cache:
-            prev = match_cache[cache_key]
-            # Only reuse cache if it was a perfect match (score >= 1.0)
-            if prev.get("video_id") and prev.get("score", 0) >= 1.0:
-                match = MatchResult(
-                rank=track.rank,
-                title=track.title,
-                artist=track.artist,
-                album=track.album,
-                title_en=track.title,
-                artist_en=track.artist,
-                album_en=track.album,
-                title_ko=track_ko.title if track_ko else prev.get("title_ko", ""),
-                artist_ko=track_ko.artist if track_ko else prev.get("artist_ko", ""),
-                album_ko=track_ko.album if track_ko else prev.get("album_ko", ""),
-                song_id=track.song_id,
-                video_id=prev["video_id"],
-                yt_title=prev.get("yt_title", ""),
-                yt_artist=prev.get("yt_artist", ""),
-                yt_album=prev.get("yt_album", ""),
-                score=prev.get("score", 1.0),
-                title_score=prev.get("title_score", 1.0),
-                artist_score=prev.get("artist_score", 1.0),
-                album_score=prev.get("album_score", 1.0),
-                yt_result_type=prev.get("yt_result_type", "song"),
-                query=prev.get("query", "cached"),
-                status="cached_match"
-            )
-
-        if not match:
-            match = search_youtube_music(
-                ytmusic,
-                track,
-                track_ko=track_ko,
-                min_score=min_score,
-                min_title_score=min_title_score,
-                min_artist_score=min_artist_score,
-                limit=search_limit,
-                ignore_video_ids=seen_video_ids,
-            )
-        if match.video_id and match.video_id in seen_video_ids:
-            LOG.warning(
-                "duplicate_skipped: '%s' / '%s' — video_id %s already in playlist (source: %s)",
-                track.title,
-                track.artist,
-                match.video_id,
-                match.status,
-            )
-            match.query = f"dup_of:{match.video_id}"
-            match.status = "duplicate_skipped"
-            match.video_id = None
-        elif match.video_id:
-            seen_video_ids.add(match.video_id)
-
-        matches.append(match)
-        LOG.info(
-            "[%03d/%03d] %s %.3f - %s / %s / %s",
-            track.rank,
-            len(all_tracks),
-            match.status,
-            match.score,
-            track.title,
-            track.artist,
-            track.album,
-        )
-        time.sleep(0.2)
-
-    matched_video_ids = [match.video_id for match in matches if match.video_id]
-    failed = [match for match in matches if not match.video_id]
-    LOG.info("Matched %d/%d tracks. Failed/skipped %d.", len(matched_video_ids), len(all_tracks), len(failed))
-
-    if not args.dry_run:
-        try:
-            from hype_db import export_frontend_history, persist_crawl_run
-            persist_crawl_run(
-                db_path,
-                service="apple",
-                job_name=job_name,
-                chart_date=update_date_str,
-                started_at=started_at,
-                tracks=all_tracks,
-                matches=matches,
-            )
-            export_frontend_history(db_path, args.history_json)
-        except Exception as exc:
-            LOG.warning("Failed to persist Apple run to DB: %s", exc)
+    matched_video_ids = process_matching_pipeline(
+        all_tracks=all_tracks,
+        tracks_ko_map=tracks_ko_map,
+        ytmusic=ytmusic,
+        db_path=db_path,
+        service="apple",
+        job_name=job_name,
+        source_variant="default",
+        update_date_str=update_date_str,
+        started_at=started_at,
+        no_db_cache=args.no_db_cache,
+        min_score=min_score,
+        min_title_score=min_title_score,
+        min_artist_score=min_artist_score,
+        search_limit=search_limit,
+        dry_run=args.dry_run,
+        history_json=args.history_json,
+    )
 
     if args.shuffle:
         LOG.info("Shuffling %d tracks before saving to playlist.", len(matched_video_ids))

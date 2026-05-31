@@ -257,8 +257,6 @@ python sync_db_storage.py upload            # Supabase로 DB 업로드
 python sync_db_storage.py download ytmusic_cache.db  # 특정 파일만
 ```
 
-모든 매칭 로그는 `logs/{job_name}/` 디렉토리에 JSON 형태로 저장되어 사후 분석이 가능합니다.
-
 ---
 
 ## ⚙️ GitHub Actions 워크플로우
