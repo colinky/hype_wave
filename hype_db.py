@@ -415,6 +415,24 @@ class PostgresConnectionWrapper:
         cursor.execute(sql_pg, parameters or ())
         return PostgresCursorWrapper(cursor)
         
+    def executemany(self, sql: str, seq_of_parameters):
+        # Replaces '?' placeholders with '%s' only when NOT enclosed inside single quotes
+        sql_pg = re.sub(r"\?(?=(?:[^']*'[^']*')*[^']*$)", "%s", sql)
+        # Dynamic compatibility conversion for LIKE standard patterns
+        sql_pg = sql_pg.replace("GLOB '????-??-??'", "LIKE '____-__-__'")
+        sql_pg = sql_pg.replace("INSTR(reference_period, '-W') = 0", "reference_period NOT LIKE '%-W%'")
+        sql_pg = sql_pg.replace("INSTR(reference_period, '-W') > 0", "reference_period LIKE '%-W%'")
+        
+        # Escape literal % characters for psycopg2 by protecting %s placeholders
+        sql_pg = sql_pg.replace('%s', '__PARAM_PLACEHOLDER__')
+        sql_pg = sql_pg.replace('%', '%%')
+        sql_pg = sql_pg.replace('__PARAM_PLACEHOLDER__', '%s')
+        
+        from psycopg2.extras import execute_batch
+        cursor = self.conn.cursor()
+        execute_batch(cursor, sql_pg, seq_of_parameters)
+        return PostgresCursorWrapper(cursor)
+        
     def commit(self):
         self.conn.commit()
         
@@ -567,7 +585,7 @@ def run_schema_migrations(conn: sqlite3.Connection) -> None:
 
 
 def init_schema(conn: Any) -> None:
-    if os.environ.get("SUPABASE_DB_URL") or type(conn).__name__ == "PostgresConnectionWrapper":
+    if type(conn).__name__ == "PostgresConnectionWrapper":
         return
     run_schema_migrations(conn)
     conn.execute("PRAGMA foreign_keys = OFF")
@@ -1895,7 +1913,7 @@ def record_match_attempt(
             created_at
         )
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        ON CONFLICT (run_id, service, song_id) DO UPDATE SET
+        ON CONFLICT (run_id, service, song_id, rank_order) DO UPDATE SET
             track_uid = EXCLUDED.track_uid,
             rank_order = EXCLUDED.rank_order,
             video_id = EXCLUDED.video_id,
@@ -2024,42 +2042,140 @@ def _persist_crawled_tracks_impl(
             (normalized_service(service), job_name, source_variant, resolved_period)
         )
 
+    # 1. Fetch all existing UIDs in one select query
+    song_ids = [normalize_song_id(service, t) for t in track_rows if normalize_song_id(service, t)]
+    existing_uids = {}
+    if song_ids:
+        placeholders = ",".join("?" for _ in song_ids)
+        rows = conn.execute(
+            f"SELECT song_id, track_uid FROM platform_song_ids WHERE service = ? AND song_id IN ({placeholders})",
+            (normalized_service(service), *song_ids)
+        ).fetchall()
+        existing_uids = {row["song_id"]: row["track_uid"] for row in rows}
+
+    now = utc_now_iso()
+    tracks_params = []
+    platform_song_ids_params = []
+    track_list_params = []
+    playlist_order_params = []
+
     for track in track_rows:
         song_id = normalize_song_id(service, track)
         if not song_id:
             continue
         
-        existing_uid = find_track_by_service_song(conn, service, song_id)
+        existing_uid = existing_uids.get(song_id)
         if existing_uid:
             track_uid = existing_uid
         else:
             track_uid = stable_uid(f"unmatched:{service}:{song_id}")
         
-        ensure_track(
-            conn,
-            track_uid=track_uid,
-            status="unmatched",
-        )
+        # Collect tracks params
+        tracks_params.append((track_uid, None, "", "", "", "unmatched", 0.0, now, now))
         
-        upsert_track_list_metadata(
-            conn,
-            service=service,
-            song_id=song_id,
-            track_uid=track_uid,
-            row=track,
-        )
+        # Collect platform_song_ids params
+        platform_song_ids_params.append((normalized_service(service), song_id, track_uid))
         
-        upsert_chart_rank(
-            conn,
-            service=service,
-            job_name=job_name,
-            source_variant=source_variant,
-            chart_date=chart_date,
-            reference_period=resolved_period,
-            song_id=song_id,
-            track_uid=track_uid,
-            rank_order=int(track.get("rank") or 0),
-            album_id=infer_album_id(service, track),
+        # Collect track_list metadata params
+        album_id = infer_album_id(service, track)
+        title_ko = str(track.get("title_ko") or track.get("title") or "").strip()
+        artist_ko = str(track.get("artist_ko") or track.get("artist") or "").strip()
+        album_ko = str(track.get("album_ko") or track.get("album") or "").strip()
+        title_en = str(track.get("title_en") or "").strip()
+        artist_en = str(track.get("artist_en") or "").strip()
+        album_en = str(track.get("album_en") or "").strip()
+        artwork_url = str(track.get("artwork_url") or "").strip()
+        
+        track_list_params.append((
+            normalized_service(service),
+            song_id,
+            album_id,
+            title_ko,
+            artist_ko,
+            album_ko,
+            title_en,
+            artist_en,
+            album_en,
+            artwork_url
+        ))
+        
+        # Collect playlist_order params
+        playlist_order_params.append((
+            normalized_service(service),
+            job_name,
+            source_variant,
+            resolved_period,
+            song_id,
+            int(track.get("rank") or 0),
+        ))
+
+    if tracks_params:
+        conn.executemany(
+            """
+            INSERT INTO tracks (
+                track_uid, canonical_yt_video_id, yt_title, yt_artist, yt_album,
+                match_status, best_score, created_at, updated_at
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(track_uid) DO UPDATE SET
+                canonical_yt_video_id = COALESCE(tracks.canonical_yt_video_id, excluded.canonical_yt_video_id),
+                yt_title = COALESCE(NULLIF(excluded.yt_title, ''), tracks.yt_title),
+                yt_artist = COALESCE(NULLIF(excluded.yt_artist, ''), tracks.yt_artist),
+                yt_album = COALESCE(NULLIF(excluded.yt_album, ''), tracks.yt_album),
+                match_status = CASE
+                    WHEN excluded.match_status != 'failed' THEN excluded.match_status
+                    ELSE tracks.match_status
+                END,
+                best_score = CASE WHEN COALESCE(excluded.best_score, 0) >= COALESCE(tracks.best_score, 0) THEN COALESCE(excluded.best_score, 0) ELSE COALESCE(tracks.best_score, 0) END,
+                updated_at = excluded.updated_at
+            """,
+            tracks_params
+        )
+
+    if platform_song_ids_params:
+        conn.executemany(
+            """
+            INSERT INTO platform_song_ids(service, song_id, track_uid)
+            VALUES (?, ?, ?)
+            ON CONFLICT(service, song_id) DO UPDATE SET
+                track_uid = excluded.track_uid
+            """,
+            platform_song_ids_params
+        )
+
+    if track_list_params:
+        conn.executemany(
+            """
+            INSERT INTO track_list(
+                service, song_id, album_id, title_ko, artist_ko, album_ko,
+                title_en, artist_en, album_en, artwork_url
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(service, song_id) DO UPDATE SET
+                album_id = COALESCE(NULLIF(excluded.album_id, ''), track_list.album_id),
+                title_ko = COALESCE(NULLIF(excluded.title_ko, ''), track_list.title_ko),
+                artist_ko = COALESCE(NULLIF(excluded.artist_ko, ''), track_list.artist_ko),
+                album_ko = COALESCE(NULLIF(excluded.album_ko, ''), track_list.album_ko),
+                title_en = COALESCE(NULLIF(excluded.title_en, ''), track_list.title_en),
+                artist_en = COALESCE(NULLIF(excluded.artist_en, ''), track_list.artist_en),
+                album_en = COALESCE(NULLIF(excluded.album_en, ''), track_list.album_en),
+                artwork_url = COALESCE(NULLIF(excluded.artwork_url, ''), track_list.artwork_url)
+            """,
+            track_list_params
+        )
+
+    if playlist_order_params:
+        conn.executemany(
+            """
+            INSERT INTO playlist_order(
+                service, job_name, source_variant, reference_period,
+                song_id, rank_order
+            )
+            VALUES (?, ?, ?, ?, ?, ?)
+            ON CONFLICT(service, job_name, source_variant, reference_period, song_id) DO UPDATE SET
+                rank_order = excluded.rank_order
+            """,
+            playlist_order_params
         )
 
 

@@ -344,12 +344,12 @@ def run_tracks_pipeline(
     YouTube Music matching, cache reuse, output writing, shuffle, and playlist
     update remain identical for normal Melon charts and Melon generation charts.
     """
-    yt_auth = env_or_arg(args.yt_auth, "YTMUSIC_AUTH_FILE")
+    yt_auth = env_or_arg(args.yt_auth, "YTMUSIC_AUTH_FILE", required=not getattr(args, "db_only", False))
     yt_oauth_client_id = args.yt_oauth_client_id or os.environ.get("YTMUSIC_OAUTH_CLIENT_ID", "")
     yt_oauth_client_secret = args.yt_oauth_client_secret or os.environ.get(
         "YTMUSIC_OAUTH_CLIENT_SECRET", ""
     )
-    yt_playlist_id = env_or_arg(args.yt_playlist_id, "YTMUSIC_PLAYLIST_ID")
+    yt_playlist_id = env_or_arg(args.yt_playlist_id, "YTMUSIC_PLAYLIST_ID", required=not getattr(args, "db_only", False))
     job_name = getattr(args, "job_name", None) or "melon"
     playlist_name = getattr(args, "playlist_name", None) or job_name
     source_variant = getattr(args, "source_variant", "default")
