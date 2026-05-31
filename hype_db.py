@@ -2961,3 +2961,244 @@ def hype_report_for_date(
     for index, row in enumerate(report, 1):
         row["hype_rank"] = index
     return report[:200]
+
+
+def get_bulk_cached_matches(conn: Any, service: str, tracks: Iterable[Any]) -> dict[str, dict[str, Any]]:
+    """Bulk load cache matches for a list of tracks in 5-6 database queries.
+    Returns a dictionary mapping: song_id -> cached_dict
+    """
+    service = normalized_service(service)
+    track_rows = [row_dict(t) for t in tracks]
+    
+    # 1. Collect all song_ids and pre-calculate all metadata lookup keys for each track
+    song_ids = []
+    track_keys = {} # song_id -> list of metadata lookup keys
+    all_lookup_keys = []
+    
+    for t in track_rows:
+        sid = normalize_song_id(service, t)
+        if not sid:
+            continue
+        song_ids.append(sid)
+        
+        # Precompute metadata keys for this track
+        title = str(t.get("title_ko") or t.get("title") or "").strip()
+        artist = str(t.get("artist_ko") or t.get("artist") or "").strip()
+        album = str(t.get("album_ko") or t.get("album") or "").strip()
+        
+        keys = [metadata_key(title, artist, album), compact_metadata_key(title, artist)]
+        cleaned = clean_track_title(title)
+        if cleaned != title:
+            keys.append(compact_metadata_key(cleaned, artist))
+            if album:
+                keys.append(metadata_key(cleaned, artist, album))
+        
+        stripped_title = strip_parens_from_title(title)
+        if stripped_title != title and stripped_title != cleaned:
+            keys.append(compact_metadata_key(stripped_title, artist))
+            if album:
+                keys.append(metadata_key(stripped_title, artist, album))
+                
+        stripped_artist = strip_parens_from_title(artist)
+        if stripped_artist != artist:
+            keys.append(compact_metadata_key(title, stripped_artist))
+            keys.append(compact_metadata_key(cleaned, stripped_artist))
+            if album:
+                keys.append(metadata_key(title, stripped_artist, album))
+                
+        track_keys[sid] = keys
+        all_lookup_keys.extend(keys)
+        
+    if not song_ids:
+        return {}
+        
+    # --- Bulk Queries ---
+    
+    # Query 1: Fetch manual overrides
+    overrides = {}
+    placeholders = ",".join("?" for _ in song_ids)
+    rows_override = conn.execute(
+        f"SELECT * FROM manual_overrides WHERE service = ? AND song_id IN ({placeholders})",
+        (service, *song_ids)
+    ).fetchall()
+    for row in rows_override:
+        overrides[row["song_id"]] = dict(row)
+        
+    # Query 2: Fetch platform_song_ids
+    song_to_uid = {}
+    rows_platform = conn.execute(
+        f"SELECT song_id, track_uid FROM platform_song_ids WHERE service = ? AND song_id IN ({placeholders})",
+        (service, *song_ids)
+    ).fetchall()
+    for row in rows_platform:
+        song_to_uid[row["song_id"]] = row["track_uid"]
+        
+    # Query 3: Fetch metadata lookup indexes
+    lookup_to_uid = {}
+    if all_lookup_keys:
+        chunks = [all_lookup_keys[i:i + 500] for i in range(0, len(all_lookup_keys), 500)]
+        for chunk in chunks:
+            chunk_placeholders = ",".join("?" for _ in chunk)
+            rows_lookup = conn.execute(
+                f"SELECT lookup_key, track_uid FROM metadata_lookup_index WHERE lookup_key IN ({chunk_placeholders})",
+                chunk
+            ).fetchall()
+            for row in rows_lookup:
+                lookup_to_uid[row["lookup_key"]] = row["track_uid"]
+                
+    # Collect all candidate track_uids
+    candidate_uids = set(song_to_uid.values()) | set(lookup_to_uid.values())
+    
+    # Query 4: Fetch video IDs for manual overrides if set_canonical
+    override_video_ids = [ov["canonical_yt_video_id"] for ov in overrides.values() if ov.get("action") == "set_canonical" and ov.get("canonical_yt_video_id")]
+    video_to_uid = {}
+    if override_video_ids:
+        video_placeholders = ",".join("?" for _ in override_video_ids)
+        rows_video = conn.execute(
+            f"SELECT video_id, track_uid FROM yt_video_ids WHERE video_id IN ({video_placeholders})",
+            override_video_ids
+        ).fetchall()
+        for row in rows_video:
+            video_to_uid[row["video_id"]] = row["track_uid"]
+            candidate_uids.add(row["track_uid"])
+            
+    if not candidate_uids:
+        return {}
+        
+    # Query 5: Fetch tracks details
+    tracks_dict = {}
+    uid_list = list(candidate_uids)
+    uid_chunks = [uid_list[i:i + 500] for i in range(0, len(uid_list), 500)]
+    for chunk in uid_chunks:
+        uid_placeholders = ",".join("?" for _ in chunk)
+        rows_tracks = conn.execute(
+            f"SELECT * FROM tracks WHERE track_uid IN ({uid_placeholders})",
+            chunk
+        ).fetchall()
+        for row in rows_tracks:
+            tracks_dict[row["track_uid"]] = dict(row)
+            
+    # Query 6: Fetch track_list details for verifying cached titles & fallback details
+    uid_to_metas = {}
+    for chunk in uid_chunks:
+        uid_placeholders = ",".join("?" for _ in chunk)
+        rows_metas = conn.execute(
+            f"""
+            SELECT ps.track_uid, tl.service, tl.song_id, tl.album_id, tl.title_ko, tl.artist_ko, tl.album_ko, tl.title_en, tl.artist_en, tl.album_en, tl.artwork_url
+            FROM platform_song_ids ps
+            JOIN track_list tl ON tl.service = ps.service AND tl.song_id = ps.song_id
+            WHERE ps.track_uid IN ({uid_placeholders})
+            ORDER BY
+                CASE tl.service WHEN 'apple' THEN 0 WHEN 'melon' THEN 1 WHEN 'spotify' THEN 2 ELSE 3 END
+            """,
+            chunk
+        ).fetchall()
+        for row in rows_metas:
+            uid = row["track_uid"]
+            uid_to_metas.setdefault(uid, []).append(dict(row))
+            
+    # Helper to build cache row dict in-memory (mimicking _cache_row_for_track and _cache_row_for_video)
+    def make_cache_dict(track_uid, status):
+        track = tracks_dict.get(track_uid)
+        if not track or not track.get("canonical_yt_video_id"):
+            return None
+        metas = uid_to_metas.get(track_uid) or []
+        meta = metas[0] if metas else None
+        
+        out = {
+            "video_id": track["canonical_yt_video_id"],
+            "yt_title": track["yt_title"] or "",
+            "yt_artist": track["yt_artist"] or "",
+            "yt_album": track["yt_album"] or "",
+            "score": float(track["best_score"] or 1.0),
+            "title_score": 1.0,
+            "artist_score": 1.0,
+            "album_score": 1.0,
+            "yt_result_type": "song",
+            "query": "db_cache",
+            "status": status,
+        }
+        if meta:
+            out.update({
+                "title": meta.get("title_ko") or meta.get("title_en") or "",
+                "artist": meta.get("artist_ko") or meta.get("artist_en") or "",
+                "album": meta.get("album_ko") or meta.get("album_en") or "",
+                "artwork_url": meta.get("artwork_url") or "",
+            })
+        return out
+        
+    # Helper to verify cached title in-memory (mimicking _verify_cached_title)
+    def verify_title_in_memory(track_uid, title, artist, threshold=0.4):
+        from ytmusic_playlist_sync import similarity
+        metas = uid_to_metas.get(track_uid) or []
+        if not metas:
+            return True
+        existing_titles = []
+        for m in metas:
+            if m.get("title_ko"):
+                existing_titles.append(m["title_ko"])
+            if m.get("title_en"):
+                existing_titles.append(m["title_en"])
+        existing_titles = list(set(existing_titles))
+        if not existing_titles:
+            return True
+        best_sim = max(similarity(title, t) for t in existing_titles)
+        return best_sim >= threshold
+        
+    # 2. Evaluate cache matches in-memory for each track
+    results = {}
+    for t in track_rows:
+        sid = normalize_song_id(service, t)
+        if not sid:
+            continue
+            
+        title = str(t.get("title_ko") or t.get("title") or "").strip()
+        artist = str(t.get("artist_ko") or t.get("artist") or "").strip()
+        album = str(t.get("album_ko") or t.get("album") or "").strip()
+        
+        # A. Manual override check
+        override = overrides.get(sid)
+        if override:
+            if override.get("action") == "block":
+                results[sid] = {"status": "manual_blocked"}
+                continue
+            video_id = override.get("canonical_yt_video_id")
+            if video_id:
+                # Find track_uid for this video
+                track_uid = video_to_uid.get(video_id)
+                if track_uid:
+                    cached = make_cache_dict(track_uid, status="manual_override")
+                else:
+                    cached = {"video_id": video_id, "score": 1.0, "status": "manual_override", "query": "manual_override"}
+                if cached:
+                    results[sid] = cached
+                    continue
+                    
+        # B. Find by service and song_id
+        track_uid = song_to_uid.get(sid)
+        if track_uid:
+            cached = make_cache_dict(track_uid, status="cached_match")
+            if cached:
+                if title and not verify_title_in_memory(track_uid, title, artist):
+                    LOG.warning("Cache rejected for %s:%s — title mismatch with '%s'", service, sid, title)
+                else:
+                    results[sid] = cached
+                    continue
+                    
+        # C. Find by metadata lookup
+        keys = track_keys.get(sid) or []
+        found_uid = None
+        for key in keys:
+            found_uid = lookup_to_uid.get(key)
+            if found_uid:
+                break
+        if found_uid:
+            cached = make_cache_dict(found_uid, status="cached_match")
+            if cached:
+                if title and not verify_title_in_memory(found_uid, title, artist):
+                    pass
+                else:
+                    results[sid] = cached
+                    continue
+                    
+    return results

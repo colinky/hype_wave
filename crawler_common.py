@@ -80,6 +80,19 @@ def process_matching_pipeline(
                 LOG.error("Failed to persist raw chart order to DB: %s", exc)
                 raise exc
 
+        # Pre-populate cache in bulk
+        bulk_cache = {}
+        if not no_db_cache:
+            try:
+                from hype_db import get_bulk_cached_matches
+                bulk_cache = get_bulk_cached_matches(
+                    conn,
+                    service=service,
+                    tracks=all_tracks,
+                )
+            except Exception as exc:
+                LOG.warning("Failed to bulk pre-populate cache: %s", exc)
+
         for track in all_tracks:
             # Get Korean fallback track if available
             track_ko = tracks_ko_map.get(track.song_id) or tracks_ko_map.get(str(track.rank))
@@ -89,17 +102,9 @@ def process_matching_pipeline(
             
             # 2a. DB cache check
             if not no_db_cache:
-                try:
-                    cached = get_cached_match(
-                        db_path,
-                        service=service,
-                        song_id=track.song_id,
-                        title=track.title,
-                        artist=track.artist,
-                        album=track.album,
-                        conn=conn,
-                    )
-                    if cached and cached.get("status") == "manual_blocked":
+                cached = bulk_cache.get(track.song_id) if track.song_id else None
+                if cached:
+                    if cached.get("status") == "manual_blocked":
                         match = MatchResult(
                             rank=track.rank,
                             title=track.title,
@@ -109,12 +114,11 @@ def process_matching_pipeline(
                             song_id=track.song_id,
                             status="manual_blocked",
                         )
-                    elif cached and cached.get("video_id"):
+                    elif cached.get("video_id"):
                         match = match_from_prev(track, cached, track_ko=track_ko, status=cached.get("status", "cached_match"))
-                except Exception as exc:
-                    LOG.warning("DB cache lookup failed for %s: %s", track.title, exc)
 
             # 3. Active YouTube Music Search (if not cached)
+            did_search = False
             if not match:
                 match = search_youtube_music(
                     ytmusic,
@@ -126,6 +130,7 @@ def process_matching_pipeline(
                     limit=search_limit,
                     ignore_video_ids=seen_video_ids,
                 )
+                did_search = True
 
             # 5. Duplicate Check
             if match.video_id and match.video_id in seen_video_ids:
@@ -153,7 +158,8 @@ def process_matching_pipeline(
                 track.artist,
                 track.album,
             )
-            time.sleep(0.2)
+            if did_search:
+                time.sleep(0.2)
 
         matched_video_ids = [match.video_id for match in matches if match.video_id]
         failed = [match for match in matches if not match.video_id]

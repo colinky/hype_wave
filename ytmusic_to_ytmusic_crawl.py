@@ -743,221 +743,228 @@ def main() -> int:
 
     db_path = Path(args.db_path).expanduser()
 
-    # Persist raw crawled tracks to playlist_order immediately (if not dry-run)
-    from hype_db import reference_period_for_date
-    reference_period = reference_period_for_date(args.job_name, chart_period_end)
-    if not args.dry_run:
-        try:
-            from hype_db import persist_crawled_tracks
-            raw_tracks = []
-            for row in entries:
-                song_id = row.get("original_video_id") or ""
-                raw_tracks.append({
-                    "rank": row.get("rank"),
-                    "service": "ytmusic",
-                    "song_id": song_id,
-                    "title": row.get("original_title") or "",
-                    "artist": row.get("original_artist_or_channel") or "",
-                    "album": row.get("album") or "",
-                    "source": row.get("source", "youtube_music_playlist"),
-                    "title_en": row.get("title_en", ""),
-                    "artist_en": row.get("artist_en", ""),
-                    "album_en": row.get("album_en", ""),
-                    "title_ko": row.get("title_ko", ""),
-                    "artist_ko": row.get("artist_ko", ""),
-                    "album_ko": row.get("album_ko", ""),
-                    "artwork_url": row.get("artwork_url", ""),
-                })
-            persist_crawled_tracks(
-                db_path,
-                service="ytmusic",
-                job_name=args.job_name,
-                source_variant="default",
-                chart_date=chart_period_end,
-                reference_period=reference_period,
-                tracks=raw_tracks,
-            )
-            LOG.info("Persisted raw chart order for %s to playlist_order table.", args.job_name)
-        except Exception as exc:
-            LOG.error("Failed to persist raw chart order to DB: %s", exc)
-            raise exc
+    from hype_db import connect, get_bulk_cached_matches, persist_crawled_tracks, persist_crawl_run, export_frontend_history
 
-    resolved_rows: list[dict[str, Any]] = []
-    video_ids: list[str] = []
-    seen: set[str] = set()
+    with connect(db_path) as conn:
+        # Prepopulate cache in bulk
+        bulk_cache = {}
+        if not args.no_resolve:
+            try:
+                tracks_for_cache = []
+                for row in entries:
+                    tracks_for_cache.append({
+                        "song_id": row.get("original_video_id") or "",
+                        "title": row.get("original_title") or "",
+                        "artist": row.get("original_artist_or_channel") or "",
+                        "album": row.get("album") or "",
+                    })
+                bulk_cache = get_bulk_cached_matches(conn, service="ytmusic", tracks=tracks_for_cache)
+            except Exception as exc:
+                LOG.warning("Failed to bulk pre-populate cache: %s", exc)
 
-    for row in entries:
-        original_id = row.get("original_video_id", "")
-        if not original_id:
-            row.update({"mapping_status": "failed", "mapping_reason": "missing_original_video_id"})
-            resolved_rows.append(row)
-            continue
-        if args.no_resolve:
-            out = {
-                **row,
-                "mapping_status": "failed",
-                "mapping_reason": "resolve_skipped",
-                "mapping_score": 0.0,
-                "resolved_video_id": "",
-                "resolved_title": "",
-                "resolved_artist": "",
-                "resolved_album": "",
-                "duration_seconds_resolved": 0,
-            }
-            resolved_rows.append(out)
-            LOG.info("[%03d/%03d] resolve_skipped %s", row["rank"], len(entries), original_id)
-            continue
-        try:
-            from hype_db import get_cached_match
+        # Persist raw crawled tracks to playlist_order immediately (if not dry-run)
+        from hype_db import reference_period_for_date
+        reference_period = reference_period_for_date(args.job_name, chart_period_end)
+        if not args.dry_run:
+            try:
+                raw_tracks = []
+                for row in entries:
+                    song_id = row.get("original_video_id") or ""
+                    raw_tracks.append({
+                        "rank": row.get("rank"),
+                        "service": "ytmusic",
+                        "song_id": song_id,
+                        "title": row.get("original_title") or "",
+                        "artist": row.get("original_artist_or_channel") or "",
+                        "album": row.get("album") or "",
+                        "source": row.get("source", "youtube_music_playlist"),
+                        "title_en": row.get("title_en", ""),
+                        "artist_en": row.get("artist_en", ""),
+                        "album_en": row.get("album_en", ""),
+                        "title_ko": row.get("title_ko", ""),
+                        "artist_ko": row.get("artist_ko", ""),
+                        "album_ko": row.get("album_ko", ""),
+                        "artwork_url": row.get("artwork_url", ""),
+                    })
+                persist_crawled_tracks(
+                    db_path,
+                    service="ytmusic",
+                    job_name=args.job_name,
+                    source_variant="default",
+                    chart_date=chart_period_end,
+                    reference_period=reference_period,
+                    tracks=raw_tracks,
+                    conn=conn,
+                )
+                LOG.info("Persisted raw chart order for %s to playlist_order table.", args.job_name)
+            except Exception as exc:
+                LOG.error("Failed to persist raw chart order to DB: %s", exc)
+                raise exc
 
-            cached = get_cached_match(
-                db_path,
-                service="ytmusic",
-                song_id=original_id,
+        resolved_rows: list[dict[str, Any]] = []
+        video_ids: list[str] = []
+        seen: set[str] = set()
+
+        for row in entries:
+            original_id = row.get("original_video_id", "")
+            if not original_id:
+                row.update({"mapping_status": "failed", "mapping_reason": "missing_original_video_id"})
+                resolved_rows.append(row)
+                continue
+            if args.no_resolve:
+                out = {
+                    **row,
+                    "mapping_status": "failed",
+                    "mapping_reason": "resolve_skipped",
+                    "mapping_score": 0.0,
+                    "resolved_video_id": "",
+                    "resolved_title": "",
+                    "resolved_artist": "",
+                    "resolved_album": "",
+                    "duration_seconds_resolved": 0,
+                }
+                resolved_rows.append(out)
+                LOG.info("[%03d/%03d] resolve_skipped %s", row["rank"], len(entries), original_id)
+                continue
+            
+            # DB cache check using in-memory bulk cache dict
+            cached = bulk_cache.get(original_id) if original_id else None
+            if cached and cached.get("status") != "manual_blocked" and cached.get("video_id"):
+                out = {
+                    **row,
+                    "resolved_video_id": cached.get("video_id", ""),
+                    "resolved_title": cached.get("yt_title") or cached.get("title") or row.get("original_title", ""),
+                    "resolved_artist": cached.get("yt_artist") or cached.get("artist") or row.get("original_artist_or_channel", ""),
+                    "resolved_album": cached.get("yt_album") or cached.get("album") or row.get("album", ""),
+                    "mapping_status": cached.get("status") or "cached_match",
+                    "mapping_reason": cached.get("query") or "db_cache",
+                    "mapping_score": float(cached.get("score") or 1.0),
+                    "duration_seconds_resolved": 0,
+                }
+                rid = out.get("resolved_video_id")
+                if rid and rid not in seen:
+                    seen.add(rid)
+                    video_ids.append(rid)
+                elif rid:
+                    out["mapping_status"] = "duplicate_skipped"
+                    out["mapping_reason"] = (out.get("mapping_reason", "") + ";duplicate").strip(";")
+                resolved_rows.append(out)
+                LOG.info("[%03d/%03d] %s %.3f %s -> %s", row["rank"], len(entries), out["mapping_status"], out.get("mapping_score", 0.0), original_id, rid)
+                continue
+            if not ytmusic:
+                out = {
+                    **row,
+                    "mapping_status": "kept_original_video",
+                    "mapping_reason": "db_cache_miss_no_ytmusic_fallback",
+                    "mapping_score": 1.0,
+                    "resolved_video_id": original_id,
+                    "resolved_title": row.get("original_title", ""),
+                    "resolved_artist": row.get("original_artist_or_channel", ""),
+                    "resolved_album": row.get("album", ""),
+                    "duration_seconds_resolved": 0,
+                }
+                resolved_rows.append(out)
+                LOG.info("[%03d/%03d] db_cache_miss_no_ytmusic_fallback %s", row["rank"], len(entries), original_id)
+                continue
+            resolution = resolve_video_to_song(
+                ytmusic,
+                video_id=original_id,
                 title=row.get("original_title", ""),
                 artist=row.get("original_artist_or_channel", ""),
-                album=row.get("album", ""),
+                duration_seconds=int(row.get("duration_seconds_original") or 0),
+                threshold=args.resolve_threshold,
+                search_limit=args.search_limit,
             )
-        except Exception as exc:
-            LOG.debug("DB cache lookup failed for %s: %s", original_id, exc)
-            cached = None
-        if cached and cached.get("status") != "manual_blocked" and cached.get("video_id"):
-            out = {
-                **row,
-                "resolved_video_id": cached.get("video_id", ""),
-                "resolved_title": cached.get("yt_title") or cached.get("title") or row.get("original_title", ""),
-                "resolved_artist": cached.get("yt_artist") or cached.get("artist") or row.get("original_artist_or_channel", ""),
-                "resolved_album": cached.get("yt_album") or cached.get("album") or row.get("album", ""),
-                "mapping_status": cached.get("status") or "cached_match",
-                "mapping_reason": cached.get("query") or "db_cache",
-                "mapping_score": float(cached.get("score") or 1.0),
-                "duration_seconds_resolved": 0,
-            }
+            out = {**row, **resolution, "duration_seconds_resolved": 0}
+            if not out.get("resolved_title") and out.get("resolved_video_id") == original_id:
+                out["resolved_title"] = row.get("original_title", "")
             rid = out.get("resolved_video_id")
-            if rid and rid not in seen:
+            accepted_status = out.get("mapping_status") in ACCEPTED_MAPPING_STATUSES
+            if rid and accepted_status and rid not in seen:
                 seen.add(rid)
                 video_ids.append(rid)
-            elif rid:
+            elif rid and accepted_status:
                 out["mapping_status"] = "duplicate_skipped"
                 out["mapping_reason"] = (out.get("mapping_reason", "") + ";duplicate").strip(";")
+            elif rid:
+                out["mapping_reason"] = (out.get("mapping_reason", "") + ";unaccepted_video_type").strip(";")
             resolved_rows.append(out)
             LOG.info("[%03d/%03d] %s %.3f %s -> %s", row["rank"], len(entries), out["mapping_status"], out.get("mapping_score", 0.0), original_id, rid)
-            continue
-        if not ytmusic:
-            out = {
-                **row,
-                "mapping_status": "kept_original_video",
-                "mapping_reason": "db_cache_miss_no_ytmusic_fallback",
-                "mapping_score": 1.0,
-                "resolved_video_id": original_id,
-                "resolved_title": row.get("original_title", ""),
-                "resolved_artist": row.get("original_artist_or_channel", ""),
-                "resolved_album": row.get("album", ""),
-                "duration_seconds_resolved": 0,
-            }
-            resolved_rows.append(out)
-            LOG.info("[%03d/%03d] db_cache_miss_no_ytmusic_fallback %s", row["rank"], len(entries), original_id)
-            continue
-        resolution = resolve_video_to_song(
-            ytmusic,
-            video_id=original_id,
-            title=row.get("original_title", ""),
-            artist=row.get("original_artist_or_channel", ""),
-            duration_seconds=int(row.get("duration_seconds_original") or 0),
-            threshold=args.resolve_threshold,
-            search_limit=args.search_limit,
-        )
-        out = {**row, **resolution, "duration_seconds_resolved": 0}
-        # resolved metadata 보강
-        if not out.get("resolved_title") and out.get("resolved_video_id") == original_id:
-            out["resolved_title"] = row.get("original_title", "")
-        rid = out.get("resolved_video_id")
-        accepted_status = out.get("mapping_status") in ACCEPTED_MAPPING_STATUSES
-        if rid and accepted_status and rid not in seen:
-            seen.add(rid)
-            video_ids.append(rid)
-        elif rid and accepted_status:
-            out["mapping_status"] = "duplicate_skipped"
-            out["mapping_reason"] = (out.get("mapping_reason", "") + ";duplicate").strip(";")
-        elif rid:
-            out["mapping_reason"] = (out.get("mapping_reason", "") + ";unaccepted_video_type").strip(";")
-        resolved_rows.append(out)
-        LOG.info("[%03d/%03d] %s %.3f %s -> %s", row["rank"], len(entries), out["mapping_status"], out.get("mapping_score", 0.0), original_id, rid)
-        time.sleep(0.2)
+            time.sleep(0.2)
 
-    audit = {
-        "source": "youtube_music_chart_playlist",
-        "total": len(entries),
-        "resolved_to_song": sum(1 for r in resolved_rows if r.get("mapping_status") == "resolved_to_song"),
-        "kept_original_video": sum(1 for r in resolved_rows if r.get("mapping_status") == "kept_original_video"),
-        "ambiguous": sum(1 for r in resolved_rows if r.get("mapping_status") == "ambiguous"),
-        "failed": sum(1 for r in resolved_rows if r.get("mapping_status") == "failed"),
-        "already_song": sum(1 for r in resolved_rows if r.get("mapping_status") == "already_song"),
-        "override_used": 0,
-    }
-    chart_date = chart_period_end
-    playlist_name = args.playlist_name or args.job_name
-    from hype_db import reference_period_for_date
-    reference_period = reference_period_for_date(args.job_name, chart_date)
-    if not args.dry_run:
-        try:
-            from hype_db import export_frontend_history, persist_crawl_run
-            tracks = []
-            matches = []
-            for row in resolved_rows:
-                song_id = row.get("original_video_id") or row.get("resolved_video_id") or ""
-                tracks.append({
-                    "rank": row.get("rank"),
-                    "service": "ytmusic",
-                    "song_id": song_id,
-                    "title": row.get("original_title") or row.get("resolved_title") or "",
-                    "artist": row.get("original_artist_or_channel") or row.get("resolved_artist") or "",
-                    "album": row.get("album") or row.get("resolved_album", ""),
-                    "source": row.get("source", "youtube_music_playlist"),
-                    "title_en": row.get("title_en", ""),
-                    "artist_en": row.get("artist_en", ""),
-                    "album_en": row.get("album_en", ""),
-                    "title_ko": row.get("title_ko", ""),
-                    "artist_ko": row.get("artist_ko", ""),
-                    "album_ko": row.get("album_ko", ""),
-                    "artwork_url": row.get("artwork_url", ""),
-                })
-                matches.append({
-                    "rank": row.get("rank"),
-                    "service": "ytmusic",
-                    "song_id": song_id,
-                    "title": row.get("original_title") or row.get("resolved_title") or "",
-                    "artist": row.get("original_artist_or_channel") or row.get("resolved_artist") or "",
-                    "album": row.get("album") or row.get("resolved_album", ""),
-                    "title_en": row.get("title_en", ""),
-                    "artist_en": row.get("artist_en", ""),
-                    "album_en": row.get("album_en", ""),
-                    "title_ko": row.get("title_ko", ""),
-                    "artist_ko": row.get("artist_ko", ""),
-                    "album_ko": row.get("album_ko", ""),
-                    "artwork_url": row.get("artwork_url", ""),
-                    "video_id": (row.get("resolved_video_id") or "") if row.get("mapping_status") in ACCEPTED_MAPPING_STATUSES else "",
-                    "yt_title": row.get("resolved_title") or row.get("original_title") or "",
-                    "yt_artist": row.get("resolved_artist") or row.get("original_artist_or_channel") or "",
-                    "yt_album": row.get("resolved_album") or row.get("album", ""),
-                    "score": row.get("mapping_score", 1.0),
-                    "status": "matched" if row.get("mapping_status") in ACCEPTED_MAPPING_STATUSES else row.get("mapping_status", "failed"),
-                    "query": row.get("mapping_reason", "ytmusic_chart"),
-                })
-            persist_crawl_run(
-                db_path,
-                service="ytmusic",
-                job_name=args.job_name,
-                source_variant="default",
-                chart_date=chart_date,
-                reference_period=reference_period,
-                started_at=started_at,
-                tracks=tracks,
-                matches=matches,
-            )
-            export_frontend_history(db_path, args.history_json)
-        except Exception as exc:
-            LOG.warning("Failed to persist YouTube Music chart run to DB: %s", exc)
+        audit = {
+            "source": "youtube_music_chart_playlist",
+            "total": len(entries),
+            "resolved_to_song": sum(1 for r in resolved_rows if r.get("mapping_status") == "resolved_to_song"),
+            "kept_original_video": sum(1 for r in resolved_rows if r.get("mapping_status") == "kept_original_video"),
+            "ambiguous": sum(1 for r in resolved_rows if r.get("mapping_status") == "ambiguous"),
+            "failed": sum(1 for r in resolved_rows if r.get("mapping_status") == "failed"),
+            "already_song": sum(1 for r in resolved_rows if r.get("mapping_status") == "already_song"),
+            "override_used": 0,
+        }
+        chart_date = chart_period_end
+        playlist_name = args.playlist_name or args.job_name
+        from hype_db import reference_period_for_date
+        reference_period = reference_period_for_date(args.job_name, chart_date)
+        if not args.dry_run:
+            try:
+                tracks = []
+                matches = []
+                for row in resolved_rows:
+                    song_id = row.get("original_video_id") or row.get("resolved_video_id") or ""
+                    tracks.append({
+                        "rank": row.get("rank"),
+                        "service": "ytmusic",
+                        "song_id": song_id,
+                        "title": row.get("original_title") or row.get("resolved_title") or "",
+                        "artist": row.get("original_artist_or_channel") or row.get("resolved_artist") or "",
+                        "album": row.get("album") or row.get("resolved_album", ""),
+                        "source": row.get("source", "youtube_music_playlist"),
+                        "title_en": row.get("title_en", ""),
+                        "artist_en": row.get("artist_en", ""),
+                        "album_en": row.get("album_en", ""),
+                        "title_ko": row.get("title_ko", ""),
+                        "artist_ko": row.get("artist_ko", ""),
+                        "album_ko": row.get("album_ko", ""),
+                        "artwork_url": row.get("artwork_url", ""),
+                    })
+                    matches.append({
+                        "rank": row.get("rank"),
+                        "service": "ytmusic",
+                        "song_id": song_id,
+                        "title": row.get("original_title") or row.get("resolved_title") or "",
+                        "artist": row.get("original_artist_or_channel") or row.get("resolved_artist") or "",
+                        "album": row.get("album") or row.get("resolved_album", ""),
+                        "title_en": row.get("title_en", ""),
+                        "artist_en": row.get("artist_en", ""),
+                        "album_en": row.get("album_en", ""),
+                        "title_ko": row.get("title_ko", ""),
+                        "artist_ko": row.get("artist_ko", ""),
+                        "album_ko": row.get("album_ko", ""),
+                        "artwork_url": row.get("artwork_url", ""),
+                        "video_id": (row.get("resolved_video_id") or "") if row.get("mapping_status") in ACCEPTED_MAPPING_STATUSES else "",
+                        "yt_title": row.get("resolved_title") or row.get("original_title") or "",
+                        "yt_artist": row.get("resolved_artist") or row.get("original_artist_or_channel") or "",
+                        "yt_album": row.get("resolved_album") or row.get("album", ""),
+                        "score": row.get("mapping_score", 1.0),
+                        "status": "matched" if row.get("mapping_status") in ACCEPTED_MAPPING_STATUSES else row.get("mapping_status", "failed"),
+                        "query": row.get("mapping_reason", "ytmusic_chart"),
+                    })
+                persist_crawl_run(
+                    db_path,
+                    service="ytmusic",
+                    job_name=args.job_name,
+                    source_variant="default",
+                    chart_date=chart_date,
+                    reference_period=reference_period,
+                    started_at=started_at,
+                    tracks=tracks,
+                    matches=matches,
+                    conn=conn,
+                )
+                export_frontend_history(db_path, args.history_json)
+            except Exception as exc:
+                LOG.warning("Failed to persist YouTube Music chart run to DB: %s", exc)
 
     if args.db_only:
         LOG.info("Skipped YouTube Music playlist update because --db-only is set")
