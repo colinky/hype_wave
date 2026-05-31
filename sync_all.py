@@ -77,6 +77,19 @@ def main():
     success_count = 0
     skipped_count = 0
     failed_tasks = []
+    task_env = os.environ.copy()
+    task_env["HYPE_DEFER_HISTORY_EXPORT"] = "1"
+    if os.environ.get("SUPABASE_DB_URL"):
+        try:
+            from hype_db import connect
+
+            with connect(script_dir / "hype_wave_data.db"):
+                pass
+            task_env["HYPE_SKIP_POSTGRES_INDEX_CHECK"] = "1"
+            LOG.info("Verified Supabase indexes once before running child sync tasks.")
+        except Exception as exc:
+            LOG.error("Failed to verify Supabase indexes: %s", exc)
+            sys.exit(1)
     
 
 
@@ -153,7 +166,7 @@ def main():
 
         try:
             LOG.debug(f"Running command: {' '.join(cmd)}")
-            result = subprocess.run(cmd, check=True)
+            result = subprocess.run(cmd, check=True, env=task_env)
             LOG.info(f"Successfully finished task: {job_name}")
 
             success_count += 1
@@ -163,11 +176,11 @@ def main():
             if task_type == "ytmusic":
                 heal_script = script_dir / "heal_split_tracks.py"
                 db_path = script_dir / "hype_wave_data.db"
-                if heal_script.exists() and db_path.exists():
+                if heal_script.exists() and (db_path.exists() or os.environ.get("SUPABASE_DB_URL")):
                     try:
                         heal_cmd = [sys.executable, str(heal_script), "--db-path", str(db_path)]
                         LOG.info(f"Running heal_split_tracks after '{job_name}'...")
-                        subprocess.run(heal_cmd, check=True)
+                        subprocess.run(heal_cmd, check=True, env=task_env)
                         LOG.info("heal_split_tracks completed.")
                     except subprocess.CalledProcessError as he:
                         LOG.warning(f"heal_split_tracks failed (non-fatal): exit code {he.returncode}")
@@ -183,6 +196,18 @@ def main():
     if failed_tasks:
         LOG.error(f"Failed tasks: {', '.join(failed_tasks)}")
         sys.exit(1)
+
+    if success_count:
+        try:
+            from hype_db import export_frontend_history
+
+            db_path = script_dir / "hype_wave_data.db"
+            history_path = script_dir / "docs" / "api" / "history.json"
+            export_frontend_history(db_path, history_path)
+            LOG.info("Exported frontend history once after all sync tasks.")
+        except Exception as exc:
+            LOG.error("Failed to export frontend history: %s", exc)
+            sys.exit(1)
     
 if __name__ == "__main__":
     main()

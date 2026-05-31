@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import os
 import re
 import time
 from pathlib import Path
@@ -90,7 +91,9 @@ def process_matching_pipeline(
                     service=service,
                     tracks=all_tracks,
                 )
+                conn.commit()
             except Exception as exc:
+                conn.rollback()
                 LOG.warning("Failed to bulk pre-populate cache: %s", exc)
 
         for track in all_tracks:
@@ -179,8 +182,10 @@ def process_matching_pipeline(
                     tracks=all_tracks,
                     matches=matches,
                     conn=conn,
+                    skip_playlist_order=True,
                 )
-                export_frontend_history(db_path, history_json)
+                if os.environ.get("HYPE_DEFER_HISTORY_EXPORT") not in {"1", "true", "TRUE"}:
+                    export_frontend_history(db_path, history_json)
             except Exception as exc:
                 LOG.error("Failed to persist %s run to DB: %s", service, exc)
                 raise exc

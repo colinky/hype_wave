@@ -85,26 +85,29 @@ def save_album_cache(db_path: Path):
         try:
             from hype_db import connect, init_db, utc_now_iso
             init_db(db_path)
+            now = utc_now_iso()
+            params = [
+                (
+                    album_id,
+                    item.get("name", ""),
+                    item.get("created_at") or now,
+                    item.get("last_checked") or now,
+                )
+                for album_id, item in _ALBUM_NAME_CACHE.items()
+            ]
             with connect(db_path) as conn:
-                for album_id, item in _ALBUM_NAME_CACHE.items():
-                    now = utc_now_iso()
-                    conn.execute(
-                        """
-                        INSERT INTO album_metadata(
-                            service, album_id, album_name, created_at, last_checked
-                        )
-                        VALUES ('melon', ?, ?, ?, ?)
-                        ON CONFLICT(service, album_id) DO UPDATE SET
-                            album_name = excluded.album_name,
-                            last_checked = excluded.last_checked
-                        """,
-                        (
-                            album_id,
-                            item.get("name", ""),
-                            item.get("created_at") or now,
-                            item.get("last_checked") or now,
-                        ),
+                conn.executemany(
+                    """
+                    INSERT INTO album_metadata(
+                        service, album_id, album_name, created_at, last_checked
                     )
+                    VALUES ('melon', ?, ?, ?, ?)
+                    ON CONFLICT(service, album_id) DO UPDATE SET
+                        album_name = excluded.album_name,
+                        last_checked = excluded.last_checked
+                    """,
+                    params,
+                )
                 conn.commit()
             LOG.info("Saved album cache to DB.")
         except Exception as exc:

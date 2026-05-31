@@ -9,6 +9,7 @@ the remote Supabase PostgreSQL database instead of the local SQLite database.
 import argparse
 import json
 import logging
+import os
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -80,7 +81,11 @@ def main():
                     }})
                     for row in report
                 ]
-        if hype_results and not args.dry_run:
+        if (
+            hype_results
+            and not args.dry_run
+            and os.environ.get("HYPE_DEFER_HISTORY_EXPORT") not in {"1", "true", "TRUE"}
+        ):
             export_frontend_history(db_path, args.history_json)
     except Exception as exc:
         LOG.error("DB hype calculation failed: %s", exc)

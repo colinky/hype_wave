@@ -532,7 +532,8 @@ def main() -> int:
                     tracks=tracks,
                     matches=tracks,
                 )
-            export_frontend_history(args.db_path, args.history_json)
+            if os.environ.get("HYPE_DEFER_HISTORY_EXPORT") not in {"1", "true", "TRUE"}:
+                export_frontend_history(args.db_path, args.history_json)
         except Exception as exc:
             LOG.warning("Failed to persist split Melon Gen-Z order to DB: %s", exc)
     return result

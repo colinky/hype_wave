@@ -132,11 +132,14 @@ def _merge_into(conn: Any, loser_uid: str, winner_uid: str, dry_run: bool) -> No
         ).fetchone()
         if loser_video and loser_video[0]:
             conn.execute(
-                "INSERT OR IGNORE INTO yt_video_ids(video_id, track_uid, is_canonical) VALUES (?, ?, 0)",
+                """
+                INSERT INTO yt_video_ids(video_id, track_uid, is_canonical)
+                VALUES (?, ?, 0)
+                ON CONFLICT(video_id) DO NOTHING
+                """,
                 (loser_video[0], winner_uid),
             )
         conn.execute("DELETE FROM tracks WHERE track_uid = ?", (loser_uid,))
-        conn.commit()
 
 
 def heal(db_path: Path, dry_run: bool) -> int:
@@ -221,13 +224,18 @@ def heal(db_path: Path, dry_run: bool) -> int:
                     (song_id, canonical_uid),
                 )
                 conn.execute(
-                    "INSERT OR IGNORE INTO yt_video_ids(video_id, track_uid, is_canonical) VALUES (?, ?, 0)",
+                    """
+                    INSERT INTO yt_video_ids(video_id, track_uid, is_canonical)
+                    VALUES (?, ?, 0)
+                    ON CONFLICT(video_id) DO NOTHING
+                    """,
                     (song_id, canonical_uid),
                 )
-                conn.commit()
 
             healed += 1
 
+        if not dry_run:
+            conn.commit()
         LOG.info("Pass 1 done. healed=%d skipped=%d", healed, skipped)
 
         # ── Pass 2: cross-service wrong bindings (BOOMPALA pattern) ─────────────
@@ -289,6 +297,8 @@ def heal(db_path: Path, dry_run: bool) -> int:
 
             merged += 1
 
+        if not dry_run:
+            conn.commit()
         LOG.info("Pass 2 done. merged=%d", merged)
         LOG.info("Total — healed=%d merged=%d dry_run=%s", healed, merged, dry_run)
         return healed + merged
@@ -312,4 +322,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

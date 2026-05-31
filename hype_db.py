@@ -32,6 +32,7 @@ LOG = logging.getLogger("hype_db")
 KST = timezone(timedelta(hours=9))
 MATCHED_STATUSES = {"matched", "cached_match", "proxy_matched", "manual_override"}
 DEFAULT_HYPE_WEIGHTS = {"apple": 0.4, "melon_genz": 0.4, "ytmusic": 0.2}
+_POSTGRES_INDEXES_CHECKED = False
 
 
 def utc_now_iso() -> str:
@@ -443,6 +444,55 @@ class PostgresConnectionWrapper:
         self.conn.close()
 
 
+def is_postgres_connection(conn: Any) -> bool:
+    return type(conn).__name__ == "PostgresConnectionWrapper"
+
+
+def ensure_postgres_indexes(raw_conn: Any) -> None:
+    """Create missing Supabase/PostgreSQL indexes used by the hot read/write paths."""
+    global _POSTGRES_INDEXES_CHECKED
+    if os.environ.get("HYPE_SKIP_POSTGRES_INDEX_CHECK") in {"1", "true", "TRUE"}:
+        _POSTGRES_INDEXES_CHECKED = True
+        return
+    if _POSTGRES_INDEXES_CHECKED:
+        return
+    indexes = {
+        "idx_tracks_canonical_yt": ("tracks", "CREATE INDEX IF NOT EXISTS idx_tracks_canonical_yt ON tracks(canonical_yt_video_id)"),
+        "idx_yt_video_ids_track": ("yt_video_ids", "CREATE INDEX IF NOT EXISTS idx_yt_video_ids_track ON yt_video_ids(track_uid)"),
+        "idx_platform_song_ids_track": ("platform_song_ids", "CREATE INDEX IF NOT EXISTS idx_platform_song_ids_track ON platform_song_ids(track_uid)"),
+        "idx_metadata_lookup_track": ("metadata_lookup_index", "CREATE INDEX IF NOT EXISTS idx_metadata_lookup_track ON metadata_lookup_index(track_uid)"),
+        "idx_playlist_order_job_period": ("playlist_order", "CREATE INDEX IF NOT EXISTS idx_playlist_order_job_period ON playlist_order(job_name, reference_period)"),
+        "idx_playlist_order_effective": ("playlist_order", "CREATE INDEX IF NOT EXISTS idx_playlist_order_effective ON playlist_order(service, job_name, source_variant, reference_period)"),
+        "idx_match_attempts_video": ("match_attempts", "CREATE INDEX IF NOT EXISTS idx_match_attempts_video ON match_attempts(video_id)"),
+        "idx_match_attempts_created_at": ("match_attempts", "CREATE INDEX IF NOT EXISTS idx_match_attempts_created_at ON match_attempts(created_at)"),
+        "idx_match_candidates_created_at": ("match_candidates", "CREATE INDEX IF NOT EXISTS idx_match_candidates_created_at ON match_candidates(created_at)"),
+        "idx_playlist_update_items_run": ("playlist_update_items", "CREATE INDEX IF NOT EXISTS idx_playlist_update_items_run ON playlist_update_items(update_run_id)"),
+    }
+    with raw_conn.cursor() as cursor:
+        cursor.execute(
+            """
+            SELECT indexname
+            FROM pg_indexes
+            WHERE schemaname = ANY (current_schemas(false))
+            """
+        )
+        existing = {row[0] for row in cursor.fetchall()}
+        cursor.execute(
+            """
+            SELECT tablename
+            FROM pg_tables
+            WHERE schemaname = ANY (current_schemas(false))
+            """
+        )
+        existing_tables = {row[0] for row in cursor.fetchall()}
+        missing = [name for name, (table, _) in indexes.items() if name not in existing and table in existing_tables]
+        for name in missing:
+            LOG.info("Creating missing PostgreSQL index: %s", name)
+            cursor.execute(indexes[name][1])
+    raw_conn.commit()
+    _POSTGRES_INDEXES_CHECKED = True
+
+
 @contextmanager
 def connect(db_path: str | Path):
     """Database connection context manager supporting dual engines.
@@ -460,7 +510,13 @@ def connect(db_path: str | Path):
         raw_conn = None
         for i in range(retries):
             try:
-                raw_conn = psycopg2.connect(pg_url)
+                raw_conn = psycopg2.connect(pg_url, connect_timeout=10)
+                with raw_conn.cursor() as cursor:
+                    cursor.execute("SET lock_timeout = '30s'")
+                    cursor.execute("SET statement_timeout = '180s'")
+                    cursor.execute("SET idle_in_transaction_session_timeout = '180s'")
+                raw_conn.commit()
+                ensure_postgres_indexes(raw_conn)
                 break
             except psycopg2.OperationalError as exc:
                 if i == retries - 1:
@@ -553,7 +609,7 @@ def run_schema_migrations(conn: sqlite3.Connection) -> None:
     # 5. Spotify Weekly W## format recovery to Friday date
     try:
         row = conn.execute("SELECT 1 FROM schema_migrations WHERE version = 'spotify_weekly_date_recovery'").fetchone()
-        if not row:
+        if not row and table_exists(conn, "playlist_order"):
             LOG.info("Applying one-time migration: Spotify weekly ISO week recovery to scheduled Friday date")
             rows = conn.execute("SELECT DISTINCT reference_period FROM playlist_order WHERE service = 'spotify' AND INSTR(reference_period, '-W') > 0").fetchall()
             for r in rows:
@@ -578,6 +634,13 @@ def run_schema_migrations(conn: sqlite3.Connection) -> None:
             conn.execute(
                 "INSERT INTO schema_migrations(version, applied_at, description) VALUES (?, ?, ?)",
                 ("spotify_weekly_date_recovery", datetime.now(timezone.utc).isoformat(), "Recover Spotify weekly ISO week to scheduled Friday date")
+            )
+            conn.commit()
+        elif not row:
+            from datetime import datetime, timezone
+            conn.execute(
+                "INSERT INTO schema_migrations(version, applied_at, description) VALUES (?, ?, ?)",
+                ("spotify_weekly_date_recovery", datetime.now(timezone.utc).isoformat(), "Skip Spotify weekly recovery until playlist_order exists")
             )
             conn.commit()
     except Exception as exc:
@@ -814,8 +877,9 @@ def init_schema(conn: Any) -> None:
     _create_views(conn)
     conn.execute(
         """
-        INSERT OR IGNORE INTO schema_migrations(version, applied_at, description)
+        INSERT INTO schema_migrations(version, applied_at, description)
         VALUES ('db_source_v2_lean', ?, 'Lean DB source of truth schema')
+        ON CONFLICT(version) DO NOTHING
         """,
         (utc_now_iso(),),
     )
@@ -1542,7 +1606,29 @@ def upsert_track_list_metadata(
     )
 
 
-def upsert_metadata_lookup(conn: sqlite3.Connection, *, track_uid: str, row: dict[str, Any], source: str, score: float) -> None:
+def track_list_metadata_params(
+    *,
+    service: str,
+    song_id: str,
+    row: dict[str, Any],
+) -> tuple[Any, ...]:
+    service = normalized_service(service)
+    return (
+        service,
+        song_id,
+        infer_album_id(service, row),
+        row.get("title_ko") or row.get("title", ""),
+        row.get("artist_ko") or row.get("artist", ""),
+        row.get("album_ko") or row.get("album", ""),
+        "" if service == "melon" else (row.get("title_en") or row.get("title", "")),
+        "" if service == "melon" else (row.get("artist_en") or row.get("artist", "")),
+        "" if service == "melon" else (row.get("album_en") or row.get("album", "")),
+        row.get("artwork_url", ""),
+    )
+
+
+def metadata_lookup_params(*, track_uid: str, row: dict[str, Any], source: str, score: float) -> list[tuple[Any, ...]]:
+    params: list[tuple[Any, ...]] = []
     candidates = [
         (row.get("title"), row.get("artist"), row.get("album")),
         (row.get("title_en"), row.get("artist_en"), row.get("album_en")),
@@ -1553,14 +1639,9 @@ def upsert_metadata_lookup(conn: sqlite3.Connection, *, track_uid: str, row: dic
             continue
         full_key = metadata_key(title, artist, album)
         compact_key = compact_metadata_key(title, artist)
-        # compact key (album 없음)는 full key보다 낮은 신뢰도로 저장
-        # → 나중에 정확한 album 정보가 있는 full key가 들어오면 우선됨
         key_score_pairs = [(full_key, score)]
         if compact_key != full_key:
             key_score_pairs.append((compact_key, score * 0.8))
-        # Fallback: parens-stripped title key (score*0.6) so that short chart titles
-        # (e.g. 'KISS KISS KISS') can match a canonical title with extra credits.
-        # Only added when stripping actually changes the title.
         stripped_title = strip_parens_from_title(title)
         if stripped_title != title and stripped_title:
             stripped_full_key = metadata_key(stripped_title, artist, album)
@@ -1568,34 +1649,36 @@ def upsert_metadata_lookup(conn: sqlite3.Connection, *, track_uid: str, row: dic
             key_score_pairs.append((stripped_compact_key, score * 0.6))
             if stripped_full_key != stripped_compact_key:
                 key_score_pairs.append((stripped_full_key, score * 0.6))
-        # Fallback: parens-stripped artist key (score*0.6)
-        # Handles 'LE SSERAFIM (르세라핌)' → 'LE SSERAFIM' so future Melon entries
-        # find the canonical track already created by Apple/Spotify/YTMusic.
         stripped_artist = strip_parens_from_title(artist)
         if stripped_artist != artist and stripped_artist:
             key_score_pairs.append((compact_metadata_key(title, stripped_artist), score * 0.6))
             if stripped_title != title:
                 key_score_pairs.append((compact_metadata_key(stripped_title, stripped_artist), score * 0.6))
         for key, effective_score in key_score_pairs:
-            if not key.strip("|"):
-                continue
-            conn.execute(
-                """
-                INSERT INTO metadata_lookup_index(lookup_key, track_uid, source, score)
-                VALUES (?, ?, ?, ?)
-                ON CONFLICT(lookup_key) DO UPDATE SET
-                    track_uid = CASE
-                        WHEN excluded.score >= metadata_lookup_index.score THEN excluded.track_uid
-                        ELSE metadata_lookup_index.track_uid
-                    END,
-                    source = CASE
-                        WHEN excluded.score >= metadata_lookup_index.score THEN excluded.source
-                        ELSE metadata_lookup_index.source
-                    END,
-                    score = CASE WHEN excluded.score > metadata_lookup_index.score THEN excluded.score ELSE metadata_lookup_index.score END
-                """,
-                (key, track_uid, source, effective_score),
-            )
+            if key.strip("|"):
+                params.append((key, track_uid, source, effective_score))
+    return params
+
+
+def upsert_metadata_lookup(conn: sqlite3.Connection, *, track_uid: str, row: dict[str, Any], source: str, score: float) -> None:
+    for params in metadata_lookup_params(track_uid=track_uid, row=row, source=source, score=score):
+        conn.execute(
+            """
+            INSERT INTO metadata_lookup_index(lookup_key, track_uid, source, score)
+            VALUES (?, ?, ?, ?)
+            ON CONFLICT(lookup_key) DO UPDATE SET
+                track_uid = CASE
+                    WHEN excluded.score >= metadata_lookup_index.score THEN excluded.track_uid
+                    ELSE metadata_lookup_index.track_uid
+                END,
+                source = CASE
+                    WHEN excluded.score >= metadata_lookup_index.score THEN excluded.source
+                    ELSE metadata_lookup_index.source
+                END,
+                score = CASE WHEN excluded.score > metadata_lookup_index.score THEN excluded.score ELSE metadata_lookup_index.score END
+            """,
+            params,
+        )
 
 
 def _verify_metadata_merge(
@@ -2004,6 +2087,16 @@ def record_match_candidates(
 
 def cleanup_old_attempts_and_candidates(conn: sqlite3.Connection, days: int = 15) -> None:
     """15일이 지난 매칭 시도 이력 및 검색 후보 데이터를 삭제하여 용량을 최적화합니다."""
+    if type(conn).__name__ == "PostgresConnectionWrapper":
+        conn.execute(
+            "DELETE FROM match_attempts WHERE created_at::timestamptz < now() - make_interval(days => ?)",
+            (int(days),),
+        )
+        conn.execute(
+            "DELETE FROM match_candidates WHERE created_at::timestamptz < now() - make_interval(days => ?)",
+            (int(days),),
+        )
+        return
     conn.execute("DELETE FROM match_attempts WHERE datetime(created_at) < datetime('now', '-' || ? || ' days')", (days,))
     conn.execute("DELETE FROM match_candidates WHERE datetime(created_at) < datetime('now', '-' || ? || ' days')", (days,))
 
@@ -2219,6 +2312,395 @@ def persist_crawled_tracks(
             _persist_crawled_tracks_impl(new_conn, service, job_name, source_variant, chart_date, reference_period, chart_period, tracks)
 
 
+def _rows_by_in(conn: Any, sql_prefix: str, values: list[str], params_prefix: tuple[Any, ...] = ()) -> list[Any]:
+    if not values:
+        return []
+    values = list(dict.fromkeys(values))
+    placeholders = ",".join("?" for _ in values)
+    return conn.execute(f"{sql_prefix} ({placeholders})", (*params_prefix, *values)).fetchall()
+
+
+def _persist_crawl_run_bulk_impl(
+    conn: Any,
+    service: str,
+    job_name: str,
+    source_variant: str,
+    chart_date: str,
+    reference_period: str | None,
+    chart_period: str | None,
+    started_at: str,
+    tracks: Iterable[Any],
+    matches: Iterable[Any],
+    skip_playlist_order: bool = False,
+) -> None:
+    service = normalized_service(service)
+    track_rows = [row_dict(t) for t in tracks]
+    match_rows = [row_dict(m) for m in matches]
+    ref_p = reference_period or chart_period
+    resolved_period = reference_period_for_date(job_name, chart_date, ref_p)
+    should_write_playlist_order = not skip_playlist_order and not (
+        service == "melon" and job_name == "Gen-Z-Daily" and source_variant == "combined"
+    )
+    if resolved_period and should_write_playlist_order:
+        LOG.info("Cleaning up existing playlist_order records for %s / %s / %s (period: %s)", service, job_name, source_variant, resolved_period)
+        conn.execute(
+            """
+            DELETE FROM playlist_order
+            WHERE service = ? AND job_name = ? AND source_variant = ? AND reference_period = ?
+            """,
+            (service, job_name, source_variant, resolved_period),
+        )
+    elif skip_playlist_order:
+        LOG.info("Skipping playlist_order rewrite for %s / %s / %s; raw chart order was already persisted.", service, job_name, source_variant)
+
+    run_id = start_match_run(
+        conn,
+        service=service,
+        job_name=job_name,
+        source_variant=source_variant,
+        started_at=started_at,
+        source="crawler",
+        total_tracks=len(track_rows),
+    )
+    track_by_song = {
+        sid: track for track in track_rows
+        if (sid := normalize_song_id(service, track))
+    }
+    song_ids = [sid for row in match_rows if (sid := normalize_song_id(service, row))]
+    video_ids = [
+        str(row.get("video_id") or row.get("canonical_yt_video_id") or "").strip()
+        for row in match_rows
+        if str(row.get("video_id") or row.get("canonical_yt_video_id") or "").strip()
+    ]
+
+    overrides = {
+        row["song_id"]: dict(row)
+        for row in _rows_by_in(
+            conn,
+            "SELECT * FROM manual_overrides WHERE service = ? AND song_id IN",
+            song_ids,
+            (service,),
+        )
+    }
+    song_to_uid = {
+        row["song_id"]: row["track_uid"]
+        for row in _rows_by_in(
+            conn,
+            "SELECT song_id, track_uid FROM platform_song_ids WHERE service = ? AND song_id IN",
+            song_ids,
+            (service,),
+        )
+    }
+    video_to_uid = {
+        row["video_id"]: row["track_uid"]
+        for row in _rows_by_in(
+            conn,
+            "SELECT video_id, track_uid FROM yt_video_ids WHERE video_id IN",
+            video_ids,
+        )
+    }
+    override_video_ids = [
+        ov["canonical_yt_video_id"]
+        for ov in overrides.values()
+        if ov.get("action") == "set_canonical" and ov.get("canonical_yt_video_id")
+    ]
+    if override_video_ids:
+        video_to_uid.update(
+            {
+                row["video_id"]: row["track_uid"]
+                for row in _rows_by_in(
+                    conn,
+                    "SELECT video_id, track_uid FROM yt_video_ids WHERE video_id IN",
+                    override_video_ids,
+                )
+            }
+        )
+
+    known_uids = set(song_to_uid.values()) | set(video_to_uid.values())
+    known_uids.update(str(ov.get("target_track_uid") or "") for ov in overrides.values() if ov.get("target_track_uid"))
+    tracks_by_uid = {
+        row["track_uid"]: dict(row)
+        for row in _rows_by_in(
+            conn,
+            "SELECT track_uid, canonical_yt_video_id, match_status FROM tracks WHERE track_uid IN",
+            [uid for uid in known_uids if uid],
+        )
+    }
+
+    now = utc_now_iso()
+    tracks_params: list[tuple[Any, ...]] = []
+    yt_video_ids_params: list[tuple[Any, ...]] = []
+    platform_song_ids_params: list[tuple[Any, ...]] = []
+    track_list_params: list[tuple[Any, ...]] = []
+    playlist_order_params: list[tuple[Any, ...]] = []
+    match_attempt_params: list[tuple[Any, ...]] = []
+    match_candidate_params: list[tuple[Any, ...]] = []
+    metadata_params: list[tuple[Any, ...]] = []
+    matched_count = 0
+    failed_count = 0
+    cache_hits = 0
+    proxy_hits = 0
+
+    failed_statuses = {"failed", "duplicate_skipped", "manual_blocked"}
+    replaceable_statuses = failed_statuses | {"unmatched"}
+
+    for match in match_rows:
+        song_id = normalize_song_id(service, match)
+        source_row = track_by_song.get(song_id, match)
+        merged = dict(source_row)
+        merged.update({k: v for k, v in match.items() if v not in (None, "")})
+        video_id = str(merged.get("video_id") or merged.get("canonical_yt_video_id") or "").strip()
+        status = str(merged.get("status") or ("matched" if video_id else "failed"))
+        score = float(merged.get("score") or 0)
+        override = overrides.get(song_id) if song_id else None
+
+        if status in failed_statuses or (service == "spotify" and str(song_id).startswith("fallback:")):
+            track_uid = stable_uid(f"unmatched:{service}:{song_id or metadata_key(merged.get('title'), merged.get('artist'), merged.get('album'))}")
+            canonical_video = song_id if (service == "ytmusic" and song_id and not str(song_id).startswith("fallback:")) else None
+        elif override and override.get("action") == "block":
+            track_uid = stable_uid(f"blocked:{service}:{song_id}")
+            canonical_video = None
+            status = "manual_blocked"
+        elif override and override.get("target_track_uid"):
+            track_uid = override["target_track_uid"]
+            canonical_video = video_id
+        elif override and override.get("canonical_yt_video_id"):
+            canonical_video = override["canonical_yt_video_id"]
+            track_uid = video_to_uid.get(canonical_video) or stable_uid(f"yt:{canonical_video}")
+        else:
+            existing_by_song = song_to_uid.get(song_id)
+            existing_by_video = video_to_uid.get(video_id)
+            song_track = tracks_by_uid.get(existing_by_song or "")
+            song_video = song_track.get("canonical_yt_video_id") if song_track else ""
+            song_status = song_track.get("match_status") if song_track else ""
+            if existing_by_song and song_video:
+                if existing_by_video and existing_by_video != existing_by_song and (
+                    song_video == video_id or song_status in replaceable_statuses
+                ):
+                    track_uid = existing_by_video
+                else:
+                    track_uid = existing_by_song
+            elif existing_by_video:
+                track_uid = existing_by_video
+            elif video_id:
+                track_uid = stable_uid(f"yt:{video_id}")
+            elif song_id:
+                track_uid = stable_uid(f"{service}:{song_id}")
+            else:
+                track_uid = stable_uid(metadata_key(merged.get("title"), merged.get("artist"), merged.get("album")))
+            canonical_video = video_id
+
+        tracks_params.append((
+            track_uid,
+            canonical_video,
+            merged.get("yt_title", ""),
+            merged.get("yt_artist", ""),
+            merged.get("yt_album", ""),
+            status,
+            score,
+            now,
+            now,
+        ))
+        if canonical_video:
+            yt_video_ids_params.append((canonical_video, track_uid))
+        if song_id and not (service == "spotify" and str(song_id).startswith("fallback:")):
+            platform_song_ids_params.append((service, song_id, track_uid))
+            track_list_params.append(track_list_metadata_params(service=service, song_id=song_id, row=merged))
+        if canonical_video and status not in failed_statuses:
+            metadata_params.extend(metadata_lookup_params(track_uid=track_uid, row=merged, source=status, score=score))
+        rank_order = int(match.get("rank") or source_row.get("rank") or 0)
+        if song_id and rank_order and should_write_playlist_order and resolved_period:
+            playlist_order_params.append((service, job_name, source_variant, resolved_period, song_id, rank_order))
+        if song_id:
+            match_method, origin_method, _ = match_method_for_status(match.get("status"), match.get("query"))
+            match_attempt_params.append((
+                run_id,
+                service,
+                song_id,
+                track_uid,
+                rank_order,
+                match.get("video_id", ""),
+                float(match.get("score") or 0),
+                float(match.get("title_score") or 0),
+                float(match.get("artist_score") or 0),
+                float(match.get("album_score") or 0),
+                match.get("yt_result_type", ""),
+                match.get("query", ""),
+                match.get("status", ""),
+                match.get("match_method", match_method),
+                match.get("origin_method", origin_method),
+                now,
+            ))
+            for index, candidate in enumerate(match.get("candidates") or [], 1):
+                match_candidate_params.append((
+                    run_id,
+                    service,
+                    song_id,
+                    rank_order,
+                    index,
+                    candidate.get("video_id") or candidate.get("videoId", ""),
+                    candidate.get("yt_title") or candidate.get("title", ""),
+                    candidate.get("yt_artist") or candidate.get("artist", ""),
+                    candidate.get("yt_album") or candidate.get("album", ""),
+                    float(candidate.get("score") or 0),
+                    float(candidate.get("title_score") or 0),
+                    float(candidate.get("artist_score") or 0),
+                    float(candidate.get("album_score") or 0),
+                    candidate.get("yt_result_type") or candidate.get("resultType", ""),
+                    candidate.get("query", ""),
+                    now,
+                ))
+        if match.get("video_id") and match.get("status") != "duplicate_skipped":
+            matched_count += 1
+        else:
+            failed_count += 1
+        if match.get("status") == "cached_match" or match.get("query") == "db_cache":
+            cache_hits += 1
+        if match.get("status") == "proxy_matched":
+            proxy_hits += 1
+
+    if tracks_params:
+        conn.executemany(
+            """
+            INSERT INTO tracks (
+                track_uid, canonical_yt_video_id, yt_title, yt_artist, yt_album,
+                match_status, best_score, created_at, updated_at
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(track_uid) DO UPDATE SET
+                canonical_yt_video_id = COALESCE(tracks.canonical_yt_video_id, excluded.canonical_yt_video_id),
+                yt_title = COALESCE(NULLIF(excluded.yt_title, ''), tracks.yt_title),
+                yt_artist = COALESCE(NULLIF(excluded.yt_artist, ''), tracks.yt_artist),
+                yt_album = COALESCE(NULLIF(excluded.yt_album, ''), tracks.yt_album),
+                match_status = CASE WHEN excluded.match_status != 'failed' THEN excluded.match_status ELSE tracks.match_status END,
+                best_score = CASE WHEN COALESCE(excluded.best_score, 0) >= COALESCE(tracks.best_score, 0) THEN COALESCE(excluded.best_score, 0) ELSE COALESCE(tracks.best_score, 0) END,
+                updated_at = excluded.updated_at
+            """,
+            tracks_params,
+        )
+    if yt_video_ids_params:
+        conn.executemany(
+            """
+            INSERT INTO yt_video_ids(video_id, track_uid, is_canonical)
+            VALUES (?, ?, 1)
+            ON CONFLICT(video_id) DO UPDATE SET
+                is_canonical = CASE WHEN excluded.is_canonical > yt_video_ids.is_canonical THEN excluded.is_canonical ELSE yt_video_ids.is_canonical END
+            """,
+            yt_video_ids_params,
+        )
+    if platform_song_ids_params:
+        conn.executemany(
+            """
+            INSERT INTO platform_song_ids(service, song_id, track_uid)
+            VALUES (?, ?, ?)
+            ON CONFLICT(service, song_id) DO UPDATE SET track_uid = excluded.track_uid
+            """,
+            platform_song_ids_params,
+        )
+    if track_list_params:
+        conn.executemany(
+            """
+            INSERT INTO track_list(
+                service, song_id, album_id, title_ko, artist_ko, album_ko,
+                title_en, artist_en, album_en, artwork_url
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(service, song_id) DO UPDATE SET
+                album_id = COALESCE(NULLIF(excluded.album_id, ''), track_list.album_id),
+                title_ko = COALESCE(NULLIF(excluded.title_ko, ''), track_list.title_ko),
+                artist_ko = COALESCE(NULLIF(excluded.artist_ko, ''), track_list.artist_ko),
+                album_ko = COALESCE(NULLIF(excluded.album_ko, ''), track_list.album_ko),
+                title_en = COALESCE(NULLIF(excluded.title_en, ''), track_list.title_en),
+                artist_en = COALESCE(NULLIF(excluded.artist_en, ''), track_list.artist_en),
+                album_en = COALESCE(NULLIF(excluded.album_en, ''), track_list.album_en),
+                artwork_url = COALESCE(NULLIF(excluded.artwork_url, ''), track_list.artwork_url)
+            """,
+            track_list_params,
+        )
+    if metadata_params:
+        conn.executemany(
+            """
+            INSERT INTO metadata_lookup_index(lookup_key, track_uid, source, score)
+            VALUES (?, ?, ?, ?)
+            ON CONFLICT(lookup_key) DO UPDATE SET
+                track_uid = CASE WHEN excluded.score >= metadata_lookup_index.score THEN excluded.track_uid ELSE metadata_lookup_index.track_uid END,
+                source = CASE WHEN excluded.score >= metadata_lookup_index.score THEN excluded.source ELSE metadata_lookup_index.source END,
+                score = CASE WHEN excluded.score > metadata_lookup_index.score THEN excluded.score ELSE metadata_lookup_index.score END
+            """,
+            metadata_params,
+        )
+    if playlist_order_params:
+        conn.executemany(
+            """
+            INSERT INTO playlist_order(service, job_name, source_variant, reference_period, song_id, rank_order)
+            VALUES (?, ?, ?, ?, ?, ?)
+            ON CONFLICT(service, job_name, source_variant, reference_period, song_id) DO UPDATE SET
+                rank_order = excluded.rank_order
+            """,
+            playlist_order_params,
+        )
+    if match_attempt_params:
+        conn.executemany(
+            """
+            INSERT INTO match_attempts(
+                run_id, service, song_id, track_uid, rank_order,
+                video_id, score, title_score, artist_score,
+                album_score, yt_result_type, query, status, match_method, origin_method,
+                created_at
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT (run_id, service, song_id, rank_order) DO UPDATE SET
+                track_uid = EXCLUDED.track_uid,
+                rank_order = EXCLUDED.rank_order,
+                video_id = EXCLUDED.video_id,
+                score = EXCLUDED.score,
+                title_score = EXCLUDED.title_score,
+                artist_score = EXCLUDED.artist_score,
+                album_score = EXCLUDED.album_score,
+                yt_result_type = EXCLUDED.yt_result_type,
+                query = EXCLUDED.query,
+                status = EXCLUDED.status,
+                match_method = EXCLUDED.match_method,
+                origin_method = EXCLUDED.origin_method,
+                created_at = EXCLUDED.created_at
+            """,
+            match_attempt_params,
+        )
+    if match_candidate_params:
+        conn.executemany(
+            """
+            INSERT INTO match_candidates(
+                run_id, service, song_id, rank_order, candidate_order, video_id,
+                yt_title, yt_artist, yt_album, score, title_score, artist_score,
+                album_score, yt_result_type, query, created_at
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT (run_id, service, song_id, rank_order, candidate_order) DO UPDATE SET
+                video_id = EXCLUDED.video_id,
+                yt_title = EXCLUDED.yt_title,
+                yt_artist = EXCLUDED.yt_artist,
+                yt_album = EXCLUDED.yt_album,
+                score = EXCLUDED.score,
+                title_score = EXCLUDED.title_score,
+                artist_score = EXCLUDED.artist_score,
+                album_score = EXCLUDED.album_score,
+                yt_result_type = EXCLUDED.yt_result_type,
+                query = EXCLUDED.query,
+                created_at = EXCLUDED.created_at
+            """,
+            match_candidate_params,
+        )
+    conn.execute(
+        """
+        UPDATE match_runs
+        SET matched_tracks = ?, failed_tracks = ?, cache_hits = ?, proxy_hits = ?
+        WHERE run_id = ?
+        """,
+        (matched_count, failed_count, cache_hits, proxy_hits, run_id),
+    )
+    cleanup_old_attempts_and_candidates(conn, days=15)
+
+
 def _persist_crawl_run_impl(
     conn: Any,
     service: str,
@@ -2230,12 +2712,16 @@ def _persist_crawl_run_impl(
     started_at: str,
     tracks: Iterable[Any],
     matches: Iterable[Any],
+    skip_playlist_order: bool = False,
 ) -> None:
     track_rows = [row_dict(t) for t in tracks]
     match_rows = [row_dict(m) for m in matches]
     ref_p = reference_period or chart_period
     resolved_period = reference_period_for_date(job_name, chart_date, ref_p)
-    if resolved_period and not (normalized_service(service) == "melon" and job_name == "Gen-Z-Daily" and source_variant == "combined"):
+    should_write_playlist_order = not skip_playlist_order and not (
+        normalized_service(service) == "melon" and job_name == "Gen-Z-Daily" and source_variant == "combined"
+    )
+    if resolved_period and should_write_playlist_order:
         LOG.info("Cleaning up existing playlist_order records for %s / %s / %s (period: %s)", service, job_name, source_variant, resolved_period)
         conn.execute(
             """
@@ -2244,6 +2730,8 @@ def _persist_crawl_run_impl(
             """,
             (normalized_service(service), job_name, source_variant, resolved_period)
         )
+    elif skip_playlist_order:
+        LOG.info("Skipping playlist_order rewrite for %s / %s / %s; raw chart order was already persisted.", service, job_name, source_variant)
 
     run_id = start_match_run(
         conn,
@@ -2277,7 +2765,7 @@ def _persist_crawl_run_impl(
         if match.get("status") == "proxy_matched":
             proxy_hits += 1
         if song_id:
-            if not (normalized_service(service) == "melon" and job_name == "Gen-Z-Daily" and source_variant == "combined"):
+            if should_write_playlist_order:
                 upsert_chart_rank(
                     conn,
                     service=service,
@@ -2331,6 +2819,7 @@ def persist_crawl_run(
     tracks: Iterable[Any],
     matches: Iterable[Any],
     conn: Any = None,
+    skip_playlist_order: bool = False,
 ) -> None:
     init_db(db_path)
     job_name = require_job_name(job_name)
@@ -2354,11 +2843,35 @@ def persist_crawl_run(
             )
 
     if conn is not None:
-        _persist_crawl_run_impl(conn, service, job_name, source_variant, chart_date, reference_period, chart_period, started_at, tracks, matches)
+        _persist_crawl_run_bulk_impl(
+            conn,
+            service,
+            job_name,
+            source_variant,
+            chart_date,
+            reference_period,
+            chart_period,
+            started_at,
+            tracks,
+            matches,
+            skip_playlist_order=skip_playlist_order,
+        )
         conn.commit()
     else:
         with connect(db_path) as new_conn:
-            _persist_crawl_run_impl(new_conn, service, job_name, source_variant, chart_date, reference_period, chart_period, started_at, tracks, matches)
+            _persist_crawl_run_bulk_impl(
+                new_conn,
+                service,
+                job_name,
+                source_variant,
+                chart_date,
+                reference_period,
+                chart_period,
+                started_at,
+                tracks,
+                matches,
+                skip_playlist_order=skip_playlist_order,
+            )
 
 
 def repair_failed_source_bindings(conn: sqlite3.Connection) -> dict[str, int]:
@@ -2663,16 +3176,76 @@ def build_match_cache(db_path: str | Path) -> dict[str, dict[str, Any]]:
         init_schema(conn)
         rows = conn.execute(
             """
-            SELECT m.lookup_key, t.track_uid
+            WITH preferred_meta AS (
+                SELECT
+                    ps.track_uid,
+                    tl.service,
+                    tl.song_id,
+                    tl.album_id,
+                    tl.title_ko,
+                    tl.artist_ko,
+                    tl.album_ko,
+                    tl.title_en,
+                    tl.artist_en,
+                    tl.album_en,
+                    tl.artwork_url,
+                    ROW_NUMBER() OVER (
+                        PARTITION BY ps.track_uid
+                        ORDER BY CASE tl.service WHEN 'apple' THEN 0 WHEN 'melon' THEN 1 WHEN 'spotify' THEN 2 ELSE 3 END
+                    ) AS rn
+                FROM platform_song_ids ps
+                JOIN track_list tl ON tl.service = ps.service AND tl.song_id = ps.song_id
+            )
+            SELECT
+                m.lookup_key,
+                t.track_uid,
+                t.canonical_yt_video_id,
+                t.yt_title,
+                t.yt_artist,
+                t.yt_album,
+                t.best_score,
+                pm.service,
+                pm.song_id,
+                pm.album_id,
+                pm.title_ko,
+                pm.artist_ko,
+                pm.album_ko,
+                pm.title_en,
+                pm.artist_en,
+                pm.album_en,
+                pm.artwork_url
             FROM metadata_lookup_index m
             JOIN tracks t ON t.track_uid = m.track_uid
+            LEFT JOIN preferred_meta pm ON pm.track_uid = t.track_uid AND pm.rn = 1
             WHERE t.canonical_yt_video_id IS NOT NULL AND t.canonical_yt_video_id != ''
             """
         ).fetchall()
         for row in rows:
-            cached = _cache_row_for_track(conn, row["track_uid"])
-            if cached:
-                cache[row["lookup_key"]] = cached
+            cached = {
+                "video_id": row["canonical_yt_video_id"],
+                "yt_title": row["yt_title"] or "",
+                "yt_artist": row["yt_artist"] or "",
+                "yt_album": row["yt_album"] or "",
+                "score": float(row["best_score"] or 1.0),
+                "title_score": 1.0,
+                "artist_score": 1.0,
+                "album_score": 1.0,
+                "yt_result_type": "song",
+                "query": "db_cache",
+                "status": "cached_match",
+                "title": row["title_ko"] or row["title_en"] or "",
+                "artist": row["artist_ko"] or row["artist_en"] or "",
+                "album": row["album_ko"] or row["album_en"] or "",
+                "title_en": row["title_en"] or "",
+                "artist_en": row["artist_en"] or "",
+                "album_en": row["album_en"] or "",
+                "title_ko": row["title_ko"] or "",
+                "artist_ko": row["artist_ko"] or "",
+                "album_ko": row["album_ko"] or "",
+                "artwork_url": row["artwork_url"] or "",
+                "url": build_track_url(row["service"], row["song_id"], row["album_id"]) if row["service"] and row["song_id"] else "",
+            }
+            cache[row["lookup_key"]] = cached
     return cache
 
 
@@ -2745,16 +3318,24 @@ def record_playlist_update(
     return run_id
 
 
-def export_frontend_history(db_path: str | Path, output_path: str | Path, *, days: int = 31) -> dict[str, list[dict[str, Any]]]:
+def export_frontend_history(
+    db_path: str | Path,
+    output_path: str | Path,
+    *,
+    days: int = 31,
+    full_rebuild: bool = False,
+) -> dict[str, list[dict[str, Any]]]:
     path = Path(db_path)
     if not path.exists() and not os.environ.get("SUPABASE_DB_URL"):
         return {}
+    out = Path(output_path)
     with connect(path) as conn:
         apple_playlists = [
             name for name, item in hype_inputs().items()
             if item.get("hype_group") == "apple"
         ] or ["KR-Top-100"]
         placeholders = ",".join("?" for _ in apple_playlists)
+        limit = days if full_rebuild or not out.exists() else 1
         date_rows = conn.execute(
             f"""
             SELECT DISTINCT reference_period AS chart_date
@@ -2764,27 +3345,187 @@ def export_frontend_history(db_path: str | Path, output_path: str | Path, *, day
             ORDER BY chart_date DESC
             LIMIT ?
             """,
-            (*apple_playlists, days),
+            (*apple_playlists, limit),
         ).fetchall()
-        dates = []
-        for row in date_rows:
+        dates = [display_history_date(row["chart_date"]) for row in date_rows]
+        if full_rebuild or not out.exists():
+            history: dict[str, list[dict[str, Any]]] = {}
+        else:
             try:
-                from datetime import datetime, timedelta
-                dt = datetime.strptime(row["chart_date"], "%Y-%m-%d")
-                dates.append((dt + timedelta(days=1)).strftime("%Y-%m-%d"))
+                history = json.loads(out.read_text(encoding="utf-8"))
+                if not isinstance(history, dict):
+                    history = {}
             except Exception:
-                dates.append(row["chart_date"])
-        history: dict[str, list[dict[str, Any]]] = {}
-        previous_apple_videos: set[str] = set()
+                history = {}
+        if not dates:
+            out.parent.mkdir(parents=True, exist_ok=True)
+            out.write_text(json.dumps(history, ensure_ascii=False, indent=2), encoding="utf-8")
+            return history
+        rows_by_date = fetch_hype_rows_for_dates(conn, dates)
         for date in sorted(dates):
-            report = hype_report_for_date(conn, date, previous_apple_videos=previous_apple_videos)
+            previous_apple_videos = previous_apple_videos_for_history(conn, history, date)
+            report = build_hype_report_from_rows(
+                rows_by_date.get(date, []),
+                previous_apple_videos=previous_apple_videos,
+            )
             history[date] = report
-            previous_apple_videos = {row["video_id"] for row in report if row.get("apple_rank")}
-        history = {date: history[date] for date in sorted(history.keys(), reverse=True)}
-    out = Path(output_path)
+        history = prune_history(history, reference_date=max(dates), days=days)
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(history, ensure_ascii=False, indent=2), encoding="utf-8")
     return history
+
+
+def display_history_date(chart_date: str) -> str:
+    try:
+        from datetime import datetime, timedelta
+        dt = datetime.strptime(chart_date, "%Y-%m-%d")
+        return (dt + timedelta(days=1)).strftime("%Y-%m-%d")
+    except Exception:
+        return chart_date
+
+
+def source_chart_date_for_display(history_date: str) -> str:
+    try:
+        from datetime import datetime, timedelta
+        dt = datetime.strptime(history_date, "%Y-%m-%d")
+        return (dt - timedelta(days=1)).strftime("%Y-%m-%d")
+    except Exception:
+        return history_date
+
+
+def prune_history(
+    history: dict[str, list[dict[str, Any]]],
+    *,
+    reference_date: str,
+    days: int,
+) -> dict[str, list[dict[str, Any]]]:
+    from datetime import datetime, timedelta
+
+    try:
+        cutoff = datetime.strptime(reference_date, "%Y-%m-%d") - timedelta(days=max(days - 1, 0))
+    except Exception:
+        cutoff = None
+    filtered: dict[str, list[dict[str, Any]]] = {}
+    for date in sorted(history.keys(), reverse=True):
+        if cutoff:
+            try:
+                if datetime.strptime(date, "%Y-%m-%d") < cutoff:
+                    continue
+            except Exception:
+                continue
+        filtered[date] = history[date]
+    return filtered
+
+
+def previous_apple_videos_for_history(
+    conn: sqlite3.Connection,
+    history: dict[str, list[dict[str, Any]]],
+    date: str,
+) -> set[str]:
+    previous_dates = sorted([item for item in history if item < date], reverse=True)
+    if previous_dates:
+        return {row["video_id"] for row in history[previous_dates[0]] if row.get("apple_rank")}
+
+    apple_playlists = [
+        name for name, item in hype_inputs().items()
+        if item.get("hype_group") == "apple"
+    ] or ["KR-Top-100"]
+    placeholders = ",".join("?" for _ in apple_playlists)
+    row = conn.execute(
+        f"""
+        SELECT DISTINCT reference_period AS chart_date
+        FROM playlist_order
+        WHERE job_name IN ({placeholders})
+          AND reference_period LIKE '____-__-__'
+          AND reference_period < ?
+        ORDER BY chart_date DESC
+        LIMIT 1
+        """,
+        (*apple_playlists, source_chart_date_for_display(date)),
+    ).fetchone()
+    if not row:
+        return set()
+    previous_date = display_history_date(row["chart_date"])
+    report = build_hype_report_from_rows(fetch_hype_rows_for_dates(conn, [previous_date]).get(previous_date, []))
+    return {item["video_id"] for item in report if item.get("apple_rank")}
+
+
+def fetch_hype_rows_for_dates(conn: sqlite3.Connection, dates: list[str]) -> dict[str, list[Any]]:
+    if not dates:
+        return {}
+    input_config = hype_inputs()
+    ytmusic_jobs = [name for name, item in input_config.items() if item.get("hype_group") == "ytmusic"]
+    date_pairs = [
+        (date, reference_period_for_date(ytmusic_jobs[0], date) if ytmusic_jobs else date)
+        for date in dates
+    ]
+    values_sql = ", ".join("(?, ?)" for _ in date_pairs)
+    params: list[Any] = []
+    for chart_date, target_week in date_pairs:
+        params.extend([chart_date, target_week])
+    rows = conn.execute(
+        f"""
+        WITH dates(chart_date, target_week) AS (
+            VALUES {values_sql}
+        ),
+        effective AS (
+            SELECT
+                d.chart_date,
+                p.service,
+                p.job_name,
+                p.source_variant,
+                MAX(p.reference_period) AS eff_period
+            FROM dates d
+            JOIN playlist_order p
+              ON (
+                    p.reference_period NOT LIKE '%-W%'
+                AND p.reference_period < d.chart_date
+              )
+              OR (
+                    p.reference_period LIKE '%-W%'
+                AND p.reference_period <= d.target_week
+              )
+            GROUP BY d.chart_date, p.service, p.job_name, p.source_variant
+        )
+        SELECT
+            e.chart_date,
+            ps.track_uid,
+            p.service,
+            p.job_name,
+            p.source_variant,
+            p.song_id,
+            tl.album_id,
+            p.rank_order,
+            t.canonical_yt_video_id AS video_id,
+            t.yt_title,
+            t.yt_artist,
+            t.yt_album,
+            COALESCE(NULLIF(tl.title_ko, ''), tl.title_en) AS title,
+            COALESCE(NULLIF(tl.artist_ko, ''), tl.artist_en) AS artist,
+            COALESCE(NULLIF(tl.album_ko, ''), tl.album_en) AS album,
+            tl.artwork_url
+        FROM playlist_order p
+        JOIN effective e
+          ON e.service = p.service
+         AND e.job_name = p.job_name
+         AND e.source_variant = p.source_variant
+         AND p.reference_period = e.eff_period
+        JOIN platform_song_ids ps
+          ON ps.service = p.service
+         AND ps.song_id = p.song_id
+        JOIN tracks t ON t.track_uid = ps.track_uid
+        LEFT JOIN track_list tl
+            ON LOWER(tl.service) = LOWER(p.service)
+           AND tl.song_id = p.song_id
+        WHERE t.canonical_yt_video_id IS NOT NULL
+          AND t.canonical_yt_video_id != ''
+        """,
+        tuple(params),
+    ).fetchall()
+    out: dict[str, list[Any]] = {date: [] for date in dates}
+    for row in rows:
+        out.setdefault(row["chart_date"], []).append(row)
+    return out
 
 
 def hype_report_for_date(
@@ -2848,7 +3589,17 @@ def hype_report_for_date(
         """,
         (chart_date, target_week),
     ).fetchall()
-    
+    return build_hype_report_from_rows(rows, previous_apple_videos=previous_apple_videos)
+
+
+def build_hype_report_from_rows(
+    rows: Iterable[Any],
+    *,
+    previous_apple_videos: set[str] | None = None,
+) -> list[dict[str, Any]]:
+    previous_apple_videos = previous_apple_videos or set()
+    input_config = hype_inputs()
+
     # Load Generation-wise weights dynamically from sync_config
     gen_z_task = input_config.get("Gen-Z-Daily") or {}
     gen1_weight = 0.60
@@ -2869,13 +3620,13 @@ def hype_report_for_date(
             uid,
             {
                 "video_id": row["video_id"],
-                "title": row["title"] or row["yt_title"] or "",
-                "artist": row["artist"] or row["yt_artist"] or "",
-                "album": row["album"] or row["yt_album"] or "",
+                "title": "",
+                "artist": "",
+                "album": "",
                 "yt_title": row["yt_title"] or "",
                 "yt_artist": row["yt_artist"] or "",
                 "yt_album": row["yt_album"] or "",
-                "artwork_url": row["artwork_url"] or "",
+                "artwork_url": "",
                 "apple_url": "",
                 "melon_url": "",
                 "spotify_url": "",
@@ -2886,9 +3637,13 @@ def hype_report_for_date(
                 "_score_parts": {},
                 "_gen1_rank": None,
                 "_gen2_rank": None,
+                "_best_service_priority": 9999,
+                "_artwork_by_service": {},
             },
         )
         service = normalized_service(row["service"])
+        if row["artwork_url"] and service not in item["_artwork_by_service"]:
+            item["_artwork_by_service"][service] = row["artwork_url"]
         job_name = str(row["job_name"] or "").strip()
         source_variant = str(row["source_variant"] or "default").strip()
         track_url = build_track_url(service, row["song_id"], row["album_id"])
@@ -2921,8 +3676,16 @@ def hype_report_for_date(
             item["melon_url"] = track_url or item["melon_url"]
         elif service == "spotify":
             item["spotify_url"] = track_url or item["spotify_url"]
-        if row["rank_order"] and (not item["title"] or row["rank_order"] < min(item.get("_best_rank", 9999), 9999)):
+        service_priority = {"apple": 0, "melon": 1, "spotify": 2, "ytmusic": 3}.get(service, 4)
+        best_rank = min(item.get("_best_rank", 9999), 9999)
+        best_service_priority = min(item.get("_best_service_priority", 9999), 9999)
+        if row["rank_order"] and (
+            not item["title"]
+            or row["rank_order"] < best_rank
+            or (row["rank_order"] == best_rank and service_priority < best_service_priority)
+        ):
             item["_best_rank"] = row["rank_order"]
+            item["_best_service_priority"] = service_priority
             item["title"] = row["title"] or item["title"]
             item["artist"] = row["artist"] or item["artist"]
             item["album"] = row["album"] or item["album"]
@@ -2932,6 +3695,7 @@ def hype_report_for_date(
     for item in grouped.values():
         item.pop("_gen1_rank", None)
         item.pop("_gen2_rank", None)
+        artwork_by_service = item.pop("_artwork_by_service", {})
         score_parts = item.pop("_score_parts", {})
         hype_index = sum(score_parts.values())
         apple_rank = item["apple_rank"] or 101
@@ -2939,6 +3703,17 @@ def hype_report_for_date(
         is_wave = apple_rank <= 100 and melon_rank > 100
         is_new_wave = is_wave and item["video_id"] not in previous_apple_videos
         item.pop("_best_rank", None)
+        item.pop("_best_service_priority", None)
+        item["title"] = item["title"] or item["yt_title"] or ""
+        item["artist"] = item["artist"] or item["yt_artist"] or ""
+        item["album"] = item["album"] or item["yt_album"] or ""
+        item["artwork_url"] = (
+            artwork_by_service.get("apple")
+            or artwork_by_service.get("melon")
+            or artwork_by_service.get("spotify")
+            or artwork_by_service.get("ytmusic")
+            or item["artwork_url"]
+        )
         if item["apple_rank"] in (9999, None):
             item["apple_rank"] = None
         if item["melon_rank"] in (9999, None):
@@ -2957,7 +3732,17 @@ def hype_report_for_date(
         if hype_index > 0:
             report.append(item)
 
-    report.sort(key=lambda row: row["hype_index"], reverse=True)
+    report.sort(
+        key=lambda row: (
+            -float(row["hype_index"]),
+            row["apple_rank"] or 9999,
+            row["melon_genz_rank"] or 9999,
+            row["melon_rank"] or 9999,
+            row["ytmusic_rank"] or 9999,
+            row["title"] or "",
+            row["video_id"] or "",
+        )
+    )
     for index, row in enumerate(report, 1):
         row["hype_rank"] = index
     return report[:200]
