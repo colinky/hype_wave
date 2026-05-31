@@ -1395,7 +1395,7 @@ def ensure_track(
                 WHEN excluded.match_status != 'failed' THEN excluded.match_status
                 ELSE tracks.match_status
             END,
-            best_score = MAX(COALESCE(tracks.best_score, 0), COALESCE(excluded.best_score, 0)),
+            best_score = CASE WHEN COALESCE(excluded.best_score, 0) >= COALESCE(tracks.best_score, 0) THEN COALESCE(excluded.best_score, 0) ELSE COALESCE(tracks.best_score, 0) END,
             updated_at = excluded.updated_at
         """,
         (track_uid, video_id, yt_title, yt_artist, yt_album, status, score, now, now),
@@ -1406,7 +1406,7 @@ def ensure_track(
             INSERT INTO yt_video_ids(video_id, track_uid, is_canonical)
             VALUES (?, ?, 1)
             ON CONFLICT(video_id) DO UPDATE SET
-                is_canonical = MAX(yt_video_ids.is_canonical, excluded.is_canonical)
+                is_canonical = CASE WHEN excluded.is_canonical > yt_video_ids.is_canonical THEN excluded.is_canonical ELSE yt_video_ids.is_canonical END
             """,
             (video_id, track_uid),
         )
@@ -1574,7 +1574,7 @@ def upsert_metadata_lookup(conn: sqlite3.Connection, *, track_uid: str, row: dic
                         WHEN excluded.score >= metadata_lookup_index.score THEN excluded.source
                         ELSE metadata_lookup_index.source
                     END,
-                    score = MAX(metadata_lookup_index.score, excluded.score)
+                    score = CASE WHEN excluded.score > metadata_lookup_index.score THEN excluded.score ELSE metadata_lookup_index.score END
                 """,
                 (key, track_uid, source, effective_score),
             )
