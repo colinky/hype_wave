@@ -681,11 +681,11 @@
                 const infoTrigger = document.querySelector('.info-trigger');
                 const userLang = navigator.language || navigator.userLanguage;
                 if (userLang && userLang.startsWith('ko')) {
-                    motto.textContent = "애플의 내일과 멜론의 오늘 사이, 폭발 직전의 모멘텀을 포착하는 더 트렌디한 HYPE 차트";
-                    logicTooltip.textContent = "애플뮤직(트렌드)과 멜론(대중성) 차트를 통합 분석합니다. 최상위권의 파급력과 신규 진입 곡의 상승 모멘텀을 가중 평균하여 화제성 지수를 산출합니다.";
+                    motto.textContent = "빠른 차트 반응과 세대별 확산 사이, 아직 굳어지기 전의 모멘텀을 포착하는 HYPE 차트";
+                    logicTooltip.textContent = "Apple Music의 빠른 진입 신호, Melon Gen-Z의 10·20대 반응, YouTube Music의 실제 확산 정도를 함께 봅니다. 이미 가장 대중적인 곡보다 지금 커지고 있는 곡의 화제성 지수를 계산합니다.";
                 } else {
                     motto.textContent = "Catch Tomorrow's Hype Today";
-                    logicTooltip.textContent = "Integrates Apple Music trends with Melon popularity. Calculated via weighted average of top-tier impact and rising momentum.";
+                    logicTooltip.textContent = "Combines fast Apple Music chart movement, Melon Gen-Z response, and YouTube Music listening signals to surface songs gaining momentum before they settle into the mainstream.";
                 }
 
                 // Tooltip toggle logic for mobile
@@ -778,13 +778,13 @@
                 return;
             }
 
-            const top10Today = globalHistory[latestDate].slice(0, window.innerWidth <= 600 ? 5 : 10);
+            const topHypeToday = globalHistory[latestDate].slice(0, window.innerWidth <= 600 ? 5 : 7);
             const isMobile = window.innerWidth <= 600;
             const chartTitle = document.querySelector('.trend-title');
             if (chartTitle) {
                 chartTitle.textContent = window.innerWidth <= 600
                     ? 'TOP 5 HYPE TREND (LAST 31 DAYS)'
-                    : 'TOP 10 HYPE TREND (LAST 31 DAYS)';
+                    : 'TOP 7 HYPE TREND (LAST 31 DAYS)';
             }
 
             const colors = [
@@ -804,7 +804,7 @@
                 displayDates.push(`${y}-${m}-${day}`);
             }
 
-            const datasets = top10Today.map((song, i) => {
+            const datasets = topHypeToday.map((song, i) => {
                 return {
                     label: song.title,
                     data: displayDates.map(date => {
@@ -977,7 +977,7 @@
                         },
                         y: {
                             min: 0,
-                            max: 120,
+                            max: 100,
                             beginAtZero: true,
                             grid: { color: 'rgba(255, 255, 255, 0.05)', drawBorder: false },
                             ticks: { 
