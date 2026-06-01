@@ -43,6 +43,27 @@
       "hype_rank": 2
     },
     {
+      "video_id": "R5By6ms2a3Y",
+      "title": "갑자기",
+      "artist": "아이오아이 (I.O.I)",
+      "album": "I.O.I 3rd MINI ALBUM [I.O.I : LOOP]",
+      "yt_title": "Suddenly",
+      "yt_artist": "I.O.I",
+      "yt_album": "I.O.I 3rd MINI ALBUM [I.O.I : LOOP]",
+      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/4e/f0/d9/4ef0d927-e14f-49c7-b273-e92ed3ce354b/888272181623_Cover.jpg/100x100bb.jpg",
+      "apple_url": "https://music.apple.com/album/6769328211?i=6769328214",
+      "melon_url": "https://www.melon.com/song/detail.htm?songId=602024048",
+      "spotify_url": "",
+      "apple_rank": 7,
+      "melon_rank": 1,
+      "melon_genz_rank": 2,
+      "ytmusic_rank": 3,
+      "hype_index": 69.59,
+      "is_wave": false,
+      "is_new_wave": false,
+      "hype_rank": 3
+    },
+    {
       "video_id": "Q4AE3ub4nBM",
       "title": "RUDE!",
       "artist": "Hearts2Hearts (하츠투하츠)",
@@ -61,7 +82,7 @@
       "hype_index": 63.72,
       "is_wave": false,
       "is_new_wave": false,
-      "hype_rank": 3
+      "hype_rank": 4
     },
     {
       "video_id": "hGqYdubpcCM",
@@ -82,13 +103,13 @@
       "hype_index": 62.7,
       "is_wave": false,
       "is_new_wave": false,
-      "hype_rank": 4
+      "hype_rank": 5
     },
     {
       "video_id": "ZAsxW7bkK-A",
       "title": "WDA (Whole Different Animal) [feat. G-DRAGON]",
       "artist": "aespa",
-      "album": "LEMONADE - The 2nd Album",
+      "album": "LEMONADE - The 2nd Album (GISELLE Special Version)",
       "yt_title": "WDA (Whole Different Animal) (feat. G-DRAGON)",
       "yt_artist": "aespa",
       "yt_album": "WDA (Whole Different Animal)",
@@ -103,7 +124,7 @@
       "hype_index": 60.04,
       "is_wave": false,
       "is_new_wave": false,
-      "hype_rank": 5
+      "hype_rank": 6
     },
     {
       "video_id": "Snyan1_jGWc",
@@ -124,7 +145,7 @@
       "hype_index": 54.19,
       "is_wave": false,
       "is_new_wave": false,
-      "hype_rank": 6
+      "hype_rank": 7
     },
     {
       "video_id": "8rMARLBfd3U",
@@ -145,7 +166,28 @@
       "hype_index": 53.14,
       "is_wave": false,
       "is_new_wave": false,
-      "hype_rank": 7
+      "hype_rank": 8
+    },
+    {
+      "video_id": "1uDzUPzS2w8",
+      "title": "LOVE ATTACK",
+      "artist": "리센느",
+      "album": "SCENEDROME - EP",
+      "yt_title": "LOVE ATTACK",
+      "yt_artist": "RESCENE (리센느)",
+      "yt_album": "SCENEDROME",
+      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music221/v4/43/0b/4c/430b4c8e-3cb8-da27-648f-435ec3b391a6/8804775334160.jpg/100x100bb.jpg",
+      "apple_url": "https://music.apple.com/album/1764485168?i=1764485170",
+      "melon_url": "https://www.melon.com/song/detail.htm?songId=37928381",
+      "spotify_url": "",
+      "apple_rank": 8,
+      "melon_rank": 35,
+      "melon_genz_rank": 12,
+      "ytmusic_rank": 11,
+      "hype_index": 53.11,
+      "is_wave": false,
+      "is_new_wave": false,
+      "hype_rank": 9
     },
     {
       "video_id": "1jtban6rFAA",
@@ -166,7 +208,7 @@
       "hype_index": 52.76,
       "is_wave": true,
       "is_new_wave": false,
-      "hype_rank": 8
+      "hype_rank": 10
     },
     {
       "video_id": "6Xa1VDLACPo",
@@ -187,7 +229,7 @@
       "hype_index": 52.76,
       "is_wave": false,
       "is_new_wave": false,
-      "hype_rank": 9
+      "hype_rank": 11
     },
     {
       "video_id": "sjtyqmA-pH4",
@@ -208,7 +250,7 @@
       "hype_index": 51.84,
       "is_wave": false,
       "is_new_wave": false,
-      "hype_rank": 10
+      "hype_rank": 12
     },
     {
       "video_id": "sgxwL8V39Lc",
@@ -229,12 +271,12 @@
       "hype_index": 50.74,
       "is_wave": false,
       "is_new_wave": false,
-      "hype_rank": 11
+      "hype_rank": 13
     },
     {
       "video_id": "MUny_GDYIDM",
       "title": "404 (New Era)",
-      "artist": "키키",
+      "artist": "KiiiKiii",
       "album": "Delulu Pack - EP",
       "yt_title": "404 (New Era)",
       "yt_artist": "KiiiKiii",
@@ -250,7 +292,28 @@
       "hype_index": 50.62,
       "is_wave": false,
       "is_new_wave": false,
-      "hype_rank": 12
+      "hype_rank": 14
+    },
+    {
+      "video_id": "Gy32XOFT2ww",
+      "title": "BOOMPALA",
+      "artist": "르세라핌",
+      "album": "'PUREFLOW', Pt. 1",
+      "yt_title": "BOOMPALA",
+      "yt_artist": "LE SSERAFIM",
+      "yt_album": "'PUREFLOW' pt.1",
+      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/b8/0c/98/b80c980c-52c6-a180-ff3e-2afaaab75fdd/823375107286_Cover.jpg/100x100bb.jpg",
+      "apple_url": "https://music.apple.com/album/1894802719?i=1894802726",
+      "melon_url": "https://www.melon.com/song/detail.htm?songId=602066108",
+      "spotify_url": "",
+      "apple_rank": 5,
+      "melon_rank": 50,
+      "melon_genz_rank": 26,
+      "ytmusic_rank": 6,
+      "hype_index": 46.5,
+      "is_wave": false,
+      "is_new_wave": false,
+      "hype_rank": 15
     },
     {
       "video_id": "I0Hu7PRF4j0",
@@ -271,7 +334,7 @@
       "hype_index": 46.31,
       "is_wave": false,
       "is_new_wave": false,
-      "hype_rank": 13
+      "hype_rank": 16
     },
     {
       "video_id": "tCSBgOIA63M",
@@ -292,49 +355,28 @@
       "hype_index": 40.64,
       "is_wave": true,
       "is_new_wave": false,
-      "hype_rank": 14
+      "hype_rank": 17
     },
     {
-      "video_id": "R5By6ms2a3Y",
-      "title": "갑자기",
-      "artist": "아이오아이",
-      "album": "I.O.I 3rd MINI ALBUM [I.O.I : LOOP]",
-      "yt_title": "Suddenly",
-      "yt_artist": "I.O.I",
-      "yt_album": "I.O.I 3rd MINI ALBUM [I.O.I : LOOP]",
-      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/4e/f0/d9/4ef0d927-e14f-49c7-b273-e92ed3ce354b/888272181623_Cover.jpg/100x100bb.jpg",
-      "apple_url": "https://music.apple.com/album/6769328211?i=6769328214",
-      "melon_url": "",
+      "video_id": "aGwmkWxALiw",
+      "title": "Smile Boy",
+      "artist": "로이킴",
+      "album": "다시 불러 봄 - Bloom Again",
+      "yt_title": "Smile Boy",
+      "yt_artist": "Roy Kim",
+      "yt_album": "Bloom Again",
+      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/29/5d/3e/295d3efe-516d-3a15-c6bd-99cf90d04e89/8800379504732_cover.jpg/100x100bb.jpg",
+      "apple_url": "https://music.apple.com/album/6769657413?i=6769657416",
+      "melon_url": "https://www.melon.com/song/detail.htm?songId=602033687",
       "spotify_url": "",
-      "apple_rank": 7,
-      "melon_rank": null,
-      "melon_genz_rank": null,
-      "ytmusic_rank": 3,
-      "hype_index": 39.51,
-      "is_wave": true,
+      "apple_rank": 34,
+      "melon_rank": 86,
+      "melon_genz_rank": 13,
+      "ytmusic_rank": 23,
+      "hype_index": 38.14,
+      "is_wave": false,
       "is_new_wave": false,
-      "hype_rank": 15
-    },
-    {
-      "video_id": "Gy32XOFT2ww",
-      "title": "BOOMPALA",
-      "artist": "르세라핌",
-      "album": "'PUREFLOW', Pt. 1",
-      "yt_title": "BOOMPALA",
-      "yt_artist": "LE SSERAFIM",
-      "yt_album": "'PUREFLOW' pt.1",
-      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/b8/0c/98/b80c980c-52c6-a180-ff3e-2afaaab75fdd/823375107286_Cover.jpg/100x100bb.jpg",
-      "apple_url": "https://music.apple.com/album/1894802719?i=1894802726",
-      "melon_url": "",
-      "spotify_url": "",
-      "apple_rank": 5,
-      "melon_rank": null,
-      "melon_genz_rank": null,
-      "ytmusic_rank": 6,
-      "hype_index": 39.32,
-      "is_wave": true,
-      "is_new_wave": false,
-      "hype_rank": 16
+      "hype_rank": 18
     },
     {
       "video_id": "HLTQoCRBfxc",
@@ -355,7 +397,7 @@
       "hype_index": 38.07,
       "is_wave": false,
       "is_new_wave": false,
-      "hype_rank": 17
+      "hype_rank": 19
     },
     {
       "video_id": "LZWlP4kjEtw",
@@ -376,7 +418,7 @@
       "hype_index": 37.66,
       "is_wave": true,
       "is_new_wave": false,
-      "hype_rank": 18
+      "hype_rank": 20
     },
     {
       "video_id": "NbKH4iZqq1Y",
@@ -397,7 +439,28 @@
       "hype_index": 36.36,
       "is_wave": false,
       "is_new_wave": false,
-      "hype_rank": 19
+      "hype_rank": 21
+    },
+    {
+      "video_id": "j-seAiANLG8",
+      "title": "And July (Feat. DEAN, DJ Friz)",
+      "artist": "헤이즈 (Heize)",
+      "album": "And July",
+      "yt_title": "And July (feat. DEAN & DJ Friz)",
+      "yt_artist": "Heize",
+      "yt_album": "And July",
+      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music125/v4/a6/9e/ba/a69ebae6-e47c-ec13-c670-4f8a1ffa6584/8809484116656_Cover.jpg/100x100bb.jpg",
+      "apple_url": "https://music.apple.com/album/1569920323?i=1569920439",
+      "melon_url": "https://www.melon.com/song/detail.htm?songId=8271355",
+      "spotify_url": "",
+      "apple_rank": 29,
+      "melon_rank": null,
+      "melon_genz_rank": 21,
+      "ytmusic_rank": 38,
+      "hype_index": 35.59,
+      "is_wave": true,
+      "is_new_wave": false,
+      "hype_rank": 22
     },
     {
       "video_id": "eNiPuDEUQpQ",
@@ -418,28 +481,7 @@
       "hype_index": 35.25,
       "is_wave": false,
       "is_new_wave": false,
-      "hype_rank": 20
-    },
-    {
-      "video_id": "1uDzUPzS2w8",
-      "title": "LOVE ATTACK",
-      "artist": "리센느",
-      "album": "SCENEDROME - EP",
-      "yt_title": "LOVE ATTACK",
-      "yt_artist": "RESCENE (리센느)",
-      "yt_album": "SCENEDROME",
-      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music221/v4/43/0b/4c/430b4c8e-3cb8-da27-648f-435ec3b391a6/8804775334160.jpg/100x100bb.jpg",
-      "apple_url": "https://music.apple.com/album/1764485168?i=1764485170",
-      "melon_url": "",
-      "spotify_url": "",
-      "apple_rank": 8,
-      "melon_rank": null,
-      "melon_genz_rank": null,
-      "ytmusic_rank": 11,
-      "hype_index": 34.45,
-      "is_wave": true,
-      "is_new_wave": false,
-      "hype_rank": 21
+      "hype_rank": 23
     },
     {
       "video_id": "83C3TZ4Zm_o",
@@ -460,7 +502,7 @@
       "hype_index": 33.24,
       "is_wave": true,
       "is_new_wave": false,
-      "hype_rank": 22
+      "hype_rank": 24
     },
     {
       "video_id": "JwC6KUpBAAU",
@@ -481,7 +523,7 @@
       "hype_index": 32.08,
       "is_wave": false,
       "is_new_wave": false,
-      "hype_rank": 23
+      "hype_rank": 25
     },
     {
       "video_id": "TfAiFxoXVlE",
@@ -491,7 +533,7 @@
       "yt_title": "BANG BANG",
       "yt_artist": "IVE",
       "yt_album": "REVIVE+",
-      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/9a/8e/68/9a8e6815-2e20-a486-5818-967109df4763/cover_KM0024105_1.jpg/100x100bb.jpg",
+      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music221/v4/9d/54/fd/9d54fd06-fc19-c30c-c9ec-3fcc20eab4a3/199806315972.jpg/100x100bb.jpg",
       "apple_url": "https://music.apple.com/album/1873882195?i=1873882204",
       "melon_url": "https://www.melon.com/song/detail.htm?songId=601237102",
       "spotify_url": "https://open.spotify.com/track/4MII9R3syMugyhdDvB8G0u",
@@ -502,7 +544,7 @@
       "hype_index": 29.86,
       "is_wave": false,
       "is_new_wave": false,
-      "hype_rank": 24
+      "hype_rank": 26
     },
     {
       "video_id": "37W7Y2RRyiM",
@@ -523,7 +565,7 @@
       "hype_index": 28.43,
       "is_wave": true,
       "is_new_wave": false,
-      "hype_rank": 25
+      "hype_rank": 27
     },
     {
       "video_id": "jCKcEoZrlJQ",
@@ -544,7 +586,7 @@
       "hype_index": 27.36,
       "is_wave": false,
       "is_new_wave": false,
-      "hype_rank": 26
+      "hype_rank": 28
     },
     {
       "video_id": "D3tUvbqOAAY",
@@ -565,7 +607,7 @@
       "hype_index": 26.38,
       "is_wave": false,
       "is_new_wave": false,
-      "hype_rank": 27
+      "hype_rank": 29
     },
     {
       "video_id": "X0PUdt1gt5c",
@@ -586,7 +628,7 @@
       "hype_index": 25.15,
       "is_wave": true,
       "is_new_wave": false,
-      "hype_rank": 28
+      "hype_rank": 30
     },
     {
       "video_id": "bLahVNBGdLQ",
@@ -607,7 +649,7 @@
       "hype_index": 24.71,
       "is_wave": false,
       "is_new_wave": false,
-      "hype_rank": 29
+      "hype_rank": 31
     },
     {
       "video_id": "GCkhFdMdGOY",
@@ -628,7 +670,7 @@
       "hype_index": 24.66,
       "is_wave": true,
       "is_new_wave": false,
-      "hype_rank": 30
+      "hype_rank": 32
     },
     {
       "video_id": "TLftyCObb_E",
@@ -638,7 +680,7 @@
       "yt_title": "Blue Valentine",
       "yt_artist": "NMIXX",
       "yt_album": "Blue Valentine",
-      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/fd/d4/44/fdd444f2-5584-8e40-9891-fe7cbc03af9e/8809928955155.jpg/100x100bb.jpg",
+      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music221/v4/a7/5d/54/a75d54db-b997-d410-b6dd-25f7e766392a/8809928955148_Cover.jpg/100x100bb.jpg",
       "apple_url": "https://music.apple.com/album/1839523838?i=1839523842",
       "melon_url": "https://www.melon.com/song/detail.htm?songId=600243411",
       "spotify_url": "https://open.spotify.com/track/0FKR7mQJnYqdEmHAMhgQjw",
@@ -649,7 +691,7 @@
       "hype_index": 23.82,
       "is_wave": false,
       "is_new_wave": false,
-      "hype_rank": 31
+      "hype_rank": 33
     },
     {
       "video_id": "E5BLkMGxDgQ",
@@ -670,7 +712,7 @@
       "hype_index": 23.8,
       "is_wave": true,
       "is_new_wave": false,
-      "hype_rank": 32
+      "hype_rank": 34
     },
     {
       "video_id": "-_r_Y5nuHlo",
@@ -691,7 +733,7 @@
       "hype_index": 23.39,
       "is_wave": true,
       "is_new_wave": false,
-      "hype_rank": 33
+      "hype_rank": 35
     },
     {
       "video_id": "NwO0H2bUhSQ",
@@ -712,7 +754,7 @@
       "hype_index": 23.33,
       "is_wave": true,
       "is_new_wave": false,
-      "hype_rank": 34
+      "hype_rank": 36
     },
     {
       "video_id": "7Eo-TAWu0oo",
@@ -722,7 +764,7 @@
       "yt_title": "Whiplash",
       "yt_artist": "aespa",
       "yt_album": "Whiplash - The 5th Mini Album",
-      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music221/v4/1a/26/5d/1a265da7-ff45-8df0-ee94-7b79becfc7d9/888735949562.png/100x100bb.jpg",
+      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/d5/c1/f5/d5c1f505-f588-775f-df05-c672a8ec22e9/888735949562_Cover.jpg/100x100bb.jpg",
       "apple_url": "https://music.apple.com/album/1772214980?i=1772214981",
       "melon_url": "https://www.melon.com/song/detail.htm?songId=38123332",
       "spotify_url": "https://open.spotify.com/track/6uPnrBgweGOcwjFL4ItAvV",
@@ -733,7 +775,7 @@
       "hype_index": 22.78,
       "is_wave": false,
       "is_new_wave": false,
-      "hype_rank": 35
+      "hype_rank": 37
     },
     {
       "video_id": "aWkPBCF8rFU",
@@ -754,7 +796,7 @@
       "hype_index": 22.5,
       "is_wave": true,
       "is_new_wave": false,
-      "hype_rank": 36
+      "hype_rank": 38
     },
     {
       "video_id": "Yc4gp6oeN7k",
@@ -775,7 +817,7 @@
       "hype_index": 22.0,
       "is_wave": true,
       "is_new_wave": false,
-      "hype_rank": 37
+      "hype_rank": 39
     },
     {
       "video_id": "dgZlLjfh6q4",
@@ -796,28 +838,7 @@
       "hype_index": 21.63,
       "is_wave": true,
       "is_new_wave": false,
-      "hype_rank": 38
-    },
-    {
-      "video_id": "aGwmkWxALiw",
-      "title": "Smile Boy",
-      "artist": "로이킴",
-      "album": "다시 불러 봄 - Bloom Again - EP",
-      "yt_title": "Smile Boy",
-      "yt_artist": "Roy Kim",
-      "yt_album": "Bloom Again",
-      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/29/5d/3e/295d3efe-516d-3a15-c6bd-99cf90d04e89/8800379504732_cover.jpg/100x100bb.jpg",
-      "apple_url": "https://music.apple.com/album/6769657413?i=6769657416",
-      "melon_url": "",
-      "spotify_url": "",
-      "apple_rank": 34,
-      "melon_rank": null,
-      "melon_genz_rank": null,
-      "ytmusic_rank": 23,
-      "hype_index": 21.07,
-      "is_wave": true,
-      "is_new_wave": false,
-      "hype_rank": 39
+      "hype_rank": 40
     },
     {
       "video_id": "pERDk4KoW-s",
@@ -838,7 +859,7 @@
       "hype_index": 20.68,
       "is_wave": true,
       "is_new_wave": false,
-      "hype_rank": 40
+      "hype_rank": 41
     },
     {
       "video_id": "HBqH4uJS0PU",
@@ -859,7 +880,7 @@
       "hype_index": 20.5,
       "is_wave": false,
       "is_new_wave": false,
-      "hype_rank": 41
+      "hype_rank": 42
     },
     {
       "video_id": "ib3hV9iyqsE",
@@ -880,28 +901,28 @@
       "hype_index": 20.48,
       "is_wave": true,
       "is_new_wave": false,
-      "hype_rank": 42
+      "hype_rank": 43
     },
     {
-      "video_id": "j-seAiANLG8",
-      "title": "And July (feat. DEAN & dj friz)",
-      "artist": "헤이즈",
-      "album": "And July - EP",
-      "yt_title": "And July (feat. DEAN & DJ Friz)",
-      "yt_artist": "Heize",
-      "yt_album": "And July",
-      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music125/v4/a6/9e/ba/a69ebae6-e47c-ec13-c670-4f8a1ffa6584/8809484116656_Cover.jpg/100x100bb.jpg",
-      "apple_url": "https://music.apple.com/album/1569920323?i=1569920439",
-      "melon_url": "",
+      "video_id": "sKB5cuIUppA",
+      "title": "LEMONADE",
+      "artist": "aespa",
+      "album": "LEMONADE - The 2nd Album",
+      "yt_title": "LEMONADE (feat. Becky G)",
+      "yt_artist": "aespa & Becky G",
+      "yt_album": "LEMONADE - The 2nd Album",
+      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music221/v4/00/1d/e6/001de64e-c2f1-fd4b-3604-3d2e16641968/888735955211.png/100x100bb.jpg",
+      "apple_url": "",
+      "melon_url": "https://www.melon.com/song/detail.htm?songId=602115220",
       "spotify_url": "",
-      "apple_rank": 29,
-      "melon_rank": null,
-      "melon_genz_rank": null,
-      "ytmusic_rank": 38,
-      "hype_index": 20.27,
-      "is_wave": true,
+      "apple_rank": null,
+      "melon_rank": 18,
+      "melon_genz_rank": 11,
+      "ytmusic_rank": null,
+      "hype_index": 20.03,
+      "is_wave": false,
       "is_new_wave": false,
-      "hype_rank": 43
+      "hype_rank": 44
     },
     {
       "video_id": "3G0A03PFMg0",
@@ -922,7 +943,7 @@
       "hype_index": 19.6,
       "is_wave": true,
       "is_new_wave": false,
-      "hype_rank": 44
+      "hype_rank": 45
     },
     {
       "video_id": "f73laCUMUW0",
@@ -932,7 +953,7 @@
       "yt_title": "toxic till the end",
       "yt_artist": "ROSÉ",
       "yt_album": "rosie",
-      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/4d/cb/54/4dcb5453-7493-cd68-81f8-fc7ae28101ce/8800287299416_cover.jpg/100x100bb.jpg",
+      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music221/v4/2d/14/66/2d14661b-345b-d0f3-4e86-56ef626e68aa/075679629203.jpg/100x100bb.jpg",
       "apple_url": "https://music.apple.com/album/1771105914?i=1771105929",
       "melon_url": "https://www.melon.com/song/detail.htm?songId=38300904",
       "spotify_url": "",
@@ -943,7 +964,7 @@
       "hype_index": 19.52,
       "is_wave": false,
       "is_new_wave": false,
-      "hype_rank": 45
+      "hype_rank": 46
     },
     {
       "video_id": "pJ-IGZKyfpU",
@@ -964,7 +985,49 @@
       "hype_index": 19.15,
       "is_wave": true,
       "is_new_wave": false,
-      "hype_rank": 46
+      "hype_rank": 47
+    },
+    {
+      "video_id": "OwOIKHkUUUI",
+      "title": "Lovey Dovey (Solo Ver.)",
+      "artist": "BIG Naughty (서동현)",
+      "album": "10시 반 러비더비",
+      "yt_title": "Lovey Dovey (Solo Ver.)",
+      "yt_artist": "BIG Naughty",
+      "yt_album": "Ten Thirty Lovey Dovey",
+      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/26/98/c3/2698c304-fa0b-73da-ecca-bfcb7dc17ec5/cover_KM0024664_1.jpg/100x100bb.jpg",
+      "apple_url": "",
+      "melon_url": "https://www.melon.com/song/detail.htm?songId=602066103",
+      "spotify_url": "",
+      "apple_rank": 46,
+      "melon_rank": null,
+      "melon_genz_rank": 32,
+      "ytmusic_rank": null,
+      "hype_index": 19.14,
+      "is_wave": true,
+      "is_new_wave": false,
+      "hype_rank": 48
+    },
+    {
+      "video_id": "fwNJdxUghcc",
+      "title": "사랑은 봄비처럼...이별은 겨울비처럼...",
+      "artist": "임현정",
+      "album": "All That Love",
+      "yt_title": "사랑은 봄비처럼...이별은 겨울비처럼",
+      "yt_artist": "임현정 (Lim Hyun Jung)",
+      "yt_album": "A Year Out...In The Island",
+      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music/00/2f/94/mzi.crijpvtm.jpg/100x100bb.jpg",
+      "apple_url": "https://music.apple.com/album/345400869?i=345400888",
+      "melon_url": "https://www.melon.com/song/detail.htm?songId=1121123",
+      "spotify_url": "",
+      "apple_rank": 71,
+      "melon_rank": 55,
+      "melon_genz_rank": 33,
+      "ytmusic_rank": null,
+      "hype_index": 17.91,
+      "is_wave": false,
+      "is_new_wave": false,
+      "hype_rank": 49
     },
     {
       "video_id": "QmJbHPYx97M",
@@ -985,7 +1048,7 @@
       "hype_index": 17.14,
       "is_wave": true,
       "is_new_wave": false,
-      "hype_rank": 47
+      "hype_rank": 50
     },
     {
       "video_id": "7wJsfALKRR8",
@@ -1006,7 +1069,28 @@
       "hype_index": 17.12,
       "is_wave": true,
       "is_new_wave": false,
-      "hype_rank": 48
+      "hype_rank": 51
+    },
+    {
+      "video_id": "_QAsLRbNfuI",
+      "title": "BUMPA",
+      "artist": "비비(BIBI)",
+      "album": "BUMPA",
+      "yt_title": "BUMPA",
+      "yt_artist": "BIBI",
+      "yt_album": "BUMPA",
+      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/91/08/9b/91089b6c-4601-301c-6314-66128921e8af/827568024336.jpg/100x100bb.jpg",
+      "apple_url": "",
+      "melon_url": "https://www.melon.com/song/detail.htm?songId=602035030",
+      "spotify_url": "",
+      "apple_rank": 59,
+      "melon_rank": null,
+      "melon_genz_rank": 46,
+      "ytmusic_rank": 34,
+      "hype_index": 16.2,
+      "is_wave": true,
+      "is_new_wave": false,
+      "hype_rank": 52
     },
     {
       "video_id": "UXnuIai8Ewo",
@@ -1016,7 +1100,7 @@
       "yt_title": "SHAKIN'",
       "yt_artist": "aespa",
       "yt_album": "LEMONADE - The 2nd Album",
-      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music221/v4/00/1d/e6/001de64e-c2f1-fd4b-3604-3d2e16641968/888735955211.png/100x100bb.jpg",
+      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/cc/c8/93/ccc89345-aa49-ca82-3dbe-f11c65ff1706/888735955679_Cover.jpg/100x100bb.jpg",
       "apple_url": "",
       "melon_url": "",
       "spotify_url": "",
@@ -1027,7 +1111,28 @@
       "hype_index": 16.0,
       "is_wave": true,
       "is_new_wave": false,
-      "hype_rank": 49
+      "hype_rank": 53
+    },
+    {
+      "video_id": "uIjKp_SDvWg",
+      "title": "LIVE FAST DIE SLOW",
+      "artist": "태양",
+      "album": "QUINTESSENCE",
+      "yt_title": "LIVE FAST DIE SLOW",
+      "yt_artist": "TAEYANG",
+      "yt_album": "QUINTESSENCE",
+      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music221/v4/4d/5c/6e/4d5c6e20-4618-1f9a-a4ac-a2b4ca7a2aba/8800374615389_cover.jpg/100x100bb.jpg",
+      "apple_url": "https://music.apple.com/album/6768878794?i=6768878796",
+      "melon_url": "https://www.melon.com/song/detail.htm?songId=602011402",
+      "spotify_url": "",
+      "apple_rank": 92,
+      "melon_rank": 64,
+      "melon_genz_rank": 40,
+      "ytmusic_rank": 17,
+      "hype_index": 15.53,
+      "is_wave": false,
+      "is_new_wave": false,
+      "hype_rank": 54
     },
     {
       "video_id": "eqKhhG4FVoQ",
@@ -1048,7 +1153,7 @@
       "hype_index": 15.32,
       "is_wave": false,
       "is_new_wave": false,
-      "hype_rank": 50
+      "hype_rank": 55
     },
     {
       "video_id": "ghrlZIMDzbM",
@@ -1060,16 +1165,16 @@
       "yt_album": "NewJeans 1st EP 'New Jeans'",
       "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music112/v4/4e/64/34/4e64344b-3ac6-c503-2c41-257a15401416/192641873096_Cover.jpg/100x100bb.jpg",
       "apple_url": "https://music.apple.com/album/1635469682?i=1635469851",
-      "melon_url": "",
+      "melon_url": "https://www.melon.com/song/detail.htm?songId=35454426",
       "spotify_url": "",
       "apple_rank": 39,
-      "melon_rank": null,
-      "melon_genz_rank": null,
+      "melon_rank": 82,
+      "melon_genz_rank": 75,
       "ytmusic_rank": 57,
       "hype_index": 15.23,
-      "is_wave": true,
+      "is_wave": false,
       "is_new_wave": false,
-      "hype_rank": 51
+      "hype_rank": 56
     },
     {
       "video_id": "vrM2mrI83uk",
@@ -1090,7 +1195,7 @@
       "hype_index": 15.0,
       "is_wave": true,
       "is_new_wave": false,
-      "hype_rank": 52
+      "hype_rank": 57
     },
     {
       "video_id": "IhKjZk5AYRg",
@@ -1111,7 +1216,7 @@
       "hype_index": 15.0,
       "is_wave": false,
       "is_new_wave": false,
-      "hype_rank": 53
+      "hype_rank": 58
     },
     {
       "video_id": "QxGt54-oh1A",
@@ -1132,7 +1237,7 @@
       "hype_index": 14.93,
       "is_wave": false,
       "is_new_wave": false,
-      "hype_rank": 54
+      "hype_rank": 59
     },
     {
       "video_id": "aLUvL0mNQmY",
@@ -1153,7 +1258,28 @@
       "hype_index": 14.32,
       "is_wave": false,
       "is_new_wave": false,
-      "hype_rank": 55
+      "hype_rank": 60
+    },
+    {
+      "video_id": "t8P-zdkoeJA",
+      "title": "주저하는 연인들을 위해",
+      "artist": "잔나비",
+      "album": "전설",
+      "yt_title": "for lovers who hesitate(주저하는 연인들을 위해)",
+      "yt_artist": "JANNABI",
+      "yt_album": "[Vol.133] 유희열의 스케치북 With you : 여든 여섯 번째 목소리 '유스케 X 잔나비 최정훈&이무진'",
+      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music125/v4/fc/a9/b2/fca9b2d4-b1ed-92e8-2e5f-1838d77cbce7/cover-_NEW.jpg/100x100bb.jpg",
+      "apple_url": "https://music.apple.com/album/1456102975?i=1456103133",
+      "melon_url": "https://www.melon.com/song/detail.htm?songId=31666417",
+      "spotify_url": "",
+      "apple_rank": 76,
+      "melon_rank": 45,
+      "melon_genz_rank": 37,
+      "ytmusic_rank": null,
+      "hype_index": 14.17,
+      "is_wave": false,
+      "is_new_wave": false,
+      "hype_rank": 61
     },
     {
       "video_id": "e6-TxMisjh8",
@@ -1174,28 +1300,7 @@
       "hype_index": 13.92,
       "is_wave": false,
       "is_new_wave": false,
-      "hype_rank": 56
-    },
-    {
-      "video_id": "_QAsLRbNfuI",
-      "title": "BUMPA",
-      "artist": "비비(BIBI)",
-      "album": "BUMPA",
-      "yt_title": "BUMPA",
-      "yt_artist": "BIBI",
-      "yt_album": "BUMPA",
-      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/3f/e9/ec/3fe9ecd2-0bb1-ac2c-43c4-7e616e05a296/cover_KM0024649_1.jpg/100x100bb.jpg",
-      "apple_url": "",
-      "melon_url": "",
-      "spotify_url": "",
-      "apple_rank": 59,
-      "melon_rank": null,
-      "melon_genz_rank": null,
-      "ytmusic_rank": 34,
-      "hype_index": 13.42,
-      "is_wave": true,
-      "is_new_wave": false,
-      "hype_rank": 57
+      "hype_rank": 62
     },
     {
       "video_id": "XfzE8ku3TCI",
@@ -1216,7 +1321,28 @@
       "hype_index": 13.26,
       "is_wave": true,
       "is_new_wave": false,
-      "hype_rank": 58
+      "hype_rank": 63
+    },
+    {
+      "video_id": "kjNGAVT_ySg",
+      "title": "DAY BY DAY",
+      "artist": "티아라",
+      "album": "DAY BY DAY",
+      "yt_title": "DAY BY DAY",
+      "yt_artist": "T-ara",
+      "yt_album": "DAY BY DAY",
+      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music221/v4/88/6e/cf/886ecf93-f636-65b3-87de-db72d5f72731/cover_KM0001567_1.jpg/100x100bb.jpg",
+      "apple_url": "https://music.apple.com/album/1804698750?i=1804698751",
+      "melon_url": "https://www.melon.com/song/detail.htm?songId=3840800",
+      "spotify_url": "",
+      "apple_rank": 96,
+      "melon_rank": null,
+      "melon_genz_rank": 41,
+      "ytmusic_rank": 78,
+      "hype_index": 12.74,
+      "is_wave": true,
+      "is_new_wave": false,
+      "hype_rank": 64
     },
     {
       "video_id": "DFUe0rPqPsQ",
@@ -1226,7 +1352,7 @@
       "yt_title": "Camouflage",
       "yt_artist": "aespa",
       "yt_album": "LEMONADE - The 2nd Album",
-      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music221/v4/00/1d/e6/001de64e-c2f1-fd4b-3604-3d2e16641968/888735955211.png/100x100bb.jpg",
+      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/cc/c8/93/ccc89345-aa49-ca82-3dbe-f11c65ff1706/888735955679_Cover.jpg/100x100bb.jpg",
       "apple_url": "",
       "melon_url": "",
       "spotify_url": "",
@@ -1237,7 +1363,7 @@
       "hype_index": 12.34,
       "is_wave": true,
       "is_new_wave": false,
-      "hype_rank": 59
+      "hype_rank": 65
     },
     {
       "video_id": "TZHoqQnUbas",
@@ -1258,7 +1384,7 @@
       "hype_index": 12.07,
       "is_wave": true,
       "is_new_wave": false,
-      "hype_rank": 60
+      "hype_rank": 66
     },
     {
       "video_id": "RwrZPCKLs2E",
@@ -1279,7 +1405,7 @@
       "hype_index": 11.8,
       "is_wave": true,
       "is_new_wave": false,
-      "hype_rank": 61
+      "hype_rank": 67
     },
     {
       "video_id": "kdOS94IjzzE",
@@ -1300,7 +1426,7 @@
       "hype_index": 11.28,
       "is_wave": true,
       "is_new_wave": false,
-      "hype_rank": 62
+      "hype_rank": 68
     },
     {
       "video_id": "N4N8nam2QbI",
@@ -1321,7 +1447,7 @@
       "hype_index": 11.28,
       "is_wave": false,
       "is_new_wave": false,
-      "hype_rank": 63
+      "hype_rank": 69
     },
     {
       "video_id": "kmTZv6dxmDE",
@@ -1342,7 +1468,7 @@
       "hype_index": 11.08,
       "is_wave": true,
       "is_new_wave": false,
-      "hype_rank": 64
+      "hype_rank": 70
     },
     {
       "video_id": "RZMp2kQObCs",
@@ -1363,28 +1489,7 @@
       "hype_index": 11.02,
       "is_wave": false,
       "is_new_wave": false,
-      "hype_rank": 65
-    },
-    {
-      "video_id": "uIjKp_SDvWg",
-      "title": "LIVE FAST DIE SLOW",
-      "artist": "태양",
-      "album": "QUINTESSENCE",
-      "yt_title": "LIVE FAST DIE SLOW",
-      "yt_artist": "TAEYANG",
-      "yt_album": "QUINTESSENCE",
-      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music221/v4/4d/5c/6e/4d5c6e20-4618-1f9a-a4ac-a2b4ca7a2aba/8800374615389_cover.jpg/100x100bb.jpg",
-      "apple_url": "https://music.apple.com/album/6768878794?i=6768878796",
-      "melon_url": "",
-      "spotify_url": "",
-      "apple_rank": 92,
-      "melon_rank": null,
-      "melon_genz_rank": null,
-      "ytmusic_rank": 17,
-      "hype_index": 10.79,
-      "is_wave": true,
-      "is_new_wave": false,
-      "hype_rank": 66
+      "hype_rank": 71
     },
     {
       "video_id": "1BRDK2mMI98",
@@ -1405,7 +1510,7 @@
       "hype_index": 10.77,
       "is_wave": false,
       "is_new_wave": false,
-      "hype_rank": 67
+      "hype_rank": 72
     },
     {
       "video_id": "OdFVPP_Rcos",
@@ -1426,7 +1531,7 @@
       "hype_index": 10.53,
       "is_wave": false,
       "is_new_wave": false,
-      "hype_rank": 68
+      "hype_rank": 73
     },
     {
       "video_id": "IMWT6937uUs",
@@ -1447,7 +1552,7 @@
       "hype_index": 10.36,
       "is_wave": false,
       "is_new_wave": false,
-      "hype_rank": 69
+      "hype_rank": 74
     },
     {
       "video_id": "Kr4EQDVETuA",
@@ -1468,28 +1573,7 @@
       "hype_index": 10.07,
       "is_wave": true,
       "is_new_wave": false,
-      "hype_rank": 70
-    },
-    {
-      "video_id": "OwOIKHkUUUI",
-      "title": "Lovey Dovey (Solo Ver.)",
-      "artist": "BIG Naughty",
-      "album": "10시 반 러비더비 - Single",
-      "yt_title": "Lovey Dovey (Solo Ver.)",
-      "yt_artist": "BIG Naughty",
-      "yt_album": "Ten Thirty Lovey Dovey",
-      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/26/98/c3/2698c304-fa0b-73da-ecca-bfcb7dc17ec5/cover_KM0024664_1.jpg/100x100bb.jpg",
-      "apple_url": "",
-      "melon_url": "",
-      "spotify_url": "",
-      "apple_rank": 46,
-      "melon_rank": null,
-      "melon_genz_rank": null,
-      "ytmusic_rank": null,
-      "hype_index": 9.8,
-      "is_wave": true,
-      "is_new_wave": false,
-      "hype_rank": 71
+      "hype_rank": 75
     },
     {
       "video_id": "KczYjTVrK_o",
@@ -1510,7 +1594,7 @@
       "hype_index": 9.75,
       "is_wave": false,
       "is_new_wave": false,
-      "hype_rank": 72
+      "hype_rank": 76
     },
     {
       "video_id": "r6Eei81SuqE",
@@ -1531,7 +1615,7 @@
       "hype_index": 9.51,
       "is_wave": false,
       "is_new_wave": false,
-      "hype_rank": 73
+      "hype_rank": 77
     },
     {
       "video_id": "7mjg-7ibaQA",
@@ -1552,7 +1636,7 @@
       "hype_index": 9.34,
       "is_wave": true,
       "is_new_wave": false,
-      "hype_rank": 74
+      "hype_rank": 78
     },
     {
       "video_id": "rW2HmFDGdKs",
@@ -1564,16 +1648,16 @@
       "yt_album": "Golden (from the Netflix film KPop Demon Hunters)",
       "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/e1/15/42/e1154273-8ecd-5702-e6e6-597f28001681/25UMGIM82363.rgb.jpg/100x100bb.jpg",
       "apple_url": "",
-      "melon_url": "",
+      "melon_url": "https://www.melon.com/song/detail.htm?songId=39166708",
       "spotify_url": "https://open.spotify.com/track/1CPZ5BxNNd0n0nF4Orb9JS",
       "apple_rank": null,
-      "melon_rank": null,
-      "melon_genz_rank": null,
+      "melon_rank": 24,
+      "melon_genz_rank": 66,
       "ytmusic_rank": 18,
       "hype_index": 9.12,
       "is_wave": false,
       "is_new_wave": false,
-      "hype_rank": 75
+      "hype_rank": 79
     },
     {
       "video_id": "PJfZViVdOwM",
@@ -1594,7 +1678,7 @@
       "hype_index": 8.88,
       "is_wave": false,
       "is_new_wave": false,
-      "hype_rank": 76
+      "hype_rank": 80
     },
     {
       "video_id": "5tAKxwCldT4",
@@ -1604,7 +1688,7 @@
       "yt_title": "Can't Help Myself",
       "yt_artist": "aespa",
       "yt_album": "LEMONADE - The 2nd Album",
-      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music221/v4/00/1d/e6/001de64e-c2f1-fd4b-3604-3d2e16641968/888735955211.png/100x100bb.jpg",
+      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/cc/c8/93/ccc89345-aa49-ca82-3dbe-f11c65ff1706/888735955679_Cover.jpg/100x100bb.jpg",
       "apple_url": "",
       "melon_url": "",
       "spotify_url": "",
@@ -1615,7 +1699,7 @@
       "hype_index": 8.66,
       "is_wave": true,
       "is_new_wave": false,
-      "hype_rank": 77
+      "hype_rank": 81
     },
     {
       "video_id": "8IoB2N8N5hM",
@@ -1625,18 +1709,18 @@
       "yt_title": "BLACKHOLE",
       "yt_artist": "IVE",
       "yt_album": "REVIVE+",
-      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music221/v4/7a/e5/cf/7ae5cf13-7974-d26d-2cc4-f70a2296cc93/199806315972.jpg/100x100bb.jpg",
+      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music221/v4/9d/54/fd/9d54fd06-fc19-c30c-c9ec-3fcc20eab4a3/199806315972.jpg/100x100bb.jpg",
       "apple_url": "https://music.apple.com/album/1873882195?i=1873882200",
-      "melon_url": "",
+      "melon_url": "https://www.melon.com/song/detail.htm?songId=601356371",
       "spotify_url": "https://open.spotify.com/track/0MtiWniV24IBXmBPeW1v1m",
       "apple_rank": 88,
-      "melon_rank": null,
-      "melon_genz_rank": null,
+      "melon_rank": 42,
+      "melon_genz_rank": 95,
       "ytmusic_rank": 33,
       "hype_index": 8.62,
-      "is_wave": true,
+      "is_wave": false,
       "is_new_wave": false,
-      "hype_rank": 78
+      "hype_rank": 82
     },
     {
       "video_id": "Cb0JZhdmjtg",
@@ -1657,7 +1741,7 @@
       "hype_index": 8.54,
       "is_wave": false,
       "is_new_wave": false,
-      "hype_rank": 79
+      "hype_rank": 83
     },
     {
       "video_id": "-BX7DpABCbE",
@@ -1678,7 +1762,7 @@
       "hype_index": 8.44,
       "is_wave": true,
       "is_new_wave": false,
-      "hype_rank": 80
+      "hype_rank": 84
     },
     {
       "video_id": "5USBozeR4eg",
@@ -1699,7 +1783,7 @@
       "hype_index": 8.44,
       "is_wave": false,
       "is_new_wave": false,
-      "hype_rank": 81
+      "hype_rank": 85
     },
     {
       "video_id": "3vH4GiEN0p0",
@@ -1720,7 +1804,28 @@
       "hype_index": 8.22,
       "is_wave": false,
       "is_new_wave": false,
-      "hype_rank": 82
+      "hype_rank": 86
+    },
+    {
+      "video_id": "HC9XN6KBVVE",
+      "title": "사랑이라 했던 말 속에서",
+      "artist": "can’t be blue (캔트비블루)",
+      "album": "사랑이라 했던 말 속에서",
+      "yt_title": "사랑이라 했던 말 속에서",
+      "yt_artist": "can’t be blue (캔트비블루)",
+      "yt_album": "사랑이라 했던 말 속에서",
+      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/3c/55/c7/3c55c79c-d02e-b17c-66cd-4a88c0720000/8721093328919_cover.jpg/100x100bb.jpg",
+      "apple_url": "https://music.apple.com/album/1751882412?i=1751882414",
+      "melon_url": "https://www.melon.com/song/detail.htm?songId=37647027",
+      "spotify_url": "",
+      "apple_rank": 81,
+      "melon_rank": null,
+      "melon_genz_rank": 68,
+      "ytmusic_rank": 75,
+      "hype_index": 8.19,
+      "is_wave": true,
+      "is_new_wave": false,
+      "hype_rank": 87
     },
     {
       "video_id": "pzJjpzayczc",
@@ -1741,7 +1846,7 @@
       "hype_index": 8.01,
       "is_wave": true,
       "is_new_wave": false,
-      "hype_rank": 83
+      "hype_rank": 88
     },
     {
       "video_id": "sSVUfJt-uec",
@@ -1762,7 +1867,7 @@
       "hype_index": 7.83,
       "is_wave": false,
       "is_new_wave": false,
-      "hype_rank": 84
+      "hype_rank": 89
     },
     {
       "video_id": "08h8u8Z9iJQ",
@@ -1783,7 +1888,7 @@
       "hype_index": 7.8,
       "is_wave": false,
       "is_new_wave": false,
-      "hype_rank": 85
+      "hype_rank": 90
     },
     {
       "video_id": "7CUz7Ec7cWc",
@@ -1793,7 +1898,7 @@
       "yt_title": "hate that i made you love me",
       "yt_artist": "Ariana Grande",
       "yt_album": "hate that i made you love me",
-      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/56/f4/96/56f49612-02dd-83f4-44fe-d2118cc70707/26UMGIM51129.rgb.jpg/100x100bb.jpg",
+      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/7e/e6/82/7ee682bd-1b17-6adc-be63-b5af1bdff369/26UMGIM51126.rgb.jpg/100x100bb.jpg",
       "apple_url": "",
       "melon_url": "",
       "spotify_url": "",
@@ -1804,7 +1909,28 @@
       "hype_index": 7.59,
       "is_wave": true,
       "is_new_wave": false,
-      "hype_rank": 86
+      "hype_rank": 91
+    },
+    {
+      "video_id": "H4mB3mxPTrQ",
+      "title": "가짜사랑",
+      "artist": "최준성 (Jun S)",
+      "album": "가짜사랑",
+      "yt_title": "가짜사랑",
+      "yt_artist": "최준성 (Jun S)",
+      "yt_album": "가짜사랑",
+      "artwork_url": "https://kkoimg.melon.co.kr/cm2/album/images/129/23/672/12923672_20260316145742_500.jpg?17ce53d8c5df0737d28c3fc82e1a0627/melon/resize/96/quality/80/optimize",
+      "apple_url": "",
+      "melon_url": "https://www.melon.com/song/detail.htm?songId=601534021",
+      "spotify_url": "",
+      "apple_rank": null,
+      "melon_rank": null,
+      "melon_genz_rank": 43,
+      "ytmusic_rank": null,
+      "hype_index": 7.59,
+      "is_wave": false,
+      "is_new_wave": false,
+      "hype_rank": 92
     },
     {
       "video_id": "-0HwDpknfHQ",
@@ -1825,7 +1951,7 @@
       "hype_index": 7.5,
       "is_wave": false,
       "is_new_wave": false,
-      "hype_rank": 87
+      "hype_rank": 93
     },
     {
       "video_id": "HXV5aZaBLDo",
@@ -1846,7 +1972,7 @@
       "hype_index": 7.38,
       "is_wave": true,
       "is_new_wave": false,
-      "hype_rank": 88
+      "hype_rank": 94
     },
     {
       "video_id": "D9IVOL9felk",
@@ -1867,7 +1993,7 @@
       "hype_index": 7.38,
       "is_wave": false,
       "is_new_wave": false,
-      "hype_rank": 89
+      "hype_rank": 95
     },
     {
       "video_id": "QX2dqXr8mOU",
@@ -1888,7 +2014,7 @@
       "hype_index": 7.32,
       "is_wave": true,
       "is_new_wave": false,
-      "hype_rank": 90
+      "hype_rank": 96
     },
     {
       "video_id": "Uz5zeFQzIL4",
@@ -1909,7 +2035,7 @@
       "hype_index": 7.27,
       "is_wave": false,
       "is_new_wave": false,
-      "hype_rank": 91
+      "hype_rank": 97
     },
     {
       "video_id": "5CG-ilq7yCU",
@@ -1930,7 +2056,7 @@
       "hype_index": 7.01,
       "is_wave": true,
       "is_new_wave": false,
-      "hype_rank": 92
+      "hype_rank": 98
     },
     {
       "video_id": "Gih5JOFQ1YQ",
@@ -1951,7 +2077,7 @@
       "hype_index": 6.82,
       "is_wave": false,
       "is_new_wave": false,
-      "hype_rank": 93
+      "hype_rank": 99
     },
     {
       "video_id": "dTVCk33AQEs",
@@ -1972,7 +2098,28 @@
       "hype_index": 6.78,
       "is_wave": true,
       "is_new_wave": false,
-      "hype_rank": 94
+      "hype_rank": 100
+    },
+    {
+      "video_id": "-tCUWBHihu4",
+      "title": "이 사랑",
+      "artist": "다비치",
+      "album": "태양의 후예 OST Part.3",
+      "yt_title": "이 사랑",
+      "yt_artist": "다비치",
+      "yt_album": "태양의 후예 Pt.3 (Original Television Soundtrack)",
+      "artwork_url": "https://kkoimg.melon.co.kr/cm/album/images/026/69/778/2669778_500.jpg/melon/resize/96/quality/80/optimize",
+      "apple_url": "",
+      "melon_url": "https://www.melon.com/song/detail.htm?songId=8071102",
+      "spotify_url": "",
+      "apple_rank": null,
+      "melon_rank": null,
+      "melon_genz_rank": 46,
+      "ytmusic_rank": null,
+      "hype_index": 6.78,
+      "is_wave": false,
+      "is_new_wave": false,
+      "hype_rank": 101
     },
     {
       "video_id": "jcKUEQMCqYc",
@@ -1993,7 +2140,7 @@
       "hype_index": 6.73,
       "is_wave": false,
       "is_new_wave": false,
-      "hype_rank": 95
+      "hype_rank": 102
     },
     {
       "video_id": "8QFM8Ews68c",
@@ -2014,7 +2161,7 @@
       "hype_index": 6.72,
       "is_wave": true,
       "is_new_wave": false,
-      "hype_rank": 96
+      "hype_rank": 103
     },
     {
       "video_id": "yuH4OnvoADU",
@@ -2035,7 +2182,7 @@
       "hype_index": 6.43,
       "is_wave": false,
       "is_new_wave": false,
-      "hype_rank": 97
+      "hype_rank": 104
     },
     {
       "video_id": "PGADim6UzHE",
@@ -2056,7 +2203,7 @@
       "hype_index": 6.39,
       "is_wave": true,
       "is_new_wave": false,
-      "hype_rank": 98
+      "hype_rank": 105
     },
     {
       "video_id": "29lj9jFfJvY",
@@ -2077,7 +2224,7 @@
       "hype_index": 6.39,
       "is_wave": false,
       "is_new_wave": false,
-      "hype_rank": 99
+      "hype_rank": 106
     },
     {
       "video_id": "zidP-s00lDQ",
@@ -2098,7 +2245,7 @@
       "hype_index": 6.31,
       "is_wave": false,
       "is_new_wave": false,
-      "hype_rank": 100
+      "hype_rank": 107
     },
     {
       "video_id": "GV_HP7yoIyc",
@@ -2119,7 +2266,7 @@
       "hype_index": 6.0,
       "is_wave": true,
       "is_new_wave": false,
-      "hype_rank": 101
+      "hype_rank": 108
     },
     {
       "video_id": "YRRKU4nGxT8",
@@ -2140,7 +2287,7 @@
       "hype_index": 6.0,
       "is_wave": false,
       "is_new_wave": false,
-      "hype_rank": 102
+      "hype_rank": 109
     },
     {
       "video_id": "5C-UzW1FLiA",
@@ -2152,16 +2299,16 @@
       "yt_album": "Trip",
       "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music126/v4/d2/6f/40/d26f4042-607f-3cef-b70c-8426e9d13e6f/8809603548191_Cover.jpg/100x100bb.jpg",
       "apple_url": "https://music.apple.com/album/1608880065?i=1608880079",
-      "melon_url": "",
+      "melon_url": "https://www.melon.com/song/detail.htm?songId=31295312",
       "spotify_url": "",
       "apple_rank": 65,
       "melon_rank": null,
-      "melon_genz_rank": null,
+      "melon_genz_rank": 87,
       "ytmusic_rank": null,
       "hype_index": 5.82,
       "is_wave": true,
       "is_new_wave": false,
-      "hype_rank": 103
+      "hype_rank": 110
     },
     {
       "video_id": "mLwfuskNDOo",
@@ -2182,7 +2329,7 @@
       "hype_index": 5.82,
       "is_wave": false,
       "is_new_wave": false,
-      "hype_rank": 104
+      "hype_rank": 111
     },
     {
       "video_id": "ZcHRydIz0eM",
@@ -2203,7 +2350,7 @@
       "hype_index": 5.63,
       "is_wave": false,
       "is_new_wave": false,
-      "hype_rank": 105
+      "hype_rank": 112
     },
     {
       "video_id": "Y4bGXIMDk38",
@@ -2224,7 +2371,7 @@
       "hype_index": 5.45,
       "is_wave": true,
       "is_new_wave": false,
-      "hype_rank": 106
+      "hype_rank": 113
     },
     {
       "video_id": "4Uh-Pf02qeQ",
@@ -2245,7 +2392,7 @@
       "hype_index": 5.45,
       "is_wave": false,
       "is_new_wave": false,
-      "hype_rank": 107
+      "hype_rank": 114
     },
     {
       "video_id": "z1Ci3DSPs0s",
@@ -2266,28 +2413,28 @@
       "hype_index": 5.25,
       "is_wave": true,
       "is_new_wave": false,
-      "hype_rank": 108
+      "hype_rank": 115
     },
     {
-      "video_id": "HC9XN6KBVVE",
-      "title": "사랑이라 했던 말 속에서",
-      "artist": "can’t be blue (캔트비블루)",
-      "album": "사랑이라 했던 말 속에서",
-      "yt_title": "사랑이라 했던 말 속에서",
-      "yt_artist": "can’t be blue (캔트비블루)",
-      "yt_album": "사랑이라 했던 말 속에서",
-      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/3c/55/c7/3c55c79c-d02e-b17c-66cd-4a88c0720000/8721093328919_cover.jpg/100x100bb.jpg",
-      "apple_url": "https://music.apple.com/album/1751882412?i=1751882414",
-      "melon_url": "",
+      "video_id": "iT267zwmFBw",
+      "title": "어땠을까 (What Would Have Been) (feat. 박정현)",
+      "artist": "싸이(PSY)",
+      "album": "싸이6甲 Part 1",
+      "yt_title": "어땠을까 (feat. Park Jung Hyun 박정현)",
+      "yt_artist": "싸이(Psy)",
+      "yt_album": "싸이6甲 Part 1",
+      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music124/v4/77/a3/98/77a39810-e45e-35de-fe20-dbe809ac789d/8806384535815.jpg/100x100bb.jpg",
+      "apple_url": "",
+      "melon_url": "https://www.melon.com/song/detail.htm?songId=3853980",
       "spotify_url": "",
-      "apple_rank": 81,
+      "apple_rank": null,
       "melon_rank": null,
-      "melon_genz_rank": null,
-      "ytmusic_rank": 75,
-      "hype_index": 5.11,
-      "is_wave": true,
+      "melon_genz_rank": 70,
+      "ytmusic_rank": 52,
+      "hype_index": 5.14,
+      "is_wave": false,
       "is_new_wave": false,
-      "hype_rank": 109
+      "hype_rank": 116
     },
     {
       "video_id": "aC9HkZW2hZk",
@@ -2308,7 +2455,7 @@
       "hype_index": 5.02,
       "is_wave": false,
       "is_new_wave": false,
-      "hype_rank": 110
+      "hype_rank": 117
     },
     {
       "video_id": "s5oSscNIyIs",
@@ -2329,7 +2476,7 @@
       "hype_index": 4.91,
       "is_wave": true,
       "is_new_wave": false,
-      "hype_rank": 111
+      "hype_rank": 118
     },
     {
       "video_id": "dYnU0DZ_iQc",
@@ -2350,7 +2497,7 @@
       "hype_index": 4.91,
       "is_wave": false,
       "is_new_wave": false,
-      "hype_rank": 112
+      "hype_rank": 119
     },
     {
       "video_id": "LCIs3JXb5Aw",
@@ -2371,7 +2518,7 @@
       "hype_index": 4.9,
       "is_wave": false,
       "is_new_wave": false,
-      "hype_rank": 113
+      "hype_rank": 120
     },
     {
       "video_id": "gjQwwWjxPaQ",
@@ -2392,28 +2539,7 @@
       "hype_index": 4.88,
       "is_wave": true,
       "is_new_wave": false,
-      "hype_rank": 114
-    },
-    {
-      "video_id": "fwNJdxUghcc",
-      "title": "사랑은 봄비처럼...이별은 겨울비처럼",
-      "artist": "임현정",
-      "album": "A Year Out...In the Island",
-      "yt_title": "사랑은 봄비처럼...이별은 겨울비처럼",
-      "yt_artist": "임현정 (Lim Hyun Jung)",
-      "yt_album": "A Year Out...In The Island",
-      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music/00/2f/94/mzi.crijpvtm.jpg/100x100bb.jpg",
-      "apple_url": "https://music.apple.com/album/345400869?i=345400888",
-      "melon_url": "",
-      "spotify_url": "",
-      "apple_rank": 71,
-      "melon_rank": null,
-      "melon_genz_rank": null,
-      "ytmusic_rank": null,
-      "hype_index": 4.73,
-      "is_wave": true,
-      "is_new_wave": false,
-      "hype_rank": 115
+      "hype_rank": 121
     },
     {
       "video_id": "zuO2fClon98",
@@ -2434,7 +2560,7 @@
       "hype_index": 4.67,
       "is_wave": false,
       "is_new_wave": false,
-      "hype_rank": 116
+      "hype_rank": 122
     },
     {
       "video_id": "H5O5TKumLwc",
@@ -2455,7 +2581,7 @@
       "hype_index": 4.56,
       "is_wave": true,
       "is_new_wave": false,
-      "hype_rank": 117
+      "hype_rank": 123
     },
     {
       "video_id": "anPw_n26nOo",
@@ -2476,7 +2602,7 @@
       "hype_index": 4.55,
       "is_wave": false,
       "is_new_wave": false,
-      "hype_rank": 118
+      "hype_rank": 124
     },
     {
       "video_id": "LcOKracmoY4",
@@ -2497,7 +2623,7 @@
       "hype_index": 4.33,
       "is_wave": false,
       "is_new_wave": false,
-      "hype_rank": 119
+      "hype_rank": 125
     },
     {
       "video_id": "7WuO_XaXsCY",
@@ -2518,7 +2644,7 @@
       "hype_index": 4.22,
       "is_wave": true,
       "is_new_wave": false,
-      "hype_rank": 120
+      "hype_rank": 126
     },
     {
       "video_id": "l-H4QHLC-Uc",
@@ -2539,28 +2665,7 @@
       "hype_index": 4.22,
       "is_wave": false,
       "is_new_wave": false,
-      "hype_rank": 121
-    },
-    {
-      "video_id": "iT267zwmFBw",
-      "title": "어땠을까 (What Would Have Been) (feat. 박정현)",
-      "artist": "싸이(PSY)",
-      "album": "싸이6甲 Part 1",
-      "yt_title": "어땠을까 (feat. Park Jung Hyun 박정현)",
-      "yt_artist": "싸이(Psy)",
-      "yt_album": "싸이6甲 Part 1",
-      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music124/v4/77/a3/98/77a39810-e45e-35de-fe20-dbe809ac789d/8806384535815.jpg/100x100bb.jpg",
-      "apple_url": "",
-      "melon_url": "",
-      "spotify_url": "",
-      "apple_rank": null,
-      "melon_rank": null,
-      "melon_genz_rank": null,
-      "ytmusic_rank": 52,
-      "hype_index": 4.22,
-      "is_wave": false,
-      "is_new_wave": false,
-      "hype_rank": 122
+      "hype_rank": 127
     },
     {
       "video_id": "HMQlkbXjSTM",
@@ -2581,7 +2686,7 @@
       "hype_index": 4.05,
       "is_wave": false,
       "is_new_wave": false,
-      "hype_rank": 123
+      "hype_rank": 128
     },
     {
       "video_id": "dXQzwNb8G7g",
@@ -2602,7 +2707,7 @@
       "hype_index": 4.0,
       "is_wave": false,
       "is_new_wave": false,
-      "hype_rank": 124
+      "hype_rank": 129
     },
     {
       "video_id": "ajdX8MQVkdo",
@@ -2612,39 +2717,18 @@
       "yt_title": "THAT'S A NO NO",
       "yt_artist": "ITZY",
       "yt_album": "IT'z ME",
-      "artwork_url": "https://i.ytimg.com/vi/Geh1ZEjkaeM/maxresdefault.jpg",
+      "artwork_url": "https://kkoimg.melon.co.kr/cm2/album/images/104/00/522/10400522_20200309153009_500.jpg?84df9aca6a6aff2443cd8c22495d5b05/melon/resize/96/quality/80/optimize",
       "apple_url": "",
-      "melon_url": "",
+      "melon_url": "https://www.melon.com/song/detail.htm?songId=32445341",
       "spotify_url": "https://open.spotify.com/track/5Dxoukq4UC29A7OjQTbHgw",
       "apple_rank": null,
       "melon_rank": null,
-      "melon_genz_rank": null,
+      "melon_genz_rank": 99,
       "ytmusic_rank": 55,
       "hype_index": 3.9,
       "is_wave": false,
       "is_new_wave": false,
-      "hype_rank": 125
-    },
-    {
-      "video_id": "t8P-zdkoeJA",
-      "title": "주저하는 연인들을 위해",
-      "artist": "잔나비",
-      "album": "전설",
-      "yt_title": "for lovers who hesitate(주저하는 연인들을 위해)",
-      "yt_artist": "JANNABI",
-      "yt_album": "[Vol.133] 유희열의 스케치북 With you : 여든 여섯 번째 목소리 '유스케 X 잔나비 최정훈&이무진'",
-      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music125/v4/fc/a9/b2/fca9b2d4-b1ed-92e8-2e5f-1838d77cbce7/cover-_NEW.jpg/100x100bb.jpg",
-      "apple_url": "https://music.apple.com/album/1456102975?i=1456103133",
-      "melon_url": "",
-      "spotify_url": "",
-      "apple_rank": 76,
-      "melon_rank": null,
-      "melon_genz_rank": null,
-      "ytmusic_rank": null,
-      "hype_index": 3.88,
-      "is_wave": true,
-      "is_new_wave": false,
-      "hype_rank": 126
+      "hype_rank": 130
     },
     {
       "video_id": "P_XFQBMjp2o",
@@ -2665,7 +2749,7 @@
       "hype_index": 3.88,
       "is_wave": false,
       "is_new_wave": false,
-      "hype_rank": 127
+      "hype_rank": 131
     },
     {
       "video_id": "kOn-HdEg6AQ",
@@ -2686,7 +2770,28 @@
       "hype_index": 3.79,
       "is_wave": false,
       "is_new_wave": false,
-      "hype_rank": 128
+      "hype_rank": 132
+    },
+    {
+      "video_id": "VX7w5fwdMkI",
+      "title": "자니 (Feat. Dynamic Duo)",
+      "artist": "프라이머리",
+      "album": "자니",
+      "yt_title": "Johnny (feat. Dynamicduo)",
+      "yt_artist": "Primary",
+      "yt_album": "Johnny",
+      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music112/v4/c0/56/30/c05630b4-f734-58c3-d810-71e8dd9087a8/196922296390_Cover.jpg/100x100bb.jpg",
+      "apple_url": "",
+      "melon_url": "https://www.melon.com/song/detail.htm?songId=3726617",
+      "spotify_url": "",
+      "apple_rank": null,
+      "melon_rank": null,
+      "melon_genz_rank": 60,
+      "ytmusic_rank": 98,
+      "hype_index": 3.73,
+      "is_wave": false,
+      "is_new_wave": false,
+      "hype_rank": 133
     },
     {
       "video_id": "xUV9pcwhY0U",
@@ -2696,7 +2801,7 @@
       "yt_title": "Spicy",
       "yt_artist": "aespa",
       "yt_album": "MY WORLD - The 3rd Mini Album",
-      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music221/v4/6b/fd/bc/6bfdbc99-ec10-5ae9-ea73-aa8985991aa7/888735952289.png/100x100bb.jpg",
+      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music116/v4/af/2c/6d/af2c6d62-0ebc-2dff-17b3-8eeb2b3986a0/888735943621.jpg/100x100bb.jpg",
       "apple_url": "https://music.apple.com/album/1685399618?i=1685400184",
       "melon_url": "",
       "spotify_url": "",
@@ -2707,7 +2812,7 @@
       "hype_index": 3.72,
       "is_wave": true,
       "is_new_wave": false,
-      "hype_rank": 129
+      "hype_rank": 134
     },
     {
       "video_id": "xLuwg23DmW0",
@@ -2728,7 +2833,7 @@
       "hype_index": 3.72,
       "is_wave": false,
       "is_new_wave": false,
-      "hype_rank": 130
+      "hype_rank": 135
     },
     {
       "video_id": "MR2ela9evnk",
@@ -2749,7 +2854,7 @@
       "hype_index": 3.59,
       "is_wave": false,
       "is_new_wave": false,
-      "hype_rank": 131
+      "hype_rank": 136
     },
     {
       "video_id": "PBp8c0qCKno",
@@ -2770,7 +2875,7 @@
       "hype_index": 3.56,
       "is_wave": false,
       "is_new_wave": false,
-      "hype_rank": 132
+      "hype_rank": 137
     },
     {
       "video_id": "KyF0AMcunVg",
@@ -2780,7 +2885,7 @@
       "yt_title": "Switchblade (feat. Ty Dolla $ign)",
       "yt_artist": "aespa & Ty Dolla $ign",
       "yt_album": "LEMONADE - The 2nd Album",
-      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music221/v4/00/1d/e6/001de64e-c2f1-fd4b-3604-3d2e16641968/888735955211.png/100x100bb.jpg",
+      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/cc/c8/93/ccc89345-aa49-ca82-3dbe-f11c65ff1706/888735955679_Cover.jpg/100x100bb.jpg",
       "apple_url": "",
       "melon_url": "",
       "spotify_url": "",
@@ -2791,7 +2896,7 @@
       "hype_index": 3.4,
       "is_wave": true,
       "is_new_wave": false,
-      "hype_rank": 133
+      "hype_rank": 138
     },
     {
       "video_id": "jZqTz1G8G04",
@@ -2812,7 +2917,7 @@
       "hype_index": 3.39,
       "is_wave": false,
       "is_new_wave": false,
-      "hype_rank": 134
+      "hype_rank": 139
     },
     {
       "video_id": "y9crtd1PMOM",
@@ -2833,7 +2938,7 @@
       "hype_index": 3.29,
       "is_wave": false,
       "is_new_wave": false,
-      "hype_rank": 135
+      "hype_rank": 140
     },
     {
       "video_id": "7GgwG90lGio",
@@ -2843,7 +2948,7 @@
       "yt_title": "Bite",
       "yt_artist": "aespa",
       "yt_album": "LEMONADE - The 2nd Album",
-      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music221/v4/d8/ef/39/d8ef390b-23a3-8336-64a5-947a7f520a62/888735955662.png/100x100bb.jpg",
+      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/cc/c8/93/ccc89345-aa49-ca82-3dbe-f11c65ff1706/888735955679_Cover.jpg/100x100bb.jpg",
       "apple_url": "",
       "melon_url": "",
       "spotify_url": "",
@@ -2854,7 +2959,7 @@
       "hype_index": 3.24,
       "is_wave": true,
       "is_new_wave": false,
-      "hype_rank": 136
+      "hype_rank": 141
     },
     {
       "video_id": "DWzWnonBZ2w",
@@ -2875,7 +2980,7 @@
       "hype_index": 3.24,
       "is_wave": false,
       "is_new_wave": false,
-      "hype_rank": 137
+      "hype_rank": 142
     },
     {
       "video_id": "UJn-F2kPCaQ",
@@ -2896,7 +3001,7 @@
       "hype_index": 3.19,
       "is_wave": false,
       "is_new_wave": false,
-      "hype_rank": 138
+      "hype_rank": 143
     },
     {
       "video_id": "wQiz17AKhjM",
@@ -2917,7 +3022,7 @@
       "hype_index": 3.1,
       "is_wave": false,
       "is_new_wave": false,
-      "hype_rank": 139
+      "hype_rank": 144
     },
     {
       "video_id": "FXppROCqu94",
@@ -2929,16 +3034,16 @@
       "yt_album": "Samurai Heart (Some Like It Hot!!)",
       "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music124/v4/77/5d/e8/775de829-639f-66e0-5d6d-d452f3edd799/jacket_AIXX00239B00Z_550.jpg/100x100bb.jpg",
       "apple_url": "",
-      "melon_url": "",
+      "melon_url": "https://www.melon.com/song/detail.htm?songId=3557251",
       "spotify_url": "",
       "apple_rank": null,
       "melon_rank": null,
-      "melon_genz_rank": null,
+      "melon_genz_rank": 99,
       "ytmusic_rank": 64,
       "hype_index": 3.0,
       "is_wave": false,
       "is_new_wave": false,
-      "hype_rank": 140
+      "hype_rank": 145
     },
     {
       "video_id": "IYYpLHBu-kY",
@@ -2959,7 +3064,7 @@
       "hype_index": 2.91,
       "is_wave": false,
       "is_new_wave": false,
-      "hype_rank": 141
+      "hype_rank": 146
     },
     {
       "video_id": "XCkpalH6Ppk",
@@ -2980,7 +3085,7 @@
       "hype_index": 2.81,
       "is_wave": false,
       "is_new_wave": false,
-      "hype_rank": 142
+      "hype_rank": 147
     },
     {
       "video_id": "UtYBunDqp30",
@@ -3001,28 +3106,7 @@
       "hype_index": 2.72,
       "is_wave": false,
       "is_new_wave": false,
-      "hype_rank": 143
-    },
-    {
-      "video_id": "kjNGAVT_ySg",
-      "title": "DAY BY DAY (Japanese ver.)",
-      "artist": "티아라",
-      "album": "DAY BY DAY",
-      "yt_title": "DAY BY DAY",
-      "yt_artist": "T-ara",
-      "yt_album": "DAY BY DAY",
-      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music221/v4/88/6e/cf/886ecf93-f636-65b3-87de-db72d5f72731/cover_KM0001567_1.jpg/100x100bb.jpg",
-      "apple_url": "https://music.apple.com/album/1804698750?i=1804698751",
-      "melon_url": "",
-      "spotify_url": "",
-      "apple_rank": 96,
-      "melon_rank": null,
-      "melon_genz_rank": null,
-      "ytmusic_rank": 78,
-      "hype_index": 2.7,
-      "is_wave": true,
-      "is_new_wave": false,
-      "hype_rank": 144
+      "hype_rank": 148
     },
     {
       "video_id": "Krr2u8BUtLw",
@@ -3043,7 +3127,7 @@
       "hype_index": 2.63,
       "is_wave": false,
       "is_new_wave": false,
-      "hype_rank": 145
+      "hype_rank": 149
     },
     {
       "video_id": "6jzH6_KOsKk",
@@ -3064,7 +3148,7 @@
       "hype_index": 2.62,
       "is_wave": true,
       "is_new_wave": false,
-      "hype_rank": 146
+      "hype_rank": 150
     },
     {
       "video_id": "1RtAeLJtRtE",
@@ -3085,11 +3169,11 @@
       "hype_index": 2.54,
       "is_wave": false,
       "is_new_wave": false,
-      "hype_rank": 147
+      "hype_rank": 151
     },
     {
       "video_id": "4sdN33l2WTw",
-      "title": "Rose (feat. Skinny Brown & Homeboy)",
+      "title": "ROSE (Feat. Skinny Brown, Homeboy)",
       "artist": "양홍원",
       "album": "Stranger",
       "yt_title": "ROSE (feat. Skinny Brown & Homeboy)",
@@ -3097,16 +3181,16 @@
       "yt_album": "Stranger",
       "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music124/v4/31/fb/ea/31fbea99-3de5-5acd-f869-b125ff1d6509/cover-_NEW.jpg/100x100bb.jpg",
       "apple_url": "https://music.apple.com/album/1453379457?i=1453379466",
-      "melon_url": "",
+      "melon_url": "https://www.melon.com/song/detail.htm?songId=31615308",
       "spotify_url": "",
       "apple_rank": 85,
       "melon_rank": null,
-      "melon_genz_rank": null,
+      "melon_genz_rank": 83,
       "ytmusic_rank": null,
       "hype_index": 2.47,
       "is_wave": true,
       "is_new_wave": false,
-      "hype_rank": 148
+      "hype_rank": 152
     },
     {
       "video_id": "-9fC6oDFl5k",
@@ -3127,7 +3211,7 @@
       "hype_index": 2.47,
       "is_wave": false,
       "is_new_wave": false,
-      "hype_rank": 149
+      "hype_rank": 153
     },
     {
       "video_id": "nD1p_H3qo_A",
@@ -3148,7 +3232,7 @@
       "hype_index": 2.45,
       "is_wave": false,
       "is_new_wave": false,
-      "hype_rank": 150
+      "hype_rank": 154
     },
     {
       "video_id": "qZTVU04UOO4",
@@ -3169,7 +3253,7 @@
       "hype_index": 2.37,
       "is_wave": false,
       "is_new_wave": false,
-      "hype_rank": 151
+      "hype_rank": 155
     },
     {
       "video_id": "YF4EN5YwjpA",
@@ -3190,7 +3274,7 @@
       "hype_index": 2.28,
       "is_wave": false,
       "is_new_wave": false,
-      "hype_rank": 152
+      "hype_rank": 156
     },
     {
       "video_id": "4ZHxBEDHTFg",
@@ -3211,7 +3295,7 @@
       "hype_index": 2.19,
       "is_wave": false,
       "is_new_wave": false,
-      "hype_rank": 153
+      "hype_rank": 157
     },
     {
       "video_id": "btLRj_ueSeA",
@@ -3232,7 +3316,7 @@
       "hype_index": 2.18,
       "is_wave": false,
       "is_new_wave": false,
-      "hype_rank": 154
+      "hype_rank": 158
     },
     {
       "video_id": "ViDjwX-yfgc",
@@ -3253,7 +3337,7 @@
       "hype_index": 2.03,
       "is_wave": false,
       "is_new_wave": false,
-      "hype_rank": 155
+      "hype_rank": 159
     },
     {
       "video_id": "qQ3fFC6bw2I",
@@ -3274,7 +3358,7 @@
       "hype_index": 1.94,
       "is_wave": false,
       "is_new_wave": false,
-      "hype_rank": 156
+      "hype_rank": 160
     },
     {
       "video_id": "tkzYyEp4zB4",
@@ -3295,7 +3379,7 @@
       "hype_index": 1.89,
       "is_wave": true,
       "is_new_wave": false,
-      "hype_rank": 157
+      "hype_rank": 161
     },
     {
       "video_id": "RBaSiVjtKR4",
@@ -3316,7 +3400,7 @@
       "hype_index": 1.86,
       "is_wave": false,
       "is_new_wave": false,
-      "hype_rank": 158
+      "hype_rank": 162
     },
     {
       "video_id": "op05giODUE0",
@@ -3337,7 +3421,7 @@
       "hype_index": 1.79,
       "is_wave": true,
       "is_new_wave": true,
-      "hype_rank": 159
+      "hype_rank": 163
     },
     {
       "video_id": "XVrO_3lnbig",
@@ -3358,7 +3442,7 @@
       "hype_index": 1.74,
       "is_wave": false,
       "is_new_wave": false,
-      "hype_rank": 160
+      "hype_rank": 164
     },
     {
       "video_id": "F8e2ohz1Jwg",
@@ -3379,28 +3463,28 @@
       "hype_index": 1.62,
       "is_wave": false,
       "is_new_wave": false,
-      "hype_rank": 161
+      "hype_rank": 165
     },
     {
       "video_id": "23U2t6ecnFQ",
-      "title": "시작의 아이 (Live)",
-      "artist": "마크툽",
+      "title": "시작의 아이",
+      "artist": "마크툽 (MAKTUB)",
       "album": "시작의 아이 ハジマリのコ (Starting With You)",
       "yt_title": "시작의 아이 ハジマリのコ (Starting With You)",
       "yt_artist": "마크툽",
       "yt_album": "시작의 아이 ハジマリのコ (Starting With You)",
-      "artwork_url": "https://i.ytimg.com/vi/OG916dhJI6A/maxresdefault.jpg",
+      "artwork_url": "https://kkoimg.melon.co.kr/cm2/album/images/116/76/806/11676806_20241223190316_500.jpg?cdcd4f73217582a21f2ced3853c5a077/melon/resize/96/quality/80/optimize",
       "apple_url": "",
-      "melon_url": "",
+      "melon_url": "https://www.melon.com/song/detail.htm?songId=38388023",
       "spotify_url": "",
       "apple_rank": null,
-      "melon_rank": null,
-      "melon_genz_rank": null,
+      "melon_rank": 93,
+      "melon_genz_rank": 72,
       "ytmusic_rank": 81,
       "hype_index": 1.54,
       "is_wave": false,
       "is_new_wave": false,
-      "hype_rank": 162
+      "hype_rank": 166
     },
     {
       "video_id": "Mp-xWPo95MU",
@@ -3421,7 +3505,7 @@
       "hype_index": 1.46,
       "is_wave": false,
       "is_new_wave": false,
-      "hype_rank": 163
+      "hype_rank": 167
     },
     {
       "video_id": "O4ZZJ_ek2gs",
@@ -3442,7 +3526,7 @@
       "hype_index": 1.33,
       "is_wave": false,
       "is_new_wave": false,
-      "hype_rank": 164
+      "hype_rank": 168
     },
     {
       "video_id": "ux5x_fYHhAU",
@@ -3463,7 +3547,7 @@
       "hype_index": 1.31,
       "is_wave": false,
       "is_new_wave": false,
-      "hype_rank": 165
+      "hype_rank": 169
     },
     {
       "video_id": "d1sXqVAh2CY",
@@ -3484,7 +3568,28 @@
       "hype_index": 1.24,
       "is_wave": false,
       "is_new_wave": false,
-      "hype_rank": 166
+      "hype_rank": 170
+    },
+    {
+      "video_id": "zC8RrOA0spo",
+      "title": "TOMBOY",
+      "artist": "혁오 (HYUKOH)",
+      "album": "23",
+      "yt_title": "TOMBOY",
+      "yt_artist": "혁오",
+      "yt_album": "23",
+      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music124/v4/20/de/43/20de43fe-733e-3734-cab9-7bd787411260/Cover_HYUKOH_23.jpg/100x100bb.jpg",
+      "apple_url": "",
+      "melon_url": "https://www.melon.com/song/detail.htm?songId=30383949",
+      "spotify_url": "",
+      "apple_rank": null,
+      "melon_rank": null,
+      "melon_genz_rank": 69,
+      "ytmusic_rank": null,
+      "hype_index": 1.19,
+      "is_wave": false,
+      "is_new_wave": false,
+      "hype_rank": 171
     },
     {
       "video_id": "AySMGpXQ1Mo",
@@ -3505,7 +3610,7 @@
       "hype_index": 1.09,
       "is_wave": false,
       "is_new_wave": false,
-      "hype_rank": 167
+      "hype_rank": 172
     },
     {
       "video_id": "2Kff0U8w-aU",
@@ -3526,7 +3631,28 @@
       "hype_index": 1.05,
       "is_wave": true,
       "is_new_wave": false,
-      "hype_rank": 168
+      "hype_rank": 173
+    },
+    {
+      "video_id": "5xJFMN1KQko",
+      "title": "마치 오늘처럼",
+      "artist": "정승환",
+      "album": "마치 오늘처럼",
+      "yt_title": "마치 오늘처럼",
+      "yt_artist": "정승환",
+      "yt_album": "마치 오늘처럼",
+      "artwork_url": "https://kkoimg.melon.co.kr/cm2/album/images/136/25/673/13625673_20260522162442_500.jpg?572e50991a1f93330ddeb421c4d6d578/melon/resize/96/quality/80/optimize",
+      "apple_url": "",
+      "melon_url": "https://www.melon.com/song/detail.htm?songId=602070767",
+      "spotify_url": "",
+      "apple_rank": null,
+      "melon_rank": null,
+      "melon_genz_rank": 57,
+      "ytmusic_rank": null,
+      "hype_index": 1.05,
+      "is_wave": false,
+      "is_new_wave": false,
+      "hype_rank": 174
     },
     {
       "video_id": "NY47mqz4yCg",
@@ -3547,28 +3673,28 @@
       "hype_index": 0.8,
       "is_wave": false,
       "is_new_wave": false,
-      "hype_rank": 169
+      "hype_rank": 175
     },
     {
       "video_id": "KylmS3ncDzQ",
       "title": "SIGN",
-      "artist": "이즈나",
-      "album": "SIGN - Single",
+      "artist": "izna (이즈나)",
+      "album": "SIGN",
       "yt_title": "SIGN",
       "yt_artist": "izna (이즈나)",
       "yt_album": "SIGN",
       "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music221/v4/9d/a4/5b/9da45b57-dd82-96ef-e34e-7a85c5b1f8c1/198704433269_Cover.jpg/100x100bb.jpg",
       "apple_url": "https://music.apple.com/album/1804309574?i=1804309575",
-      "melon_url": "",
+      "melon_url": "https://www.melon.com/song/detail.htm?songId=38726089",
       "spotify_url": "",
       "apple_rank": 98,
       "melon_rank": null,
-      "melon_genz_rank": null,
+      "melon_genz_rank": 78,
       "ytmusic_rank": null,
       "hype_index": 0.66,
       "is_wave": true,
       "is_new_wave": false,
-      "hype_rank": 170
+      "hype_rank": 176
     },
     {
       "video_id": "2VkWaOOF4Rc",
@@ -3589,7 +3715,7 @@
       "hype_index": 0.66,
       "is_wave": false,
       "is_new_wave": false,
-      "hype_rank": 171
+      "hype_rank": 177
     },
     {
       "video_id": "G1MsSCnvVE8",
@@ -3610,7 +3736,7 @@
       "hype_index": 0.59,
       "is_wave": false,
       "is_new_wave": false,
-      "hype_rank": 172
+      "hype_rank": 178
     },
     {
       "video_id": "nwksfZMJXXs",
@@ -3631,7 +3757,7 @@
       "hype_index": 0.53,
       "is_wave": false,
       "is_new_wave": false,
-      "hype_rank": 173
+      "hype_rank": 179
     },
     {
       "video_id": "AzS4LokpHmg",
@@ -3652,7 +3778,7 @@
       "hype_index": 0.4,
       "is_wave": true,
       "is_new_wave": true,
-      "hype_rank": 174
+      "hype_rank": 180
     },
     {
       "video_id": "TCPU7L7Qymg",
@@ -3673,7 +3799,7 @@
       "hype_index": 0.4,
       "is_wave": false,
       "is_new_wave": false,
-      "hype_rank": 175
+      "hype_rank": 181
     },
     {
       "video_id": "Z85lxckrtzg",
@@ -3694,28 +3820,7 @@
       "hype_index": 0.39,
       "is_wave": false,
       "is_new_wave": false,
-      "hype_rank": 176
-    },
-    {
-      "video_id": "VX7w5fwdMkI",
-      "title": "자니 (feat. 다이나믹 듀오)",
-      "artist": "프라이머리(Primary)",
-      "album": "Johnny",
-      "yt_title": "Johnny (feat. Dynamicduo)",
-      "yt_artist": "Primary",
-      "yt_album": "Johnny",
-      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music112/v4/c0/56/30/c05630b4-f734-58c3-d810-71e8dd9087a8/196922296390_Cover.jpg/100x100bb.jpg",
-      "apple_url": "",
-      "melon_url": "",
-      "spotify_url": "",
-      "apple_rank": null,
-      "melon_rank": null,
-      "melon_genz_rank": null,
-      "ytmusic_rank": 98,
-      "hype_index": 0.33,
-      "is_wave": false,
-      "is_new_wave": false,
-      "hype_rank": 177
+      "hype_rank": 182
     },
     {
       "video_id": "ltAOaaKUsp4",
@@ -3736,7 +3841,7 @@
       "hype_index": 0.26,
       "is_wave": false,
       "is_new_wave": false,
-      "hype_rank": 178
+      "hype_rank": 183
     },
     {
       "video_id": "3YSfRCtZ-AY",
@@ -3757,7 +3862,7 @@
       "hype_index": 0.2,
       "is_wave": false,
       "is_new_wave": false,
-      "hype_rank": 179
+      "hype_rank": 184
     }
   ],
   "2026-05-31": [

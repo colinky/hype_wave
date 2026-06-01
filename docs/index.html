@@ -652,6 +652,7 @@
                     <button type="button" class="type-btn active" data-value="hype">Hype</button>
                     <button type="button" class="type-btn" data-value="apple">Apple</button>
                     <button type="button" class="type-btn" data-value="melon">Melon</button>
+                    <button type="button" class="type-btn" data-value="ytmusic">YTMusic</button>
                 </div>
             </div>
             <!-- 데스크톱 전용: controls 우측에 표시 -->
@@ -747,7 +748,8 @@
                         const playlistUrls = {
                             'hype': 'https://music.youtube.com/playlist?list=PLtawHGpcUVZXKVkfIElFeaWB6g6d1o9Dr',
                             'apple': 'https://music.youtube.com/playlist?list=PLtawHGpcUVZWeko8ek3LWy9gav1sg9FFw',
-                            'melon': 'https://music.youtube.com/playlist?list=PLtawHGpcUVZVwAYjPC7Jvc3BTZkQ1G966'
+                            'melon': 'https://music.youtube.com/playlist?list=PLtawHGpcUVZVwAYjPC7Jvc3BTZkQ1G966',
+                            'ytmusic': 'https://music.youtube.com/playlist?list=PLtawHGpcUVZWJV93R_C0xb8rnW1wx79Yx'
                         };
                         if (playlistLink && playlistUrls[currentChartType]) {
                             playlistLink.href = playlistUrls[currentChartType];
@@ -1025,6 +1027,10 @@
                     currentRankValue = song.melon_rank;
                     const prevSong = yesterdayData.find(s => s.video_id === song.video_id);
                     prevRankValue = prevSong ? prevSong.melon_rank : null;
+                } else if (currentChartType === 'ytmusic') {
+                    currentRankValue = song.ytmusic_rank;
+                    const prevSong = yesterdayData.find(s => s.video_id === song.video_id);
+                    prevRankValue = prevSong ? prevSong.ytmusic_rank : null;
                 } else {
                     currentRankValue = index + 1;
                     const prevIdx = yesterdayData.findIndex(s => s.video_id === song.video_id);
@@ -1078,7 +1084,12 @@
 
             const appleRank = song.apple_rank ? `Apple #${song.apple_rank}` : 'Apple Out';
             const melonRank = song.melon_rank ? `Melon #${song.melon_rank}` : 'Melon Out';
-            const displayRank = currentChartType === 'apple' ? song.apple_rank : (currentChartType === 'melon' ? song.melon_rank : index + 1);
+            const ytmusicRank = song.ytmusic_rank ? `YTM #${song.ytmusic_rank}` : 'YTM Out';
+            const displayRank = currentChartType === 'apple'
+                ? song.apple_rank
+                : (currentChartType === 'melon'
+                    ? song.melon_rank
+                    : (currentChartType === 'ytmusic' ? song.ytmusic_rank : index + 1));
 
             const artId = isFeatured ? `art-featured-${song.video_id}` : `art-${index}`;
 
@@ -1099,7 +1110,7 @@
                     <h3>${song.title}</h3>
                     <p>${song.artist} • ${song.album}</p>
                     <p style="font-size: 0.75rem; margin-top: 5px; color: var(--accent-color); font-weight: 600;">
-                        ${appleRank} <span style="color:var(--text-secondary);font-weight:300;">|</span> ${melonRank}
+                        ${appleRank} <span style="color:var(--text-secondary);font-weight:300;">|</span> ${melonRank} <span style="color:var(--text-secondary);font-weight:300;">|</span> ${ytmusicRank}
                     </p>
                 </div>
                 <div class="service-links">
@@ -1159,6 +1170,9 @@
                 } else if (currentChartType === 'melon') {
                     todayData = todayData.filter(s => s.melon_rank !== null)
                                          .sort((a, b) => a.melon_rank - b.melon_rank);
+                } else if (currentChartType === 'ytmusic') {
+                    todayData = todayData.filter(s => s.ytmusic_rank !== null)
+                                         .sort((a, b) => a.ytmusic_rank - b.ytmusic_rank);
                 } else {
                     todayData.sort((a, b) => a.hype_rank - b.hype_rank);
                     todayData = todayData.slice(0, 100);

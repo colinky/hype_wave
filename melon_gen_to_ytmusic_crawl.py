@@ -513,24 +513,21 @@ def main() -> int:
     )
     if result == 0 and not args.no_db_cache and not args.dry_run:
         try:
-            from hype_db import export_frontend_history, persist_crawl_run
+            from hype_db import export_frontend_history, persist_crawled_tracks
 
-            started_at = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
             job_name = args.job_name or "mel_zdc_to_ytm"
             for gen_id, source_variant in ((1, "gen10"), (2, "gen20")):
                 tracks = gen_tracks_map.get(gen_id, [])
                 if not tracks:
                     continue
-                persist_crawl_run(
+                persist_crawled_tracks(
                     args.db_path,
                     service="melon",
                     job_name=job_name,
                     source_variant=source_variant,
                     chart_date=chart_date,
                     reference_period=chart_date,
-                    started_at=f"{started_at}_gen{gen_id}",
                     tracks=tracks,
-                    matches=tracks,
                 )
             if os.environ.get("HYPE_DEFER_HISTORY_EXPORT") not in {"1", "true", "TRUE"}:
                 export_frontend_history(args.db_path, args.history_json)

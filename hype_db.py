@@ -75,6 +75,70 @@ def strip_parens_from_title(title: str | None) -> str:
     return stripped or (title or "")
 
 
+def feature_signature(title: str | None) -> str:
+    """Return normalized featuring-artist text from a title, if present."""
+    text = title or ""
+    patterns = [
+        r"\((?:feat\.?|ft\.?|featuring)\s*([^)]+)\)",
+        r"\[(?:feat\.?|ft\.?|featuring)\s*([^\]]+)\]",
+        r"\b(?:feat\.?|ft\.?|featuring)\s+(.+)$",
+    ]
+    for pattern in patterns:
+        match = re.search(pattern, text, re.IGNORECASE)
+        if match:
+            value = re.split(r"[\)\]\-_:|]", match.group(1))[0].strip()
+            return normalize_text(value)
+    return ""
+
+
+def has_feature_mismatch(left: str | None, right: str | None) -> bool:
+    return feature_signature(left) != feature_signature(right)
+
+
+def version_signature(title: str | None) -> str:
+    """Return a normalized recording/version marker such as remix, live, or acoustic."""
+    text = unicodedata.normalize("NFKC", title or "").lower()
+    text = re.sub(r"\b(?:feat\.?|ft\.?|featuring)\b.*", " ", text)
+    suffix_chunks = re.findall(r"[\(\[]([^\)\]]+)[\)\]]", text)
+    suffix_chunks.extend(re.findall(r"\s[-–—]\s(.+)$", text))
+    chunks = suffix_chunks or [text]
+    signatures: list[str] = []
+
+    def add(value: str) -> None:
+        if value and value not in signatures:
+            signatures.append(value)
+
+    for chunk in chunks:
+        normalized = normalize_text(chunk)
+        if not normalized:
+            continue
+        if "remix" in normalized.split():
+            remix_prefix = re.sub(r"\bremix\b.*$", "", normalized).strip()
+            add(f"remix:{remix_prefix}" if remix_prefix else "remix")
+        if re.search(r"\bacoustic\b", normalized):
+            add("acoustic")
+        if re.search(r"\blive\b|\blive ver\b|\blive version\b", normalized):
+            add("live")
+        if re.search(r"\binstrumental\b|\binst\b|\bkaraoke\b", normalized):
+            add("instrumental")
+        if re.search(r"\bsped up\b|\bslowed\b", normalized):
+            add("speed")
+        if re.search(r"\bcover\b|\barrange\b", normalized):
+            add("cover")
+        version_match = re.search(
+            r"\b(japanese|jp|chinese|cn|english|eng|korean|kr)?\s*(?:ver|version|edition|edit)\b",
+            normalized,
+        )
+        if version_match:
+            locale = (version_match.group(1) or "").strip()
+            add(f"version:{locale}" if locale else "version")
+    return "|".join(signatures)
+
+
+def has_version_mismatch(left: str | None, right: str | None) -> bool:
+    return version_signature(left) != version_signature(right)
+
+
 # Patterns that denote a performance/video variant of a track rather than the studio recording.
 # These are stripped from the title when looking up a canonical counterpart.
 _VARIANT_SUFFIX_RE = re.compile(
@@ -2505,8 +2569,14 @@ def _persist_crawl_run_bulk_impl(
         ))
         if canonical_video:
             yt_video_ids_params.append((canonical_video, track_uid))
-        if song_id and not (service == "spotify" and str(song_id).startswith("fallback:")):
+        if (
+            song_id
+            and canonical_video
+            and status not in failed_statuses
+            and not (service == "spotify" and str(song_id).startswith("fallback:"))
+        ):
             platform_song_ids_params.append((service, song_id, track_uid))
+        if song_id and not (service == "spotify" and str(song_id).startswith("fallback:")):
             track_list_params.append(track_list_metadata_params(service=service, song_id=song_id, row=merged))
         if canonical_video and status not in failed_statuses:
             metadata_params.extend(metadata_lookup_params(track_uid=track_uid, row=merged, source=status, score=score))
@@ -3051,8 +3121,12 @@ def _verify_cached_title(
     existing_titles = list(set(existing_titles))
     if not existing_titles:
         return True
+    if all(has_feature_mismatch(title, existing) for existing in existing_titles):
+        return False
+    if all(has_version_mismatch(title, existing) for existing in existing_titles):
+        return False
     
-    best_sim = max(similarity(title, t) for t in existing_titles)
+    best_sim = max(similarity(title, t, is_title=True) for t in existing_titles)
     return best_sim >= threshold
 
 
@@ -3925,7 +3999,11 @@ def get_bulk_cached_matches(conn: Any, service: str, tracks: Iterable[Any]) -> d
         existing_titles = list(set(existing_titles))
         if not existing_titles:
             return True
-        best_sim = max(similarity(title, t) for t in existing_titles)
+        if all(has_feature_mismatch(title, existing) for existing in existing_titles):
+            return False
+        if all(has_version_mismatch(title, existing) for existing in existing_titles):
+            return False
+        best_sim = max(similarity(title, t, is_title=True) for t in existing_titles)
         return best_sim >= threshold
         
     # 2. Evaluate cache matches in-memory for each track
