@@ -353,6 +353,30 @@ def build_track_url(service: str, song_id: str | None, album_id: str | None = ""
     return ""
 
 
+def hype_identity_key(row: Any) -> str:
+    """Return the aggregation key used by Hype reports.
+
+    YouTube Music can resolve the same chart song to different video IDs across
+    services. Hype output should still contain one entry per source song, while
+    keeping true feature/version variants separate.
+    """
+    title = row["title"] or row["yt_title"] or ""
+    artist = row["artist"] or row["yt_artist"] or ""
+    title_key = normalize_text(clean_track_title(title))
+    artist_key = normalize_text(artist)
+    if not title_key or not artist_key:
+        return f"video:{row['video_id']}"
+    return "|".join(
+        (
+            "meta",
+            title_key,
+            artist_key,
+            feature_signature(title),
+            version_signature(title),
+        )
+    )
+
+
 def _sync_config_path() -> Path:
     return Path(__file__).resolve().parent / "sync_config.json"
 
@@ -3686,8 +3710,15 @@ def build_hype_report_from_rows(
                     gen2_weight = float(src.get("weight") or 0.40)
 
     grouped: dict[str, dict[str, Any]] = {}
+    group_by_video: dict[str, str] = {}
+    group_by_identity: dict[str, str] = {}
     for row in rows:
-        uid = row["video_id"]
+        identity = hype_identity_key(row)
+        video_id = row["video_id"] or ""
+        uid = group_by_video.get(video_id) or group_by_identity.get(identity) or identity
+        group_by_identity.setdefault(identity, uid)
+        if video_id:
+            group_by_video.setdefault(video_id, uid)
         item = grouped.setdefault(
             uid,
             {
@@ -3758,6 +3789,10 @@ def build_hype_report_from_rows(
         ):
             item["_best_rank"] = row["rank_order"]
             item["_best_service_priority"] = service_priority
+            item["video_id"] = row["video_id"] or item["video_id"]
+            item["yt_title"] = row["yt_title"] or item["yt_title"]
+            item["yt_artist"] = row["yt_artist"] or item["yt_artist"]
+            item["yt_album"] = row["yt_album"] or item["yt_album"]
             item["title"] = row["title"] or item["title"]
             item["artist"] = row["artist"] or item["artist"]
             item["album"] = row["album"] or item["album"]
