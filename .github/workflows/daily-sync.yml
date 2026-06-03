@@ -41,14 +41,6 @@ jobs:
           printf '%s' "$YTMUSIC_BROWSER_JSON" > .secrets/browser.json
           chmod 600 .secrets/browser.json
 
-      - name: Cache YouTube Music Bilingual Cache
-        uses: actions/cache@v4
-        with:
-          path: ytmusic_cache.db
-          key: ytmusic-cache-${{ github.run_id }}
-          restore-keys: |
-            ytmusic-cache-
-
       - name: Run Enabled Sync Tasks
         shell: bash
         env:
@@ -73,7 +65,3 @@ jobs:
           else
             echo "No changes to commit"
           fi
-
-
-
-          

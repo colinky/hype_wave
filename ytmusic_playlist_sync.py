@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import atexit
 import json
 import logging
 import os
@@ -8,6 +9,7 @@ import sqlite3
 import time
 import unicodedata
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from difflib import SequenceMatcher
 from functools import lru_cache
 from pathlib import Path
@@ -290,7 +292,7 @@ def _extract_parentheses_variants(value: str) -> list[str]:
     return variants
 
 
-class BilingualCache:
+class SQLiteBilingualCache:
     """
     YouTube Music API 호출 횟수를 줄이기 위해 아티스트 채널 번역과 
     비디오 번역 정보를 SQLite 데이터베이스에 영구 캐싱합니다.
@@ -338,7 +340,6 @@ class BilingualCache:
         return None
 
     def set_artist(self, artist_id: str, names: list[str]):
-        from datetime import datetime, timezone
         try:
             names_json = json.dumps(names)
             now_str = datetime.now(timezone.utc).isoformat()
@@ -375,7 +376,6 @@ class BilingualCache:
 
 
     def set_song(self, video_id: str, details: dict[str, str]):
-        from datetime import datetime, timezone
         try:
             now_str = datetime.now(timezone.utc).isoformat()
             with sqlite3.connect(self.db_path) as conn:
@@ -400,7 +400,266 @@ class BilingualCache:
             LOG.warning("Failed to set song in cache: %s", e)
 
 
+def _normalize_cached_names(value: Any) -> list[str]:
+    if isinstance(value, list):
+        return [str(item) for item in value if str(item)]
+    if isinstance(value, str):
+        try:
+            parsed = json.loads(value)
+            if isinstance(parsed, list):
+                return [str(item) for item in parsed if str(item)]
+        except json.JSONDecodeError:
+            pass
+    return []
+
+
+def _normalize_cached_song(row: dict[str, Any]) -> dict[str, str]:
+    return {
+        "title_ko": row.get("title_ko") or "",
+        "title_en": row.get("title_en") or "",
+        "artist_ko": row.get("artist_ko") or "",
+        "artist_en": row.get("artist_en") or "",
+        "album_ko": row.get("album_ko") or "",
+        "album_en": row.get("album_en") or "",
+    }
+
+
+class PostgresBilingualCache:
+    """Buffered Supabase PostgreSQL-backed cache with SQLite fallback."""
+
+    def __init__(self, pg_url: str, fallback_path: Path):
+        self.pg_url = pg_url
+        self.fallback_path = fallback_path
+        self.fallback: SQLiteBilingualCache | None = None
+        self.loaded = False
+        self.fallback_active = False
+        self.artists: dict[str, list[str]] = {}
+        self.songs: dict[str, dict[str, str]] = {}
+        self.dirty_artists: dict[str, tuple[list[str], str]] = {}
+        self.dirty_songs: dict[str, tuple[dict[str, str], str]] = {}
+
+    def _fallback(self) -> SQLiteBilingualCache:
+        if self.fallback is None:
+            self.fallback = SQLiteBilingualCache(self.fallback_path)
+        return self.fallback
+
+    def _connect(self):
+        import psycopg2
+
+        conn = psycopg2.connect(self.pg_url, connect_timeout=10)
+        with conn.cursor() as cursor:
+            cursor.execute("SET statement_timeout = '180s'")
+            cursor.execute("SET idle_in_transaction_session_timeout = '180s'")
+        conn.commit()
+        return conn
+
+    def _init_db(self, conn):
+        with conn.cursor() as cursor:
+            cursor.execute(
+                """
+                CREATE TABLE IF NOT EXISTS ytmusic_artist_translations (
+                    artist_id TEXT PRIMARY KEY,
+                    names JSONB NOT NULL,
+                    updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+                )
+                """
+            )
+            cursor.execute(
+                """
+                CREATE TABLE IF NOT EXISTS ytmusic_song_translations (
+                    video_id TEXT PRIMARY KEY,
+                    title_ko TEXT,
+                    title_en TEXT,
+                    artist_ko TEXT,
+                    artist_en TEXT,
+                    album_ko TEXT,
+                    album_en TEXT,
+                    updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+                )
+                """
+            )
+        conn.commit()
+
+    def _ensure_loaded(self):
+        if self.loaded:
+            return
+        conn = None
+        try:
+            conn = self._connect()
+            self._init_db(conn)
+            with conn.cursor() as cursor:
+                cursor.execute("SELECT artist_id, names FROM ytmusic_artist_translations")
+                self.artists = {
+                    artist_id: names
+                    for artist_id, raw_names in cursor.fetchall()
+                    if (names := _normalize_cached_names(raw_names))
+                }
+                cursor.execute(
+                    """
+                    SELECT video_id, title_ko, title_en, artist_ko, artist_en, album_ko, album_en
+                    FROM ytmusic_song_translations
+                    """
+                )
+                self.songs = {
+                    video_id: _normalize_cached_song(
+                        {
+                            "title_ko": title_ko,
+                            "title_en": title_en,
+                            "artist_ko": artist_ko,
+                            "artist_en": artist_en,
+                            "album_ko": album_ko,
+                            "album_en": album_en,
+                        }
+                    )
+                    for video_id, title_ko, title_en, artist_ko, artist_en, album_ko, album_en in cursor.fetchall()
+                }
+            LOG.info(
+                "Loaded YTMusic bilingual cache from PostgreSQL: %d artists, %d songs",
+                len(self.artists),
+                len(self.songs),
+            )
+        except Exception as exc:
+            LOG.warning("Failed to load PostgreSQL bilingual cache; using SQLite fallback: %s", exc)
+            self.fallback_active = True
+        finally:
+            if conn is not None:
+                conn.close()
+            self.loaded = True
+
+    def get_artist(self, artist_id: str) -> list[str] | None:
+        self._ensure_loaded()
+        if self.fallback_active:
+            return self._fallback().get_artist(artist_id)
+        return self.artists.get(artist_id)
+
+    def set_artist(self, artist_id: str, names: list[str]):
+        self._ensure_loaded()
+        if self.fallback_active:
+            self._fallback().set_artist(artist_id, names)
+            return
+        now_str = datetime.now(timezone.utc).isoformat()
+        self.artists[artist_id] = names
+        self.dirty_artists[artist_id] = (names, now_str)
+
+    def get_song(self, video_id: str) -> dict[str, str] | None:
+        self._ensure_loaded()
+        if self.fallback_active:
+            return self._fallback().get_song(video_id)
+        return self.songs.get(video_id)
+
+    def set_song(self, video_id: str, details: dict[str, str]):
+        self._ensure_loaded()
+        if self.fallback_active:
+            self._fallback().set_song(video_id, details)
+            return
+        now_str = datetime.now(timezone.utc).isoformat()
+        normalized = _normalize_cached_song(details)
+        self.songs[video_id] = normalized
+        self.dirty_songs[video_id] = (normalized, now_str)
+
+    def flush(self):
+        if self.fallback_active or not (self.dirty_artists or self.dirty_songs):
+            return
+        conn = None
+        try:
+            from psycopg2.extras import Json, execute_values
+
+            conn = self._connect()
+            self._init_db(conn)
+            with conn.cursor() as cursor:
+                if self.dirty_artists:
+                    artist_rows = [
+                        (artist_id, Json(names), updated_at)
+                        for artist_id, (names, updated_at) in self.dirty_artists.items()
+                    ]
+                    execute_values(
+                        cursor,
+                        """
+                        INSERT INTO ytmusic_artist_translations (artist_id, names, updated_at)
+                        VALUES %s
+                        ON CONFLICT (artist_id) DO UPDATE SET
+                            names = EXCLUDED.names,
+                            updated_at = EXCLUDED.updated_at
+                        """,
+                        artist_rows,
+                    )
+                if self.dirty_songs:
+                    song_rows = [
+                        (
+                            video_id,
+                            details.get("title_ko", ""),
+                            details.get("title_en", ""),
+                            details.get("artist_ko", ""),
+                            details.get("artist_en", ""),
+                            details.get("album_ko", ""),
+                            details.get("album_en", ""),
+                            updated_at,
+                        )
+                        for video_id, (details, updated_at) in self.dirty_songs.items()
+                    ]
+                    execute_values(
+                        cursor,
+                        """
+                        INSERT INTO ytmusic_song_translations (
+                            video_id, title_ko, title_en, artist_ko, artist_en, album_ko, album_en, updated_at
+                        )
+                        VALUES %s
+                        ON CONFLICT (video_id) DO UPDATE SET
+                            title_ko = EXCLUDED.title_ko,
+                            title_en = EXCLUDED.title_en,
+                            artist_ko = EXCLUDED.artist_ko,
+                            artist_en = EXCLUDED.artist_en,
+                            album_ko = EXCLUDED.album_ko,
+                            album_en = EXCLUDED.album_en,
+                            updated_at = EXCLUDED.updated_at
+                        """,
+                        song_rows,
+                    )
+            conn.commit()
+            LOG.info(
+                "Flushed YTMusic bilingual cache to PostgreSQL: %d artists, %d songs",
+                len(self.dirty_artists),
+                len(self.dirty_songs),
+            )
+            self.dirty_artists.clear()
+            self.dirty_songs.clear()
+        except Exception as exc:
+            if conn is not None:
+                conn.rollback()
+            LOG.warning("Failed to flush PostgreSQL bilingual cache: %s", exc)
+        finally:
+            if conn is not None:
+                conn.close()
+
+
+class BilingualCache:
+    def __init__(self, db_path: Path):
+        pg_url = os.environ.get("SUPABASE_DB_URL")
+        if pg_url:
+            self.backend = PostgresBilingualCache(pg_url, db_path)
+        else:
+            self.backend = SQLiteBilingualCache(db_path)
+
+    def get_artist(self, artist_id: str) -> list[str] | None:
+        return self.backend.get_artist(artist_id)
+
+    def set_artist(self, artist_id: str, names: list[str]):
+        self.backend.set_artist(artist_id, names)
+
+    def get_song(self, video_id: str) -> dict[str, str] | None:
+        return self.backend.get_song(video_id)
+
+    def set_song(self, video_id: str, details: dict[str, str]):
+        self.backend.set_song(video_id, details)
+
+    def flush(self):
+        flush = getattr(self.backend, "flush", None)
+        if flush:
+            flush()
+
+
 BILINGUAL_CACHE = BilingualCache(Path(__file__).parent / "ytmusic_cache.db")
+atexit.register(BILINGUAL_CACHE.flush)
 
 
 def resolve_bilingual_artist(yt_ko: YTMusic, artist_id: str) -> list[str]:
@@ -1681,4 +1940,3 @@ def make_ytmusic(auth_file: str, client_id: str = "", client_secret: str = "", l
     else:
         yt.headers.update({"Accept-Language": "en-US,en;q=0.9"})
     return yt
-
