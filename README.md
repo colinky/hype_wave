@@ -132,7 +132,7 @@ sync_config.json                      ← 작업 정의 (v2 스키마)
 | :--- | :--- |
 | Supabase PostgreSQL | 운영 DB. `SUPABASE_DB_URL`이 있으면 모든 크롤러가 이 DB를 우선 사용 |
 | `hype_wave_data.db` | 로컬 SQLite fallback DB |
-| `ytmusic_cache.db` | YouTube Music 보조 캐시. GitHub Actions에서는 Actions cache로 보존 |
+| `ytmusic_cache.db` | YouTube Music 보조 캐시. `SUPABASE_DB_URL`이 있으면 Postgres cache table을 사용하고, 없으면 로컬 SQLite fallback으로 사용 |
 
 주요 테이블:
 
@@ -296,10 +296,9 @@ python heal_split_tracks.py --db-path hype_wave_data.db # split track UID 정리
 ```
 1. Checkout → Python 3.11 설정 → 의존성 설치
 2. YouTube Music 인증 파일 복원
-3. ytmusic_cache.db를 Actions cache에서 복원
-4. SUPABASE_DB_URL로 Supabase PostgreSQL에 연결
-5. sync_all.py 실행 (sync_config.json 기반 전체 작업)
-6. docs/api/history.json 변경 시 자동 커밋 & 푸시 (GitHub Pages 업데이트)
+3. SUPABASE_DB_URL로 Supabase PostgreSQL에 연결
+4. sync_all.py 실행 (sync_config.json 기반 전체 작업)
+5. docs/api/history.json 변경 시 자동 커밋 & 푸시 (GitHub Pages 업데이트)
 ```
 
 ---

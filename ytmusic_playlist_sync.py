@@ -634,25 +634,34 @@ class PostgresBilingualCache:
 
 class BilingualCache:
     def __init__(self, db_path: Path):
+        self.db_path = db_path
+        self.backend: SQLiteBilingualCache | PostgresBilingualCache | None = None
+
+    def _backend(self) -> SQLiteBilingualCache | PostgresBilingualCache:
+        if self.backend is not None:
+            return self.backend
         pg_url = os.environ.get("SUPABASE_DB_URL")
         if pg_url:
-            self.backend = PostgresBilingualCache(pg_url, db_path)
+            self.backend = PostgresBilingualCache(pg_url, self.db_path)
         else:
-            self.backend = SQLiteBilingualCache(db_path)
+            self.backend = SQLiteBilingualCache(self.db_path)
+        return self.backend
 
     def get_artist(self, artist_id: str) -> list[str] | None:
-        return self.backend.get_artist(artist_id)
+        return self._backend().get_artist(artist_id)
 
     def set_artist(self, artist_id: str, names: list[str]):
-        self.backend.set_artist(artist_id, names)
+        self._backend().set_artist(artist_id, names)
 
     def get_song(self, video_id: str) -> dict[str, str] | None:
-        return self.backend.get_song(video_id)
+        return self._backend().get_song(video_id)
 
     def set_song(self, video_id: str, details: dict[str, str]):
-        self.backend.set_song(video_id, details)
+        self._backend().set_song(video_id, details)
 
     def flush(self):
+        if self.backend is None:
+            return
         flush = getattr(self.backend, "flush", None)
         if flush:
             flush()

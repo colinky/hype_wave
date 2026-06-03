@@ -22,6 +22,17 @@ logging.basicConfig(
 LOG = logging.getLogger("sync_all")
 
 
+def load_env_file(path: Path) -> None:
+    if not path.exists():
+        return
+    for raw_line in path.read_text(encoding="utf-8").splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, value = line.split("=", 1)
+        os.environ.setdefault(key.strip(), value.strip().strip('"').strip("'"))
+
+
 def task_enabled(task):
     # 1. Check basic enabled/disabled toggle
     value = task.get("enabled", True)
@@ -50,6 +61,9 @@ def task_enabled(task):
 
 def main():
     script_dir = Path(__file__).parent
+    load_env_file(script_dir / ".env")
+    load_env_file(script_dir / ".secrets" / ".env")
+
     config_path = script_dir / "sync_config.json"
     if not config_path.exists():
         LOG.error(f"sync_config.json not found at {config_path}!")
