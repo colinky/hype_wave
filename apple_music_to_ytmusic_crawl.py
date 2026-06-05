@@ -29,6 +29,8 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import parse_qsl, urlencode, urljoin, urlparse, urlunparse
 
+from bs4 import BeautifulSoup
+
 from ytmusic_playlist_sync import (
     SourceTrack,
     env_or_arg,

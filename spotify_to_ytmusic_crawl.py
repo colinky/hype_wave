@@ -36,7 +36,9 @@ from ytmusic_playlist_sync import (
     env_or_arg,
     load_dotenv,
     make_ytmusic,
+    artist_variants,
     normalize_text,
+    similarity,
     update_ytmusic_playlist,
     write_json,
     get_resilient_session,
@@ -559,7 +561,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--min-title-score", type=float, default=DEFAULT_MIN_TITLE_SCORE)
     parser.add_argument("--min-artist-score", type=float, default=DEFAULT_MIN_ARTIST_SCORE)
     parser.add_argument("--search-limit", type=int, default=DEFAULT_SEARCH_LIMIT)
-    parser.add_argument("--use-musicbrainz", default=None, help="true/false. Enrich missing Spotify album names with MusicBrainz (default: true)")
+    parser.add_argument("--use-musicbrainz", default=None, help="true/false. Enrich missing Spotify album names with MusicBrainz (default: false)")
     parser.add_argument("--shuffle", action="store_true", help="Shuffle the tracks before saving them to the YouTube Music playlist")
     parser.add_argument("--dry-run", action="store_true")
     return parser.parse_args()
@@ -601,7 +603,7 @@ def main() -> int:
     track_limit = int(spotify_track_limit) if spotify_track_limit else args.spotify_track_limit
     use_musicbrainz = parse_bool(
         args.use_musicbrainz if args.use_musicbrainz is not None else os.environ.get("USE_MUSICBRAINZ"),
-        default=True,
+        default=False,
     )
     started_at = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
 
