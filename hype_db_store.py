@@ -1730,6 +1730,10 @@ def _verify_cached_title(
             existing_titles.append(r["title_en"])
             
     existing_titles = list(set(existing_titles))
+    track = conn.execute("SELECT yt_title FROM tracks WHERE track_uid = ?", (track_uid,)).fetchone()
+    canonical_title = track["yt_title"] if track else ""
+    if canonical_title and has_version_mismatch(title, canonical_title):
+        return False
     if not existing_titles:
         return True
     if all(has_feature_mismatch(title, existing) for existing in existing_titles):
@@ -2179,6 +2183,9 @@ def get_bulk_cached_matches(conn: Any, service: str, tracks: Iterable[Any]) -> d
             if m.get("title_en"):
                 existing_titles.append(m["title_en"])
         existing_titles = list(set(existing_titles))
+        canonical_title = (tracks_dict.get(track_uid) or {}).get("yt_title") or ""
+        if canonical_title and has_version_mismatch(title, canonical_title):
+            return False
         if not existing_titles:
             return True
         if all(has_feature_mismatch(title, existing) for existing in existing_titles):

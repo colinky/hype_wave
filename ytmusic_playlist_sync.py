@@ -20,6 +20,8 @@ from requests.adapters import HTTPAdapter
 from urllib3.util import Retry
 from ytmusicapi import YTMusic
 
+from hype_db_common import has_version_mismatch, version_signature
+
 try:
     from ytmusicapi.auth.oauth import OAuthCredentials
 except ImportError:  # pragma: no cover - compatibility with older ytmusicapi.
@@ -1062,6 +1064,27 @@ def is_song_result(result: dict[str, Any]) -> bool:
     return result.get("resultType") in allowed_types and bool(result.get("videoId"))
 
 
+def _has_recording_version_mismatch(
+    target_titles: list[str],
+    candidate_titles: list[str],
+) -> bool:
+    target_titles = [title for title in target_titles if title]
+    candidate_titles = [title for title in candidate_titles if title]
+    if not target_titles or not candidate_titles:
+        return False
+
+    target_has_version = any(version_signature(title) for title in target_titles)
+    candidate_has_version = any(version_signature(title) for title in candidate_titles)
+    if not target_has_version and not candidate_has_version:
+        return False
+
+    return all(
+        has_version_mismatch(target_title, candidate_title)
+        for target_title in target_titles
+        for candidate_title in candidate_titles
+    )
+
+
 def score_result(
     track_en: SourceTrack,
     result: dict[str, Any],
@@ -1152,6 +1175,23 @@ def score_result(
             resolved_details = resolve_bilingual_song(ytmusic, video_id)
         except Exception as e:
             LOG.debug("Failed to resolve bilingual song details for %s: %s", video_id, e)
+
+    target_titles_for_version = [track_en.title]
+    if track_ko and track_ko.title:
+        target_titles_for_version.append(track_ko.title)
+    candidate_titles_for_version = [yt_title]
+    if resolved_details:
+        if resolved_details.get("title_ko"):
+            candidate_titles_for_version.append(resolved_details["title_ko"])
+        if resolved_details.get("title_en"):
+            candidate_titles_for_version.append(resolved_details["title_en"])
+    if _has_recording_version_mismatch(target_titles_for_version, candidate_titles_for_version):
+        LOG.debug(
+            "Rejected version mismatch: target=%s candidate=%s",
+            target_titles_for_version,
+            candidate_titles_for_version,
+        )
+        return 0.0, 0.0, 0.0, album_score
 
     # 4. Final title and artist scoring
     if resolved_details:
