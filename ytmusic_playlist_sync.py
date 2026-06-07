@@ -948,6 +948,7 @@ def resolve_video_to_song(
         candidate_artist = result_artists(result)
         cand_title = result.get("title", "")
         artist_score = similarity(artist, candidate_artist, is_title=False)
+        candidate_titles_for_version = [cand_title]
         
         # 상위 2개 후보이거나 아티스트 일치도가 0.7 이상인 경우 다국어 교차 제목 비교로 보정
         if idx < 2 or artist_score >= 0.7:
@@ -960,6 +961,7 @@ def resolve_video_to_song(
                         titles_to_check.append(resolved_details["title_ko"])
                     if resolved_details.get("title_en"):
                         titles_to_check.append(resolved_details["title_en"])
+                    candidate_titles_for_version = titles_to_check
                     
                     title_score = max(
                         (similarity(normalized_title, t, is_title=True) for t in titles_to_check),
@@ -982,6 +984,14 @@ def resolve_video_to_song(
                 title_score = similarity(normalized_title, cand_title, is_title=True)
         else:
             title_score = similarity(normalized_title, cand_title, is_title=True)
+
+        if _has_recording_version_mismatch([title, normalized_title], candidate_titles_for_version):
+            LOG.debug(
+                "Rejected video-to-song version mismatch: source=%s candidate=%s",
+                [title, normalized_title],
+                candidate_titles_for_version,
+            )
+            continue
 
         score = title_score * 0.7 + artist_score * 0.3 if artist else title_score * 0.7 + 0.3
         result_type = ytmusic_result_type(result.get("resultType"))
@@ -1284,8 +1294,7 @@ def score_result(
         "cover", "커버", "tribute", "fanmade", "mashup",
         "japanese", "japanese ver", "japanese version", "jp ver", "jp version",
         "chinese", "chinese ver", "chinese version", "cn ver", "cn version",
-        "english ver", "english version", "eng ver", "eng version",
-        "ver", "version"
+        "english ver", "english version", "eng ver", "eng version"
     ]
     yt_combined = (yt_title + " " + yt_album).lower()
     if resolved_details:
@@ -1311,8 +1320,7 @@ def score_result(
                 "cover", "커버", "tribute", "fanmade", "mashup",
                 "japanese", "japanese ver", "japanese version", "jp ver", "jp version",
                 "chinese", "chinese ver", "chinese version", "cn ver", "cn version",
-                "english ver", "english version", "eng ver", "eng version",
-                "ver", "version"
+                "english ver", "english version", "eng ver", "eng version"
             }:
                 score *= 0.1
             else:

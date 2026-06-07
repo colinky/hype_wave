@@ -146,6 +146,9 @@
             "https://charts.youtube.com/charts/TopSongs/kr/weekly"
         ],
         "schedule": "Sunday",
+        "schedule_retry_days": 2,
+        "chart_period_anchor": "schedule",
+        "missing_chart_policy": "carry_forward",
         "target_id": "PLtawHGpcUVZWJV93R_C0xb8rnW1wx79Yx"
     },
     {

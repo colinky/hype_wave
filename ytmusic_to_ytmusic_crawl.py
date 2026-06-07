@@ -14,6 +14,7 @@ from __future__ import annotations
 import argparse
 import copy
 import csv
+import hashlib
 import json
 import logging
 import os
@@ -44,6 +45,7 @@ LOG = logging.getLogger("ytmusic_to_ytmusic_crawl")
 DEFAULT_PLAYLIST_URL = "https://music.youtube.com/playlist?list=PL4fGSI1pDJn6jXS_Tv_N9B8Z0HTRVJE0m"
 DEFAULT_YOUTUBE_CHARTS_URL = "https://charts.youtube.com/charts/TopSongs/kr/weekly"
 ACCEPTED_MAPPING_STATUSES = {"resolved_to_song", "already_song", "cached_match", "proxy_matched", "manual_override", "kept_original_video"}
+KST = timezone(timedelta(hours=9))
 
 
 def playlist_id_from_url(value: str) -> str:
@@ -159,6 +161,113 @@ def default_week_start(chart_period_end: str | None) -> str:
     except ValueError:
         return ""
     return (end_dt - timedelta(days=6)).strftime("%Y-%m-%d")
+
+
+def most_recent_weekday(value: datetime, weekday: int) -> datetime:
+    return value - timedelta(days=(value.weekday() - weekday) % 7)
+
+
+def default_youtube_weekly_chart_end(now: datetime | None = None) -> str:
+    current = now or datetime.now(timezone.utc).astimezone(KST)
+    return most_recent_weekday(current, 6).strftime("%Y-%m-%d")
+
+
+def expected_youtube_chart_period(
+    job_name: str,
+    chart_period_end: str | None,
+) -> dict[str, str]:
+    from hype_db import reference_period_for_date
+
+    expected_end = dashed_date(chart_period_end) or default_youtube_weekly_chart_end()
+    expected_start = default_week_start(expected_end)
+    return {
+        "expected_chart_period_start": expected_start,
+        "expected_chart_period_end": expected_end,
+        "expected_reference_period": reference_period_for_date(job_name, expected_end),
+    }
+
+
+def ensure_chart_source_audit_table(conn) -> None:
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS chart_source_audit (
+            audit_id TEXT PRIMARY KEY,
+            service TEXT NOT NULL,
+            job_name TEXT NOT NULL,
+            expected_chart_period_start TEXT,
+            expected_chart_period_end TEXT,
+            expected_reference_period TEXT,
+            fetched_chart_period_start TEXT,
+            fetched_chart_period_end TEXT,
+            status TEXT NOT NULL,
+            entry_count INTEGER DEFAULT 0,
+            source TEXT,
+            message TEXT,
+            created_at TEXT NOT NULL
+        )
+        """
+    )
+
+
+def record_chart_source_audit(
+    conn,
+    *,
+    job_name: str,
+    expected: dict[str, str],
+    fetched_chart_period_start: str = "",
+    fetched_chart_period_end: str = "",
+    status: str,
+    entry_count: int = 0,
+    source: str = "",
+    message: str = "",
+) -> None:
+    ensure_chart_source_audit_table(conn)
+    created_at = datetime.now(timezone.utc).replace(microsecond=0).isoformat()
+    payload = "|".join(
+        [
+            "ytmusic",
+            job_name,
+            expected.get("expected_reference_period", ""),
+            status,
+            fetched_chart_period_start,
+            fetched_chart_period_end,
+            str(entry_count),
+            created_at,
+        ]
+    )
+    audit_id = hashlib.sha1(payload.encode("utf-8")).hexdigest()
+    conn.execute(
+        """
+        INSERT INTO chart_source_audit(
+            audit_id, service, job_name,
+            expected_chart_period_start, expected_chart_period_end, expected_reference_period,
+            fetched_chart_period_start, fetched_chart_period_end,
+            status, entry_count, source, message, created_at
+        )
+        VALUES (?, 'ytmusic', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            audit_id,
+            job_name,
+            expected.get("expected_chart_period_start", ""),
+            expected.get("expected_chart_period_end", ""),
+            expected.get("expected_reference_period", ""),
+            fetched_chart_period_start,
+            fetched_chart_period_end,
+            status,
+            int(entry_count),
+            source,
+            message,
+            created_at,
+        ),
+    )
+
+
+def fetched_period_from_entries(entries: list[dict[str, Any]]) -> tuple[str, str]:
+    if not entries:
+        return "", ""
+    first = entries[0]
+    return str(first.get("chart_period_start") or ""), str(first.get("chart_period_end") or "")
 
 
 def extract_chart_entries_from_csv(path: str | Path, *, limit: int = 100) -> list[dict[str, Any]]:
@@ -650,8 +759,10 @@ def main() -> int:
 
     use_youtube_charts = bool(args.prefer_youtube_charts and not args.use_source_playlist)
     inferred_end = infer_chart_period_end_from_path(args.youtube_charts_csv)
-    chart_period_end = args.chart_period_end or inferred_end
-    chart_period_start = args.chart_period_start or default_week_start(chart_period_end)
+    chart_period_end_input = args.chart_period_end or inferred_end or default_youtube_weekly_chart_end()
+    expected_period = expected_youtube_chart_period(args.job_name, chart_period_end_input)
+    chart_period_end = expected_period["expected_chart_period_end"]
+    chart_period_start = args.chart_period_start or expected_period["expected_chart_period_start"]
     needs_ytmusic_for_source = not args.youtube_charts_csv and not use_youtube_charts
     # Even when --db-only, we need ytmusic client to resolve Live/MV → song type
     # (unless --no-resolve is set). Without it, every cache-miss creates a split unmatched track_uid.
@@ -711,6 +822,47 @@ def main() -> int:
             report_path = Path(args.source_report_json).expanduser()
             write_json(report_path, source_report)
             LOG.info("Wrote YouTube Charts source report: %s", report_path)
+
+    fetched_chart_period_start, fetched_chart_period_end = fetched_period_from_entries(chart_entries)
+    if use_youtube_charts and not args.use_source_playlist:
+        not_published_message = ""
+        audit_status = "not_published"
+        if not chart_entries:
+            not_published_message = "No YouTube Charts entries were available for expected weekly period."
+            if source_report.get("discovery_error"):
+                audit_status = "source_error"
+        elif not fetched_chart_period_end and not args.youtube_charts_csv:
+            not_published_message = "YouTube Charts entries did not expose a verifiable weekly chart period."
+            audit_status = "validation_failed"
+        elif fetched_chart_period_end and fetched_chart_period_end != expected_period["expected_chart_period_end"]:
+            not_published_message = (
+                "YouTube Charts returned a different weekly period: "
+                f"expected={expected_period['expected_chart_period_end']} fetched={fetched_chart_period_end}"
+            )
+            audit_status = "validation_failed"
+        if not_published_message:
+            LOG.warning(
+                "YouTube Charts weekly chart is not published for %s (%s). Carrying forward previous YTMusic week.",
+                expected_period["expected_chart_period_end"],
+                not_published_message,
+            )
+            if not args.dry_run:
+                db_path = Path(args.db_path).expanduser()
+                from hype_db import connect
+
+                with connect(db_path) as conn:
+                    record_chart_source_audit(
+                        conn,
+                        job_name=args.job_name,
+                        expected=expected_period,
+                        fetched_chart_period_start=fetched_chart_period_start,
+                        fetched_chart_period_end=fetched_chart_period_end,
+                        status=audit_status,
+                        entry_count=len(chart_entries),
+                        source="youtube_charts_weekly",
+                        message=not_published_message,
+                    )
+            return 0
 
     if chart_entries:
         entries = [
@@ -799,6 +951,18 @@ def main() -> int:
                     conn=conn,
                     commit=False,
                 )
+                if use_youtube_charts and chart_entries:
+                    record_chart_source_audit(
+                        conn,
+                        job_name=args.job_name,
+                        expected=expected_period,
+                        fetched_chart_period_start=fetched_chart_period_start,
+                        fetched_chart_period_end=fetched_chart_period_end or expected_period["expected_chart_period_end"],
+                        status="published",
+                        entry_count=len(chart_entries),
+                        source=str(chart_entries[0].get("source") or "youtube_charts_weekly"),
+                        message="YouTube Charts weekly chart fetched.",
+                    )
                 conn.commit()
                 LOG.info("Persisted raw chart order for %s to playlist_order table.", args.job_name)
             except Exception as exc:

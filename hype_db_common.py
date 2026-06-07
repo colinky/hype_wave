@@ -175,6 +175,12 @@ def version_signature(title: str | None) -> str:
         normalized = normalize_text(chunk)
         if not normalized:
             continue
+        remaster_marker = bool(
+            re.search(r"\b(?:re)?master(?:ed|ing)?\b|\bremaster\b|\banniversary\b|\bbonus track\b", normalized)
+        )
+        year_version_marker = bool(
+            re.fullmatch(r"(?:19|20)\d{2}\s+(?:ver|version|edition|edit)", normalized)
+        )
         if "remix" in normalized.split():
             remix_prefix = re.sub(r"\bremix\b.*$", "", normalized).strip()
             add(f"remix:{remix_prefix}" if remix_prefix else "remix")
@@ -192,7 +198,7 @@ def version_signature(title: str | None) -> str:
             r"\b(japanese|jp|chinese|cn|english|eng|korean|kr)?\s*(?:ver|version|edition|edit)\b",
             normalized,
         )
-        if version_match:
+        if version_match and not remaster_marker and not year_version_marker:
             locale = (version_match.group(1) or "").strip()
             add(f"version:{locale}" if locale else "version")
     return "|".join(signatures)

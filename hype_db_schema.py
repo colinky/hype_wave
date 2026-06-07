@@ -523,6 +523,22 @@ def init_schema(conn: Any) -> None:
             payload_json TEXT
         );
 
+        CREATE TABLE IF NOT EXISTS chart_source_audit (
+            audit_id TEXT PRIMARY KEY,
+            service TEXT NOT NULL,
+            job_name TEXT NOT NULL,
+            expected_chart_period_start TEXT,
+            expected_chart_period_end TEXT,
+            expected_reference_period TEXT,
+            fetched_chart_period_start TEXT,
+            fetched_chart_period_end TEXT,
+            status TEXT NOT NULL,
+            entry_count INTEGER DEFAULT 0,
+            source TEXT,
+            message TEXT,
+            created_at TEXT NOT NULL
+        );
+
         CREATE TABLE IF NOT EXISTS album_metadata (
             service TEXT NOT NULL,
             album_id TEXT NOT NULL,

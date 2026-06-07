@@ -20,6 +20,16 @@ logging.basicConfig(
 2. 데이터베이스 캐시(Supabase PostgreSQL 또는 SQLite 로컬 폴백) 연쇄 효과를 활용하여 동기화를 극대화합니다.
 """
 LOG = logging.getLogger("sync_all")
+KST = timezone(timedelta(hours=9))
+DAY_MAP = {
+    "monday": 0,
+    "tuesday": 1,
+    "wednesday": 2,
+    "thursday": 3,
+    "friday": 4,
+    "saturday": 5,
+    "sunday": 6,
+}
 
 
 def load_env_file(path: Path) -> None:
@@ -33,7 +43,37 @@ def load_env_file(path: Path) -> None:
         os.environ.setdefault(key.strip(), value.strip().strip('"').strip("'"))
 
 
-def task_enabled(task):
+def kst_now() -> datetime:
+    return datetime.now(timezone.utc).astimezone(KST)
+
+
+def schedule_window(task: dict, now: datetime | None = None) -> tuple[bool, str, datetime | None]:
+    schedule = str(task.get("schedule") or "").strip()
+    if not schedule:
+        return True, "", None
+    current = now or kst_now()
+    schedule_wd = DAY_MAP.get(schedule.lower())
+    if schedule_wd is None:
+        return False, f"Unknown schedule day '{schedule}'.", None
+    days_since = (current.weekday() - schedule_wd) % 7
+    retry_days = int(task.get("schedule_retry_days") or 0)
+    anchor = current - timedelta(days=days_since)
+    if days_since <= retry_days:
+        return True, "", anchor
+    current_day = current.strftime("%A")
+    return False, f"Task schedule '{schedule}' does not match current KST day '{current_day}'.", anchor
+
+
+def chart_period_end_for_task(task: dict, now: datetime | None = None) -> str:
+    if str(task.get("chart_period_anchor") or "").strip().lower() != "schedule":
+        return ""
+    ok, _, anchor = schedule_window(task, now)
+    if not ok or not anchor:
+        return ""
+    return anchor.strftime("%Y-%m-%d")
+
+
+def task_enabled(task, now: datetime | None = None):
     # 1. Check basic enabled/disabled toggle
     value = task.get("enabled", True)
     if isinstance(value, str):
@@ -45,16 +85,10 @@ def task_enabled(task):
         return False
 
     # 2. Check day-of-week schedule (e.g. "Monday")
-    schedule = task.get("schedule")
-    if schedule:
-        from datetime import datetime, timezone, timedelta
-        # Use KST (UTC+9) as the reference time zone
-        kst_now = datetime.now(timezone.utc) + timedelta(hours=9)
-        current_day = kst_now.strftime("%A") # Full day name
-        # 특정 요일에만 실행되도록 설정된 경우 체크
-        if schedule.strip().title() != current_day:
-            LOG.info(f"Task schedule '{schedule}' does not match current KST day '{current_day}'.")
-            return False
+    ok, reason, _ = schedule_window(task, now)
+    if not ok:
+        LOG.info(reason)
+        return False
 
     return True
 
@@ -108,6 +142,7 @@ def main():
 
 
 
+    current_kst = kst_now()
     for task in tasks:
         job_name = task.get("job_name") or task.get("name") or "Unknown-Job"
         playlist_name = task.get("playlist_name") or job_name
@@ -115,7 +150,7 @@ def main():
         source_urls = task.get("source_urls", [])
         target_id = task.get("target_id")
 
-        if not task_enabled(task):
+        if not task_enabled(task, current_kst):
             LOG.info(f"Skipping disabled task '{job_name}'.")
             skipped_count += 1
             continue
@@ -160,6 +195,9 @@ def main():
                     cmd.extend(["--youtube-charts-url", url])
                 else:
                     cmd.extend(["--source-playlist-url", url])
+            chart_period_end = chart_period_end_for_task(task, current_kst)
+            if chart_period_end:
+                cmd.extend(["--chart-period-end", chart_period_end])
             if entity_limit:
                 cmd.extend(["--track-limit", str(entity_limit)])
         elif task_type == "hypex":
