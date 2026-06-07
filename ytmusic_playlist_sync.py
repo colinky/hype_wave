@@ -20,7 +20,7 @@ from requests.adapters import HTTPAdapter
 from urllib3.util import Retry
 from ytmusicapi import YTMusic
 
-from hype_db_common import has_version_mismatch, version_signature
+from hype_db_common import has_version_mismatch, postgres_connect_config, version_signature
 
 try:
     from ytmusicapi.auth.oauth import OAuthCredentials
@@ -448,7 +448,8 @@ class PostgresBilingualCache:
     def _connect(self):
         import psycopg2
 
-        conn = psycopg2.connect(self.pg_url, connect_timeout=10)
+        pg_config = postgres_connect_config()
+        conn = psycopg2.connect(self.pg_url, connect_timeout=int(pg_config["connect_timeout"]))
         with conn.cursor() as cursor:
             cursor.execute("SET statement_timeout = '180s'")
             cursor.execute("SET idle_in_transaction_session_timeout = '180s'")

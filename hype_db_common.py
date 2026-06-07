@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
+import os
 import re
 import unicodedata
 from dataclasses import asdict, is_dataclass
@@ -46,6 +47,7 @@ __all__ = [
     "hype_identity_key",
     "load_sync_config",
     "hype_inputs",
+    "postgres_connect_config",
     "match_method_for_status",
     "playlist_job_mappings",
     "normalize_job_name",
@@ -59,6 +61,49 @@ def utc_now_iso() -> str:
 
 def kst_today() -> str:
     return datetime.now(timezone.utc).astimezone(KST).strftime("%Y-%m-%d")
+
+
+def _env_int(name: str, default: int, *, minimum: int | None = None) -> int:
+    raw = os.environ.get(name)
+    if raw is None or raw.strip() == "":
+        return default
+    try:
+        value = int(raw)
+    except ValueError:
+        LOG.warning("Ignoring invalid integer env %s=%r; using %s", name, raw, default)
+        return default
+    if minimum is not None and value < minimum:
+        LOG.warning("Ignoring too-small integer env %s=%r; using %s", name, raw, default)
+        return default
+    return value
+
+
+def _env_float(name: str, default: float, *, minimum: float | None = None) -> float:
+    raw = os.environ.get(name)
+    if raw is None or raw.strip() == "":
+        return default
+    try:
+        value = float(raw)
+    except ValueError:
+        LOG.warning("Ignoring invalid float env %s=%r; using %s", name, raw, default)
+        return default
+    if minimum is not None and value < minimum:
+        LOG.warning("Ignoring too-small float env %s=%r; using %s", name, raw, default)
+        return default
+    return value
+
+
+def postgres_connect_config() -> dict[str, int | float]:
+    """Return shared PostgreSQL connection retry settings.
+
+    Defaults are intentionally conservative for GitHub Actions, where Supabase
+    pooler connections can occasionally take longer than local runs.
+    """
+    return {
+        "retries": _env_int("HYPE_PG_CONNECT_RETRIES", 5, minimum=1),
+        "retry_delay": _env_float("HYPE_PG_CONNECT_RETRY_DELAY", 2.0, minimum=0.0),
+        "connect_timeout": _env_int("HYPE_PG_CONNECT_TIMEOUT", 20, minimum=1),
+    }
 
 
 def normalize_text(value: str | None) -> str:

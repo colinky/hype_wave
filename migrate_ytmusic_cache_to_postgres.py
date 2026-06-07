@@ -6,9 +6,12 @@ import json
 import os
 import sqlite3
 import sys
+import time
 from datetime import datetime
 from pathlib import Path
 from typing import Any
+
+from hype_db_common import postgres_connect_config
 
 
 ARTIST_TABLE_SQL = """
@@ -103,8 +106,24 @@ def ensure_postgres_schema(conn) -> None:
     conn.commit()
 
 
-def migrate(cache_db: Path, postgres_url: str) -> tuple[int, int]:
+def connect_postgres(postgres_url: str):
     import psycopg2
+
+    pg_config = postgres_connect_config()
+    retries = int(pg_config["retries"])
+    retry_delay = float(pg_config["retry_delay"])
+    connect_timeout = int(pg_config["connect_timeout"])
+    for attempt in range(retries):
+        try:
+            return psycopg2.connect(postgres_url, connect_timeout=connect_timeout)
+        except psycopg2.OperationalError:
+            if attempt == retries - 1:
+                raise
+            time.sleep(retry_delay * (2**attempt))
+    raise RuntimeError("unreachable")
+
+
+def migrate(cache_db: Path, postgres_url: str) -> tuple[int, int]:
     from psycopg2.extras import Json, execute_values
 
     if not cache_db.exists():
@@ -121,7 +140,7 @@ def migrate(cache_db: Path, postgres_url: str) -> tuple[int, int]:
     finally:
         sqlite_conn.close()
 
-    pg_conn = psycopg2.connect(postgres_url, connect_timeout=10)
+    pg_conn = connect_postgres(postgres_url)
     try:
         ensure_postgres_schema(pg_conn)
         with pg_conn.cursor() as cursor:

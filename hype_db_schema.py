@@ -16,6 +16,7 @@ from hype_db_common import (
     job_frequency,
     legacy_to_job_name,
     normalized_service,
+    postgres_connect_config,
 )
 from hype_db_common import (
     normalize_source_variant,
@@ -205,12 +206,14 @@ def connect(db_path: str | Path):
     if pg_url:
         import psycopg2
         import time
-        retries = 3
-        delay = 1.0
+        pg_config = postgres_connect_config()
+        retries = int(pg_config["retries"])
+        delay = float(pg_config["retry_delay"])
+        connect_timeout = int(pg_config["connect_timeout"])
         raw_conn = None
         for i in range(retries):
             try:
-                raw_conn = psycopg2.connect(pg_url, connect_timeout=10)
+                raw_conn = psycopg2.connect(pg_url, connect_timeout=connect_timeout)
                 with raw_conn.cursor() as cursor:
                     cursor.execute("SET lock_timeout = '30s'")
                     cursor.execute("SET statement_timeout = '180s'")
