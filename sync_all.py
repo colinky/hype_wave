@@ -57,20 +57,8 @@ def is_ytmusic_weekly_chart_task(task: dict) -> bool:
 
 def schedule_retry_days_for_task(task: dict) -> int:
     if is_ytmusic_weekly_chart_task(task):
-        return int(task.get("schedule_retry_days", 2) or 0)
-    return int(task.get("schedule_retry_days") or 0) if is_ytmusic_task(task) else 0
-
-
-def chart_period_anchor_for_task(task: dict) -> str:
-    if is_ytmusic_weekly_chart_task(task):
-        return str(task.get("chart_period_anchor") or "schedule").strip().lower()
-    return str(task.get("chart_period_anchor") or "").strip().lower()
-
-
-def chart_period_end_offset_days_for_task(task: dict) -> int:
-    if is_ytmusic_weekly_chart_task(task):
-        return int(task.get("chart_period_end_offset_days", -3) or 0)
-    return int(task.get("chart_period_end_offset_days") or 0) if is_ytmusic_task(task) else 0
+        return 2
+    return 0
 
 
 def schedule_window(task: dict, now: datetime | None = None) -> tuple[bool, str, datetime | None]:
@@ -88,18 +76,6 @@ def schedule_window(task: dict, now: datetime | None = None) -> tuple[bool, str,
         return True, "", anchor
     current_day = current.strftime("%A")
     return False, f"Task schedule '{schedule}' does not match current KST day '{current_day}'.", anchor
-
-
-def chart_period_end_for_task(task: dict, now: datetime | None = None) -> str:
-    if not is_ytmusic_task(task):
-        return ""
-    if chart_period_anchor_for_task(task) != "schedule":
-        return ""
-    ok, _, anchor = schedule_window(task, now)
-    if not ok or not anchor:
-        return ""
-    offset_days = chart_period_end_offset_days_for_task(task)
-    return (anchor + timedelta(days=offset_days)).strftime("%Y-%m-%d")
 
 
 def task_enabled(task, now: datetime | None = None):
@@ -224,9 +200,6 @@ def main():
                     cmd.extend(["--youtube-charts-url", url])
                 else:
                     cmd.extend(["--source-playlist-url", url])
-            chart_period_end = chart_period_end_for_task(task, current_kst)
-            if chart_period_end:
-                cmd.extend(["--chart-period-end", chart_period_end])
             if entity_limit:
                 cmd.extend(["--track-limit", str(entity_limit)])
         elif task_type == "hypex":
