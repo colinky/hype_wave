@@ -47,6 +47,32 @@ def kst_now() -> datetime:
     return datetime.now(timezone.utc).astimezone(KST)
 
 
+def is_ytmusic_task(task: dict) -> bool:
+    return str(task.get("service") or task.get("type") or "").strip().lower() == "ytmusic"
+
+
+def is_ytmusic_weekly_chart_task(task: dict) -> bool:
+    return is_ytmusic_task(task) and str(task.get("job_name") or "").strip() == "Weekly-Hot-100"
+
+
+def schedule_retry_days_for_task(task: dict) -> int:
+    if is_ytmusic_weekly_chart_task(task):
+        return int(task.get("schedule_retry_days", 2) or 0)
+    return int(task.get("schedule_retry_days") or 0) if is_ytmusic_task(task) else 0
+
+
+def chart_period_anchor_for_task(task: dict) -> str:
+    if is_ytmusic_weekly_chart_task(task):
+        return str(task.get("chart_period_anchor") or "schedule").strip().lower()
+    return str(task.get("chart_period_anchor") or "").strip().lower()
+
+
+def chart_period_end_offset_days_for_task(task: dict) -> int:
+    if is_ytmusic_weekly_chart_task(task):
+        return int(task.get("chart_period_end_offset_days", -3) or 0)
+    return int(task.get("chart_period_end_offset_days") or 0) if is_ytmusic_task(task) else 0
+
+
 def schedule_window(task: dict, now: datetime | None = None) -> tuple[bool, str, datetime | None]:
     schedule = str(task.get("schedule") or "").strip()
     if not schedule:
@@ -56,7 +82,7 @@ def schedule_window(task: dict, now: datetime | None = None) -> tuple[bool, str,
     if schedule_wd is None:
         return False, f"Unknown schedule day '{schedule}'.", None
     days_since = (current.weekday() - schedule_wd) % 7
-    retry_days = int(task.get("schedule_retry_days") or 0)
+    retry_days = schedule_retry_days_for_task(task)
     anchor = current - timedelta(days=days_since)
     if days_since <= retry_days:
         return True, "", anchor
@@ -65,12 +91,15 @@ def schedule_window(task: dict, now: datetime | None = None) -> tuple[bool, str,
 
 
 def chart_period_end_for_task(task: dict, now: datetime | None = None) -> str:
-    if str(task.get("chart_period_anchor") or "").strip().lower() != "schedule":
+    if not is_ytmusic_task(task):
+        return ""
+    if chart_period_anchor_for_task(task) != "schedule":
         return ""
     ok, _, anchor = schedule_window(task, now)
     if not ok or not anchor:
         return ""
-    return anchor.strftime("%Y-%m-%d")
+    offset_days = chart_period_end_offset_days_for_task(task)
+    return (anchor + timedelta(days=offset_days)).strftime("%Y-%m-%d")
 
 
 def task_enabled(task, now: datetime | None = None):

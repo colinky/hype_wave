@@ -169,7 +169,7 @@ def most_recent_weekday(value: datetime, weekday: int) -> datetime:
 
 def default_youtube_weekly_chart_end(now: datetime | None = None) -> str:
     current = now or datetime.now(timezone.utc).astimezone(KST)
-    return most_recent_weekday(current, 6).strftime("%Y-%m-%d")
+    return most_recent_weekday(current, 3).strftime("%Y-%m-%d")
 
 
 def expected_youtube_chart_period(
