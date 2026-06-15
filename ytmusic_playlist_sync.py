@@ -1169,7 +1169,25 @@ def score_result(
         yt_album_norm = normalize_text(yt_album)
         title_is_album = any(normalize_text(tv) == yt_album_norm for tv in target_title_variants)
 
-    album_score = max(album_score_en, album_score_ko, 0.9 if title_is_album else 0.0)
+    source_album_is_title = False
+    if raw_title_score >= 0.95 and raw_artist_score >= 0.95:
+        source_album_variants = []
+        if track_en.album:
+            source_album_variants.extend(album_variants(track_en.album))
+        if track_ko and track_ko.album:
+            source_album_variants.extend(album_variants(track_ko.album))
+        source_album_is_title = any(
+            normalize_text(album_v) == normalize_text(title_v)
+            for album_v in source_album_variants
+            for title_v in target_title_variants
+        )
+
+    album_score = max(
+        album_score_en,
+        album_score_ko,
+        0.9 if title_is_album else 0.0,
+        0.9 if source_album_is_title else 0.0,
+    )
     if track_en.album or (track_ko and track_ko.album):
         album_multiplier = 0.9 if not yt_album else (0.7 + (album_score * 0.3))
     else:
@@ -1344,21 +1362,25 @@ def score_result(
                 score *= 0.1
 
     # 7. Artist completeness and featuring artist mismatch checks
-    # 7.1. Target individual artists groups (including aliases and parentheses variants)
-    target_groups = []
-    target_individual = []
+    # 7.1. Target artist views (EN/KO are alternate views, not cumulative requirements)
+    def build_groups(artist_text: str) -> list[set[str]]:
+        groups = []
+        for part in unique_values(split_artist_names(artist_text)):
+            variants = ALIASES.get_variants(part, "artist")
+            expanded = []
+            for v in variants:
+                expanded.extend(_extract_parentheses_variants(v))
+                expanded.append(v)
+            group = {normalize_text(v) for v in unique_values(expanded) if v}
+            if group:
+                groups.append(group)
+        return groups
+
+    target_group_views = []
     if track_en.artist:
-        target_individual.extend(split_artist_names(track_en.artist))
+        target_group_views.append(build_groups(track_en.artist))
     if track_ko and track_ko.artist:
-        target_individual.extend(split_artist_names(track_ko.artist))
-        
-    for part in unique_values(target_individual):
-        variants = ALIASES.get_variants(part, "artist")
-        expanded = []
-        for v in variants:
-            expanded.extend(_extract_parentheses_variants(v))
-            expanded.append(v)
-        target_groups.append({normalize_text(v) for v in unique_values(expanded) if v})
+        target_group_views.append(build_groups(track_ko.artist))
 
 
     # 7.2. Candidate individual artists groups (resolved via channel IDs where possible)
@@ -1401,39 +1423,42 @@ def score_result(
             if part_norm and not ("조회수" in part_norm or "views" in part_norm or "topic" in part_norm or "주제" in part_norm):
                 cand_groups.append({part_norm})
 
-    # Compare artist groups if both lists are non-empty
-    if target_groups and cand_groups:
-        matched_targets = 0
-        for t_group in target_groups:
-            is_matched = False
-            for c_group in cand_groups:
-                if any(similarity(t_v, c_v, is_title=False) >= 0.85 for t_v in t_group for c_v in c_group):
-                    is_matched = True
-                    break
-            if is_matched:
-                matched_targets += 1
-                
-        matched_cands = 0
-        unmatched_cands = 0
-        for c_group in cand_groups:
-            is_matched = False
-            for t_group in target_groups:
-                if any(similarity(t_v, c_v, is_title=False) >= 0.85 for t_v in t_group for c_v in c_group):
-                    is_matched = True
-                    break
-            if is_matched:
-                matched_cands += 1
-            else:
-                unmatched_cands += 1
+    # Compare against the best source language view.
+    if target_group_views and cand_groups:
+        def group_matches(left_group: set[str], right_group: set[str]) -> bool:
+            return any(similarity(left, right, is_title=False) >= 0.85 for left in left_group for right in right_group)
 
-        # Case A: Target has required artists missing in candidate (e.g. duet target vs solo candidate)
-        if matched_targets < len(target_groups):
-            missing_ratio = (len(target_groups) - matched_targets) / len(target_groups)
-            score *= (1.0 - 0.5 * missing_ratio)
-            
-        # Case B: Candidate has extra artists not in target (e.g. solo target vs duet candidate)
-        if unmatched_cands > 0:
-            score *= 0.70
+        def matched_ratio(target_groups: list[set[str]]) -> float:
+            if not target_groups:
+                return 1.0
+            matched_targets = sum(
+                1 for t_group in target_groups
+                if any(group_matches(t_group, c_group) for c_group in cand_groups)
+            )
+            return matched_targets / len(target_groups)
+
+        valid_views = [groups for groups in target_group_views if groups]
+        if valid_views:
+            best_matched_ratio = max(matched_ratio(groups) for groups in valid_views)
+
+            # Case A: Target has required artists missing in candidate (e.g. duet target vs solo candidate)
+            if best_matched_ratio < 1.0:
+                score *= (1.0 - 0.5 * (1.0 - best_matched_ratio))
+
+            # Case B: Candidate has extra artists not in target (e.g. solo target vs duet candidate)
+            # EN/KO source views are alternate labels, so a candidate is extra only
+            # when none of the source language views can explain it.
+            all_target_groups = [
+                target_group
+                for view in valid_views
+                for target_group in view
+            ]
+            unmatched_cands = sum(
+                1 for c_group in cand_groups
+                if not any(group_matches(t_group, c_group) for t_group in all_target_groups)
+            )
+            if unmatched_cands > 0:
+                score *= 0.70
 
     # 7.3. Featuring artist mismatch in candidate title (duet/collaboration listed only in title)
     cand_titles_to_check = [yt_title]
