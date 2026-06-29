@@ -4,8 +4,9 @@ import json
 import logging
 import os
 import re
+import shutil
 import sqlite3
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Iterable
 
@@ -24,6 +25,8 @@ from hype_db_schema import connect
 LOG = logging.getLogger("hype_db")
 __all__ = [
     "export_frontend_history",
+    "inflate_frontend_history",
+    "compact_frontend_history",
     "display_history_date",
     "source_chart_date_for_display",
     "prune_history",
@@ -33,22 +36,178 @@ __all__ = [
     "build_hype_report_from_rows",
 ]
 
+
+TRACK_METADATA_FIELDS = (
+    "video_id",
+    "title",
+    "artist",
+    "album",
+    "yt_title",
+    "yt_artist",
+    "yt_album",
+    "artwork_url",
+    "apple_url",
+    "melon_url",
+    "spotify_url",
+)
+DAILY_RANKING_FIELDS = (
+    "hype_rank",
+    "hype_index",
+    "apple_rank",
+    "melon_rank",
+    "melon_genz_rank",
+    "ytmusic_rank",
+)
+
+
+def _is_history_v2(payload: Any) -> bool:
+    return (
+        isinstance(payload, dict)
+        and payload.get("schema_version") == 2
+        and isinstance(payload.get("tracks"), dict)
+        and isinstance(payload.get("rankings"), dict)
+    )
+
+
+def _looks_like_history_date(value: str) -> bool:
+    return bool(re.fullmatch(r"\d{4}-\d{2}-\d{2}", str(value or "")))
+
+
+def inflate_frontend_history(payload: Any) -> dict[str, list[dict[str, Any]]]:
+    """Return the legacy in-memory shape: date -> list of complete song rows."""
+    if not isinstance(payload, dict):
+        return {}
+
+    if not _is_history_v2(payload):
+        return {
+            date: [dict(item) for item in rows if isinstance(item, dict)]
+            for date, rows in payload.items()
+            if _looks_like_history_date(date) and isinstance(rows, list)
+        }
+
+    tracks = payload.get("tracks") or {}
+    rankings = payload.get("rankings") or {}
+    raw_dates = payload.get("dates")
+    dates = [
+        date for date in (raw_dates if isinstance(raw_dates, list) else rankings.keys())
+        if _looks_like_history_date(str(date))
+    ]
+
+    history: dict[str, list[dict[str, Any]]] = {}
+    for date in dates:
+        daily = rankings.get(date)
+        if not isinstance(daily, dict):
+            continue
+        rows: list[dict[str, Any]] = []
+        for video_id, ranking in daily.items():
+            if not isinstance(ranking, dict):
+                continue
+            metadata = tracks.get(video_id) if isinstance(tracks.get(video_id), dict) else {}
+            row = dict(metadata)
+            row.update(ranking)
+            row["video_id"] = row.get("video_id") or video_id
+            rows.append(row)
+        rows.sort(key=lambda row: (row.get("hype_rank") or 9999, row.get("title") or "", row.get("video_id") or ""))
+        history[date] = rows
+    return history
+
+
+def compact_frontend_history(
+    history: dict[str, list[dict[str, Any]]],
+    *,
+    days: int = 31,
+    generated_at: str | None = None,
+) -> dict[str, Any]:
+    """Normalize date-keyed complete rows into shared track metadata plus daily rankings."""
+    dates = sorted(
+        [date for date, rows in history.items() if _looks_like_history_date(date) and isinstance(rows, list)],
+        reverse=True,
+    )
+    tracks: dict[str, dict[str, Any]] = {}
+    rankings: dict[str, dict[str, dict[str, Any]]] = {}
+
+    for date in dates:
+        daily: dict[str, dict[str, Any]] = {}
+        for row in sorted(history.get(date, []), key=lambda item: (item.get("hype_rank") or 9999, item.get("title") or "")):
+            if not isinstance(row, dict):
+                continue
+            video_id = str(row.get("video_id") or "").strip()
+            if not video_id:
+                continue
+
+            track = tracks.setdefault(video_id, {"video_id": video_id})
+            for field in TRACK_METADATA_FIELDS:
+                value = row.get(field)
+                if value not in (None, "") and track.get(field) in (None, ""):
+                    track[field] = value
+            for field in TRACK_METADATA_FIELDS:
+                track.setdefault(field, "")
+            track["video_id"] = video_id
+
+            daily[video_id] = {field: row.get(field) for field in DAILY_RANKING_FIELDS}
+        rankings[date] = daily
+
+    referenced_video_ids = {
+        video_id
+        for daily in rankings.values()
+        for video_id in daily.keys()
+    }
+    tracks = {
+        video_id: tracks[video_id]
+        for video_id in tracks
+        if video_id in referenced_video_ids
+    }
+
+    return {
+        "schema_version": 2,
+        "generated_at": generated_at or datetime.now(timezone.utc).replace(microsecond=0).isoformat(),
+        "days": days,
+        "dates": dates,
+        "tracks": tracks,
+        "rankings": rankings,
+    }
+
+
+def _backup_legacy_history_file(path: Path, payload: Any) -> None:
+    if not path.exists() or _is_history_v2(payload):
+        return
+    backup = path.with_name("history.v1.backup.json")
+    if backup.exists():
+        stamp = datetime.now().strftime("%Y%m%d%H%M%S")
+        backup = path.with_name(f"history.v1.backup.{stamp}.json")
+    shutil.copy2(path, backup)
+    LOG.info("Backed up legacy frontend history to %s", backup)
+
+
+def _apple_history_anchor_jobs() -> list[str]:
+    jobs = [
+        name for name, item in hype_inputs().items()
+        if item.get("hype_group") == "apple"
+    ] or ["KR-Top-100"]
+    if "KR-Top-Songs" not in jobs:
+        jobs.append("KR-Top-Songs")
+    return jobs
+
+
 def export_frontend_history(
     db_path: str | Path,
     output_path: str | Path,
     *,
     days: int = 31,
     full_rebuild: bool = False,
-) -> dict[str, list[dict[str, Any]]]:
+) -> dict[str, Any]:
     path = Path(db_path)
     if not path.exists() and not os.environ.get("SUPABASE_DB_URL"):
         return {}
     out = Path(output_path)
+    existing_payload: Any = {}
+    if out.exists():
+        try:
+            existing_payload = json.loads(out.read_text(encoding="utf-8"))
+        except Exception:
+            existing_payload = {}
     with connect(path) as conn:
-        apple_playlists = [
-            name for name, item in hype_inputs().items()
-            if item.get("hype_group") == "apple"
-        ] or ["KR-Top-100"]
+        apple_playlists = _apple_history_anchor_jobs()
         placeholders = ",".join("?" for _ in apple_playlists)
         limit = days if full_rebuild or not out.exists() else 1
         date_rows = conn.execute(
@@ -66,16 +225,13 @@ def export_frontend_history(
         if full_rebuild or not out.exists():
             history: dict[str, list[dict[str, Any]]] = {}
         else:
-            try:
-                history = json.loads(out.read_text(encoding="utf-8"))
-                if not isinstance(history, dict):
-                    history = {}
-            except Exception:
-                history = {}
+            history = inflate_frontend_history(existing_payload)
         if not dates:
+            payload = compact_frontend_history(history, days=days)
             out.parent.mkdir(parents=True, exist_ok=True)
-            out.write_text(json.dumps(history, ensure_ascii=False, indent=2), encoding="utf-8")
-            return history
+            _backup_legacy_history_file(out, existing_payload)
+            out.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+            return payload
         rows_by_date = fetch_hype_rows_for_dates(conn, dates)
         for date in sorted(dates):
             previous_apple_videos = previous_apple_videos_for_history(conn, history, date)
@@ -85,9 +241,11 @@ def export_frontend_history(
             )
             history[date] = report
         history = prune_history(history, reference_date=max(dates), days=days)
+        payload = compact_frontend_history(history, days=days)
     out.parent.mkdir(parents=True, exist_ok=True)
-    out.write_text(json.dumps(history, ensure_ascii=False, indent=2), encoding="utf-8")
-    return history
+    _backup_legacy_history_file(out, existing_payload)
+    out.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+    return payload
 
 
 def display_history_date(chart_date: str) -> str:
@@ -134,17 +292,15 @@ def prune_history(
 
 def previous_apple_videos_for_history(
     conn: sqlite3.Connection,
-    history: dict[str, list[dict[str, Any]]],
+    history: Any,
     date: str,
 ) -> set[str]:
-    previous_dates = sorted([item for item in history if item < date], reverse=True)
+    inflated_history = inflate_frontend_history(history)
+    previous_dates = sorted([item for item in inflated_history if item < date], reverse=True)
     if previous_dates:
-        return {row["video_id"] for row in history[previous_dates[0]] if row.get("apple_rank")}
+        return {row["video_id"] for row in inflated_history[previous_dates[0]] if row.get("apple_rank")}
 
-    apple_playlists = [
-        name for name, item in hype_inputs().items()
-        if item.get("hype_group") == "apple"
-    ] or ["KR-Top-100"]
+    apple_playlists = _apple_history_anchor_jobs()
     placeholders = ",".join("?" for _ in apple_playlists)
     row = conn.execute(
         f"""
@@ -426,8 +582,6 @@ def build_hype_report_from_rows(
         hype_index = sum(score_parts.values())
         apple_rank = item["apple_rank"] or 101
         melon_rank = item["melon_rank"] or 101
-        is_wave = apple_rank <= 100 and melon_rank > 100
-        is_new_wave = is_wave and item["video_id"] not in previous_apple_videos
         item.pop("_best_rank", None)
         item.pop("_best_service_priority", None)
         item["title"] = item["title"] or item["yt_title"] or ""
@@ -450,9 +604,7 @@ def build_hype_report_from_rows(
             item["ytmusic_rank"] = None
         item.update(
             {
-                "hype_index": round(hype_index, 2),
-                "is_wave": is_wave,
-                "is_new_wave": is_new_wave,
+                "hype_index": round(hype_index, 2)
             }
         )
         if hype_index > 0:
@@ -472,4 +624,3 @@ def build_hype_report_from_rows(
     for index, row in enumerate(report, 1):
         row["hype_rank"] = index
     return report[:200]
-

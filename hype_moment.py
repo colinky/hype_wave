@@ -40,7 +40,7 @@ def main():
     db_path = Path(args.db_path).expanduser()
     
     # 1. WAVE 판별을 위해 어제 히스토리에서 애플 차트 곡 ID 추출
-    history_file = Path("docs/api/history.json")
+    history_file = Path(args.history_json)
     previous_apple_videos = set()
     history_data = {}
     
@@ -49,8 +49,10 @@ def main():
 
     if history_file.exists():
         try:
+            from hype_db import inflate_frontend_history
+
             with open(history_file, "r", encoding="utf-8") as f:
-                history_data = json.load(f)
+                history_data = inflate_frontend_history(json.load(f))
                 # 오늘 날짜를 제외하고 가장 최근의 과거 날짜를 찾습니다 (하루 여러 번 실행 대응)
                 past_dates = sorted([d for d in history_data.keys() if d < today_str], reverse=True)
                 if past_dates:

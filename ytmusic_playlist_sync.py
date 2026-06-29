@@ -20,7 +20,12 @@ from requests.adapters import HTTPAdapter
 from urllib3.util import Retry
 from ytmusicapi import YTMusic
 
-from hype_db_common import has_version_mismatch, postgres_connect_config, version_signature
+from hype_db_common import (
+    has_version_mismatch,
+    postgres_connect_config,
+    strip_content_rating_version_markers,
+    version_signature,
+)
 
 try:
     from ytmusicapi.auth.oauth import OAuthCredentials
@@ -794,6 +799,9 @@ def similarity(left: str, right: str, is_title: bool = False) -> float:
     - CJK 문자 특화: 한국어/일본어 등은 짧은 단어라도 정보량이 많으므로 더 낮은 길이 임계값 적용
     - 토큰 기반 및 서퀀스 기반 유사도 결합
     """
+    if is_title:
+        left = strip_content_rating_version_markers(left)
+        right = strip_content_rating_version_markers(right)
     left_norm = normalize_text(left)
     right_norm = normalize_text(right)
     if not left_norm or not right_norm:

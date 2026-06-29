@@ -61,9 +61,9 @@
             padding: 14px;
             position: absolute;
             z-index: 1000;
-            bottom: 140%;
-            left: 50%;
-            transform: translateX(-50%) translateY(10px);
+            top: 50%;
+            left: calc(100% + 10px);
+            transform: translateX(-8px) translateY(-50%);
             opacity: 0;
             transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
             font-size: 0.8rem;
@@ -78,7 +78,7 @@
         .info-trigger.active .tooltip {
             visibility: visible;
             opacity: 1;
-            transform: translateX(-50%) translateY(0);
+            transform: translateX(0) translateY(-50%);
         }
 
         .header-desc {
@@ -578,14 +578,14 @@
             /* 툴팁 모바일 위치 보정 */
             .tooltip {
                 width: 220px;
-                left: auto;
-                right: -10px;
-                transform: translateX(0) translateY(10px);
+                left: calc(100% + 8px);
+                right: auto;
+                transform: translateX(-8px) translateY(-50%);
             }
 
             .info-trigger:hover .tooltip,
             .info-trigger.active .tooltip {
-                transform: translateX(0) translateY(0);
+                transform: translateX(0) translateY(-50%);
             }
         }
 
@@ -616,10 +616,6 @@
         <h1>HYPE WAVE</h1>
         <p class="header-desc">
             <span id="header-motto">Catch Tomorrow's Hype Today</span>
-            <span class="info-trigger">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
-                <span class="tooltip" id="logic-tooltip">...</span>
-            </span>
             <a id="yt-playlist-link" href="https://music.youtube.com/playlist?list=PLtawHGpcUVZXKVkfIElFeaWB6g6d1o9Dr" target="_blank" title="Listen in YouTube Music" class="yt-playlist-icon">
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                     <path d="M12 22C17.5228 22 22 17.5228 22 12C22 6.47715 17.5228 2 12 2C6.47715 2 2 6.47715 2 12C2 17.5228 6.47715 22 12 22Z" fill="#FF0000"/>
@@ -628,6 +624,10 @@
                     <path d="M10.5 10V14L14 12L10.5 10Z" fill="white"/>
                 </svg>
             </a>
+            <span class="info-trigger">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+                <span class="tooltip" id="logic-tooltip">...</span>
+            </span>
         </p>
     </header>
 
@@ -674,6 +674,52 @@
         let currentChartType = 'hype';
         let highlightedDatasetIndex = null;
 
+        function hydrateHistory(rawHistory) {
+            if (!rawHistory || typeof rawHistory !== 'object') return {};
+
+            const isDateKey = (key) => /^\d{4}-\d{2}-\d{2}$/.test(key);
+
+            if (rawHistory.schema_version !== 2 || !rawHistory.tracks || !rawHistory.rankings) {
+                return Object.fromEntries(
+                    Object.entries(rawHistory)
+                        .filter(([date, rows]) => isDateKey(date) && Array.isArray(rows))
+                        .map(([date, rows]) => [date, rows])
+                );
+            }
+
+            const tracks = rawHistory.tracks || {};
+            const rankings = rawHistory.rankings || {};
+            const dates = Array.isArray(rawHistory.dates)
+                ? rawHistory.dates
+                : Object.keys(rankings).sort((a, b) => b.localeCompare(a));
+
+            const history = {};
+            dates.forEach((date) => {
+                const daily = rankings[date];
+                if (!isDateKey(date) || !daily || typeof daily !== 'object') return;
+                history[date] = Object.entries(daily)
+                    .map(([videoId, ranking]) => {
+                        const metadata = tracks[videoId] || {};
+                        return {
+                            video_id: metadata.video_id || videoId,
+                            title: metadata.title || metadata.yt_title || '',
+                            artist: metadata.artist || metadata.yt_artist || '',
+                            album: metadata.album || metadata.yt_album || '',
+                            yt_title: metadata.yt_title || '',
+                            yt_artist: metadata.yt_artist || '',
+                            yt_album: metadata.yt_album || '',
+                            artwork_url: metadata.artwork_url || '',
+                            apple_url: metadata.apple_url || '',
+                            melon_url: metadata.melon_url || '',
+                            spotify_url: metadata.spotify_url || '',
+                            ...(ranking || {})
+                        };
+                    })
+                    .sort((a, b) => (a.hype_rank || 9999) - (b.hype_rank || 9999));
+            });
+            return history;
+        }
+
         async function loadChart() {
             try {
                 // Set language-based motto
@@ -699,7 +745,8 @@
                 });
 
                 const response = await fetch('api/history.json');
-                globalHistory = await response.json();
+                const rawHistory = await response.json();
+                globalHistory = hydrateHistory(rawHistory);
 
                 availableDates = Object.keys(globalHistory).sort((a, b) => b.localeCompare(a));
 
@@ -979,8 +1026,11 @@
                         },
                         y: {
                             min: 0,
-                            max: 100,
+                            max: 105,
                             beginAtZero: true,
+                            afterBuildTicks: (axis) => {
+                                axis.ticks = axis.ticks.filter((tick) => tick.value <= 100);
+                            },
                             grid: { color: 'rgba(255, 255, 255, 0.05)', drawBorder: false },
                             ticks: { 
                                 color: '#808080', 
@@ -1082,9 +1132,9 @@
                 card.addEventListener('touchcancel', () => card.classList.remove('is-touching'));
             }
 
-            const appleRank = song.apple_rank ? `Apple #${song.apple_rank}` : 'Apple Out';
-            const melonRank = song.melon_rank ? `Melon #${song.melon_rank}` : 'Melon Out';
-            const ytmusicRank = song.ytmusic_rank ? `YTM #${song.ytmusic_rank}` : 'YTM Out';
+            const appleRank = song.apple_rank ? `Apple #${song.apple_rank}` : 'Apple ∅';
+            const melonRank = song.melon_rank ? `Melon #${song.melon_rank}` : 'Melon ∅';
+            const ytmusicRank = song.ytmusic_rank ? `YTM #${song.ytmusic_rank}` : 'YTM ∅';
             const displayRank = currentChartType === 'apple'
                 ? song.apple_rank
                 : (currentChartType === 'melon'

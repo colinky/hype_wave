@@ -26,6 +26,7 @@ __all__ = [
     "metadata_key",
     "compact_metadata_key",
     "strip_parens_from_title",
+    "strip_content_rating_version_markers",
     "feature_signature",
     "has_feature_mismatch",
     "version_signature",
@@ -138,6 +139,23 @@ def strip_parens_from_title(title: str | None) -> str:
     return stripped or (title or "")
 
 
+_CONTENT_RATING_WORDS_RE = r"(?:explicit|clean|edited|censored|uncensored)"
+_CONTENT_RATING_MARKER_RE = rf"{_CONTENT_RATING_WORDS_RE}(?:\s+(?:ver\.?|version|edition))?"
+_CONTENT_RATING_VERSION_SUFFIX_RE = rf"{_CONTENT_RATING_WORDS_RE}\s+(?:ver\.?|version|edition)"
+
+
+def strip_content_rating_version_markers(title: str | None) -> str:
+    """Remove content-rating labels that do not identify a different recording."""
+    text = unicodedata.normalize("NFKC", title or "")
+    if not text:
+        return ""
+    marker = _CONTENT_RATING_MARKER_RE
+    text = re.sub(rf"\s*[\(\[]\s*{marker}\s*[\)\]]", " ", text, flags=re.IGNORECASE)
+    text = re.sub(rf"\s*[-–—]\s*{marker}\s*$", " ", text, flags=re.IGNORECASE)
+    text = re.sub(rf"\s+{_CONTENT_RATING_VERSION_SUFFIX_RE}\.?\s*$", " ", text, flags=re.IGNORECASE)
+    return re.sub(r"\s+", " ", text).strip() or (title or "")
+
+
 def feature_signature(title: str | None) -> str:
     """Return normalized featuring-artist text from a title, if present."""
     text = title or ""
@@ -160,7 +178,7 @@ def has_feature_mismatch(left: str | None, right: str | None) -> bool:
 
 def version_signature(title: str | None) -> str:
     """Return a normalized recording/version marker such as remix, live, or acoustic."""
-    text = unicodedata.normalize("NFKC", title or "").lower()
+    text = strip_content_rating_version_markers(title).lower()
     text = re.sub(r"\b(?:feat\.?|ft\.?|featuring)\b.*", " ", text)
     suffix_chunks = re.findall(r"[\(\[]([^\)\]]+)[\)\]]", text)
     suffix_chunks.extend(re.findall(r"\s[-–—]\s(.+)$", text))
@@ -228,7 +246,8 @@ def clean_track_title(title: str | None) -> str:
       '갑자기 (MV)'        → '갑자기'
       'Song (Live Ver.)'   → 'Song'
     """
-    cleaned = _VARIANT_SUFFIX_RE.sub("", (title or "")).strip()
+    cleaned = strip_content_rating_version_markers(title)
+    cleaned = _VARIANT_SUFFIX_RE.sub("", cleaned).strip()
     return cleaned or (title or "")
 
 
