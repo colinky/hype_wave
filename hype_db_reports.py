@@ -262,14 +262,17 @@ def prune_history(
     from datetime import datetime, timedelta
 
     try:
-        cutoff = datetime.strptime(reference_date, "%Y-%m-%d") - timedelta(days=max(days - 1, 0))
+        reference_dt = datetime.strptime(reference_date, "%Y-%m-%d")
+        cutoff = reference_dt - timedelta(days=max(days - 1, 0))
     except Exception:
+        reference_dt = None
         cutoff = None
     filtered: dict[str, list[dict[str, Any]]] = {}
     for date in sorted(history.keys(), reverse=True):
         if cutoff:
             try:
-                if datetime.strptime(date, "%Y-%m-%d") < cutoff:
+                current_dt = datetime.strptime(date, "%Y-%m-%d")
+                if current_dt > reference_dt or current_dt < cutoff:
                     continue
             except Exception:
                 continue
