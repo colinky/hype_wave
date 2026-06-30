@@ -1,6 +1,6 @@
 {
   "schema_version": 2,
-  "generated_at": "2026-06-30T11:57:56+00:00",
+  "generated_at": "2026-06-30T12:14:02+00:00",
   "days": 31,
   "dates": [
     "2026-06-29",
@@ -167,7 +167,7 @@
     "MUny_GDYIDM": {
       "video_id": "MUny_GDYIDM",
       "title": "404 (New Era)",
-      "artist": "키키",
+      "artist": "KiiiKiii",
       "album": "Delulu Pack - EP",
       "yt_title": "404 (New Era)",
       "yt_artist": "KiiiKiii",
@@ -362,8 +362,8 @@
     "D3tUvbqOAAY": {
       "video_id": "D3tUvbqOAAY",
       "title": "STYLE",
-      "artist": "Hearts2Hearts",
-      "album": "STYLE - Single",
+      "artist": "Hearts2Hearts (하츠투하츠)",
+      "album": "STYLE",
       "yt_title": "STYLE",
       "yt_artist": "Hearts2Hearts",
       "yt_album": "STYLE",
@@ -454,7 +454,7 @@
       "video_id": "proAJg4sVhM",
       "title": "Do your dance",
       "artist": "RIIZE",
-      "album": "Ⅱ - The 2nd Mini Album - EP",
+      "album": "II - The 2nd Mini Album - EP",
       "yt_title": "Do your dance",
       "yt_artist": "RIIZE",
       "yt_album": "II - The 2nd Mini Album",
@@ -563,8 +563,8 @@
       "yt_artist": "SS501",
       "yt_album": "꽃보다 남자 (Original Television Soundtrack)",
       "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music221/v4/92/26/c6/9226c6ff-6156-e506-77e8-635a9ac158f1/8809717500528.jpg/100x100bb.jpg",
-      "apple_url": "https://music.apple.com/album/1805728259?i=1805728265",
       "melon_url": "https://www.melon.com/song/detail.htm?songId=2017349",
+      "apple_url": "https://music.apple.com/album/1805728259?i=1805728265",
       "spotify_url": ""
     },
     "7wJsfALKRR8": {
@@ -589,9 +589,9 @@
       "yt_artist": "LEE CHANHYUK",
       "yt_album": "EROS",
       "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music221/v4/cd/70/83/cd708321-2be1-ffa8-67db-a40d473e9557/8809519880798_cover.jpg/100x100bb.jpg",
-      "apple_url": "https://music.apple.com/album/1825027867?i=1825027874",
       "melon_url": "https://www.melon.com/song/detail.htm?songId=39307948",
-      "spotify_url": "https://open.spotify.com/track/06o2o3TpyR8eGU2ANK21Lp"
+      "spotify_url": "https://open.spotify.com/track/06o2o3TpyR8eGU2ANK21Lp",
+      "apple_url": "https://music.apple.com/album/1825027867?i=1825027874"
     },
     "dgZlLjfh6q4": {
       "video_id": "dgZlLjfh6q4",
@@ -1061,6 +1061,19 @@
       "melon_url": "",
       "spotify_url": ""
     },
+    "UOKLtaE2U90": {
+      "video_id": "UOKLtaE2U90",
+      "title": "만찬가",
+      "artist": "태연 (TAEYEON)",
+      "album": "J-POP REMAKE Vol.1",
+      "yt_title": "Bansanka",
+      "yt_artist": "TAEYEON",
+      "yt_album": "J-POP REMAKE Vol.1",
+      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music221/v4/fb/64/dc/fb64dc58-5e47-9e5d-a695-baa40839c6f2/cover_KM0024853_1.jpg/100x100bb.jpg",
+      "melon_url": "https://www.melon.com/song/detail.htm?songId=602377105",
+      "apple_url": "",
+      "spotify_url": ""
+    },
     "r6Eei81SuqE": {
       "video_id": "r6Eei81SuqE",
       "title": "뛰어",
@@ -1096,9 +1109,9 @@
       "yt_artist": "Kenshi Yonezu",
       "yt_album": "IRIS OUT",
       "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music221/v4/e0/f9/f1/e0f9f1f3-a088-b28d-6760-a28accabc705/4547366775181.jpg/100x100bb.jpg",
-      "melon_url": "https://www.melon.com/song/detail.htm?songId=600032332",
       "spotify_url": "https://open.spotify.com/track/59hVbgr8rfYkDbHfr8RcGI",
-      "apple_url": ""
+      "apple_url": "",
+      "melon_url": "https://www.melon.com/song/detail.htm?songId=600032332"
     },
     "-BX7DpABCbE": {
       "video_id": "-BX7DpABCbE",
@@ -1200,8 +1213,8 @@
       "yt_artist": "로이킴",
       "yt_album": "다시 불러 봄 - Bloom Again",
       "artwork_url": "https://kkoimg.melon.co.kr/cm2/album/images/134/02/380/13402380_20260519123959_500.jpg?b6eae52acf4a5353fb2b1a926747409a/melon/resize/96/quality/80/optimize",
-      "apple_url": "https://music.apple.com/album/6769657413?i=6769657416",
       "melon_url": "https://www.melon.com/song/detail.htm?songId=602033687",
+      "apple_url": "https://music.apple.com/album/6769657413?i=6769657416",
       "spotify_url": ""
     },
     "gjQwwWjxPaQ": {
@@ -1447,9 +1460,9 @@
       "yt_artist": "IVE",
       "yt_album": "REVIVE+",
       "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music221/v4/7a/e5/cf/7ae5cf13-7974-d26d-2cc4-f70a2296cc93/199806315972.jpg/100x100bb.jpg",
-      "apple_url": "https://music.apple.com/album/1873882195?i=1873882200",
       "melon_url": "https://www.melon.com/song/detail.htm?songId=601356371",
-      "spotify_url": "https://open.spotify.com/track/0MtiWniV24IBXmBPeW1v1m"
+      "spotify_url": "https://open.spotify.com/track/0MtiWniV24IBXmBPeW1v1m",
+      "apple_url": "https://music.apple.com/album/1873882195?i=1873882200"
     },
     "4ZHxBEDHTFg": {
       "video_id": "4ZHxBEDHTFg",
@@ -1568,16 +1581,16 @@
       "apple_url": "",
       "melon_url": ""
     },
-    "clsPwXUeZFk": {
-      "video_id": "clsPwXUeZFk",
+    "DxVbg_RbczA": {
+      "video_id": "DxVbg_RbczA",
       "title": "Dirty Work",
       "artist": "aespa",
       "album": "Dirty Work (Apple Music Edition) - EP",
-      "yt_title": "Dirty Work",
-      "yt_artist": "aespa",
-      "yt_album": "Dirty Work",
       "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music221/v4/09/0d/b3/090db3d2-50a0-b1ed-014a-4ac6ccdaa519/888735952029_Cover.jpg/100x100bb.jpg",
       "apple_url": "https://music.apple.com/album/1818922030?i=1818922031",
+      "yt_title": "",
+      "yt_artist": "",
+      "yt_album": "",
       "melon_url": "",
       "spotify_url": ""
     },
@@ -1630,8 +1643,8 @@
       "yt_album": "Fourever",
       "artwork_url": "https://kkoimg.melon.co.kr/cm2/album/images/114/44/397/11444397_20240318115810_500.jpg?8cb5c0486469bbe05f7dd895ec073d72/melon/resize/96/quality/80/optimize",
       "melon_url": "https://www.melon.com/song/detail.htm?songId=37323944",
-      "spotify_url": "https://open.spotify.com/track/5R5NMy7zc7QPCfdvy8dvCQ",
-      "apple_url": ""
+      "apple_url": "",
+      "spotify_url": "https://open.spotify.com/track/5R5NMy7zc7QPCfdvy8dvCQ"
     },
     "TBkn0TiYkyA": {
       "video_id": "TBkn0TiYkyA",
@@ -1706,7 +1719,7 @@
       "yt_title": "Till The End of Time",
       "yt_artist": "검정치마 The Black Skirts",
       "yt_album": "Another Miss Oh, Pt. 7 (Original Television Soundtrack)",
-      "artwork_url": "https://kkoimg.melon.co.kr/cm/album/images/026/90/838/2690838_500.jpg/melon/resize/96/quality/80/optimize",
+      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music116/v4/9e/a6/94/9ea694dd-6a3b-6604-4309-2230faa84ce7/8809484115796_Cover.jpg/100x100bb.jpg",
       "melon_url": "https://www.melon.com/song/detail.htm?songId=8224585",
       "apple_url": "",
       "spotify_url": ""
@@ -1746,9 +1759,9 @@
       "yt_artist": "KISS OF LIFE",
       "yt_album": "Who is she",
       "artwork_url": "https://kkoimg.melon.co.kr/cm2/album/images/133/12/051/13312051_20260406110741_500.jpg?YUV444/melon/resize/96",
-      "apple_url": "https://music.apple.com/album/1886385269?i=1886385270",
       "melon_url": "https://www.melon.com/song/detail.htm?songId=601717979",
-      "spotify_url": "https://open.spotify.com/track/16iOs2f9G9qRknDgM9cfAw"
+      "spotify_url": "https://open.spotify.com/track/16iOs2f9G9qRknDgM9cfAw",
+      "apple_url": "https://music.apple.com/album/1886385269?i=1886385270"
     },
     "O4ZZJ_ek2gs": {
       "video_id": "O4ZZJ_ek2gs",
@@ -1772,8 +1785,8 @@
       "yt_artist": "TAEYANG",
       "yt_album": "QUINTESSENCE",
       "artwork_url": "https://cdnimg.melon.co.kr/cm2/album/images/133/95/803/13395803_20260515140032_500.jpg/melon/resize/120/quality/80/optimize",
-      "apple_url": "https://music.apple.com/album/6768878794?i=6768878796",
       "melon_url": "https://www.melon.com/song/detail.htm?songId=602011402",
+      "apple_url": "https://music.apple.com/album/6768878794?i=6768878796",
       "spotify_url": ""
     },
     "nspP5BFZEXs": {
@@ -1812,8 +1825,8 @@
       "yt_album": "Ode to Love - The 1st Album",
       "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/12/54/46/125446e6-eefe-3ea6-44c2-1e738f2fee5f/888735955273.png/100x100bb.jpg",
       "apple_url": "https://music.apple.com/album/1891040424?i=1891040426",
-      "melon_url": "https://www.melon.com/song/detail.htm?songId=601766233",
-      "spotify_url": "https://open.spotify.com/track/08aIVRb9ucpxKdAJb50HAx"
+      "spotify_url": "https://open.spotify.com/track/08aIVRb9ucpxKdAJb50HAx",
+      "melon_url": "https://www.melon.com/song/detail.htm?songId=601766233"
     },
     "6d-ygS1tKuU": {
       "video_id": "6d-ygS1tKuU",
@@ -1941,9 +1954,9 @@
       "yt_artist": "ITZY",
       "yt_album": "IT'z ME",
       "artwork_url": "https://i.ytimg.com/vi/Geh1ZEjkaeM/maxresdefault.jpg",
-      "melon_url": "https://www.melon.com/song/detail.htm?songId=32445341",
       "spotify_url": "https://open.spotify.com/track/5Dxoukq4UC29A7OjQTbHgw",
-      "apple_url": ""
+      "apple_url": "",
+      "melon_url": "https://www.melon.com/song/detail.htm?songId=32445341"
     },
     "-9fC6oDFl5k": {
       "video_id": "-9fC6oDFl5k",
@@ -1967,8 +1980,8 @@
       "yt_artist": "티아라",
       "yt_album": "DAY BY DAY",
       "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music221/v4/88/6e/cf/886ecf93-f636-65b3-87de-db72d5f72731/cover_KM0001567_1.jpg/100x100bb.jpg",
-      "apple_url": "https://music.apple.com/album/1804698750?i=1804698751",
       "melon_url": "https://www.melon.com/song/detail.htm?songId=3840800",
+      "apple_url": "https://music.apple.com/album/1804698750?i=1804698751",
       "spotify_url": ""
     },
     "j1DnOm0DdQU": {
@@ -2176,8 +2189,8 @@
       "yt_album": "FAMOUS",
       "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/ff/fd/c6/fffdc68c-4288-ff7f-344f-8c7359435baf/8800320193350_cover.jpg/100x100bb.jpg",
       "melon_url": "https://www.melon.com/song/detail.htm?songId=39156202",
-      "spotify_url": "https://open.spotify.com/track/598bDTl82CSTSDnZG0XhGK",
-      "apple_url": ""
+      "apple_url": "",
+      "spotify_url": "https://open.spotify.com/track/598bDTl82CSTSDnZG0XhGK"
     },
     "qZTVU04UOO4": {
       "video_id": "qZTVU04UOO4",
@@ -2200,7 +2213,7 @@
       "yt_title": "어땠을까 (feat. Park Jung Hyun 박정현)",
       "yt_artist": "싸이(Psy)",
       "yt_album": "싸이6甲 Part 1",
-      "artwork_url": "https://kkoimg.melon.co.kr/cm/album/images/021/37/275/2137275_500.jpg/melon/resize/96/quality/80/optimize",
+      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music124/v4/77/a3/98/77a39810-e45e-35de-fe20-dbe809ac789d/8806384535815.jpg/100x100bb.jpg",
       "melon_url": "https://www.melon.com/song/detail.htm?songId=3853980",
       "apple_url": "",
       "spotify_url": ""
@@ -2413,19 +2426,6 @@
       "spotify_url": "https://open.spotify.com/track/2rKkfc4VZ74FQDc1FF1Zo6",
       "apple_url": ""
     },
-    "DxVbg_RbczA": {
-      "video_id": "DxVbg_RbczA",
-      "title": "Dirty Work",
-      "artist": "aespa",
-      "album": "Dirty Work (Apple Music Edition) - EP",
-      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music221/v4/09/0d/b3/090db3d2-50a0-b1ed-014a-4ac6ccdaa519/888735952029_Cover.jpg/100x100bb.jpg",
-      "apple_url": "https://music.apple.com/album/1818922030?i=1818922031",
-      "yt_title": "",
-      "yt_artist": "",
-      "yt_album": "",
-      "melon_url": "",
-      "spotify_url": ""
-    },
     "xLuwg23DmW0": {
       "video_id": "xLuwg23DmW0",
       "title": "붕붕 (Feat. 식케이) (Prod. GroovyRoom)",
@@ -2450,6 +2450,19 @@
       "artwork_url": "https://kkoimg.melon.co.kr/cm2/album/images/113/04/600/11304600_20230811140259_500.jpg?c42964eab0acbfe8137c47321e5b273b/melon/resize/96/quality/80/optimize",
       "melon_url": "https://www.melon.com/song/detail.htm?songId=36695861",
       "apple_url": "",
+      "spotify_url": ""
+    },
+    "clsPwXUeZFk": {
+      "video_id": "clsPwXUeZFk",
+      "title": "Dirty Work",
+      "artist": "aespa",
+      "album": "Dirty Work (Apple Music Edition) - EP",
+      "yt_title": "Dirty Work",
+      "yt_artist": "aespa",
+      "yt_album": "Dirty Work",
+      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music221/v4/09/0d/b3/090db3d2-50a0-b1ed-014a-4ac6ccdaa519/888735952029_Cover.jpg/100x100bb.jpg",
+      "apple_url": "https://music.apple.com/album/1818922030?i=1818922031",
+      "melon_url": "",
       "spotify_url": ""
     },
     "rW2HmFDGdKs": {
