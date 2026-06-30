@@ -80,7 +80,8 @@ def main():
                 apple_jobs,
             ).fetchone()
             if latest:
-                report = hype_report_for_date(conn, latest["chart_date"], previous_apple_videos=previous_apple_videos)
+                history_date = (datetime.strptime(latest["chart_date"], "%Y-%m-%d") + timedelta(days=1)).strftime("%Y-%m-%d")
+                report = hype_report_for_date(conn, history_date, previous_apple_videos=previous_apple_videos)
                 hype_results = [
                     (row["video_id"], {"metadata": row, "score": row.get("hype_index", 0), "ranks": {
                         "Apple-Hype-Input": row.get("apple_rank") or 101,
