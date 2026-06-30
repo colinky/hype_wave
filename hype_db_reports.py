@@ -27,8 +27,6 @@ __all__ = [
     "export_frontend_history",
     "inflate_frontend_history",
     "compact_frontend_history",
-    "display_history_date",
-    "source_chart_date_for_display",
     "prune_history",
     "previous_apple_videos_for_history",
     "fetch_hype_rows_for_dates",
@@ -218,7 +216,7 @@ def export_frontend_history(
             """,
             (*apple_playlists, limit),
         ).fetchall()
-        dates = [display_history_date(row["chart_date"]) for row in date_rows]
+        dates = [_history_date_from_hype_anchor_reference(row["chart_date"]) for row in date_rows]
         if full_rebuild or not out.exists():
             history: dict[str, list[dict[str, Any]]] = {}
         else:
@@ -245,12 +243,22 @@ def export_frontend_history(
     return payload
 
 
-def display_history_date(chart_date: str) -> str:
-    return chart_date
+def _history_date_from_hype_anchor_reference(reference_period: str) -> str:
+    try:
+        from datetime import datetime, timedelta
+        dt = datetime.strptime(reference_period, "%Y-%m-%d")
+        return (dt + timedelta(days=1)).strftime("%Y-%m-%d")
+    except Exception:
+        return reference_period
 
 
-def source_chart_date_for_display(history_date: str) -> str:
-    return history_date
+def _daily_reference_cutoff_for_history_date(history_date: str) -> str:
+    try:
+        from datetime import datetime, timedelta
+        dt = datetime.strptime(history_date, "%Y-%m-%d")
+        return (dt - timedelta(days=1)).strftime("%Y-%m-%d")
+    except Exception:
+        return history_date
 
 
 def prune_history(
@@ -302,11 +310,11 @@ def previous_apple_videos_for_history(
         ORDER BY chart_date DESC
         LIMIT 1
         """,
-        (*apple_playlists, source_chart_date_for_display(date)),
+        (*apple_playlists, _daily_reference_cutoff_for_history_date(date)),
     ).fetchone()
     if not row:
         return set()
-    previous_date = display_history_date(row["chart_date"])
+    previous_date = _history_date_from_hype_anchor_reference(row["chart_date"])
     report = build_hype_report_from_rows(fetch_hype_rows_for_dates(conn, [previous_date]).get(previous_date, []))
     return {item["video_id"] for item in report if item.get("apple_rank")}
 
@@ -317,16 +325,20 @@ def fetch_hype_rows_for_dates(conn: sqlite3.Connection, dates: list[str]) -> dic
     input_config = hype_inputs()
     ytmusic_jobs = [name for name, item in input_config.items() if item.get("hype_group") == "ytmusic"]
     date_pairs = [
-        (date, reference_period_for_date(ytmusic_jobs[0], date) if ytmusic_jobs else date)
+        (
+            date,
+            _daily_reference_cutoff_for_history_date(date),
+            reference_period_for_date(ytmusic_jobs[0], date) if ytmusic_jobs else date,
+        )
         for date in dates
     ]
-    values_sql = ", ".join("(?, ?)" for _ in date_pairs)
+    values_sql = ", ".join("(?, ?, ?)" for _ in date_pairs)
     params: list[Any] = []
-    for chart_date, target_week in date_pairs:
-        params.extend([chart_date, target_week])
+    for history_date, daily_cutoff, target_week in date_pairs:
+        params.extend([history_date, daily_cutoff, target_week])
     rows = conn.execute(
         f"""
-        WITH dates(chart_date, target_week) AS (
+        WITH dates(chart_date, daily_cutoff, target_week) AS (
             VALUES {values_sql}
         ),
         effective AS (
@@ -340,7 +352,7 @@ def fetch_hype_rows_for_dates(conn: sqlite3.Connection, dates: list[str]) -> dic
             JOIN playlist_order p
               ON (
                     p.reference_period NOT LIKE '%-W%'
-                AND p.reference_period <= d.chart_date
+                AND p.reference_period <= d.daily_cutoff
               )
               OR (
                     p.reference_period LIKE '%-W%'
@@ -398,15 +410,14 @@ def hype_report_for_date(
     previous_apple_videos = previous_apple_videos or set()
     input_config = hype_inputs()
     ytmusic_jobs = [name for name, item in input_config.items() if item.get("hype_group") == "ytmusic"]
+    daily_cutoff = _daily_reference_cutoff_for_history_date(chart_date)
     # target_week: 주별 차트(ytmusic 등)의 carry-forward 기준 ISO 주 (예: '2026-W18')
     target_week = reference_period_for_date(ytmusic_jobs[0], chart_date) if ytmusic_jobs else chart_date
     rows = conn.execute(
         """
         WITH effective AS (
             -- 각 (service, job_name, source_variant) 조합에 대해
-            -- 해당 날짜 이하의 가장 최신 reference_period를 선택합니다 (전체 소스 carry-forward).
-            --   일별 차트 (Apple, Melon) 및 Spotify 주간 playlist: reference_period = 날짜 형식 (예: '2026-05-27')
-            --     → INSTR(reference_period, '-W') = 0 이므로 chart_date 기준 비교
+            -- history date의 직전 daily reference_period와 최신 weekly reference_period를 선택합니다.
             --   주별 차트 (ytmusic): reference_period = ISO 주 형식 (예: '2026-W18')
             --     → INSTR(reference_period, '-W') > 0 이므로 target_week 기준 비교
             SELECT service, job_name, source_variant,
@@ -448,7 +459,7 @@ def hype_report_for_date(
         WHERE t.canonical_yt_video_id IS NOT NULL
           AND t.canonical_yt_video_id != ''
         """,
-        (chart_date, target_week),
+        (daily_cutoff, target_week),
     ).fetchall()
     return build_hype_report_from_rows(rows, previous_apple_videos=previous_apple_videos)
 
