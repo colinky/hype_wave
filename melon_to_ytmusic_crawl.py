@@ -14,14 +14,12 @@ Features:
 from __future__ import annotations
 
 import argparse
-import json
 import logging
 import os
 import random
 import re
 import sys
 import time
-from dataclasses import asdict
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
@@ -33,9 +31,7 @@ from ytmusic_playlist_sync import (
     env_or_arg,
     load_dotenv,
     make_ytmusic,
-    normalize_text,
     update_ytmusic_playlist,
-    write_json,
     get_resilient_session,
 )
 from crawler_common import process_matching_pipeline

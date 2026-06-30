@@ -67,11 +67,17 @@ def main():
         LOG.error("DB not found: %s", db_path)
         return
     try:
-        from hype_db import connect, export_frontend_history, hype_report_for_date
+        from hype_db import connect, export_frontend_history, hype_inputs, hype_report_for_date
         hype_results = []
         with connect(db_path) as conn:
+            apple_jobs = [
+                name for name, item in hype_inputs().items()
+                if item.get("hype_group") == "apple"
+            ] or ["KR-Top-100"]
+            placeholders = ",".join("?" for _ in apple_jobs)
             latest = conn.execute(
-                "SELECT reference_period AS chart_date FROM playlist_order WHERE job_name IN ('KR-Top-100', 'KR-Top-Songs') AND reference_period GLOB '????-??-??' ORDER BY reference_period DESC LIMIT 1"
+                f"SELECT reference_period AS chart_date FROM playlist_order WHERE job_name IN ({placeholders}) AND reference_period GLOB '????-??-??' ORDER BY reference_period DESC LIMIT 1",
+                apple_jobs,
             ).fetchone()
             if latest:
                 report = hype_report_for_date(conn, latest["chart_date"], previous_apple_videos=previous_apple_videos)
@@ -103,8 +109,8 @@ def main():
     # Prepare description
     update_date_str = kst_now.strftime("%Y-%m-%d")
     
-    desc = f"Hype Wave Daily\n"
-    desc += f"Based on Apple Music, Melon, and YT Music charts.\n\n"
+    desc = "Hype Wave Daily\n"
+    desc += "Based on Apple Music, Melon, and YT Music charts.\n\n"
     desc += "Top 3 Hype Now:\n"
     for i, (vid, stats) in enumerate(top_songs[:3], 1):
         m = stats["metadata"]

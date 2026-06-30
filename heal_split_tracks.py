@@ -22,11 +22,10 @@ from __future__ import annotations
 
 import argparse
 import logging
-import re
-import sqlite3
-import unicodedata
 from pathlib import Path
 from typing import Any
+
+from hype_db_common import clean_track_title, compact_metadata_key, strip_parens_from_title
 
 logging.basicConfig(
     level=logging.INFO,
@@ -37,59 +36,22 @@ LOG = logging.getLogger("heal_split_tracks")
 
 
 # ---------------------------------------------------------------------------
-# Helpers (duplicated from hype_db to avoid import issues when run standalone)
-# ---------------------------------------------------------------------------
-
-_VARIANT_SUFFIX_RE = re.compile(
-    r"[\(\[\s]*"
-    r"(?:live|live\s+ver(?:sion)?|live\s+performance|acoustic|acoustic\s+ver(?:sion)?"
-    r"|mv|m/v|music\s+video|official\s+video|official\s+mv|performance\s+video"
-    r"|stage|stage\s+ver(?:sion)?|dance\s+ver(?:sion)?|visualizer)"
-    r"[\)\]\s]*$",
-    re.IGNORECASE,
-)
-
-
-def _normalize(value: str | None) -> str:
-    value = unicodedata.normalize("NFKC", value or "").lower()
-    value = re.sub(r"\([^)]*(feat\.?|ft\.?)[^)]*\)", " ", value)
-    value = re.sub(r"\[[^\]]*(feat\.?|ft\.?)[^\]]*\]", " ", value)
-    value = re.sub(r"\b(feat\.?|ft\.?)\b.*$", " ", value)
-    value = re.sub(r"\s*-\s*(ep|single)\b.*$", " ", value, flags=re.IGNORECASE)
-    value = re.sub(r"[^0-9a-z가-힣\u3040-\u30ff\u4e00-\u9fff]+", " ", value)
-    return re.sub(r"\s+", " ", value).strip()
-
-
-def _clean_title(title: str | None) -> str:
-    cleaned = _VARIANT_SUFFIX_RE.sub("", (title or "")).strip()
-    return cleaned or (title or "")
-
-
-def _compact_key(title: str | None, artist: str | None) -> str:
-    return f"{_normalize(title)}|{_normalize(artist)}"
-
-
-def _meta_key(title: str | None, artist: str | None, album: str | None = "") -> str:
-    return f"{_normalize(title)}|{_normalize(artist)}|{_normalize(album)}"
-
-
-# ---------------------------------------------------------------------------
 # Core healing logic
 # ---------------------------------------------------------------------------
 
 def find_canonical_uid(conn: Any, title: str, artist: str) -> str | None:
     """Search metadata_lookup_index for a canonical track using cleaned title."""
-    cleaned = _clean_title(title)
+    cleaned = clean_track_title(title)
     # Try original then cleaned title
     candidates = [
-        _compact_key(title, artist),
-        _compact_key(cleaned, artist),
+        compact_metadata_key(title, artist),
+        compact_metadata_key(cleaned, artist),
     ]
     # Fallback: strip ALL parens from query title — matches the stripped-key
     # entries that upsert_metadata_lookup stores at score*0.6.
-    stripped = re.sub(r"\s*[\(\[][^\)\]]*[\)\]]\s*", " ", title or "").strip() or title
+    stripped = strip_parens_from_title(title)
     if stripped != title and stripped != cleaned:
-        candidates.append(_compact_key(stripped, artist))
+        candidates.append(compact_metadata_key(stripped, artist))
     for key in candidates:
         row = conn.execute(
             "SELECT mi.track_uid FROM metadata_lookup_index mi "
@@ -101,14 +63,14 @@ def find_canonical_uid(conn: Any, title: str, artist: str) -> str | None:
             return row[0]
     # Fallback 3: strip parens from artist
     # e.g. 'LE SSERAFIM (르세라핌)' → 'LE SSERAFIM' → matches Apple's 'boompala|le sserafim'
-    stripped_artist = re.sub(r"\s*[\(\[][^\)\]]*[\)\]]\s*", " ", artist or "").strip() or artist
+    stripped_artist = strip_parens_from_title(artist)
     if stripped_artist != artist:
         for t in (title, cleaned):
             row = conn.execute(
                 "SELECT mi.track_uid FROM metadata_lookup_index mi "
                 "JOIN tracks t ON t.track_uid = mi.track_uid "
                 "WHERE mi.lookup_key = ? AND t.canonical_yt_video_id IS NOT NULL AND t.canonical_yt_video_id != ''",
-                (_compact_key(t, stripped_artist),),
+                (compact_metadata_key(t, stripped_artist),),
             ).fetchone()
             if row:
                 return row[0]
@@ -269,7 +231,7 @@ def heal(db_path: Path, dry_run: bool) -> int:
             if not title or not artist:
                 continue
 
-            stripped_artist = re.sub(r"\s*[\(\[][^\)\]]*[\)\]]\s*", " ", artist).strip()
+            stripped_artist = strip_parens_from_title(artist)
             if stripped_artist == artist:
                 continue  # No parens in artist — not this pattern
 

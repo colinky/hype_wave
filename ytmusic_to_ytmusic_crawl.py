@@ -34,7 +34,6 @@ from ytmusic_playlist_sync import (
     env_or_arg,
     load_dotenv,
     make_ytmusic,
-    normalize_video_title,
     resolve_video_to_song,
     update_ytmusic_playlist,
     write_json,

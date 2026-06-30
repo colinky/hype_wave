@@ -23,7 +23,6 @@ import random
 import re
 import sys
 import time
-from dataclasses import asdict
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from typing import Any
@@ -36,9 +35,7 @@ from ytmusic_playlist_sync import (
     env_or_arg,
     load_dotenv,
     make_ytmusic,
-    normalize_text,
     update_ytmusic_playlist,
-    write_json,
     get_resilient_session,
 )
 from crawler_common import process_matching_pipeline

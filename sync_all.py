@@ -2,7 +2,6 @@
 import json
 import logging
 import os
-import shutil
 import subprocess
 import sys
 from datetime import datetime, timedelta, timezone
@@ -220,7 +219,7 @@ def main():
 
         try:
             LOG.debug(f"Running command: {' '.join(cmd)}")
-            result = subprocess.run(cmd, check=True, env=task_env)
+            subprocess.run(cmd, check=True, env=task_env)
             LOG.info(f"Successfully finished task: {job_name}")
 
             success_count += 1
@@ -243,7 +242,7 @@ def main():
             LOG.error(f"Task '{job_name}' failed with exit code {e.returncode}")
             failed_tasks.append(job_name)
 
-    LOG.info(f"=== Sync Summary ===")
+    LOG.info("=== Sync Summary ===")
     LOG.info(f"Total tasks: {len(tasks)}")
     LOG.info(f"Skipped: {skipped_count}")
     LOG.info(f"Successful: {success_count}")

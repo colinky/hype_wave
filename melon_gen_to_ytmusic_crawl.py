@@ -8,7 +8,6 @@ melon_to_ytmusic_crawl.py와 동일한 인증/환경변수/매칭/캐시/Apple p
 """
 
 from __future__ import annotations
-from bs4 import builder
 
 import argparse
 import logging
@@ -34,7 +33,7 @@ from melon_to_ytmusic_crawl import (
     save_album_cache,
     run_tracks_pipeline,
 )
-from ytmusic_playlist_sync import SourceTrack, load_dotenv, unique_values, write_json
+from ytmusic_playlist_sync import SourceTrack, load_dotenv, unique_values
 from hype_scoring import calculate_combined_genz_score
 
 
@@ -57,10 +56,6 @@ def attr_first(el: Any, names: list[str]) -> str:
         if value:
             return str(value).strip()
     return ""
-
-
-def melon_song_url(song_id: str) -> str:
-    return f"https://www.melon.com/song/detail.htm?songId={song_id}" if song_id else ""
 
 
 def extract_song_id(item: Any) -> str:
@@ -87,17 +82,6 @@ def extract_album_id(item: Any) -> str:
     return ""
 
 
-def extract_generation_label(soup: BeautifulSoup, gen: str) -> str:
-    candidates = [
-        first_text(soup, ["h1", "h2", ".title", ".chart_title", ".page_header", ".chart-tit"]),
-        soup.title.get_text(" ", strip=True) if soup.title else "",
-    ]
-    for text in candidates:
-        if text and ("세대" in text or "차트" in text):
-            return text
-    return f"gen={gen}"
-
-
 def parse_melon_generation_tracks(html: str, gen: str, *, limit: int = 100, ttl_days: int = 31) -> tuple[str, str, str, list[SourceTrack]]:
     """Parse only the Melon generation-chart specific track fields.
 
@@ -105,8 +89,7 @@ def parse_melon_generation_tracks(html: str, gen: str, *, limit: int = 100, ttl_
     so that matching and playlist sync remain identical to the normal Melon crawler.
     """
     soup = BeautifulSoup(html, "html.parser")
-    generation_label = extract_generation_label(soup, gen)
-    
+
     # Parse date from DOM (e.g. "05.29 기준") with year-end boundary correction
     chart_date = datetime.now(timezone.utc).astimezone(timezone(timedelta(hours=9))).strftime("%Y-%m-%d")
     date_el = soup.select_one(".btn-box__date label")
@@ -219,7 +202,6 @@ def merge_melon_generation_tracks(
     - melon_to_ytmusic_crawl pipeline에는 SourceTrack 리스트만 넘긴다.
     """
 
-    from collections import defaultdict
     import json
     from pathlib import Path
 

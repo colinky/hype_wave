@@ -1043,23 +1043,6 @@
             });
         }
 
-        function getWaveDuration(song, selectedDate) {
-            let days = 0;
-            const startIndex = availableDates.indexOf(selectedDate);
-            if (startIndex === -1) return 0;
-            
-            for (let i = startIndex; i < availableDates.length; i++) {
-                const date = availableDates[i];
-                const hSong = globalHistory[date]?.find(s => s.video_id === song.video_id);
-                if (hSong && hSong.is_wave) {
-                    days++;
-                } else {
-                    break;
-                }
-            }
-            return days;
-        }
-
         function createSongCard(song, index, selectedDate, isFeatured) {
             const currentIndex = availableDates.indexOf(selectedDate);
             const yesterdayData = availableDates[currentIndex + 1] ? globalHistory[availableDates[currentIndex + 1]] : null;

@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import logging
 import os
-import re
 import time
 from pathlib import Path
 from typing import Any
@@ -11,12 +10,7 @@ from ytmusic_playlist_sync import (
     MatchResult,
     SourceTrack,
     match_from_prev,
-    normalize_text,
     search_youtube_music,
-    similarity,
-    title_variants,
-    artist_variants,
-    album_variants,
 )
 
 LOG = logging.getLogger("crawler_common")
@@ -46,7 +40,7 @@ def process_matching_pipeline(
     """
     공통 매칭 파이프라인: 캐시 조회, 검색, 중복 체크, DB 저장 및 플레이리스트 업데이트용 비디오 ID 목록 반환.
     """
-    from hype_db import connect, persist_crawled_tracks, get_cached_match, persist_crawl_run, export_frontend_history
+    from hype_db import connect, persist_crawled_tracks, persist_crawl_run, export_frontend_history
 
     if tracks_ko_map is None:
         tracks_ko_map = {}

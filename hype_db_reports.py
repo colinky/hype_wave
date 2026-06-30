@@ -6,7 +6,7 @@ import os
 import re
 import shutil
 import sqlite3
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Iterable
 
@@ -180,13 +180,10 @@ def _backup_legacy_history_file(path: Path, payload: Any) -> None:
 
 
 def _apple_history_anchor_jobs() -> list[str]:
-    jobs = [
+    return [
         name for name, item in hype_inputs().items()
         if item.get("hype_group") == "apple"
     ] or ["KR-Top-100"]
-    if "KR-Top-Songs" not in jobs:
-        jobs.append("KR-Top-Songs")
-    return jobs
 
 
 def export_frontend_history(
@@ -249,21 +246,11 @@ def export_frontend_history(
 
 
 def display_history_date(chart_date: str) -> str:
-    try:
-        from datetime import datetime, timedelta
-        dt = datetime.strptime(chart_date, "%Y-%m-%d")
-        return (dt + timedelta(days=1)).strftime("%Y-%m-%d")
-    except Exception:
-        return chart_date
+    return chart_date
 
 
 def source_chart_date_for_display(history_date: str) -> str:
-    try:
-        from datetime import datetime, timedelta
-        dt = datetime.strptime(history_date, "%Y-%m-%d")
-        return (dt - timedelta(days=1)).strftime("%Y-%m-%d")
-    except Exception:
-        return history_date
+    return history_date
 
 
 def prune_history(
@@ -350,7 +337,7 @@ def fetch_hype_rows_for_dates(conn: sqlite3.Connection, dates: list[str]) -> dic
             JOIN playlist_order p
               ON (
                     p.reference_period NOT LIKE '%-W%'
-                AND p.reference_period < d.chart_date
+                AND p.reference_period <= d.chart_date
               )
               OR (
                     p.reference_period LIKE '%-W%'
@@ -422,7 +409,7 @@ def hype_report_for_date(
             SELECT service, job_name, source_variant,
                    MAX(reference_period) AS eff_period
             FROM playlist_order
-            WHERE (reference_period NOT LIKE '%-W%' AND reference_period < ?)
+            WHERE (reference_period NOT LIKE '%-W%' AND reference_period <= ?)
                OR (reference_period LIKE '%-W%' AND reference_period <= ?)
             GROUP BY service, job_name, source_variant
         )
@@ -470,19 +457,6 @@ def build_hype_report_from_rows(
 ) -> list[dict[str, Any]]:
     previous_apple_videos = previous_apple_videos or set()
     input_config = hype_inputs()
-
-    # Load Generation-wise weights dynamically from sync_config
-    gen_z_task = input_config.get("Gen-Z-Daily") or {}
-    gen1_weight = 0.60
-    gen2_weight = 0.40
-    source_urls = gen_z_task.get("source_urls", [])
-    if isinstance(source_urls, list):
-        for src in source_urls:
-            if isinstance(src, dict):
-                if str(src.get("gen")) == "1":
-                    gen1_weight = float(src.get("weight") or 0.60)
-                elif str(src.get("gen")) == "2":
-                    gen2_weight = float(src.get("weight") or 0.40)
 
     grouped: dict[str, dict[str, Any]] = {}
     group_by_video: dict[str, str] = {}
@@ -580,8 +554,6 @@ def build_hype_report_from_rows(
         artwork_by_service = item.pop("_artwork_by_service", {})
         score_parts = item.pop("_score_parts", {})
         hype_index = sum(score_parts.values())
-        apple_rank = item["apple_rank"] or 101
-        melon_rank = item["melon_rank"] or 101
         item.pop("_best_rank", None)
         item.pop("_best_service_priority", None)
         item["title"] = item["title"] or item["yt_title"] or ""

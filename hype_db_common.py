@@ -43,7 +43,6 @@ __all__ = [
     "reference_period_for_date",
     "parse_crawl_date",
     "normalize_source_variant",
-    "build_album_url",
     "build_track_url",
     "hype_identity_key",
     "load_sync_config",
@@ -340,7 +339,6 @@ def job_service(job_name: str, config_path: str | Path | None = None) -> str:
 def reference_period_for_date(job_name: str, chart_date: str, reference_period: str | None = None) -> str:
     frequency = job_frequency(job_name)
     list_type = job_list_type(job_name)
-    service = job_service(job_name)
     if reference_period:
         value = str(reference_period).strip()
         if re.match(r"\d{4}-W\d{2}$", value):
@@ -410,20 +408,6 @@ def parse_crawl_date(value: str | None) -> str:
 def normalize_source_variant(value: str | None = "") -> str:
     value = str(value or "").strip()
     return value or "default"
-
-
-def build_album_url(service: str, album_id: str | None) -> str:
-    service = normalized_service(service)
-    album_id = str(album_id or "").strip()
-    if not album_id:
-        return ""
-    if service == "melon":
-        return f"https://www.melon.com/album/detail.htm?albumId={album_id}"
-    if service == "apple":
-        return f"https://music.apple.com/album/{album_id}"
-    if service == "spotify":
-        return f"https://open.spotify.com/album/{album_id}"
-    return ""
 
 
 def build_track_url(service: str, song_id: str | None, album_id: str | None = "") -> str:

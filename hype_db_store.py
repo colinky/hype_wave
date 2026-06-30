@@ -1,20 +1,15 @@
 from __future__ import annotations
 
 import hashlib
-import json
 import logging
 import os
-import re
 import sqlite3
-from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Iterable
 
 from hype_db_common import (
-    build_track_url,
     clean_track_title,
     compact_metadata_key,
-    feature_signature,
     has_feature_mismatch,
     has_version_mismatch,
     infer_album_id,
@@ -31,7 +26,7 @@ from hype_db_common import (
     strip_parens_from_title,
     utc_now_iso,
 )
-from hype_db_schema import connect, init_db, init_schema
+from hype_db_schema import connect, init_db
 
 LOG = logging.getLogger("hype_db")
 __all__ = [
@@ -56,8 +51,6 @@ __all__ = [
     "persist_crawled_tracks",
     "persist_crawl_run",
     "repair_failed_source_bindings",
-    "get_cached_match",
-    "build_match_cache",
     "record_playlist_update",
     "get_bulk_cached_matches",
 ]
@@ -1384,111 +1377,6 @@ def _persist_crawl_run_bulk_impl(
     cleanup_old_attempts_and_candidates(conn, days=15)
 
 
-def _persist_crawl_run_impl(
-    conn: Any,
-    service: str,
-    job_name: str,
-    source_variant: str,
-    chart_date: str,
-    reference_period: str | None,
-    chart_period: str | None,
-    started_at: str,
-    tracks: Iterable[Any],
-    matches: Iterable[Any],
-    skip_playlist_order: bool = False,
-) -> None:
-    track_rows = [row_dict(t) for t in tracks]
-    match_rows = [row_dict(m) for m in matches]
-    ref_p = reference_period or chart_period
-    resolved_period = reference_period_for_date(job_name, chart_date, ref_p)
-    should_write_playlist_order = not skip_playlist_order and not (
-        normalized_service(service) == "melon" and job_name == "Gen-Z-Daily" and source_variant == "combined"
-    )
-    if resolved_period and should_write_playlist_order:
-        LOG.info("Cleaning up existing playlist_order records for %s / %s / %s (period: %s)", service, job_name, source_variant, resolved_period)
-        conn.execute(
-            """
-            DELETE FROM playlist_order
-            WHERE service = ? AND job_name = ? AND source_variant = ? AND reference_period = ?
-            """,
-            (normalized_service(service), job_name, source_variant, resolved_period)
-        )
-    elif skip_playlist_order:
-        LOG.info("Skipping playlist_order rewrite for %s / %s / %s; raw chart order was already persisted.", service, job_name, source_variant)
-
-    run_id = start_match_run(
-        conn,
-        service=service,
-        job_name=job_name,
-        source_variant=source_variant,
-        started_at=started_at,
-        source="crawler",
-        total_tracks=len(track_rows),
-    )
-    track_by_song = {}
-    for track in track_rows:
-        song_id = normalize_song_id(service, track)
-        if song_id:
-            track_by_song[song_id] = track
-
-    matched_count = 0
-    failed_count = 0
-    cache_hits = 0
-    proxy_hits = 0
-    for match in match_rows:
-        song_id = normalize_song_id(service, match)
-        source_row = track_by_song.get(song_id, match)
-        track_uid = upsert_track_match(conn, service=service, source_row=source_row, match_row=match)
-        if match.get("video_id") and match.get("status") != "duplicate_skipped":
-            matched_count += 1
-        else:
-            failed_count += 1
-        if match.get("status") == "cached_match" or match.get("query") == "db_cache":
-            cache_hits += 1
-        if match.get("status") == "proxy_matched":
-            proxy_hits += 1
-        if song_id:
-            if should_write_playlist_order:
-                upsert_chart_rank(
-                    conn,
-                    service=service,
-                    job_name=job_name,
-                    source_variant=source_variant,
-                    chart_date=chart_date,
-                    reference_period=reference_period or chart_period,
-                    song_id=song_id,
-                    track_uid=track_uid,
-                    rank_order=int(match.get("rank") or source_row.get("rank") or 0),
-                    album_id=infer_album_id(service, source_row),
-                )
-            record_match_attempt(
-                conn,
-                run_id=run_id,
-                service=service,
-                song_id=song_id,
-                track_uid=track_uid,
-                row=match,
-            )
-            if match.get("candidates"):
-                record_match_candidates(
-                    conn,
-                    run_id=run_id,
-                    service=service,
-                    song_id=song_id,
-                    rank_order=int(match.get("rank") or source_row.get("rank") or 0),
-                    candidates=match.get("candidates") or [],
-                )
-    conn.execute(
-        """
-        UPDATE match_runs
-        SET matched_tracks = ?, failed_tracks = ?, cache_hits = ?, proxy_hits = ?
-        WHERE run_id = ?
-        """,
-        (matched_count, failed_count, cache_hits, proxy_hits, run_id),
-    )
-    cleanup_old_attempts_and_candidates(conn, days=15)
-
-
 def persist_crawl_run(
     db_path: str | Path,
     *,
@@ -1535,8 +1423,8 @@ def persist_crawl_run(
             reference_period,
             chart_period,
             started_at,
-            tracks,
-            matches,
+            track_rows,
+            match_rows,
             skip_playlist_order=skip_playlist_order,
         )
         conn.commit()
@@ -1551,8 +1439,8 @@ def persist_crawl_run(
                 reference_period,
                 chart_period,
                 started_at,
-                tracks,
-                matches,
+                track_rows,
+                match_rows,
                 skip_playlist_order=skip_playlist_order,
             )
 
@@ -1693,251 +1581,6 @@ def repair_failed_source_bindings(conn: sqlite3.Connection) -> dict[str, int]:
             merged_tracks += 1
 
     return {"updated_bindings": updated_bindings, "merged_tracks": merged_tracks}
-
-
-def _verify_cached_title(
-    conn: sqlite3.Connection,
-    track_uid: str,
-    title: str,
-    artist: str,
-    threshold: float = 0.4,
-) -> bool:
-    """캐시 반환 전, 요청된 곡과 캐시된 트랙의 소스 제목 유사도를 검증.
-    
-    threshold가 _verify_metadata_merge(0.5)보다 낮은 이유:
-    - 이 함수는 기존 바인딩의 안전망이므로, 명확한 오류만 거부하면 됨
-    - 한/영 표기 차이가 큰 정상 곡을 거짓 거부하지 않기 위함
-    """
-    from ytmusic_playlist_sync import similarity
-
-    rows = conn.execute(
-        """
-        SELECT tl.title_ko, tl.title_en
-        FROM platform_song_ids ps
-        JOIN track_list tl ON tl.service = ps.service AND tl.song_id = ps.song_id
-        WHERE ps.track_uid = ?
-        """,
-        (track_uid,),
-    ).fetchall()
-    if not rows:
-        return True
-    
-    existing_titles = []
-    for r in rows:
-        if r["title_ko"]:
-            existing_titles.append(r["title_ko"])
-        if r["title_en"]:
-            existing_titles.append(r["title_en"])
-            
-    existing_titles = list(set(existing_titles))
-    track = conn.execute("SELECT yt_title FROM tracks WHERE track_uid = ?", (track_uid,)).fetchone()
-    canonical_title = track["yt_title"] if track else ""
-    if canonical_title and has_version_mismatch(title, canonical_title):
-        return False
-    if not existing_titles:
-        return True
-    if all(has_feature_mismatch(title, existing) for existing in existing_titles):
-        return False
-    if all(has_version_mismatch(title, existing) for existing in existing_titles):
-        return False
-    
-    best_sim = max(similarity(title, t, is_title=True) for t in existing_titles)
-    return best_sim >= threshold
-
-
-def _get_cached_match_impl(
-    conn: Any,
-    service: str,
-    song_id: str,
-    title: str,
-    artist: str,
-    album: str,
-) -> dict[str, Any] | None:
-    service = normalized_service(service)
-    override = manual_override(conn, service, song_id)
-    if override and override["action"] == "block":
-        return {"status": "manual_blocked"}
-    if override and override["canonical_yt_video_id"]:
-        return _cache_row_for_video(conn, override["canonical_yt_video_id"], status="manual_override")
-    track_uid = find_track_by_service_song(conn, service, song_id)
-    if track_uid:
-        cached = _cache_row_for_track(conn, track_uid)
-        if cached:
-            # 소스 메타데이터 검증: 잘못된 song_id→track_uid 바인딩 감지
-            if title and not _verify_cached_title(conn, track_uid, title, artist):
-                LOG.warning(
-                    "Cache rejected for %s:%s — title mismatch with '%s'",
-                    service, song_id, title,
-                )
-                return None  # fallback to search
-            return cached
-    track_uid = find_track_by_metadata(conn, title, artist, album)
-    if track_uid:
-        cached = _cache_row_for_track(conn, track_uid)
-        if cached:
-            if title and not _verify_cached_title(conn, track_uid, title, artist):
-                return None
-            return cached
-    return None
-
-
-def get_cached_match(
-    db_path: str | Path,
-    *,
-    service: str,
-    song_id: str = "",
-    title: str = "",
-    artist: str = "",
-    album: str = "",
-    conn: Any = None,
-) -> dict[str, Any] | None:
-    path = Path(db_path)
-    if not path.exists() and not os.environ.get("SUPABASE_DB_URL"):
-        return None
-        
-    if conn is not None:
-        return _get_cached_match_impl(conn, service, song_id, title, artist, album)
-        
-    with connect(path) as new_conn:
-        init_schema(new_conn)
-        return _get_cached_match_impl(new_conn, service, song_id, title, artist, album)
-
-
-def _cache_row_for_video(conn: sqlite3.Connection, video_id: str, *, status: str) -> dict[str, Any] | None:
-    track_uid = find_track_by_video(conn, video_id)
-    if track_uid:
-        return _cache_row_for_track(conn, track_uid, status=status)
-    return {"video_id": video_id, "score": 1.0, "status": status, "query": status}
-
-
-def _cache_row_for_track(conn: sqlite3.Connection, track_uid: str, *, status: str = "cached_match") -> dict[str, Any] | None:
-    track = conn.execute("SELECT * FROM tracks WHERE track_uid = ?", (track_uid,)).fetchone()
-    if not track or not track["canonical_yt_video_id"]:
-        return None
-    meta = conn.execute(
-        """
-        SELECT tl.*
-        FROM platform_song_ids ps
-        JOIN track_list tl ON tl.service = ps.service AND tl.song_id = ps.song_id
-        WHERE ps.track_uid = ?
-        ORDER BY
-            CASE tl.service WHEN 'apple' THEN 0 WHEN 'melon' THEN 1 WHEN 'spotify' THEN 2 ELSE 3 END
-        LIMIT 1
-        """,
-        (track_uid,),
-    ).fetchone()
-    out = {
-        "video_id": track["canonical_yt_video_id"],
-        "yt_title": track["yt_title"] or "",
-        "yt_artist": track["yt_artist"] or "",
-        "yt_album": track["yt_album"] or "",
-        "score": float(track["best_score"] or 1.0),
-        "title_score": 1.0,
-        "artist_score": 1.0,
-        "album_score": 1.0,
-        "yt_result_type": "song",
-        "query": "db_cache",
-        "status": status,
-    }
-    if meta:
-        out.update(
-            {
-                "title": meta["title_ko"] or meta["title_en"] or "",
-                "artist": meta["artist_ko"] or meta["artist_en"] or "",
-                "album": meta["album_ko"] or meta["album_en"] or "",
-                "title_en": meta["title_en"] or "",
-                "artist_en": meta["artist_en"] or "",
-                "album_en": meta["album_en"] or "",
-                "title_ko": meta["title_ko"] or "",
-                "artist_ko": meta["artist_ko"] or "",
-                "album_ko": meta["album_ko"] or "",
-                "artwork_url": meta["artwork_url"] or "",
-                "url": build_track_url(meta["service"], meta["song_id"], meta["album_id"]),
-            }
-        )
-    return out
-
-
-def build_match_cache(db_path: str | Path) -> dict[str, dict[str, Any]]:
-    path = Path(db_path)
-    if not path.exists() and not os.environ.get("SUPABASE_DB_URL"):
-        return {}
-    cache: dict[str, dict[str, Any]] = {}
-    with connect(path) as conn:
-        init_schema(conn)
-        rows = conn.execute(
-            """
-            WITH preferred_meta AS (
-                SELECT
-                    ps.track_uid,
-                    tl.service,
-                    tl.song_id,
-                    tl.album_id,
-                    tl.title_ko,
-                    tl.artist_ko,
-                    tl.album_ko,
-                    tl.title_en,
-                    tl.artist_en,
-                    tl.album_en,
-                    tl.artwork_url,
-                    ROW_NUMBER() OVER (
-                        PARTITION BY ps.track_uid
-                        ORDER BY CASE tl.service WHEN 'apple' THEN 0 WHEN 'melon' THEN 1 WHEN 'spotify' THEN 2 ELSE 3 END
-                    ) AS rn
-                FROM platform_song_ids ps
-                JOIN track_list tl ON tl.service = ps.service AND tl.song_id = ps.song_id
-            )
-            SELECT
-                m.lookup_key,
-                t.track_uid,
-                t.canonical_yt_video_id,
-                t.yt_title,
-                t.yt_artist,
-                t.yt_album,
-                t.best_score,
-                pm.service,
-                pm.song_id,
-                pm.album_id,
-                pm.title_ko,
-                pm.artist_ko,
-                pm.album_ko,
-                pm.title_en,
-                pm.artist_en,
-                pm.album_en,
-                pm.artwork_url
-            FROM metadata_lookup_index m
-            JOIN tracks t ON t.track_uid = m.track_uid
-            LEFT JOIN preferred_meta pm ON pm.track_uid = t.track_uid AND pm.rn = 1
-            WHERE t.canonical_yt_video_id IS NOT NULL AND t.canonical_yt_video_id != ''
-            """
-        ).fetchall()
-        for row in rows:
-            cached = {
-                "video_id": row["canonical_yt_video_id"],
-                "yt_title": row["yt_title"] or "",
-                "yt_artist": row["yt_artist"] or "",
-                "yt_album": row["yt_album"] or "",
-                "score": float(row["best_score"] or 1.0),
-                "title_score": 1.0,
-                "artist_score": 1.0,
-                "album_score": 1.0,
-                "yt_result_type": "song",
-                "query": "db_cache",
-                "status": "cached_match",
-                "title": row["title_ko"] or row["title_en"] or "",
-                "artist": row["artist_ko"] or row["artist_en"] or "",
-                "album": row["album_ko"] or row["album_en"] or "",
-                "title_en": row["title_en"] or "",
-                "artist_en": row["artist_en"] or "",
-                "album_en": row["album_en"] or "",
-                "title_ko": row["title_ko"] or "",
-                "artist_ko": row["artist_ko"] or "",
-                "album_ko": row["album_ko"] or "",
-                "artwork_url": row["artwork_url"] or "",
-                "url": build_track_url(row["service"], row["song_id"], row["album_id"]) if row["service"] and row["song_id"] else "",
-            }
-            cache[row["lookup_key"]] = cached
-    return cache
 
 
 def record_playlist_update(
@@ -2140,7 +1783,7 @@ def get_bulk_cached_matches(conn: Any, service: str, tracks: Iterable[Any]) -> d
             uid = row["track_uid"]
             uid_to_metas.setdefault(uid, []).append(dict(row))
             
-    # Helper to build cache row dict in-memory (mimicking _cache_row_for_track and _cache_row_for_video)
+    # Helper to build cache row dict in-memory.
     def make_cache_dict(track_uid, status):
         track = tracks_dict.get(track_uid)
         if not track or not track.get("canonical_yt_video_id"):
@@ -2170,7 +1813,7 @@ def get_bulk_cached_matches(conn: Any, service: str, tracks: Iterable[Any]) -> d
             })
         return out
         
-    # Helper to verify cached title in-memory (mimicking _verify_cached_title)
+    # Helper to verify cached title in-memory.
     def verify_title_in_memory(track_uid, title, artist, threshold=0.4):
         from ytmusic_playlist_sync import similarity
         metas = uid_to_metas.get(track_uid) or []

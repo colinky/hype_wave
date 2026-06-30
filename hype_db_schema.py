@@ -7,7 +7,6 @@ import os
 import re
 import sqlite3
 from contextlib import contextmanager
-from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
@@ -19,7 +18,6 @@ from hype_db_common import (
     postgres_connect_config,
 )
 from hype_db_common import (
-    normalize_source_variant,
     reference_period_for_date,
     utc_now_iso,
 )
@@ -30,7 +28,6 @@ __all__ = [
     "PostgresRow",
     "PostgresCursorWrapper",
     "PostgresConnectionWrapper",
-    "is_postgres_connection",
     "ensure_postgres_indexes",
     "connect",
     "init_db",
@@ -143,10 +140,6 @@ class PostgresConnectionWrapper:
         
     def close(self):
         self.conn.close()
-
-
-def is_postgres_connection(conn: Any) -> bool:
-    return type(conn).__name__ == "PostgresConnectionWrapper"
 
 
 def ensure_postgres_indexes(raw_conn: Any) -> None:
