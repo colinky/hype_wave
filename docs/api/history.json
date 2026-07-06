@@ -1,6 +1,6 @@
 {
   "schema_version": 2,
-  "generated_at": "2026-07-06T11:31:25+00:00",
+  "generated_at": "2026-07-06T12:26:13+00:00",
   "days": 31,
   "dates": [
     "2026-07-06",
@@ -996,7 +996,7 @@
       "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music122/v4/3e/49/1e/3e491e43-4961-21ab-2abe-37fb1c0feb40/196922879227_Cover.jpg/100x100bb.jpg",
       "apple_url": "https://music.apple.com/album/1734500886?i=1734500896",
       "melon_url": "https://www.melon.com/song/detail.htm?songId=37347911",
-      "spotify_url": "https://open.spotify.com/track/1aKvZDoLGkNMxoRYgkckZG"
+      "spotify_url": ""
     },
     "29lj9jFfJvY": {
       "video_id": "29lj9jFfJvY",
@@ -1190,7 +1190,7 @@
       "yt_album": "DAY BY DAY",
       "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music221/v4/88/6e/cf/886ecf93-f636-65b3-87de-db72d5f72731/cover_KM0001567_1.jpg/100x100bb.jpg",
       "melon_url": "https://www.melon.com/song/detail.htm?songId=3840800",
-      "apple_url": "https://music.apple.com/album/1804698750?i=1804698751",
+      "apple_url": "",
       "spotify_url": ""
     },
     "RwrZPCKLs2E": {
@@ -1788,7 +1788,7 @@
       "yt_album": "QUINTESSENCE",
       "artwork_url": "https://cdnimg.melon.co.kr/cm2/album/images/133/95/803/13395803_20260515140032_500.jpg/melon/resize/120/quality/80/optimize",
       "melon_url": "https://www.melon.com/song/detail.htm?songId=602011402",
-      "apple_url": "https://music.apple.com/album/6768878794?i=6768878796",
+      "apple_url": "",
       "spotify_url": ""
     },
     "s5oSscNIyIs": {
@@ -2568,8 +2568,8 @@
       "yt_album": "FAMOUS",
       "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/ff/fd/c6/fffdc68c-4288-ff7f-344f-8c7359435baf/8800320193350_cover.jpg/100x100bb.jpg",
       "melon_url": "https://www.melon.com/song/detail.htm?songId=39156202",
-      "spotify_url": "https://open.spotify.com/track/598bDTl82CSTSDnZG0XhGK",
-      "apple_url": ""
+      "apple_url": "",
+      "spotify_url": "https://open.spotify.com/track/598bDTl82CSTSDnZG0XhGK"
     },
     "FXppROCqu94": {
       "video_id": "FXppROCqu94",
@@ -2622,19 +2622,6 @@
       "melon_url": "https://www.melon.com/song/detail.htm?songId=1753876",
       "apple_url": "",
       "spotify_url": ""
-    },
-    "83C3TZ4Zm_o": {
-      "video_id": "83C3TZ4Zm_o",
-      "title": "LEMONADE",
-      "artist": "aespa",
-      "album": "LEMONADE - The 2nd Album (GISELLE Special Version)",
-      "yt_title": "LEMONADE",
-      "yt_artist": "aespa",
-      "yt_album": "LEMONADE - The 2nd Album",
-      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/cc/c8/93/ccc89345-aa49-ca82-3dbe-f11c65ff1706/888735955679_Cover.jpg/100x100bb.jpg",
-      "melon_url": "https://www.melon.com/song/detail.htm?songId=602115220",
-      "spotify_url": "https://open.spotify.com/track/40tqYMTWs6E1FKEDMTWRFB",
-      "apple_url": ""
     },
     "DxVbg_RbczA": {
       "video_id": "DxVbg_RbczA",
@@ -2697,8 +2684,8 @@
       "yt_artist": "카더가든 (Car, the Garden)",
       "yt_album": "가까운 듯 먼 그대여 (Closely Far Away)",
       "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music115/v4/ef/ab/1e/efab1e8c-0efc-1442-0c70-5197ac7e2647/191953137896-4064174.jpg/100x100bb.jpg",
-      "apple_url": "https://music.apple.com/album/1582765829?i=1582765830",
       "melon_url": "https://www.melon.com/song/detail.htm?songId=33855085",
+      "apple_url": "https://music.apple.com/album/1582765829?i=1582765830",
       "spotify_url": ""
     },
     "mZsHggY8G6M": {
@@ -2749,8 +2736,8 @@
       "yt_artist": "BOYNEXTDOOR",
       "yt_album": "똑똑똑",
       "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/35/5e/dd/355edd73-3fdb-9eb8-e03e-eff76fde6ea1/823375143130_Cover.jpg/100x100bb.jpg",
-      "apple_url": "https://music.apple.com/album/6764203481?i=6764203482",
       "melon_url": "https://www.melon.com/song/detail.htm?songId=601965921",
+      "apple_url": "https://music.apple.com/album/6764203481?i=6764203482",
       "spotify_url": ""
     },
     "Cfq4lgDvYno": {
@@ -2801,8 +2788,8 @@
       "yt_artist": "HANRORO",
       "yt_album": "Take-off",
       "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music116/v4/c2/ef/87/c2ef8779-f3bb-5a1c-ef6f-c27185e62446/8809936067307.jpg/100x100bb.jpg",
-      "apple_url": "https://music.apple.com/album/1703196819?i=1703196822",
       "melon_url": "https://www.melon.com/song/detail.htm?songId=36730258",
+      "apple_url": "https://music.apple.com/album/1703196819?i=1703196822",
       "spotify_url": ""
     },
     "pRmsP7A-DtY": {
@@ -2937,8 +2924,8 @@
     },
     "y-uTieocI0U": {
       "video_id": "y-uTieocI0U",
-      "title": "나의 하루처럼",
-      "artist": "성시경",
+      "title": "Day dream",
+      "artist": "Sung Si Kyung",
       "album": "나의 하루처럼 - Single",
       "yt_title": "나의 하루처럼",
       "yt_artist": "성시경",
@@ -2970,8 +2957,8 @@
       "yt_artist": "RIIZE",
       "yt_album": "II - The 2nd Mini Album",
       "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/56/aa/d2/56aad2f8-57d7-ce76-a6ed-447c0d49c7f9/888735955167.jpg/100x100bb.jpg",
-      "melon_url": "https://www.melon.com/song/detail.htm?songId=602248117",
       "apple_url": "",
+      "melon_url": "https://www.melon.com/song/detail.htm?songId=602248117",
       "spotify_url": ""
     },
     "QfO0U6HJcrw": {
@@ -3003,7 +2990,7 @@
     "YF4EN5YwjpA": {
       "video_id": "YF4EN5YwjpA",
       "title": "2.0",
-      "artist": "방탄소년단",
+      "artist": "BTS",
       "album": "ARIRANG",
       "yt_title": "2.0",
       "yt_artist": "BTS",
@@ -3081,7 +3068,7 @@
     "jaTPb7JJUt8": {
       "video_id": "jaTPb7JJUt8",
       "title": "Love Hangover",
-      "artist": "JENNIE",
+      "artist": "제니 & Dominic Fike",
       "album": "Love Hangover - Single",
       "yt_title": "Love Hangover",
       "yt_artist": "JENNIE Dominic Fike",
@@ -3107,7 +3094,7 @@
     "lKgzkmTKvHU": {
       "video_id": "lKgzkmTKvHU",
       "title": "Hooligan",
-      "artist": "방탄소년단",
+      "artist": "BTS",
       "album": "ARIRANG",
       "yt_title": "Hooligan",
       "yt_artist": "BTS",
@@ -3223,15 +3210,15 @@
     },
     "Y4bGXIMDk38": {
       "video_id": "Y4bGXIMDk38",
-      "title": "AH AH (feat. Sik-K)",
-      "artist": "nowimyoung",
+      "title": "AH AH (feat. 식케이)",
+      "artist": "나우아임영",
       "album": "APGU essential - EP",
       "yt_title": "AH AH (feat. 식케이)",
       "yt_artist": "NOWIMYOUNG",
       "yt_album": "APGU essential",
       "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/6d/53/de/6d53de93-a5fd-f4e3-cd1e-11e6551ca23f/191953443669.jpg/100x100bb.jpg",
       "apple_url": "https://music.apple.com/album/1811048956?i=1811048957",
-      "melon_url": "https://www.melon.com/song/detail.htm?songId=38875765",
+      "melon_url": "",
       "spotify_url": ""
     },
     "y9crtd1PMOM": {
@@ -3458,7 +3445,7 @@
     "KylmS3ncDzQ": {
       "video_id": "KylmS3ncDzQ",
       "title": "SIGN",
-      "artist": "izna",
+      "artist": "이즈나",
       "album": "SIGN - Single",
       "yt_title": "SIGN",
       "yt_artist": "izna (이즈나)",
@@ -5843,7 +5830,7 @@
         "hype_index": 10.28,
         "apple_rank": 44,
         "melon_rank": null,
-        "melon_genz_rank": null,
+        "melon_genz_rank": 62,
         "ytmusic_rank": null
       },
       "to3sjq-CAvA": {
@@ -8218,7 +8205,7 @@
         "melon_genz_rank": 1,
         "ytmusic_rank": 1
       },
-      "83C3TZ4Zm_o": {
+      "LBhcqYqeu0U": {
         "hype_rank": 2,
         "hype_index": 79.94,
         "apple_rank": 3,
@@ -9716,7 +9703,7 @@
         "melon_genz_rank": 1,
         "ytmusic_rank": 1
       },
-      "83C3TZ4Zm_o": {
+      "LBhcqYqeu0U": {
         "hype_rank": 2,
         "hype_index": 79.94,
         "apple_rank": 3,
@@ -11214,7 +11201,7 @@
         "melon_genz_rank": 1,
         "ytmusic_rank": 1
       },
-      "83C3TZ4Zm_o": {
+      "LBhcqYqeu0U": {
         "hype_rank": 2,
         "hype_index": 79.94,
         "apple_rank": 3,
@@ -12712,7 +12699,7 @@
         "melon_genz_rank": 1,
         "ytmusic_rank": 1
       },
-      "83C3TZ4Zm_o": {
+      "LBhcqYqeu0U": {
         "hype_rank": 2,
         "hype_index": 79.94,
         "apple_rank": 3,
@@ -14186,7 +14173,7 @@
         "melon_genz_rank": 1,
         "ytmusic_rank": 1
       },
-      "83C3TZ4Zm_o": {
+      "LBhcqYqeu0U": {
         "hype_rank": 2,
         "hype_index": 79.94,
         "apple_rank": 3,
@@ -15676,7 +15663,7 @@
         "melon_genz_rank": 1,
         "ytmusic_rank": 1
       },
-      "83C3TZ4Zm_o": {
+      "LBhcqYqeu0U": {
         "hype_rank": 2,
         "hype_index": 79.94,
         "apple_rank": 3,
@@ -17158,7 +17145,7 @@
         "melon_genz_rank": 1,
         "ytmusic_rank": 1
       },
-      "83C3TZ4Zm_o": {
+      "LBhcqYqeu0U": {
         "hype_rank": 2,
         "hype_index": 79.94,
         "apple_rank": 3,
@@ -18640,7 +18627,7 @@
         "melon_genz_rank": 1,
         "ytmusic_rank": 1
       },
-      "83C3TZ4Zm_o": {
+      "LBhcqYqeu0U": {
         "hype_rank": 2,
         "hype_index": 79.94,
         "apple_rank": 3,
@@ -20130,7 +20117,7 @@
         "melon_genz_rank": 1,
         "ytmusic_rank": 1
       },
-      "83C3TZ4Zm_o": {
+      "LBhcqYqeu0U": {
         "hype_rank": 2,
         "hype_index": 83.1,
         "apple_rank": 2,
@@ -21604,7 +21591,7 @@
         "melon_genz_rank": 1,
         "ytmusic_rank": 1
       },
-      "83C3TZ4Zm_o": {
+      "LBhcqYqeu0U": {
         "hype_rank": 2,
         "hype_index": 83.1,
         "apple_rank": 2,
@@ -23070,7 +23057,7 @@
         "melon_genz_rank": 1,
         "ytmusic_rank": 1
       },
-      "83C3TZ4Zm_o": {
+      "LBhcqYqeu0U": {
         "hype_rank": 2,
         "hype_index": 83.1,
         "apple_rank": 2,
@@ -24560,7 +24547,7 @@
         "melon_genz_rank": 1,
         "ytmusic_rank": 1
       },
-      "83C3TZ4Zm_o": {
+      "LBhcqYqeu0U": {
         "hype_rank": 2,
         "hype_index": 83.1,
         "apple_rank": 2,
@@ -26026,7 +26013,7 @@
         "melon_genz_rank": 1,
         "ytmusic_rank": 1
       },
-      "83C3TZ4Zm_o": {
+      "LBhcqYqeu0U": {
         "hype_rank": 2,
         "hype_index": 83.1,
         "apple_rank": 2,
@@ -27516,7 +27503,7 @@
         "melon_genz_rank": 1,
         "ytmusic_rank": 1
       },
-      "83C3TZ4Zm_o": {
+      "LBhcqYqeu0U": {
         "hype_rank": 2,
         "hype_index": 83.1,
         "apple_rank": 2,
@@ -29006,7 +28993,7 @@
         "melon_genz_rank": 1,
         "ytmusic_rank": 1
       },
-      "83C3TZ4Zm_o": {
+      "LBhcqYqeu0U": {
         "hype_rank": 2,
         "hype_index": 83.1,
         "apple_rank": 2,
@@ -30488,7 +30475,7 @@
         "melon_genz_rank": 1,
         "ytmusic_rank": 1
       },
-      "83C3TZ4Zm_o": {
+      "LBhcqYqeu0U": {
         "hype_rank": 2,
         "hype_index": 83.1,
         "apple_rank": 2,
@@ -31962,7 +31949,7 @@
         "melon_genz_rank": 1,
         "ytmusic_rank": 1
       },
-      "83C3TZ4Zm_o": {
+      "LBhcqYqeu0U": {
         "hype_rank": 2,
         "hype_index": 83.1,
         "apple_rank": 2,
@@ -33468,7 +33455,7 @@
         "melon_genz_rank": 1,
         "ytmusic_rank": 1
       },
-      "83C3TZ4Zm_o": {
+      "LBhcqYqeu0U": {
         "hype_rank": 2,
         "hype_index": 83.1,
         "apple_rank": 2,
@@ -34974,7 +34961,7 @@
         "melon_genz_rank": 1,
         "ytmusic_rank": 1
       },
-      "83C3TZ4Zm_o": {
+      "LBhcqYqeu0U": {
         "hype_rank": 2,
         "hype_index": 83.1,
         "apple_rank": 2,
@@ -36472,7 +36459,7 @@
         "melon_genz_rank": 1,
         "ytmusic_rank": 2
       },
-      "83C3TZ4Zm_o": {
+      "LBhcqYqeu0U": {
         "hype_rank": 2,
         "hype_index": 86.48,
         "apple_rank": 2,
@@ -37986,7 +37973,7 @@
         "melon_genz_rank": 1,
         "ytmusic_rank": 2
       },
-      "83C3TZ4Zm_o": {
+      "LBhcqYqeu0U": {
         "hype_rank": 2,
         "hype_index": 86.48,
         "apple_rank": 2,
@@ -39492,7 +39479,7 @@
         "melon_genz_rank": 1,
         "ytmusic_rank": 2
       },
-      "83C3TZ4Zm_o": {
+      "LBhcqYqeu0U": {
         "hype_rank": 2,
         "hype_index": 86.48,
         "apple_rank": 2,
@@ -40990,7 +40977,7 @@
         "melon_genz_rank": 1,
         "ytmusic_rank": 2
       },
-      "83C3TZ4Zm_o": {
+      "LBhcqYqeu0U": {
         "hype_rank": 2,
         "hype_index": 86.48,
         "apple_rank": 2,
@@ -42488,7 +42475,7 @@
         "melon_genz_rank": 1,
         "ytmusic_rank": 2
       },
-      "83C3TZ4Zm_o": {
+      "LBhcqYqeu0U": {
         "hype_rank": 2,
         "hype_index": 86.48,
         "apple_rank": 2,
@@ -43994,7 +43981,7 @@
         "melon_genz_rank": 1,
         "ytmusic_rank": 2
       },
-      "83C3TZ4Zm_o": {
+      "LBhcqYqeu0U": {
         "hype_rank": 2,
         "hype_index": 86.48,
         "apple_rank": 2,
@@ -45460,7 +45447,7 @@
         "melon_genz_rank": 1,
         "ytmusic_rank": 2
       },
-      "83C3TZ4Zm_o": {
+      "LBhcqYqeu0U": {
         "hype_rank": 2,
         "hype_index": 83.32,
         "apple_rank": 2,
@@ -46974,7 +46961,7 @@
         "melon_genz_rank": 1,
         "ytmusic_rank": 4
       },
-      "83C3TZ4Zm_o": {
+      "LBhcqYqeu0U": {
         "hype_rank": 2,
         "hype_index": 83.32,
         "apple_rank": 2,
@@ -48432,7 +48419,7 @@
         "melon_genz_rank": 1,
         "ytmusic_rank": 4
       },
-      "83C3TZ4Zm_o": {
+      "LBhcqYqeu0U": {
         "hype_rank": 2,
         "hype_index": 86.48,
         "apple_rank": 2,
@@ -49453,7 +49440,7 @@
         "hype_index": 3.79,
         "apple_rank": null,
         "melon_rank": null,
-        "melon_genz_rank": null,
+        "melon_genz_rank": 84,
         "ytmusic_rank": 56
       },
       "s5oSscNIyIs": {
