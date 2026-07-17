@@ -501,8 +501,6 @@ def build_hype_report_from_rows(
                 "melon_genz_rank": None,
                 "ytmusic_rank": None,
                 "_score_parts": {},
-                "_gen1_rank": None,
-                "_gen2_rank": None,
                 "_best_service_priority": 9999,
                 "_artwork_by_service": {},
             },
@@ -523,13 +521,9 @@ def build_hype_report_from_rows(
             item["apple_url"] = track_url or item["apple_url"]
             item["_score_parts"]["apple"] = max(item["_score_parts"].get("apple", 0.0), calculate_rank_score(row["rank_order"]) * weight)
         elif group == "melon_genz":
-            item["melon_genz_rank"] = min(item["melon_genz_rank"] or 9999, row["rank_order"])
             item["melon_url"] = track_url or item["melon_url"]
-            if source_variant == "gen10":
-                item["_gen1_rank"] = row["rank_order"]
-            elif source_variant == "gen20":
-                item["_gen2_rank"] = row["rank_order"]
-            else:
+            if source_variant == "combined":
+                item["melon_genz_rank"] = min(item["melon_genz_rank"] or 9999, row["rank_order"])
                 item["_score_parts"]["melon_genz"] = max(
                     item["_score_parts"].get("melon_genz", 0.0),
                     calculate_rank_score(row["rank_order"]) * weight,
@@ -563,8 +557,6 @@ def build_hype_report_from_rows(
 
     report = []
     for item in grouped.values():
-        item.pop("_gen1_rank", None)
-        item.pop("_gen2_rank", None)
         artwork_by_service = item.pop("_artwork_by_service", {})
         score_parts = item.pop("_score_parts", {})
         hype_index = sum(score_parts.values())

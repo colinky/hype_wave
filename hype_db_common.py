@@ -112,7 +112,12 @@ def normalize_text(value: str | None) -> str:
     value = re.sub(r"\[[^\]]*(feat\.?|ft\.?)[^\]]*\]", " ", value)
     value = re.sub(r"\b(feat\.?|ft\.?)\b.*$", " ", value)
     value = re.sub(r"\s*-\s*(ep|single)\b.*$", " ", value, flags=re.IGNORECASE)
-    value = re.sub(r"[^0-9a-z가-힣\u3040-\u30ff\u4e00-\u9fff]+", " ", value)
+    value = re.sub(
+        r"[^0-9a-z가-힣\u1100-\u11ff\u3130-\u318f\ua960-\ua97f\ud7b0-\ud7ff"
+        r"\u3040-\u30ff\u4e00-\u9fff]+",
+        " ",
+        value,
+    )
     return re.sub(r"\s+", " ", value).strip()
 
 
