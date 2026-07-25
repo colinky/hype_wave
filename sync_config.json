@@ -30,7 +30,7 @@
     },
     {
         "job_name": "Seoul-Top-25",
-        "enabled": true,
+        "enabled": false,
         "service": "apple",
         "frequency": "daily",
         "list_type": "chart",
@@ -43,7 +43,7 @@
     },
     {
         "job_name": "Busan-Top-25",
-        "enabled": true,
+        "enabled": false,
         "service": "apple",
         "frequency": "daily",
         "list_type": "chart",
