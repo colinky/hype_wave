@@ -100,6 +100,7 @@ def save_album_cache(db_path: Path):
                     VALUES ('melon', ?, ?, ?, ?)
                     ON CONFLICT(service, album_id) DO UPDATE SET
                         album_name = excluded.album_name,
+                        created_at = excluded.created_at,
                         last_checked = excluded.last_checked
                     """,
                     params,
