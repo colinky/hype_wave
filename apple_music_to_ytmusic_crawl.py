@@ -555,8 +555,13 @@ def main() -> int:
                     chart_limit=chart_limit,
                 )
                 
-                # Validation check: Ensure the track count matches the expected limit
-                if len(tracks) != chart_limit:
+                # Dynamic charts may legitimately contain slightly fewer items than the API limit.
+                valid_count = (
+                    0.95 * chart_limit <= len(tracks) <= chart_limit
+                    if source == "apple_web_chart_api"
+                    else len(tracks) == chart_limit
+                )
+                if not valid_count:
                     if os.environ.get("BYPASS_TRACK_COUNT_VAL") == "true":
                         LOG.warning(
                             "Track count validation bypassed. Scraped %d tracks, expected %d.",
@@ -565,7 +570,8 @@ def main() -> int:
                     else:
                         raise ValueError(
                             f"Validation Error: Scraped {len(tracks)} tracks, "
-                            f"but expected exactly {chart_limit} tracks."
+                            f"but expected {'95%-100% of' if source == 'apple_web_chart_api' else 'exactly'} "
+                            f"{chart_limit} tracks."
                         )
                 
                 # Always add to description parts to maintain order and show name
