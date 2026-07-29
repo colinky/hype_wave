@@ -780,6 +780,37 @@ def get_expected_track_count(job_name: str) -> int | None:
     return None
 
 
+def _validate_track_count(job_name: str, actual: int) -> None:
+    expected = get_expected_track_count(job_name)
+    if expected is None:
+        return
+
+    is_dynamic_apple_chart = job_name.lower().strip() == "kr-top-songs"
+    valid = (
+        0.95 * expected <= actual <= expected
+        if is_dynamic_apple_chart
+        else actual == expected
+    )
+    if valid:
+        return
+
+    expectation = f"95%-100% of {expected}" if is_dynamic_apple_chart else f"exactly {expected}"
+    if os.environ.get("BYPASS_TRACK_COUNT_VAL") == "true":
+        LOG.warning(
+            "Track count validation bypassed. Job '%s' has %d tracks, expected %s.",
+            job_name,
+            actual,
+            expectation,
+        )
+        return
+
+    raise ValueError(
+        f"Validation Error: Job '{job_name}' has {actual} tracks, "
+        f"but expected {expectation} tracks. Aborting database persistence to prevent corruption. "
+        f"Set BYPASS_TRACK_COUNT_VAL=true to bypass."
+    )
+
+
 def _persist_crawled_tracks_impl(
     conn: Any,
     service: str,
@@ -957,21 +988,7 @@ def persist_crawled_tracks(
     job_name = require_job_name(job_name)
     source_variant = normalize_source_variant(source_variant)
     track_rows = [row_dict(t) for t in tracks]
-    
-    # Validation check: Ensure the track count matches the expected count
-    expected = get_expected_track_count(job_name)
-    if expected is not None and len(track_rows) != expected:
-        if os.environ.get("BYPASS_TRACK_COUNT_VAL") == "true":
-            LOG.warning(
-                "Track count validation bypassed. Job '%s' has %d tracks, expected %d.",
-                job_name, len(track_rows), expected
-            )
-        else:
-            raise ValueError(
-                f"Validation Error: Job '{job_name}' has {len(track_rows)} tracks, "
-                f"but expected exactly {expected} tracks. Aborting database persistence to prevent corruption. "
-                f"Set BYPASS_TRACK_COUNT_VAL=true to bypass."
-            )
+    _validate_track_count(job_name, len(track_rows))
 
     if conn is not None:
         _persist_crawled_tracks_impl(conn, service, job_name, source_variant, chart_date, reference_period, chart_period, tracks)
@@ -1397,21 +1414,7 @@ def persist_crawl_run(
     source_variant = normalize_source_variant(source_variant)
     track_rows = [row_dict(t) for t in tracks]
     match_rows = [row_dict(m) for m in matches]
-    
-    # Validation check: Ensure the track count matches the expected count
-    expected = get_expected_track_count(job_name)
-    if expected is not None and len(track_rows) != expected:
-        if os.environ.get("BYPASS_TRACK_COUNT_VAL") == "true":
-            LOG.warning(
-                "Track count validation bypassed. Job '%s' has %d tracks, expected %d.",
-                job_name, len(track_rows), expected
-            )
-        else:
-            raise ValueError(
-                f"Validation Error: Job '{job_name}' has {len(track_rows)} tracks, "
-                f"but expected exactly {expected} tracks. Aborting database persistence to prevent corruption. "
-                f"Set BYPASS_TRACK_COUNT_VAL=true to bypass."
-            )
+    _validate_track_count(job_name, len(track_rows))
 
     if conn is not None:
         _persist_crawl_run_bulk_impl(
