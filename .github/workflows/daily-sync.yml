@@ -3,8 +3,8 @@ name: Daily Unified Music Sync
 on:
   workflow_dispatch:
   schedule:
-    # 16:02 KST every day. GitHub Actions cron uses UTC.
-    - cron: "2 7 * * *"
+    # 17:02 KST every day. GitHub Actions cron uses UTC.
+    - cron: "2 8 * * *"
 
 concurrency:
   group: daily-unified-music-sync
