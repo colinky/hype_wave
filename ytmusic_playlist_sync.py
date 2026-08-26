@@ -1723,11 +1723,19 @@ def search_ytmusic_songs(
                                 except Exception as e:
                                     LOG.warning("Failed to resolve tracks from album %s: %s", r.get("browseId"), e)
 
+                prioritized_album_songs = []
+                prioritized_video_ids = set()
                 for song_res in resolved_album_songs:
                     v_id = song_res.get("videoId")
-                    if v_id and v_id not in seen_video_ids:
-                        seen_video_ids.add(v_id)
-                        filtered_results.append(song_res)
+                    if v_id and v_id not in prioritized_video_ids:
+                        prioritized_video_ids.add(v_id)
+                        prioritized_album_songs.append(song_res)
+
+                filtered_results = prioritized_album_songs + [
+                    result
+                    for result in filtered_results
+                    if result.get("videoId") not in prioritized_video_ids
+                ]
 
             return filtered_results[:limit]
 
