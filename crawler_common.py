@@ -9,6 +9,7 @@ from typing import Any
 from ytmusic_playlist_sync import (
     MatchResult,
     SourceTrack,
+    localized_source_fields,
     match_from_prev,
     search_youtube_music,
 )
@@ -19,6 +20,7 @@ LOG = logging.getLogger("crawler_common")
 def process_matching_pipeline(
     *,
     all_tracks: list[SourceTrack],
+    raw_tracks: list[SourceTrack] | None = None,
     tracks_ko_map: dict[str, SourceTrack] | None = None,
     ytmusic: Any,
     db_path: Path,
@@ -44,6 +46,8 @@ def process_matching_pipeline(
 
     if tracks_ko_map is None:
         tracks_ko_map = {}
+    if raw_tracks is None:
+        raw_tracks = all_tracks
 
     LOG.info(
         "Matching settings: min_score=%.2f min_title_score=%.2f min_artist_score=%.2f search_limit=%d",
@@ -67,7 +71,7 @@ def process_matching_pipeline(
                     source_variant=source_variant,
                     chart_date=update_date_str,
                     reference_period=reference_period or chart_period,
-                    tracks=all_tracks,
+                    tracks=raw_tracks,
                     conn=conn,
                     commit=False,
                 )
@@ -104,6 +108,7 @@ def process_matching_pipeline(
                 cached = bulk_cache.get(track.song_id) if track.song_id else None
                 if cached:
                     if cached.get("status") == "manual_blocked":
+                        localized = localized_source_fields(track, track_ko)
                         match = MatchResult(
                             rank=track.rank,
                             title=track.title,
@@ -112,6 +117,7 @@ def process_matching_pipeline(
                             service=service,
                             song_id=track.song_id,
                             status="manual_blocked",
+                            **localized,
                         )
                     elif cached.get("video_id"):
                         match = match_from_prev(track, cached, track_ko=track_ko, status=cached.get("status", "cached_match"))
@@ -127,22 +133,18 @@ def process_matching_pipeline(
                     min_title_score=min_title_score,
                     min_artist_score=min_artist_score,
                     limit=search_limit,
-                    ignore_video_ids=seen_video_ids,
                 )
                 did_search = True
 
-            # 5. Duplicate Check
+            # Keep canonical matches intact for DB alias binding; dedupe only target output.
             if match.video_id and match.video_id in seen_video_ids:
                 LOG.warning(
-                    "duplicate_skipped: '%s' / '%s' — video_id %s already in playlist (source: %s)",
+                    "playlist_duplicate_suppressed: '%s' / '%s' — video_id %s already selected (source: %s)",
                     track.title,
                     track.artist,
                     match.video_id,
                     match.status,
                 )
-                match.query = f"dup_of:{match.video_id}"
-                match.status = "duplicate_skipped"
-                match.video_id = None
             elif match.video_id:
                 seen_video_ids.add(match.video_id)
 
@@ -160,9 +162,17 @@ def process_matching_pipeline(
             if did_search:
                 time.sleep(0.2)
 
-        matched_video_ids = [match.video_id for match in matches if match.video_id]
+        matched_video_ids = list(
+            dict.fromkeys(match.video_id for match in matches if match.video_id)
+        )
         failed = [match for match in matches if not match.video_id]
-        LOG.info("Matched %d/%d tracks. Failed/skipped %d.", len(matched_video_ids), len(all_tracks), len(failed))
+        LOG.info(
+            "Matched %d/%d source tracks. Failed %d; unique playlist items %d.",
+            len(matches) - len(failed),
+            len(all_tracks),
+            len(failed),
+            len(matched_video_ids),
+        )
 
         # 6. Database Persistence & Exporter
         if not dry_run:

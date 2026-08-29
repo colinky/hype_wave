@@ -35,6 +35,7 @@ from ytmusic_playlist_sync import (
     get_resilient_session,
 )
 from crawler_common import process_matching_pipeline
+from hype_db_common import dedupe_source_tracks
 
 http_session = get_resilient_session()
 
@@ -257,6 +258,7 @@ def fetch_melon_tracks(url: str, *, limit: int = 100) -> tuple[str, str, str, li
                 artwork_url=artwork_url,
                 song_id=song_id or "",
                 album_id=album_id or "",
+                locale="ko",
             )
         )
  
@@ -369,9 +371,12 @@ def run_tracks_pipeline(
         LOG.error(empty_message)
         return 1
 
-    # Re-rank tracks after aggregation
-    for i, t in enumerate(all_tracks, 1):
+    # Raw slots retain every source occurrence; matching uses the first source identity only.
+    raw_tracks = all_tracks
+    for i, t in enumerate(raw_tracks, 1):
         t.rank = i
+    effective_tracks = dedupe_source_tracks(raw_tracks, "melon")
+    LOG.info("Prepared %d raw slots and %d effective Melon tracks.", len(raw_tracks), len(effective_tracks))
 
     # If --db-only is specified, persist raw tracks and exit immediately without matching or playlist updates
     if getattr(args, "db_only", False):
@@ -385,7 +390,7 @@ def run_tracks_pipeline(
                     source_variant=source_variant,
                     chart_date=update_date_str,
                     reference_period=reference_period,
-                    tracks=all_tracks,
+                    tracks=raw_tracks,
                 )
                 LOG.info("Persisted raw chart order for %s to playlist_order table (DB-only mode).", job_name)
             except Exception as exc:
@@ -407,7 +412,8 @@ def run_tracks_pipeline(
 
     ytmusic = make_ytmusic(yt_auth, yt_oauth_client_id, yt_oauth_client_secret, language="ko")
     matched_video_ids = process_matching_pipeline(
-        all_tracks=all_tracks,
+        all_tracks=effective_tracks,
+        raw_tracks=raw_tracks,
         ytmusic=ytmusic,
         db_path=db_path,
         service="melon",

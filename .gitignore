@@ -14,3 +14,5 @@ next_patch/
 *.db-journal
 docs/api/*.backup_before_backfill
 .ruff_cache/
+backups/
+migrations/

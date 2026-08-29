@@ -26,7 +26,7 @@ from hype_db_common import (
     strip_parens_from_title,
     utc_now_iso,
 )
-from hype_db_schema import connect, init_db
+from hype_db_schema import connect, init_db, init_schema
 
 LOG = logging.getLogger("hype_db")
 __all__ = [
@@ -42,7 +42,6 @@ __all__ = [
     "upsert_metadata_lookup",
     "resolve_track_uid",
     "upsert_track_match",
-    "upsert_chart_rank",
     "start_match_run",
     "record_match_attempt",
     "record_match_candidates",
@@ -259,19 +258,41 @@ def upsert_track_list_metadata(
             album_en = COALESCE(NULLIF(excluded.album_en, ''), track_list.album_en),
             artwork_url = COALESCE(NULLIF(excluded.artwork_url, ''), track_list.artwork_url)
         """,
-        (
-            normalized_service(service),
-            song_id,
-            infer_album_id(service, row),
-            row.get("title_ko") or row.get("title", ""),
-            row.get("artist_ko") or row.get("artist", ""),
-            row.get("album_ko") or row.get("album", ""),
-            "" if normalized_service(service) == "melon" else (row.get("title_en") or row.get("title", "")),
-            "" if normalized_service(service) == "melon" else (row.get("artist_en") or row.get("artist", "")),
-            "" if normalized_service(service) == "melon" else (row.get("album_en") or row.get("album", "")),
-            row.get("artwork_url", ""),
-        ),
+        track_list_metadata_params(service=service, song_id=song_id, row=row, locale=locale),
     )
+
+
+def _localized_track_fields(
+    *,
+    service: str,
+    row: dict[str, Any],
+    locale: str = "",
+) -> tuple[str, str, str, str, str, str]:
+    service = normalized_service(service)
+    source_locale = str(row.get("locale") or locale or "").strip().lower()
+    if not source_locale:
+        source_locale = "ko" if service == "melon" else "en"
+
+    title = str(row.get("title") or "").strip()
+    artist = str(row.get("artist") or "").strip()
+    album = str(row.get("album") or "").strip()
+    title_ko = str(row.get("title_ko") or "").strip()
+    artist_ko = str(row.get("artist_ko") or "").strip()
+    album_ko = str(row.get("album_ko") or "").strip()
+    title_en = str(row.get("title_en") or "").strip()
+    artist_en = str(row.get("artist_en") or "").strip()
+    album_en = str(row.get("album_en") or "").strip()
+
+    if source_locale.startswith("ko"):
+        title_ko = title_ko or title
+        artist_ko = artist_ko or artist
+        album_ko = album_ko or album
+    elif source_locale.startswith("en"):
+        title_en = title_en or title
+        artist_en = artist_en or artist
+        album_en = album_en or album
+
+    return title_ko, artist_ko, album_ko, title_en, artist_en, album_en
 
 
 def track_list_metadata_params(
@@ -279,19 +300,25 @@ def track_list_metadata_params(
     service: str,
     song_id: str,
     row: dict[str, Any],
+    locale: str = "",
 ) -> tuple[Any, ...]:
     service = normalized_service(service)
+    title_ko, artist_ko, album_ko, title_en, artist_en, album_en = _localized_track_fields(
+        service=service,
+        row=row,
+        locale=locale,
+    )
     return (
         service,
         song_id,
         infer_album_id(service, row),
-        row.get("title_ko") or row.get("title", ""),
-        row.get("artist_ko") or row.get("artist", ""),
-        row.get("album_ko") or row.get("album", ""),
-        "" if service == "melon" else (row.get("title_en") or row.get("title", "")),
-        "" if service == "melon" else (row.get("artist_en") or row.get("artist", "")),
-        "" if service == "melon" else (row.get("album_en") or row.get("album", "")),
-        row.get("artwork_url", ""),
+        title_ko,
+        artist_ko,
+        album_ko,
+        title_en,
+        artist_en,
+        album_en,
+        str(row.get("artwork_url") or "").strip(),
     )
 
 
@@ -571,55 +598,13 @@ def upsert_track_match(
     return track_uid
 
 
-def upsert_chart_rank(
-    conn: sqlite3.Connection,
-    *,
-    service: str,
-    job_name: str = "",
-    source_variant: str = "default",
-    chart_date: str,
-    reference_period: str | None = None,
-    chart_period: str | None = None,
-    song_id: str,
-    track_uid: str,
-    rank_order: int,
-    album_id: str = "",
-) -> None:
-    if not song_id or not rank_order:
-        return
-    service = normalized_service(service)
-    job_name = require_job_name(job_name)
-    source_variant = normalize_source_variant(source_variant)
-    ref_p = reference_period or chart_period
-    period = reference_period_for_date(job_name, chart_date, ref_p)
-    if not period:
-        return
-    conn.execute(
-        """
-        INSERT INTO playlist_order(
-            service, job_name, source_variant, reference_period, song_id, rank_order
-        )
-        VALUES (?, ?, ?, ?, ?, ?)
-        ON CONFLICT(service, job_name, source_variant, reference_period, song_id) DO UPDATE SET
-            rank_order = excluded.rank_order
-        """,
-        (
-            service,
-            job_name,
-            source_variant,
-            period,
-            song_id,
-            int(rank_order),
-        ),
-    )
-
-
 def start_match_run(
     conn: sqlite3.Connection,
     *,
     service: str,
     job_name: str = "",
     source_variant: str = "default",
+    reference_period: str = "",
     started_at: str,
     source: str = "",
     total_tracks: int = 0,
@@ -627,19 +612,27 @@ def start_match_run(
     service = normalized_service(service)
     job_name = require_job_name(job_name)
     source_variant = normalize_source_variant(source_variant)
-    run_id = hashlib.sha1(f"{service}|{job_name}|{started_at}".encode("utf-8")).hexdigest()
+    run_id = hashlib.sha1(
+        f"{service}|{job_name}|{source_variant}|{reference_period}|{started_at}".encode("utf-8")
+    ).hexdigest()
     now = utc_now_iso()
     conn.execute(
         """
-        INSERT INTO match_runs(run_id, service, job_name, source_variant, started_at, source, total_tracks, created_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO match_runs(
+            run_id, service, job_name, source_variant, reference_period, started_at,
+            source, status, completed_at, total_tracks, created_at
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, 'running', NULL, ?, ?)
         ON CONFLICT(run_id) DO UPDATE SET
             job_name = excluded.job_name,
             source_variant = excluded.source_variant,
+            reference_period = excluded.reference_period,
             total_tracks = excluded.total_tracks,
-            source = excluded.source
+            source = excluded.source,
+            status = 'running',
+            completed_at = NULL
         """,
-        (run_id, service, job_name, source_variant, started_at, source, total_tracks, now),
+        (run_id, service, job_name, source_variant, reference_period, started_at, source, total_tracks, now),
     )
     return run_id
 
@@ -811,6 +804,97 @@ def _validate_track_count(job_name: str, actual: int) -> None:
     )
 
 
+def _validated_rank(row: dict[str, Any], *, label: str) -> int:
+    try:
+        rank = int(row.get("rank") or 0)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f"{label} has an invalid rank: {row.get('rank')!r}") from exc
+    if rank <= 0:
+        raise ValueError(f"{label} must have a positive rank, found {rank}")
+    return rank
+
+
+def _validate_raw_tracks(service: str, job_name: str, rows: list[dict[str, Any]]) -> None:
+    _validate_track_count(job_name, len(rows))
+    if not rows:
+        raise ValueError(f"Raw chart '{job_name}' is empty; refusing full replacement.")
+    ranks: set[int] = set()
+    for index, row in enumerate(rows, 1):
+        song_id = normalize_song_id(service, row)
+        if not song_id:
+            raise ValueError(f"Raw chart '{job_name}' row {index} has no source song_id.")
+        rank = _validated_rank(row, label=f"Raw chart '{job_name}' row {index}")
+        if rank in ranks:
+            raise ValueError(f"Raw chart '{job_name}' contains duplicate rank slot {rank}.")
+        ranks.add(rank)
+
+
+def _validate_effective_tracks(
+    service: str,
+    job_name: str,
+    tracks: list[dict[str, Any]],
+    matches: list[dict[str, Any]],
+) -> None:
+    if not tracks:
+        raise ValueError(f"Effective chart '{job_name}' is empty.")
+    if len(tracks) != len(matches):
+        raise ValueError(
+            f"Effective chart '{job_name}' has {len(tracks)} tracks but {len(matches)} match results."
+        )
+    track_keys: set[tuple[str, int]] = set()
+    song_ids: set[str] = set()
+    ranks: set[int] = set()
+    for index, row in enumerate(tracks, 1):
+        song_id = normalize_song_id(service, row)
+        if not song_id:
+            raise ValueError(f"Effective chart '{job_name}' row {index} has no source song_id.")
+        rank = _validated_rank(row, label=f"Effective chart '{job_name}' row {index}")
+        if song_id in song_ids:
+            raise ValueError(f"Effective chart '{job_name}' contains duplicate song_id {song_id!r}.")
+        if rank in ranks:
+            raise ValueError(f"Effective chart '{job_name}' contains duplicate rank slot {rank}.")
+        song_ids.add(song_id)
+        ranks.add(rank)
+        track_keys.add((song_id, rank))
+    match_keys = {
+        (normalize_song_id(service, row), _validated_rank(row, label=f"Match result for '{job_name}'"))
+        for row in matches
+    }
+    if track_keys != match_keys:
+        raise ValueError(f"Effective tracks and match results differ for chart '{job_name}'.")
+
+
+def _validate_effective_snapshot(
+    conn: Any,
+    *,
+    service: str,
+    job_name: str,
+    source_variant: str,
+    reference_period: str,
+    tracks: list[dict[str, Any]],
+) -> None:
+    expected = {
+        (row["song_id"], int(row["rank_order"]))
+        for row in conn.execute(
+            """
+            SELECT song_id, MIN(rank_order) AS rank_order
+            FROM playlist_order
+            WHERE service = ? AND job_name = ? AND source_variant = ? AND reference_period = ?
+            GROUP BY song_id
+            """,
+            (service, job_name, source_variant, reference_period),
+        ).fetchall()
+    }
+    actual = {(normalize_song_id(service, row), int(row.get("rank") or 0)) for row in tracks}
+    if not expected:
+        raise ValueError(f"No raw chart snapshot exists for {service}/{job_name}/{source_variant}/{reference_period}.")
+    if actual != expected:
+        raise ValueError(
+            f"Effective chart does not match raw snapshot for {service}/{job_name}/{source_variant}/{reference_period}: "
+            f"expected {len(expected)} unique songs, found {len(actual)}."
+        )
+
+
 def _persist_crawled_tracks_impl(
     conn: Any,
     service: str,
@@ -822,17 +906,31 @@ def _persist_crawled_tracks_impl(
     tracks: Iterable[Any],
 ) -> None:
     track_rows = [row_dict(t) for t in tracks]
+    service = normalized_service(service)
     ref_p = reference_period or chart_period
     resolved_period = reference_period_for_date(job_name, chart_date, ref_p)
-    if resolved_period and not (normalized_service(service) == "melon" and job_name == "Gen-Z-Daily" and source_variant == "combined"):
-        LOG.info("Cleaning up existing playlist_order records for %s / %s / %s (period: %s)", service, job_name, source_variant, resolved_period)
-        conn.execute(
-            """
-            DELETE FROM playlist_order
-            WHERE service = ? AND job_name = ? AND source_variant = ? AND reference_period = ?
-            """,
-            (normalized_service(service), job_name, source_variant, resolved_period)
-        )
+    if not resolved_period:
+        raise ValueError(f"Could not resolve reference period for raw chart '{job_name}'.")
+    scope = (service, job_name, source_variant, resolved_period)
+    if type(conn).__name__ == "PostgresConnectionWrapper":
+        conn.execute("SELECT pg_advisory_xact_lock(hashtextextended(?, 0))", ("|".join(scope),))
+    conn.execute(
+        """
+        UPDATE match_runs
+        SET status = 'stale', completed_at = NULL
+        WHERE service = ? AND job_name = ? AND source_variant = ?
+          AND reference_period = ? AND status = 'completed'
+        """,
+        scope,
+    )
+    LOG.info("Cleaning up existing playlist_order records for %s / %s / %s (period: %s)", *scope)
+    conn.execute(
+        """
+        DELETE FROM playlist_order
+        WHERE service = ? AND job_name = ? AND source_variant = ? AND reference_period = ?
+        """,
+        scope,
+    )
 
     # 1. Fetch all existing UIDs in one select query
     song_ids = [normalize_song_id(service, t) for t in track_rows if normalize_song_id(service, t)]
@@ -841,7 +939,7 @@ def _persist_crawled_tracks_impl(
         placeholders = ",".join("?" for _ in song_ids)
         rows = conn.execute(
             f"SELECT song_id, track_uid FROM platform_song_ids WHERE service = ? AND song_id IN ({placeholders})",
-            (normalized_service(service), *song_ids)
+            (service, *song_ids)
         ).fetchall()
         existing_uids = {row["song_id"]: row["track_uid"] for row in rows}
 
@@ -866,30 +964,10 @@ def _persist_crawled_tracks_impl(
         tracks_params.append((track_uid, None, "", "", "", "unmatched", 0.0, now, now))
         
         # Collect platform_song_ids params
-        platform_song_ids_params.append((normalized_service(service), song_id, track_uid))
+        platform_song_ids_params.append((service, song_id, track_uid))
         
         # Collect track_list metadata params
-        album_id = infer_album_id(service, track)
-        title_ko = str(track.get("title_ko") or track.get("title") or "").strip()
-        artist_ko = str(track.get("artist_ko") or track.get("artist") or "").strip()
-        album_ko = str(track.get("album_ko") or track.get("album") or "").strip()
-        title_en = str(track.get("title_en") or "").strip()
-        artist_en = str(track.get("artist_en") or "").strip()
-        album_en = str(track.get("album_en") or "").strip()
-        artwork_url = str(track.get("artwork_url") or "").strip()
-        
-        track_list_params.append((
-            normalized_service(service),
-            song_id,
-            album_id,
-            title_ko,
-            artist_ko,
-            album_ko,
-            title_en,
-            artist_en,
-            album_en,
-            artwork_url
-        ))
+        track_list_params.append(track_list_metadata_params(service=service, song_id=song_id, row=track))
         
         # Collect playlist_order params
         playlist_order_params.append((
@@ -914,11 +992,6 @@ def _persist_crawled_tracks_impl(
                 yt_title = COALESCE(NULLIF(excluded.yt_title, ''), tracks.yt_title),
                 yt_artist = COALESCE(NULLIF(excluded.yt_artist, ''), tracks.yt_artist),
                 yt_album = COALESCE(NULLIF(excluded.yt_album, ''), tracks.yt_album),
-                match_status = CASE
-                    WHEN excluded.match_status != 'failed' THEN excluded.match_status
-                    ELSE tracks.match_status
-                END,
-                best_score = CASE WHEN COALESCE(excluded.best_score, 0) >= COALESCE(tracks.best_score, 0) THEN COALESCE(excluded.best_score, 0) ELSE COALESCE(tracks.best_score, 0) END,
                 updated_at = excluded.updated_at
             """,
             tracks_params
@@ -964,8 +1037,6 @@ def _persist_crawled_tracks_impl(
                 song_id, rank_order
             )
             VALUES (?, ?, ?, ?, ?, ?)
-            ON CONFLICT(service, job_name, source_variant, reference_period, song_id) DO UPDATE SET
-                rank_order = excluded.rank_order
             """,
             playlist_order_params
         )
@@ -984,19 +1055,21 @@ def persist_crawled_tracks(
     conn: Any = None,
     commit: bool = True,
 ) -> None:
-    init_db(db_path)
     job_name = require_job_name(job_name)
     source_variant = normalize_source_variant(source_variant)
     track_rows = [row_dict(t) for t in tracks]
-    _validate_track_count(job_name, len(track_rows))
+    _validate_raw_tracks(service, job_name, track_rows)
 
     if conn is not None:
-        _persist_crawled_tracks_impl(conn, service, job_name, source_variant, chart_date, reference_period, chart_period, tracks)
+        if type(conn).__name__ != "PostgresConnectionWrapper":
+            init_schema(conn)
+        _persist_crawled_tracks_impl(conn, service, job_name, source_variant, chart_date, reference_period, chart_period, track_rows)
         if commit:
             conn.commit()
     else:
+        init_db(db_path)
         with connect(db_path) as new_conn:
-            _persist_crawled_tracks_impl(new_conn, service, job_name, source_variant, chart_date, reference_period, chart_period, tracks)
+            _persist_crawled_tracks_impl(new_conn, service, job_name, source_variant, chart_date, reference_period, chart_period, track_rows)
 
 
 def _rows_by_in(conn: Any, sql_prefix: str, values: list[str], params_prefix: tuple[Any, ...] = ()) -> list[Any]:
@@ -1025,26 +1098,29 @@ def _persist_crawl_run_bulk_impl(
     match_rows = [row_dict(m) for m in matches]
     ref_p = reference_period or chart_period
     resolved_period = reference_period_for_date(job_name, chart_date, ref_p)
-    should_write_playlist_order = not skip_playlist_order and not (
-        service == "melon" and job_name == "Gen-Z-Daily" and source_variant == "combined"
+    if not resolved_period:
+        raise ValueError(f"Could not resolve reference period for match run '{job_name}'.")
+    scope = (service, job_name, source_variant, resolved_period)
+    if type(conn).__name__ == "PostgresConnectionWrapper":
+        conn.execute("SELECT pg_advisory_xact_lock(hashtextextended(?, 0))", ("|".join(scope),))
+    elif not conn.in_transaction:
+        conn.execute("BEGIN IMMEDIATE")
+    _validate_effective_snapshot(
+        conn,
+        service=service,
+        job_name=job_name,
+        source_variant=source_variant,
+        reference_period=resolved_period,
+        tracks=track_rows,
     )
-    if resolved_period and should_write_playlist_order:
-        LOG.info("Cleaning up existing playlist_order records for %s / %s / %s (period: %s)", service, job_name, source_variant, resolved_period)
-        conn.execute(
-            """
-            DELETE FROM playlist_order
-            WHERE service = ? AND job_name = ? AND source_variant = ? AND reference_period = ?
-            """,
-            (service, job_name, source_variant, resolved_period),
-        )
-    elif skip_playlist_order:
-        LOG.info("Skipping playlist_order rewrite for %s / %s / %s; raw chart order was already persisted.", service, job_name, source_variant)
+    LOG.info("Skipping playlist_order rewrite for %s / %s / %s; raw chart order is persisted separately.", service, job_name, source_variant)
 
     run_id = start_match_run(
         conn,
         service=service,
         job_name=job_name,
         source_variant=source_variant,
+        reference_period=resolved_period,
         started_at=started_at,
         source="crawler",
         total_tracks=len(track_rows),
@@ -1119,7 +1195,6 @@ def _persist_crawl_run_bulk_impl(
     yt_video_ids_params: list[tuple[Any, ...]] = []
     platform_song_ids_params: list[tuple[Any, ...]] = []
     track_list_params: list[tuple[Any, ...]] = []
-    playlist_order_params: list[tuple[Any, ...]] = []
     match_attempt_params: list[tuple[Any, ...]] = []
     match_candidate_params: list[tuple[Any, ...]] = []
     metadata_params: list[tuple[Any, ...]] = []
@@ -1202,8 +1277,6 @@ def _persist_crawl_run_bulk_impl(
         if canonical_video and status not in failed_statuses:
             metadata_params.extend(metadata_lookup_params(track_uid=track_uid, row=merged, source=status, score=score))
         rank_order = int(match.get("rank") or source_row.get("rank") or 0)
-        if song_id and rank_order and should_write_playlist_order and resolved_period:
-            playlist_order_params.append((service, job_name, source_variant, resolved_period, song_id, rank_order))
         if song_id:
             match_method, origin_method, _ = match_method_for_status(match.get("status"), match.get("query"))
             match_attempt_params.append((
@@ -1322,16 +1395,6 @@ def _persist_crawl_run_bulk_impl(
             """,
             metadata_params,
         )
-    if playlist_order_params:
-        conn.executemany(
-            """
-            INSERT INTO playlist_order(service, job_name, source_variant, reference_period, song_id, rank_order)
-            VALUES (?, ?, ?, ?, ?, ?)
-            ON CONFLICT(service, job_name, source_variant, reference_period, song_id) DO UPDATE SET
-                rank_order = excluded.rank_order
-            """,
-            playlist_order_params,
-        )
     if match_attempt_params:
         conn.executemany(
             """
@@ -1383,15 +1446,16 @@ def _persist_crawl_run_bulk_impl(
             """,
             match_candidate_params,
         )
+    cleanup_old_attempts_and_candidates(conn, days=15)
     conn.execute(
         """
         UPDATE match_runs
-        SET matched_tracks = ?, failed_tracks = ?, cache_hits = ?, proxy_hits = ?
+        SET matched_tracks = ?, failed_tracks = ?, cache_hits = ?, proxy_hits = ?,
+            status = 'completed', completed_at = ?
         WHERE run_id = ?
         """,
-        (matched_count, failed_count, cache_hits, proxy_hits, run_id),
+        (matched_count, failed_count, cache_hits, proxy_hits, utc_now_iso(), run_id),
     )
-    cleanup_old_attempts_and_candidates(conn, days=15)
 
 
 def persist_crawl_run(
@@ -1409,14 +1473,20 @@ def persist_crawl_run(
     conn: Any = None,
     skip_playlist_order: bool = False,
 ) -> None:
-    init_db(db_path)
     job_name = require_job_name(job_name)
     source_variant = normalize_source_variant(source_variant)
     track_rows = [row_dict(t) for t in tracks]
     match_rows = [row_dict(m) for m in matches]
-    _validate_track_count(job_name, len(track_rows))
+    if not skip_playlist_order:
+        raise ValueError(
+            "persist_crawl_run no longer writes playlist_order; persist raw tracks first "
+            "and call with skip_playlist_order=True."
+        )
+    _validate_effective_tracks(service, job_name, track_rows, match_rows)
 
     if conn is not None:
+        if type(conn).__name__ != "PostgresConnectionWrapper":
+            init_schema(conn)
         _persist_crawl_run_bulk_impl(
             conn,
             service,
@@ -1432,6 +1502,7 @@ def persist_crawl_run(
         )
         conn.commit()
     else:
+        init_db(db_path)
         with connect(db_path) as new_conn:
             _persist_crawl_run_bulk_impl(
                 new_conn,

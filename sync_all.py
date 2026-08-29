@@ -97,6 +97,15 @@ def task_enabled(task, now: datetime | None = None):
     return True
 
 
+def failed_hype_inputs(tasks: list[dict], failed_tasks: list[str]) -> list[str]:
+    inputs = {
+        str(task.get("job_name") or "").strip()
+        for task in tasks
+        if task.get("include_in_hype")
+    }
+    return sorted(inputs.intersection(failed_tasks))
+
+
 def main():
     script_dir = Path(__file__).parent
     load_env_file(script_dir / ".env")
@@ -163,6 +172,16 @@ def main():
             LOG.warning(f"Skipping task '{job_name}': Target ID not configured.")
             skipped_count += 1
             continue
+
+        if task_type == "hypex":
+            blocked_by = failed_hype_inputs(tasks, failed_tasks)
+            if blocked_by:
+                LOG.error(
+                    "Skipping Hype sync because upstream Hype input tasks failed: %s",
+                    ", ".join(blocked_by),
+                )
+                skipped_count += 1
+                continue
 
         LOG.info(f"=== Starting Task: {job_name} ({task_type}) ===")
         

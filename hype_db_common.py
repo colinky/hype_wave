@@ -36,6 +36,7 @@ __all__ = [
     "row_dict",
     "normalized_service",
     "normalize_song_id",
+    "dedupe_source_tracks",
     "infer_album_id",
     "job_frequency",
     "job_list_type",
@@ -305,6 +306,25 @@ def normalize_song_id(service: str, row: dict[str, Any]) -> str:
     return legacy_source_id
 
 
+def dedupe_source_tracks(tracks: list[Any], service: str) -> list[Any]:
+    """Return the first occurrence of each source recording without changing ranks."""
+    seen: set[tuple[str, str]] = set()
+    effective: list[Any] = []
+    for track in tracks:
+        row = row_dict(track)
+        song_id = normalize_song_id(service, row)
+        key = (
+            ("id", song_id)
+            if song_id
+            else ("meta", metadata_key(row.get("title"), row.get("artist"), row.get("album")))
+        )
+        if key in seen:
+            continue
+        seen.add(key)
+        effective.append(track)
+    return effective
+
+
 def infer_album_id(service: str, row: dict[str, Any]) -> str:
     service = normalized_service(service)
     album_id = str(row.get("album_id") or "").strip()
@@ -443,13 +463,21 @@ def hype_identity_key(row: Any) -> str:
     artist_key = normalize_text(artist)
     if not title_key or not artist_key:
         return f"video:{row['video_id']}"
+    album = row["album"] or row["yt_album"] or ""
+    versions = "|".join(
+        dict.fromkeys(
+            value
+            for value in (version_signature(title), version_signature(album))
+            if value
+        )
+    )
     return "|".join(
         (
             "meta",
             title_key,
             artist_key,
             feature_signature(title),
-            version_signature(title),
+            versions,
         )
     )
 

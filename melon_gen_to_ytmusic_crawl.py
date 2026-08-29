@@ -181,6 +181,7 @@ def parse_melon_generation_tracks(html: str, gen: str, *, limit: int = 100, ttl_
                 artwork_url=artwork_url,
                 song_id=song_id,
                 album_id=album_id,
+                locale="ko",
             )
         )
 
@@ -239,13 +240,15 @@ def merge_melon_generation_tracks(
     for t in tracks_gen1:
         key = get_key(t)
         merged.setdefault(key, {"track": t, "gen1_rank": None, "gen2_rank": None})
-        merged[key]["gen1_rank"] = t.rank
+        current = merged[key]["gen1_rank"]
+        merged[key]["gen1_rank"] = min(current, t.rank) if current is not None else t.rank
 
     # gen2
     for t in tracks_gen2:
         key = get_key(t)
         merged.setdefault(key, {"track": t, "gen1_rank": None, "gen2_rank": None})
-        merged[key]["gen2_rank"] = t.rank
+        current = merged[key]["gen2_rank"]
+        merged[key]["gen2_rank"] = min(current, t.rank) if current is not None else t.rank
 
     # 2. 점수 계산
     scored = []
@@ -317,6 +320,7 @@ def merge_melon_generation_tracks(
                 artwork_url=t.artwork_url,
                 song_id=t.song_id,
                 album_id=t.album_id,
+                locale=t.locale,
             )
         )
 

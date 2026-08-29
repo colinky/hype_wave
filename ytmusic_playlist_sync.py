@@ -169,6 +169,7 @@ class SourceTrack:
     artwork_url: str = ""
     song_id: str = ""
     album_id: str = ""
+    locale: str = ""
 
 
 @dataclass
@@ -205,6 +206,35 @@ class MatchResult:
     status: str = "failed"  # 매칭 상태 (matched, failed, proxy_matched 등)
 
 
+def localized_source_fields(
+    track: SourceTrack,
+    track_ko: SourceTrack | None = None,
+    *,
+    previous: dict[str, Any] | None = None,
+) -> dict[str, str]:
+    """Map source metadata to language-specific fields without guessing a locale."""
+    previous = previous or {}
+    if track.locale.lower().startswith("ko"):
+        korean = track_ko or track
+        return {
+            "title_en": str(previous.get("title_en") or ""),
+            "artist_en": str(previous.get("artist_en") or ""),
+            "album_en": str(previous.get("album_en") or ""),
+            "title_ko": korean.title,
+            "artist_ko": korean.artist,
+            "album_ko": korean.album,
+        }
+
+    return {
+        "title_en": track.title,
+        "artist_en": track.artist,
+        "album_en": track.album,
+        "title_ko": track_ko.title if track_ko else str(previous.get("title_ko") or ""),
+        "artist_ko": track_ko.artist if track_ko else str(previous.get("artist_ko") or ""),
+        "album_ko": track_ko.album if track_ko else str(previous.get("album_ko") or ""),
+    }
+
+
 def match_from_prev(
     track: SourceTrack,
     prev: dict[str, Any],
@@ -213,18 +243,14 @@ def match_from_prev(
     status: str = "cached_match",
 ) -> MatchResult:
     """Build a MatchResult reusing data from a previous match (cache or proxy)."""
+    localized = localized_source_fields(track, track_ko, previous=prev)
     return MatchResult(
         rank=track.rank,
         title=track.title,
         artist=track.artist,
         album=track.album,
         service=track.service,
-        title_en=prev.get("title_en", track.title),
-        artist_en=prev.get("artist_en", track.artist),
-        album_en=prev.get("album_en", track.album),
-        title_ko=track_ko.title if track_ko else prev.get("title_ko", ""),
-        artist_ko=track_ko.artist if track_ko else prev.get("artist_ko", ""),
-        album_ko=track_ko.album if track_ko else prev.get("album_ko", ""),
+        **localized,
         song_id=track.song_id,
         album_id=track.album_id,
         artwork_url=track.artwork_url,
@@ -1774,18 +1800,14 @@ def search_youtube_music(
 
     if manual_video_id:
         LOG.info("Manual override found for '%s | %s' -> video_id: %s", track.title, track.artist, manual_video_id)
+        localized = localized_source_fields(track, track_ko)
         return MatchResult(
             rank=track.rank,
             title=track.title,
             artist=track.artist,
             album=track.album,
             service=track.service,
-            title_en=track.title,
-            artist_en=track.artist,
-            album_en=track.album,
-            title_ko=track_ko.title if track_ko else "",
-            artist_ko=track_ko.artist if track_ko else "",
-            album_ko=track_ko.album if track_ko else "",
+            **localized,
             song_id=track.song_id,
             album_id=track.album_id,
             video_id=manual_video_id,
@@ -1801,7 +1823,9 @@ def search_youtube_music(
     best_artist_score = 0.0
     best_album_score = 0.0
     best_query = ""
-    seen_video_ids: set[str] = set(ignore_video_ids or [])
+    # `ignore_video_ids` is retained for caller compatibility, but source tracks must
+    # independently select their best canonical match before playlist-level deduplication.
+    seen_video_ids: set[str] = set()
 
     for query in search_queries_for_track(track, track_ko):
         time.sleep(0.5)  # Add sleep to prevent rate limiting (429 Too Many Requests)
@@ -1864,18 +1888,14 @@ def search_youtube_music(
         min_title_score=min_title_score,
         min_artist_score=min_artist_score,
     ):
+        localized = localized_source_fields(track, track_ko)
         return MatchResult(
             rank=track.rank,
             title=track.title,
             artist=track.artist,
             album=track.album,
             service=track.service,
-            title_en=track.title,
-            artist_en=track.artist,
-            album_en=track.album,
-            title_ko=track_ko.title if track_ko else "",
-            artist_ko=track_ko.artist if track_ko else "",
-            album_ko=track_ko.album if track_ko else "",
+            **localized,
             song_id=track.song_id,
             album_id=track.album_id,
             video_id=None,
@@ -1890,18 +1910,14 @@ def search_youtube_music(
             query=best_query,
         )
 
+    localized = localized_source_fields(track, track_ko)
     return MatchResult(
         rank=track.rank,
         title=track.title,
         artist=track.artist,
         album=track.album,
         service=track.service,
-        title_en=track.title,
-        artist_en=track.artist,
-        album_en=track.album,
-        title_ko=track_ko.title if track_ko else "",
-        artist_ko=track_ko.artist if track_ko else "",
-        album_ko=track_ko.album if track_ko else "",
+        **localized,
         song_id=track.song_id,
         album_id=track.album_id,
         artwork_url=track.artwork_url,
@@ -1931,15 +1947,101 @@ def get_existing_playlist_items(ytmusic: YTMusic, playlist_id: str) -> list[dict
             LOG.error(f"Playlist {playlist_id} not found (404). Please verify the ID is correct and the playlist is Public or Unlisted.")
         else:
             LOG.error(f"Failed to fetch playlist items for {playlist_id}: {exc}")
-        return []
+        raise RuntimeError(f"Failed to fetch YouTube Music playlist {playlist_id}") from exc
 
     items: list[dict[str, str]] = []
-    for track in playlist.get("tracks", []):
+    for index, track in enumerate(playlist.get("tracks", []), 1):
         video_id = track.get("videoId")
         set_video_id = track.get("setVideoId")
-        if video_id and set_video_id:
-            items.append({"videoId": video_id, "setVideoId": set_video_id})
+        if not video_id or not set_video_id:
+            raise RuntimeError(
+                f"Playlist {playlist_id} item {index} is missing videoId or setVideoId"
+            )
+        items.append({"videoId": video_id, "setVideoId": set_video_id})
     return items
+
+
+def _require_playlist_mutation_success(result: Any, operation: str) -> None:
+    if result is None:
+        return
+    status = result.get("status", "") if isinstance(result, dict) else result
+    if isinstance(status, str) and "SUCCEEDED" in status:
+        return
+    raise RuntimeError(f"YouTube Music playlist {operation} failed: {result!r}")
+
+
+@lru_cache(maxsize=4096)
+def _normalize_substitution_title(value: str) -> str:
+    """Normalize punctuation only, retaining featured artists and version markers."""
+    value = unicodedata.normalize("NFKC", value).lower()
+    value = re.sub(
+        r"[^0-9a-z가-힣\u1100-\u11ff\u3130-\u318f\ua960-\ua97f\ud7b0-\ud7ff"
+        r"\u3040-\u30ff\u4e00-\u9fff]+",
+        " ",
+        value,
+    )
+    return re.sub(r"\s+", " ", value).strip()
+
+
+def _playlist_video_ids_match(
+    ytmusic: YTMusic,
+    expected: list[str],
+    actual: list[str],
+) -> bool:
+    """Accept exact order or YouTube's metadata-equivalent video-ID substitutions."""
+    if expected == actual:
+        return True
+    if len(expected) != len(actual):
+        return False
+
+    for expected_id, actual_id in zip(expected, actual):
+        if expected_id == actual_id:
+            continue
+        details = []
+        for video_id in (expected_id, actual_id):
+            try:
+                payload = ytmusic.get_song(video_id)
+                video = payload.get("videoDetails", {}) if isinstance(payload, dict) else {}
+                details.append(
+                    (
+                        _normalize_substitution_title(str(video.get("title") or "")),
+                        normalize_text(str(video.get("author") or "")),
+                        int(video.get("lengthSeconds") or 0),
+                    )
+                )
+            except Exception:
+                return False
+        (
+            expected_title,
+            expected_author,
+            expected_seconds,
+        ), (
+            actual_title,
+            actual_author,
+            actual_seconds,
+        ) = details
+        if not expected_title or expected_title != actual_title:
+            return False
+        if not expected_seconds or not actual_seconds:
+            return False
+        tolerance = max(10, round(max(expected_seconds, actual_seconds) * 0.05))
+        if abs(expected_seconds - actual_seconds) > tolerance:
+            return False
+        authors_match = expected_author and expected_author == actual_author
+        authors_in_title = (
+            expected_author
+            and actual_author
+            and expected_author in expected_title
+            and actual_author in expected_title
+        )
+        if not (authors_match or authors_in_title):
+            return False
+        LOG.info(
+            "Accepted YouTube Music equivalent video substitution: %s -> %s",
+            expected_id,
+            actual_id,
+        )
+    return True
 
 
 def update_ytmusic_playlist(
@@ -1959,6 +2061,18 @@ def update_ytmusic_playlist(
     If `SUPABASE_DB_URL` environment variable is set, it records the update audit inside the
     remote Supabase PostgreSQL database. Otherwise, it falls back to the SQLite DB at `db_path`.
     """
+    if not video_ids:
+        raise ValueError("Refusing to replace a playlist with an empty video ID list")
+    if any(not isinstance(video_id, str) or not video_id.strip() for video_id in video_ids):
+        raise ValueError("Playlist video IDs must be non-empty strings")
+    if len(set(video_ids)) != len(video_ids):
+        raise ValueError("Playlist video IDs must be unique")
+
+    existing_items = get_existing_playlist_items(ytmusic, playlist_id)
+    existing_video_ids = [item["videoId"] for item in existing_items]
+    LOG.info("Current YouTube Music playlist item count: %d", len(existing_items))
+    already_current = _playlist_video_ids_match(ytmusic, video_ids, existing_video_ids)
+
     if (description or playlist_name) and not dry_run:
         try:
             kwargs: dict[str, str] = {}
@@ -1971,8 +2085,6 @@ def update_ytmusic_playlist(
         except Exception as exc:
             LOG.warning("Failed to update playlist metadata: %s", exc)
 
-    existing_items = get_existing_playlist_items(ytmusic, playlist_id)
-    LOG.info("Current YouTube Music playlist item count: %d", len(existing_items))
     if db_path and not dry_run:
         try:
             from hype_db import record_playlist_update
@@ -1991,28 +2103,62 @@ def update_ytmusic_playlist(
     if dry_run:
         LOG.info("Dry run enabled. Skipping playlist removal/addition.")
         return
+    if already_current:
+        LOG.info("Playlist already matches the requested order; skipping removal/addition.")
+        return
 
     for chunk in chunked(existing_items, 50):
         for attempt in range(3):
             try:
-                ytmusic.remove_playlist_items(playlist_id, chunk)
+                result = ytmusic.remove_playlist_items(playlist_id, chunk)
+                _require_playlist_mutation_success(result, "removal")
                 LOG.info("Removed %d existing items", len(chunk))
                 break
             except Exception as exc:
                 LOG.warning("Failed to remove %d items (attempt %d): %s", len(chunk), attempt + 1, exc)
+                if attempt == 2:
+                    raise RuntimeError(
+                        f"Failed to remove {len(chunk)} playlist items after 3 attempts"
+                    ) from exc
                 time.sleep(2)
         time.sleep(1.0)
 
     for chunk in chunked(video_ids, 50):
         for attempt in range(3):
             try:
-                ytmusic.add_playlist_items(playlist_id, chunk, duplicates=False)
+                result = ytmusic.add_playlist_items(playlist_id, chunk, duplicates=False)
+                _require_playlist_mutation_success(result, "addition")
                 LOG.info("Added %d matched items", len(chunk))
                 break
             except Exception as exc:
                 LOG.warning("Failed to add %d items (attempt %d): %s", len(chunk), attempt + 1, exc)
+                if attempt == 2:
+                    raise RuntimeError(
+                        f"Failed to add {len(chunk)} playlist items after 3 attempts"
+                    ) from exc
                 time.sleep(2)
         time.sleep(1.0)
+
+    actual_video_ids: list[str] = []
+    for attempt in range(3):
+        actual_video_ids = [
+            item["videoId"] for item in get_existing_playlist_items(ytmusic, playlist_id)
+        ]
+        if _playlist_video_ids_match(ytmusic, video_ids, actual_video_ids):
+            return
+        if attempt < 2:
+            LOG.warning(
+                "Playlist verification mismatch (attempt %d): expected %d items, found %d",
+                attempt + 1,
+                len(video_ids),
+                len(actual_video_ids),
+            )
+            time.sleep(2)
+
+    raise RuntimeError(
+        "YouTube Music playlist verification failed: "
+        f"expected {video_ids!r}, found {actual_video_ids!r}"
+    )
 
 
 def write_json(path: Path, data: Any) -> None:

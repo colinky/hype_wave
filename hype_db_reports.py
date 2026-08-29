@@ -20,7 +20,7 @@ from hype_db_common import (
     normalized_service,
     reference_period_for_date,
 )
-from hype_db_schema import connect
+from hype_db_schema import connect, init_db
 
 LOG = logging.getLogger("hype_db")
 __all__ = [
@@ -56,6 +56,19 @@ DAILY_RANKING_FIELDS = (
     "melon_genz_rank",
     "ytmusic_rank",
 )
+
+_COMPLETED_SNAPSHOT_SQL = """
+EXISTS (
+    SELECT 1
+    FROM match_runs mr
+    WHERE mr.service = p.service
+      AND mr.job_name = p.job_name
+      AND mr.source_variant = p.source_variant
+      AND mr.reference_period = p.reference_period
+      AND mr.status = 'completed'
+      AND mr.completed_at IS NOT NULL
+)
+"""
 
 
 def _is_history_v2(payload: Any) -> bool:
@@ -194,6 +207,8 @@ def export_frontend_history(
     path = Path(db_path)
     if not path.exists() and not os.environ.get("SUPABASE_DB_URL"):
         return {}
+    if not os.environ.get("SUPABASE_DB_URL"):
+        init_db(path)
     out = Path(output_path)
     existing_payload: Any = {}
     if out.exists():
@@ -207,10 +222,11 @@ def export_frontend_history(
         limit = days if full_rebuild or not out.exists() else 1
         date_rows = conn.execute(
             f"""
-            SELECT DISTINCT reference_period AS chart_date
-            FROM playlist_order
-            WHERE job_name IN ({placeholders})
-              AND reference_period LIKE '____-__-__'
+            SELECT DISTINCT p.reference_period AS chart_date
+            FROM playlist_order p
+            WHERE p.job_name IN ({placeholders})
+              AND p.reference_period LIKE '____-__-__'
+              AND {_COMPLETED_SNAPSHOT_SQL}
             ORDER BY chart_date DESC
             LIMIT ?
             """,
@@ -302,11 +318,12 @@ def previous_apple_videos_for_history(
     placeholders = ",".join("?" for _ in apple_playlists)
     row = conn.execute(
         f"""
-        SELECT DISTINCT reference_period AS chart_date
-        FROM playlist_order
-        WHERE job_name IN ({placeholders})
-          AND reference_period LIKE '____-__-__'
-          AND reference_period < ?
+        SELECT DISTINCT p.reference_period AS chart_date
+        FROM playlist_order p
+        WHERE p.job_name IN ({placeholders})
+          AND p.reference_period LIKE '____-__-__'
+          AND p.reference_period < ?
+          AND {_COMPLETED_SNAPSHOT_SQL}
         ORDER BY chart_date DESC
         LIMIT 1
         """,
@@ -351,13 +368,16 @@ def fetch_hype_rows_for_dates(conn: sqlite3.Connection, dates: list[str]) -> dic
             FROM dates d
             JOIN playlist_order p
               ON (
-                    p.reference_period NOT LIKE '%-W%'
-                AND p.reference_period <= d.daily_cutoff
-              )
-              OR (
-                    p.reference_period LIKE '%-W%'
-                AND p.reference_period <= d.target_week
-              )
+                    (
+                        p.reference_period NOT LIKE '%-W%'
+                        AND p.reference_period <= d.daily_cutoff
+                    )
+                    OR (
+                        p.reference_period LIKE '%-W%'
+                        AND p.reference_period <= d.target_week
+                    )
+                 )
+             AND {_COMPLETED_SNAPSHOT_SQL}
             GROUP BY d.chart_date, p.service, p.job_name, p.source_variant
         )
         SELECT
@@ -414,18 +434,21 @@ def hype_report_for_date(
     # target_week: 주별 차트(ytmusic 등)의 carry-forward 기준 ISO 주 (예: '2026-W18')
     target_week = reference_period_for_date(ytmusic_jobs[0], chart_date) if ytmusic_jobs else chart_date
     rows = conn.execute(
-        """
+        f"""
         WITH effective AS (
             -- 각 (service, job_name, source_variant) 조합에 대해
             -- history date의 직전 daily reference_period와 최신 weekly reference_period를 선택합니다.
             --   주별 차트 (ytmusic): reference_period = ISO 주 형식 (예: '2026-W18')
             --     → INSTR(reference_period, '-W') > 0 이므로 target_week 기준 비교
-            SELECT service, job_name, source_variant,
-                   MAX(reference_period) AS eff_period
-            FROM playlist_order
-            WHERE (reference_period NOT LIKE '%-W%' AND reference_period <= ?)
-               OR (reference_period LIKE '%-W%' AND reference_period <= ?)
-            GROUP BY service, job_name, source_variant
+            SELECT p.service, p.job_name, p.source_variant,
+                   MAX(p.reference_period) AS eff_period
+            FROM playlist_order p
+            WHERE (
+                    (p.reference_period NOT LIKE '%-W%' AND p.reference_period <= ?)
+                 OR (p.reference_period LIKE '%-W%' AND p.reference_period <= ?)
+                  )
+              AND {_COMPLETED_SNAPSHOT_SQL}
+            GROUP BY p.service, p.job_name, p.source_variant
         )
         SELECT
             ps.track_uid,

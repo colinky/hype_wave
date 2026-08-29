@@ -24,16 +24,21 @@ from hype_db_common import (
 
 LOG = logging.getLogger("hype_db")
 _POSTGRES_INDEXES_CHECKED = False
+_POSTGRES_SCHEMA_VERIFIED = False
+PLAYLIST_ORDER_PK = ("service", "job_name", "source_variant", "reference_period", "rank_order")
+LEGACY_PLAYLIST_ORDER_PK = ("service", "job_name", "source_variant", "reference_period", "song_id")
 __all__ = [
     "PostgresRow",
     "PostgresCursorWrapper",
     "PostgresConnectionWrapper",
     "ensure_postgres_indexes",
+    "verify_postgres_schema",
     "connect",
     "init_db",
     "run_schema_migrations",
     "init_schema",
     "table_columns",
+    "table_primary_key",
     "table_exists",
 ]
 
@@ -156,7 +161,7 @@ def ensure_postgres_indexes(raw_conn: Any) -> None:
         "idx_platform_song_ids_track": ("platform_song_ids", "CREATE INDEX IF NOT EXISTS idx_platform_song_ids_track ON platform_song_ids(track_uid)"),
         "idx_metadata_lookup_track": ("metadata_lookup_index", "CREATE INDEX IF NOT EXISTS idx_metadata_lookup_track ON metadata_lookup_index(track_uid)"),
         "idx_playlist_order_job_period": ("playlist_order", "CREATE INDEX IF NOT EXISTS idx_playlist_order_job_period ON playlist_order(job_name, reference_period)"),
-        "idx_playlist_order_effective": ("playlist_order", "CREATE INDEX IF NOT EXISTS idx_playlist_order_effective ON playlist_order(service, job_name, source_variant, reference_period)"),
+        "idx_match_runs_readiness": ("match_runs", "CREATE INDEX IF NOT EXISTS idx_match_runs_readiness ON match_runs(service, job_name, source_variant, reference_period, status)"),
         "idx_match_attempts_video": ("match_attempts", "CREATE INDEX IF NOT EXISTS idx_match_attempts_video ON match_attempts(video_id)"),
         "idx_match_attempts_created_at": ("match_attempts", "CREATE INDEX IF NOT EXISTS idx_match_attempts_created_at ON match_attempts(created_at)"),
         "idx_match_candidates_created_at": ("match_candidates", "CREATE INDEX IF NOT EXISTS idx_match_candidates_created_at ON match_candidates(created_at)"),
@@ -187,6 +192,72 @@ def ensure_postgres_indexes(raw_conn: Any) -> None:
     _POSTGRES_INDEXES_CHECKED = True
 
 
+def verify_postgres_schema(raw_conn: Any) -> None:
+    """Fail fast when application SQL and the deployed PostgreSQL schema differ."""
+    global _POSTGRES_SCHEMA_VERIFIED
+    if _POSTGRES_SCHEMA_VERIFIED:
+        return
+    with raw_conn.cursor() as cursor:
+        cursor.execute(
+            """
+            SELECT c.condeferrable, array_agg(a.attname ORDER BY key_column.ordinality)
+            FROM pg_constraint c
+            JOIN pg_class t ON t.oid = c.conrelid
+            JOIN pg_namespace n ON n.oid = t.relnamespace
+            JOIN unnest(c.conkey) WITH ORDINALITY AS key_column(attnum, ordinality) ON TRUE
+            JOIN pg_attribute a ON a.attrelid = t.oid AND a.attnum = key_column.attnum
+            WHERE n.nspname = 'public'
+              AND t.relname = 'playlist_order'
+              AND c.contype = 'p'
+            GROUP BY c.oid, c.condeferrable
+            """
+        )
+        row = cursor.fetchone()
+        if not row or tuple(row[1] or ()) != PLAYLIST_ORDER_PK or bool(row[0]):
+            actual = tuple(row[1] or ()) if row else ()
+            raise RuntimeError(
+                "PostgreSQL schema is not ready for rank-slot playlist_order writes: "
+                f"expected non-deferrable PK {PLAYLIST_ORDER_PK}, found {actual}. "
+                "Apply migrations/20260830_playlist_order_rank_pk.sql before running sync tasks."
+            )
+
+        cursor.execute(
+            """
+            SELECT array_agg(a.attname ORDER BY key_column.ordinality)
+            FROM pg_index i
+            JOIN pg_class t ON t.oid = i.indrelid
+            JOIN pg_namespace n ON n.oid = t.relnamespace
+            JOIN unnest(i.indkey) WITH ORDINALITY AS key_column(attnum, ordinality) ON key_column.attnum > 0
+            JOIN pg_attribute a ON a.attrelid = t.oid AND a.attnum = key_column.attnum
+            WHERE n.nspname = 'public'
+              AND t.relname = 'playlist_order'
+              AND i.indisunique
+            GROUP BY i.indexrelid
+            """
+        )
+        unique_keys = {tuple(item[0] or ()) for item in cursor.fetchall()}
+        if LEGACY_PLAYLIST_ORDER_PK in unique_keys:
+            raise RuntimeError(
+                "PostgreSQL playlist_order still has the legacy song-id unique key; "
+                "duplicate chart positions cannot be preserved."
+            )
+
+        cursor.execute(
+            """
+            SELECT column_name
+            FROM information_schema.columns
+            WHERE table_schema = 'public'
+              AND table_name = 'match_runs'
+              AND column_name IN ('reference_period', 'status', 'completed_at')
+            """
+        )
+        readiness_columns = {item[0] for item in cursor.fetchall()}
+        missing = {"reference_period", "status", "completed_at"} - readiness_columns
+        if missing:
+            raise RuntimeError(f"PostgreSQL match_runs is missing readiness columns: {sorted(missing)}")
+    _POSTGRES_SCHEMA_VERIFIED = True
+
+
 @contextmanager
 def connect(db_path: str | Path):
     """Database connection context manager supporting dual engines.
@@ -208,19 +279,30 @@ def connect(db_path: str | Path):
             try:
                 raw_conn = psycopg2.connect(pg_url, connect_timeout=connect_timeout)
                 with raw_conn.cursor() as cursor:
+                    cursor.execute("SET search_path TO public")
                     cursor.execute("SET lock_timeout = '30s'")
                     cursor.execute("SET statement_timeout = '180s'")
                     cursor.execute("SET idle_in_transaction_session_timeout = '180s'")
                 raw_conn.commit()
+                verify_postgres_schema(raw_conn)
+                raw_conn.commit()
                 ensure_postgres_indexes(raw_conn)
                 break
             except psycopg2.OperationalError as exc:
+                if raw_conn is not None:
+                    raw_conn.close()
+                    raw_conn = None
                 if i == retries - 1:
                     LOG.error("Failed to connect to Supabase PostgreSQL after %d attempts: %s", retries, exc)
                     raise exc
                 wait_time = delay * (2 ** i)
                 LOG.warning("Supabase connection failed. Retrying in %.1fs... (%d/%d): %s", wait_time, i + 1, retries, exc)
                 time.sleep(wait_time)
+            except BaseException:
+                if raw_conn is not None:
+                    raw_conn.rollback()
+                    raw_conn.close()
+                raise
         
         conn = PostgresConnectionWrapper(raw_conn)
         try:
@@ -299,7 +381,8 @@ def run_schema_migrations(conn: sqlite3.Connection) -> None:
             )
             conn.commit()
     except Exception as exc:
-        LOG.warning("Failed to run daily chart date shift migration: %s", exc)
+        conn.rollback()
+        raise RuntimeError("Failed to run daily chart date shift migration") from exc
 
     # 5. Spotify Weekly W## format recovery to Friday date
     try:
@@ -339,7 +422,8 @@ def run_schema_migrations(conn: sqlite3.Connection) -> None:
             )
             conn.commit()
     except Exception as exc:
-        LOG.warning("Failed to run Spotify weekly date recovery migration: %s", exc)
+        conn.rollback()
+        raise RuntimeError("Failed to run Spotify weekly date recovery migration") from exc
 
 
 def init_schema(conn: Any) -> None:
@@ -347,13 +431,6 @@ def init_schema(conn: Any) -> None:
         return
     run_schema_migrations(conn)
     conn.execute("PRAGMA foreign_keys = OFF")
-    conn.executescript(
-        """
-        DROP VIEW IF EXISTS frontend_history_source;
-        DROP VIEW IF EXISTS latest_failed_matches;
-        DROP VIEW IF EXISTS latest_match_attempts;
-        """
-    )
     conn.executescript(
         """
         CREATE TABLE IF NOT EXISTS schema_migrations (
@@ -414,8 +491,8 @@ def init_schema(conn: Any) -> None:
             source_variant TEXT NOT NULL DEFAULT 'default',
             reference_period TEXT NOT NULL,
             song_id TEXT NOT NULL,
-            rank_order INTEGER NOT NULL,
-            PRIMARY KEY (service, job_name, source_variant, reference_period, song_id)
+            rank_order INTEGER NOT NULL CHECK (rank_order > 0),
+            PRIMARY KEY (service, job_name, source_variant, reference_period, rank_order)
         );
 
         CREATE TABLE IF NOT EXISTS match_runs (
@@ -423,8 +500,11 @@ def init_schema(conn: Any) -> None:
             service TEXT NOT NULL,
             job_name TEXT NOT NULL,
             source_variant TEXT NOT NULL DEFAULT 'default',
+            reference_period TEXT NOT NULL DEFAULT '',
             started_at TEXT NOT NULL,
             source TEXT,
+            status TEXT NOT NULL DEFAULT 'running',
+            completed_at TEXT,
             total_tracks INTEGER DEFAULT 0,
             matched_tracks INTEGER DEFAULT 0,
             failed_tracks INTEGER DEFAULT 0,
@@ -564,44 +644,75 @@ def init_schema(conn: Any) -> None:
 
         """
     )
-    _rebuild_lean_schema(conn)
-    conn.execute("CREATE INDEX IF NOT EXISTS idx_tracks_canonical_yt ON tracks(canonical_yt_video_id)")
-    conn.execute("CREATE INDEX IF NOT EXISTS idx_platform_song_ids_track ON platform_song_ids(track_uid)")
-    conn.execute("CREATE INDEX IF NOT EXISTS idx_match_attempts_video ON match_attempts(video_id)")
-    conn.execute("CREATE INDEX IF NOT EXISTS idx_playlist_order_job_period ON playlist_order(job_name, reference_period)")
-    from hype_db_store import repair_failed_source_bindings
+    migration_marker_missing = conn.execute(
+        "SELECT 1 FROM schema_migrations WHERE version = 'playlist_order_rank_pk_v1'"
+    ).fetchone() is None
+    match_run_columns = table_columns(conn, "match_runs") if table_exists(conn, "match_runs") else set()
+    readiness_upgrade_needed = not {"reference_period", "status", "completed_at"}.issubset(
+        match_run_columns
+    )
+    seed_migration_snapshots = migration_marker_missing or readiness_upgrade_needed
+    conn.execute("BEGIN IMMEDIATE")
+    try:
+        for view in ("frontend_history_source", "latest_failed_matches", "latest_match_attempts"):
+            conn.execute(f"DROP VIEW IF EXISTS {view}")
+        _rebuild_lean_schema(conn, seed_migration_snapshots=seed_migration_snapshots)
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_tracks_canonical_yt ON tracks(canonical_yt_video_id)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_platform_song_ids_track ON platform_song_ids(track_uid)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_match_attempts_video ON match_attempts(video_id)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_playlist_order_job_period ON playlist_order(job_name, reference_period)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_match_runs_readiness ON match_runs(service, job_name, source_variant, reference_period, status)")
+        from hype_db_store import repair_failed_source_bindings
 
-    repair_stats = repair_failed_source_bindings(conn)
-    if repair_stats.get("updated_bindings") or repair_stats.get("merged_tracks"):
+        repair_stats = repair_failed_source_bindings(conn)
+        if repair_stats.get("updated_bindings") or repair_stats.get("merged_tracks"):
+            conn.execute(
+                """
+                INSERT OR REPLACE INTO migration_reports(
+                    report_id, source, rows_read, tracks_seen, conflicts_seen, created_at, payload_json
+                )
+                VALUES (?, 'db_repair', 0, ?, 0, ?, ?)
+                """,
+                (
+                    hashlib.sha1(json.dumps(repair_stats, sort_keys=True).encode("utf-8")).hexdigest(),
+                    int(repair_stats.get("updated_bindings", 0)) + int(repair_stats.get("merged_tracks", 0)),
+                    utc_now_iso(),
+                    json.dumps(repair_stats, ensure_ascii=False, sort_keys=True),
+                ),
+            )
+        _create_views(conn)
         conn.execute(
             """
-            INSERT OR REPLACE INTO migration_reports(
-                report_id, source, rows_read, tracks_seen, conflicts_seen, created_at, payload_json
-            )
-            VALUES (?, 'db_repair', 0, ?, 0, ?, ?)
+            INSERT INTO schema_migrations(version, applied_at, description)
+            VALUES ('playlist_order_rank_pk_v1', ?, 'Rank-slot playlist order and completed match snapshots')
+            ON CONFLICT(version) DO NOTHING
             """,
-            (
-                hashlib.sha1(json.dumps(repair_stats, sort_keys=True).encode("utf-8")).hexdigest(),
-                int(repair_stats.get("updated_bindings", 0)) + int(repair_stats.get("merged_tracks", 0)),
-                utc_now_iso(),
-                json.dumps(repair_stats, ensure_ascii=False, sort_keys=True),
-            ),
+            (utc_now_iso(),),
         )
-    _create_views(conn)
-    conn.execute(
-        """
-        INSERT INTO schema_migrations(version, applied_at, description)
-        VALUES ('db_source_v2_lean', ?, 'Lean DB source of truth schema')
-        ON CONFLICT(version) DO NOTHING
-        """,
-        (utc_now_iso(),),
-    )
-    conn.execute("PRAGMA foreign_keys = ON")
+        conn.execute(
+            """
+            INSERT INTO schema_migrations(version, applied_at, description)
+            VALUES ('db_source_v2_lean', ?, 'Lean DB source of truth schema')
+            ON CONFLICT(version) DO NOTHING
+            """,
+            (utc_now_iso(),),
+        )
+        conn.commit()
+    except BaseException:
+        conn.rollback()
+        raise
+    finally:
+        conn.execute("PRAGMA foreign_keys = ON")
 
 
 
 def table_columns(conn: sqlite3.Connection, table: str) -> set[str]:
     return {row["name"] for row in conn.execute(f"PRAGMA table_info({table})").fetchall()}
+
+
+def table_primary_key(conn: sqlite3.Connection, table: str) -> tuple[str, ...]:
+    rows = conn.execute(f"PRAGMA table_info({table})").fetchall()
+    return tuple(row["name"] for row in sorted(rows, key=lambda item: item["pk"]) if row["pk"])
 
 
 def table_exists(conn: sqlite3.Connection, table: str) -> bool:
@@ -612,10 +723,12 @@ def table_exists(conn: sqlite3.Connection, table: str) -> bool:
 
 
 
-def _rebuild_lean_schema(conn: sqlite3.Connection) -> None:
-    _rebuild_index_tables(conn)
+def _rebuild_lean_schema(conn: sqlite3.Connection, *, seed_migration_snapshots: bool = False) -> None:
     _rebuild_playlist_order(conn)
+    _rebuild_index_tables(conn)
     _rebuild_match_runs(conn)
+    if seed_migration_snapshots:
+        _seed_migration_snapshot_runs(conn)
     _rebuild_match_attempts(conn)
     _rebuild_match_candidates(conn)
     _rebuild_review_conflicts(conn)
@@ -646,7 +759,7 @@ def _rebuild_playlist_order(conn: sqlite3.Connection) -> None:
     target = {"service", "job_name", "source_variant", "reference_period", "song_id", "rank_order"}
     if not table_exists(conn, "playlist_order"):
         return
-    if table_columns(conn, "playlist_order") == target:
+    if table_columns(conn, "playlist_order") == target and table_primary_key(conn, "playlist_order") == PLAYLIST_ORDER_PK:
         date_period_jobs = conn.execute(
             """
             SELECT DISTINCT job_name
@@ -657,7 +770,26 @@ def _rebuild_playlist_order(conn: sqlite3.Connection) -> None:
         needs_period_normalize = any(job_frequency(row["job_name"]) == "weekly" for row in date_period_jobs)
         if not needs_period_normalize:
             return
-    rows = conn.execute("SELECT * FROM playlist_order").fetchall()
+    transformed: list[tuple[str, str, str, str, str, int]] = []
+    slots: set[tuple[str, str, str, str, int]] = set()
+    for row in conn.execute("SELECT * FROM playlist_order").fetchall():
+        data = dict(row)
+        legacy_name = str(data.get("playlist_name") or "")
+        job_name = legacy_to_job_name(data.get("job_name") or legacy_name)
+        variant = _source_variant_from_legacy(legacy_name, str(data.get("source_variant") or ""))
+        date_value = data.get("chart_period_end") or data.get("chart_period_start") or data.get("crawl_time") or data.get("chart_period") or data.get("reference_period")
+        reference_period = reference_period_for_date(job_name, str(date_value or ""), str(data.get("reference_period") or data.get("chart_period") or ""))
+        service = normalized_service(data.get("service"))
+        song_id = str(data.get("song_id") or "").strip()
+        rank_order = int(data.get("rank_order") or 0)
+        if not service or not job_name or not song_id or not reference_period or rank_order <= 0:
+            raise ValueError(f"Invalid legacy playlist_order row cannot be migrated: {data!r}")
+        slot = (service, job_name, variant, reference_period, rank_order)
+        if slot in slots:
+            raise ValueError(f"Duplicate playlist_order rank slot cannot be migrated: {slot!r}")
+        slots.add(slot)
+        transformed.append((service, job_name, variant, reference_period, song_id, rank_order))
+
     temp_table = "playlist_order_rebuild_tmp"
     conn.execute(f"DROP TABLE IF EXISTS {temp_table}")
     conn.execute(
@@ -668,54 +800,45 @@ def _rebuild_playlist_order(conn: sqlite3.Connection) -> None:
             source_variant TEXT NOT NULL DEFAULT 'default',
             reference_period TEXT NOT NULL,
             song_id TEXT NOT NULL,
-            rank_order INTEGER NOT NULL,
-            PRIMARY KEY(service, job_name, source_variant, reference_period, song_id)
+            rank_order INTEGER NOT NULL CHECK(rank_order > 0),
+            PRIMARY KEY(service, job_name, source_variant, reference_period, rank_order)
         )
         """
     )
-    for row in rows:
-        data = dict(row)
-        legacy_name = str(data.get("playlist_name") or "")
-        job_name = legacy_to_job_name(data.get("job_name") or legacy_name)
-        variant = _source_variant_from_legacy(legacy_name, str(data.get("source_variant") or ""))
-        date_value = data.get("chart_period_end") or data.get("chart_period_start") or data.get("crawl_time") or data.get("chart_period") or data.get("reference_period")
-        reference_period = reference_period_for_date(job_name, str(date_value or ""), str(data.get("reference_period") or data.get("chart_period") or ""))
-        service = normalized_service(data.get("service"))
-        song_id = str(data.get("song_id") or "").strip()
-        rank_order = int(data.get("rank_order") or 0)
-        if not service or not job_name or not song_id or not reference_period or not rank_order:
-            continue
-        conn.execute(
-            f"""
-            INSERT INTO {temp_table}(service, job_name, source_variant, reference_period, song_id, rank_order)
-            VALUES (?, ?, ?, ?, ?, ?)
-            ON CONFLICT(service, job_name, source_variant, reference_period, song_id) DO UPDATE SET
-                rank_order = excluded.rank_order
-            """,
-            (service, job_name, variant, reference_period, song_id, rank_order),
-        )
+    conn.executemany(
+        f"INSERT INTO {temp_table}(service, job_name, source_variant, reference_period, song_id, rank_order) VALUES (?, ?, ?, ?, ?, ?)",
+        transformed,
+    )
     conn.execute("DROP TABLE playlist_order")
     conn.execute(f"ALTER TABLE {temp_table} RENAME TO playlist_order")
+    actual_pk = table_primary_key(conn, "playlist_order")
+    if actual_pk != PLAYLIST_ORDER_PK:
+        raise RuntimeError(f"SQLite playlist_order PK migration failed: expected {PLAYLIST_ORDER_PK}, found {actual_pk}")
 
 
 def _rebuild_match_runs(conn: sqlite3.Connection) -> None:
     target = {
-        "run_id", "service", "job_name", "source_variant", "started_at", "source",
-        "total_tracks", "matched_tracks", "failed_tracks", "cache_hits", "proxy_hits", "created_at",
+        "run_id", "service", "job_name", "source_variant", "reference_period", "started_at", "source",
+        "status", "completed_at", "total_tracks", "matched_tracks", "failed_tracks", "cache_hits",
+        "proxy_hits", "created_at",
     }
     if not table_exists(conn, "match_runs") or table_columns(conn, "match_runs") == target:
         return
     rows = conn.execute("SELECT * FROM match_runs").fetchall()
-    conn.execute("ALTER TABLE match_runs RENAME TO match_runs_old")
+    temp_table = "match_runs_rebuild_tmp"
+    conn.execute(f"DROP TABLE IF EXISTS {temp_table}")
     conn.execute(
-        """
-        CREATE TABLE match_runs(
+        f"""
+        CREATE TABLE {temp_table}(
             run_id TEXT PRIMARY KEY,
             service TEXT NOT NULL,
             job_name TEXT NOT NULL,
             source_variant TEXT NOT NULL DEFAULT 'default',
+            reference_period TEXT NOT NULL DEFAULT '',
             started_at TEXT NOT NULL,
             source TEXT,
+            status TEXT NOT NULL DEFAULT 'running',
+            completed_at TEXT,
             total_tracks INTEGER DEFAULT 0,
             matched_tracks INTEGER DEFAULT 0,
             failed_tracks INTEGER DEFAULT 0,
@@ -730,30 +853,77 @@ def _rebuild_match_runs(conn: sqlite3.Connection) -> None:
         legacy_name = str(data.get("playlist_name") or "")
         job_name = legacy_to_job_name(data.get("job_name") or legacy_name)
         variant = _source_variant_from_legacy(legacy_name, str(data.get("source_variant") or ""))
+        started_at = data.get("started_at") or data.get("created_at") or utc_now_iso()
+        reference_period = str(data.get("reference_period") or "") or reference_period_for_date(job_name, started_at)
+        status = str(data.get("status") or "completed")
+        created_at = data.get("created_at") or utc_now_iso()
         conn.execute(
             """
-            INSERT OR REPLACE INTO match_runs(
-                run_id, service, job_name, source_variant, started_at, source, total_tracks,
-                matched_tracks, failed_tracks, cache_hits, proxy_hits, created_at
+            INSERT OR REPLACE INTO match_runs_rebuild_tmp(
+                run_id, service, job_name, source_variant, reference_period, started_at, source,
+                status, completed_at, total_tracks, matched_tracks, failed_tracks, cache_hits,
+                proxy_hits, created_at
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 data.get("run_id"),
                 normalized_service(data.get("service")),
                 job_name,
                 variant,
-                data.get("started_at") or data.get("created_at") or utc_now_iso(),
+                reference_period,
+                started_at,
                 data.get("source") or "",
+                status,
+                data.get("completed_at") or (created_at if status == "completed" else None),
                 int(data.get("total_tracks") or 0),
                 int(data.get("matched_tracks") or 0),
                 int(data.get("failed_tracks") or 0),
                 int(data.get("cache_hits") or 0),
                 int(data.get("proxy_hits") or 0),
-                data.get("created_at") or utc_now_iso(),
+                created_at,
             ),
         )
-    conn.execute("DROP TABLE match_runs_old")
+    conn.execute("DROP TABLE match_runs")
+    conn.execute(f"ALTER TABLE {temp_table} RENAME TO match_runs")
+
+
+def _seed_migration_snapshot_runs(conn: sqlite3.Connection) -> None:
+    now = utc_now_iso()
+    snapshots = conn.execute(
+        """
+        SELECT service, job_name, source_variant, reference_period,
+               COUNT(DISTINCT song_id) AS total_tracks
+        FROM playlist_order
+        GROUP BY service, job_name, source_variant, reference_period
+        """
+    ).fetchall()
+    for row in snapshots:
+        scope = (row["service"], row["job_name"], row["source_variant"], row["reference_period"])
+        existing_run = conn.execute(
+            """
+            SELECT status FROM match_runs
+            WHERE service = ? AND job_name = ? AND source_variant = ?
+              AND reference_period = ?
+            LIMIT 1
+            """,
+            scope,
+        ).fetchone()
+        if existing_run:
+            continue
+        run_id = hashlib.sha1(("migration_snapshot|" + "|".join(scope)).encode("utf-8")).hexdigest()
+        conn.execute(
+            """
+            INSERT INTO match_runs(
+                run_id, service, job_name, source_variant, reference_period, started_at,
+                source, status, completed_at, total_tracks, matched_tracks, failed_tracks,
+                cache_hits, proxy_hits, created_at
+            )
+            VALUES (?, ?, ?, ?, ?, ?, 'migration_snapshot', 'completed', ?, ?, 0, 0, 0, 0, ?)
+            ON CONFLICT(run_id) DO NOTHING
+            """,
+            (run_id, *scope, now, now, int(row["total_tracks"] or 0), now),
+        )
 
 
 def _rebuild_match_attempts(conn: sqlite3.Connection) -> None:
@@ -977,11 +1147,11 @@ def _rebuild_playlist_updates(conn: sqlite3.Connection) -> None:
         conn.execute("DROP TABLE playlist_update_items_old")
 
 def _create_views(conn: sqlite3.Connection) -> None:
-    conn.executescript(
+    for view in ("frontend_history_source", "latest_failed_matches", "latest_match_attempts"):
+        conn.execute(f"DROP VIEW IF EXISTS {view}")
+    conn.execute(
         """
-        DROP VIEW IF EXISTS frontend_history_source;
-
-        CREATE VIEW IF NOT EXISTS latest_match_attempts AS
+        CREATE VIEW latest_match_attempts AS
         SELECT a.*
         FROM match_attempts a
         JOIN (
@@ -991,15 +1161,21 @@ def _create_views(conn: sqlite3.Connection) -> None:
         ) latest
           ON latest.service = a.service
          AND latest.song_id = a.song_id
-         AND latest.max_created_at = a.created_at;
-
-        CREATE VIEW IF NOT EXISTS latest_failed_matches AS
+         AND latest.max_created_at = a.created_at
+        """
+    )
+    conn.execute(
+        """
+        CREATE VIEW latest_failed_matches AS
         SELECT *
         FROM latest_match_attempts
         WHERE COALESCE(video_id, '') = ''
-           OR status IN ('failed', 'duplicate_skipped', 'manual_blocked');
-
-        CREATE VIEW IF NOT EXISTS frontend_history_source AS
+           OR status IN ('failed', 'duplicate_skipped', 'manual_blocked')
+        """
+    )
+    conn.execute(
+        """
+        CREATE VIEW frontend_history_source AS
         SELECT
             p.service,
             p.job_name,
@@ -1026,6 +1202,26 @@ def _create_views(conn: sqlite3.Connection) -> None:
         JOIN tracks t ON t.track_uid = ps.track_uid
         LEFT JOIN track_list tl
           ON LOWER(tl.service) = LOWER(p.service)
-         AND tl.song_id = p.song_id;
+         AND tl.song_id = p.song_id
+        WHERE NOT EXISTS (
+            SELECT 1
+            FROM playlist_order earlier
+            WHERE earlier.service = p.service
+              AND earlier.job_name = p.job_name
+              AND earlier.source_variant = p.source_variant
+              AND earlier.reference_period = p.reference_period
+              AND earlier.song_id = p.song_id
+              AND earlier.rank_order < p.rank_order
+        )
+          AND EXISTS (
+            SELECT 1
+            FROM match_runs mr
+            WHERE mr.service = p.service
+              AND mr.job_name = p.job_name
+              AND mr.source_variant = p.source_variant
+              AND mr.reference_period = p.reference_period
+              AND mr.status = 'completed'
+              AND mr.completed_at IS NOT NULL
+        )
         """
     )

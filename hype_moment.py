@@ -7,7 +7,6 @@ If SUPABASE_DB_URL is set in the environment, it queries and updates audits dire
 the remote Supabase PostgreSQL database instead of the local SQLite database.
 """
 import argparse
-import json
 import logging
 import os
 from datetime import datetime, timedelta, timezone
@@ -25,7 +24,15 @@ logging.basicConfig(
 )
 LOG = logging.getLogger("hypex_aggregator")
 
-def main():
+
+def parse_history_date(value: str) -> str:
+    try:
+        return datetime.strptime(value, "%Y-%m-%d").strftime("%Y-%m-%d")
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError("history date must use YYYY-MM-DD") from exc
+
+
+def main() -> int:
     parser = argparse.ArgumentParser(description="Generate Hypex aggregated playlist.")
     parser.add_argument("--db-path", default="hype_wave_data.db")
     parser.add_argument("--history-json", default="docs/api/history.json")
@@ -34,53 +41,101 @@ def main():
     parser.add_argument("--playlist-name", default="Hype Wave Daily")
     parser.add_argument("--limit", type=int, default=100, help="Number of songs to include")
     parser.add_argument("--yt-auth", default=".secrets/browser.json")
+    parser.add_argument(
+        "--history-date",
+        type=parse_history_date,
+        help="Generate a specific historical Hype Wave date instead of the latest date",
+    )
     parser.add_argument("--dry-run", action="store_true")
     args = parser.parse_args()
 
     db_path = Path(args.db_path).expanduser()
     
-    # 1. WAVE 판별을 위해 어제 히스토리에서 애플 차트 곡 ID 추출
-    history_file = Path(args.history_json)
-    previous_apple_videos = set()
-    history_data = {}
-    
     kst_now = datetime.now(timezone.utc).astimezone(timezone(timedelta(hours=9)))
-    today_str = kst_now.strftime("%Y-%m-%d")
 
-    if history_file.exists():
-        try:
-            from hype_db import inflate_frontend_history
-
-            with open(history_file, "r", encoding="utf-8") as f:
-                history_data = inflate_frontend_history(json.load(f))
-                # 오늘 날짜를 제외하고 가장 최근의 과거 날짜를 찾습니다 (하루 여러 번 실행 대응)
-                past_dates = sorted([d for d in history_data.keys() if d < today_str], reverse=True)
-                if past_dates:
-                    # 가장 최근 과거 날짜의 데이터에서 애플 순위가 있는 곡들만 수집
-                    last_record = history_data[past_dates[0]]
-                    previous_apple_videos = {s["video_id"] for s in last_record if s.get("apple_rank")}
-        except Exception as e:
-            LOG.warning(f"Failed to load history for WAVE detection: {e}")
-
-    # 2. 지수 계산 실행. DB source of truth만 사용합니다.
+    # DB source of truth만 사용합니다.
     if not os.environ.get("SUPABASE_DB_URL") and not db_path.exists():
         LOG.error("DB not found: %s", db_path)
-        return
+        return 1
     try:
-        from hype_db import connect, export_frontend_history, hype_inputs, hype_report_for_date
+        from hype_db import (
+            connect,
+            export_frontend_history,
+            hype_inputs,
+            hype_report_for_date,
+            init_db,
+            previous_apple_videos_for_history,
+        )
+        if not os.environ.get("SUPABASE_DB_URL"):
+            init_db(db_path)
         hype_results = []
+        history_date = args.history_date
         with connect(db_path) as conn:
             apple_jobs = [
                 name for name, item in hype_inputs().items()
                 if item.get("hype_group") == "apple"
             ] or ["KR-Top-100"]
             placeholders = ",".join("?" for _ in apple_jobs)
-            latest = conn.execute(
-                f"SELECT reference_period AS chart_date FROM playlist_order WHERE job_name IN ({placeholders}) AND reference_period GLOB '????-??-??' ORDER BY reference_period DESC LIMIT 1",
-                apple_jobs,
-            ).fetchone()
-            if latest:
-                history_date = (datetime.strptime(latest["chart_date"], "%Y-%m-%d") + timedelta(days=1)).strftime("%Y-%m-%d")
+            if args.history_date:
+                anchor_period = (
+                    datetime.strptime(args.history_date, "%Y-%m-%d")
+                    - timedelta(days=1)
+                ).strftime("%Y-%m-%d")
+                ready_rows = conn.execute(
+                    f"""
+                    SELECT DISTINCT p.job_name
+                    FROM playlist_order p
+                    WHERE p.job_name IN ({placeholders})
+                      AND p.reference_period = ?
+                      AND EXISTS (
+                          SELECT 1
+                          FROM match_runs mr
+                          WHERE mr.service = p.service
+                            AND mr.job_name = p.job_name
+                            AND mr.source_variant = p.source_variant
+                            AND mr.reference_period = p.reference_period
+                            AND mr.status = 'completed'
+                            AND mr.completed_at IS NOT NULL
+                      )
+                    """,
+                    (*apple_jobs, anchor_period),
+                ).fetchall()
+                ready_jobs = {row["job_name"] for row in ready_rows}
+                missing_jobs = sorted(set(apple_jobs) - ready_jobs)
+                if missing_jobs:
+                    raise RuntimeError(
+                        f"Historical Hype date {args.history_date} requires completed Apple "
+                        f"snapshot {anchor_period}; missing: {', '.join(missing_jobs)}"
+                    )
+            if history_date is None:
+                latest = conn.execute(
+                    f"""
+                    SELECT p.reference_period AS chart_date
+                    FROM playlist_order p
+                    WHERE p.job_name IN ({placeholders})
+                      AND p.reference_period GLOB '????-??-??'
+                      AND EXISTS (
+                          SELECT 1
+                          FROM match_runs mr
+                          WHERE mr.service = p.service
+                            AND mr.job_name = p.job_name
+                            AND mr.source_variant = p.source_variant
+                            AND mr.reference_period = p.reference_period
+                            AND mr.status = 'completed'
+                            AND mr.completed_at IS NOT NULL
+                      )
+                    ORDER BY p.reference_period DESC
+                    LIMIT 1
+                    """,
+                    apple_jobs,
+                ).fetchone()
+                if latest:
+                    history_date = (
+                        datetime.strptime(latest["chart_date"], "%Y-%m-%d")
+                        + timedelta(days=1)
+                    ).strftime("%Y-%m-%d")
+            if history_date:
+                previous_apple_videos = previous_apple_videos_for_history(conn, {}, history_date)
                 report = hype_report_for_date(conn, history_date, previous_apple_videos=previous_apple_videos)
                 hype_results = [
                     (row["video_id"], {"metadata": row, "score": row.get("hype_index", 0), "ranks": {
@@ -95,14 +150,18 @@ def main():
             and not args.dry_run
             and os.environ.get("HYPE_DEFER_HISTORY_EXPORT") not in {"1", "true", "TRUE"}
         ):
-            export_frontend_history(db_path, args.history_json)
+            export_frontend_history(
+                db_path,
+                args.history_json,
+                full_rebuild=bool(args.history_date),
+            )
     except Exception as exc:
         LOG.error("DB hype calculation failed: %s", exc)
-        return
+        return 1
         
     if not hype_results:
         LOG.error("No songs found to aggregate.")
-        return
+        return 1
 
     top_songs = hype_results[:args.limit]
     video_ids = [vid for vid, stats in top_songs]
@@ -112,6 +171,7 @@ def main():
     
     desc = "Hype Wave Daily\n"
     desc += "Based on Apple Music, Melon, and YT Music charts.\n\n"
+    desc += f"Chart date: {history_date}\n\n"
     desc += "Top 3 Hype Now:\n"
     for i, (vid, stats) in enumerate(top_songs[:3], 1):
         m = stats["metadata"]
@@ -136,6 +196,7 @@ def main():
     )
     
     LOG.info("Hype Moment sync completed.")
+    return 0
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

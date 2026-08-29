@@ -39,6 +39,7 @@ from ytmusic_playlist_sync import (
     write_json,
     ytmusic_url,
 )
+from hype_db_common import dedupe_source_tracks
 
 LOG = logging.getLogger("ytmusic_to_ytmusic_crawl")
 DEFAULT_PLAYLIST_URL = "https://music.youtube.com/playlist?list=PL4fGSI1pDJn6jXS_Tv_N9B8Z0HTRVJE0m"
@@ -237,13 +238,23 @@ def latest_ytmusic_reference_period(conn, job_name: str) -> str:
     try:
         row = conn.execute(
             """
-            SELECT reference_period
-            FROM playlist_order
-            WHERE service = ?
-              AND job_name = ?
-              AND source_variant = ?
-            GROUP BY reference_period
-            ORDER BY reference_period DESC
+            SELECT p.reference_period
+            FROM playlist_order p
+            WHERE p.service = ?
+              AND p.job_name = ?
+              AND p.source_variant = ?
+              AND EXISTS (
+                    SELECT 1
+                    FROM match_runs mr
+                    WHERE mr.service = p.service
+                      AND mr.job_name = p.job_name
+                      AND mr.source_variant = p.source_variant
+                      AND mr.reference_period = p.reference_period
+                      AND mr.status = 'completed'
+                      AND mr.completed_at IS NOT NULL
+              )
+            GROUP BY p.reference_period
+            ORDER BY p.reference_period DESC
             LIMIT 1
             """,
             ("ytmusic", job_name, "default"),
@@ -931,13 +942,31 @@ def main() -> int:
         LOG.error("No chart entries were collected")
         return 1
 
+    effective_entries = dedupe_source_tracks(
+        [
+            {
+                **row,
+                "song_id": row.get("original_video_id") or "",
+                "title": row.get("original_title") or "",
+                "artist": row.get("original_artist_or_channel") or "",
+            }
+            for row in entries
+        ],
+        "ytmusic",
+    )
+    LOG.info(
+        "Prepared %d raw slots and %d effective YouTube Music tracks.",
+        len(entries),
+        len(effective_entries),
+    )
+
     with connect(db_path) as conn:
         # Prepopulate cache in bulk
         bulk_cache = {}
         if not args.no_resolve:
             try:
                 tracks_for_cache = []
-                for row in entries:
+                for row in effective_entries:
                     tracks_for_cache.append({
                         "song_id": row.get("original_video_id") or "",
                         "title": row.get("original_title") or "",
@@ -1006,7 +1035,7 @@ def main() -> int:
         video_ids: list[str] = []
         seen: set[str] = set()
 
-        for row in entries:
+        for row in effective_entries:
             original_id = row.get("original_video_id", "")
             if not original_id:
                 row.update({"mapping_status": "failed", "mapping_reason": "missing_original_video_id"})
@@ -1025,7 +1054,7 @@ def main() -> int:
                     "duration_seconds_resolved": 0,
                 }
                 resolved_rows.append(out)
-                LOG.info("[%03d/%03d] resolve_skipped %s", row["rank"], len(entries), original_id)
+                LOG.info("[%03d/%03d] resolve_skipped %s", row["rank"], len(effective_entries), original_id)
                 continue
             
             # DB cache check using in-memory bulk cache dict
@@ -1047,10 +1076,11 @@ def main() -> int:
                     seen.add(rid)
                     video_ids.append(rid)
                 elif rid:
-                    out["mapping_status"] = "duplicate_skipped"
-                    out["mapping_reason"] = (out.get("mapping_reason", "") + ";duplicate").strip(";")
+                    out["mapping_reason"] = (
+                        out.get("mapping_reason", "") + ";playlist_duplicate_suppressed"
+                    ).strip(";")
                 resolved_rows.append(out)
-                LOG.info("[%03d/%03d] %s %.3f %s -> %s", row["rank"], len(entries), out["mapping_status"], out.get("mapping_score", 0.0), original_id, rid)
+                LOG.info("[%03d/%03d] %s %.3f %s -> %s", row["rank"], len(effective_entries), out["mapping_status"], out.get("mapping_score", 0.0), original_id, rid)
                 continue
             if not ytmusic:
                 out = {
@@ -1064,8 +1094,13 @@ def main() -> int:
                     "resolved_album": row.get("album", ""),
                     "duration_seconds_resolved": 0,
                 }
+                if original_id not in seen:
+                    seen.add(original_id)
+                    video_ids.append(original_id)
+                else:
+                    out["mapping_reason"] += ";playlist_duplicate_suppressed"
                 resolved_rows.append(out)
-                LOG.info("[%03d/%03d] db_cache_miss_no_ytmusic_fallback %s", row["rank"], len(entries), original_id)
+                LOG.info("[%03d/%03d] db_cache_miss_no_ytmusic_fallback %s", row["rank"], len(effective_entries), original_id)
                 continue
             resolution = resolve_video_to_song(
                 ytmusic,
@@ -1085,17 +1120,20 @@ def main() -> int:
                 seen.add(rid)
                 video_ids.append(rid)
             elif rid and accepted_status:
-                out["mapping_status"] = "duplicate_skipped"
-                out["mapping_reason"] = (out.get("mapping_reason", "") + ";duplicate").strip(";")
+                out["mapping_reason"] = (
+                    out.get("mapping_reason", "") + ";playlist_duplicate_suppressed"
+                ).strip(";")
             elif rid:
                 out["mapping_reason"] = (out.get("mapping_reason", "") + ";unaccepted_video_type").strip(";")
             resolved_rows.append(out)
-            LOG.info("[%03d/%03d] %s %.3f %s -> %s", row["rank"], len(entries), out["mapping_status"], out.get("mapping_score", 0.0), original_id, rid)
+            LOG.info("[%03d/%03d] %s %.3f %s -> %s", row["rank"], len(effective_entries), out["mapping_status"], out.get("mapping_score", 0.0), original_id, rid)
             time.sleep(0.2)
 
         audit = {
             "source": "youtube_music_chart_playlist",
             "total": len(entries),
+            "effective_total": len(effective_entries),
+            "canonical_total": len(video_ids),
             "resolved_to_song": sum(1 for r in resolved_rows if r.get("mapping_status") == "resolved_to_song"),
             "kept_original_video": sum(1 for r in resolved_rows if r.get("mapping_status") == "kept_original_video"),
             "ambiguous": sum(1 for r in resolved_rows if r.get("mapping_status") == "ambiguous"),
@@ -1167,7 +1205,8 @@ def main() -> int:
                 if os.environ.get("HYPE_DEFER_HISTORY_EXPORT") not in {"1", "true", "TRUE"}:
                     export_frontend_history(db_path, args.history_json)
             except Exception as exc:
-                LOG.warning("Failed to persist YouTube Music chart run to DB: %s", exc)
+                LOG.error("Failed to persist YouTube Music chart run to DB: %s", exc)
+                raise
 
     if args.db_only:
         LOG.info("Skipped YouTube Music playlist update because --db-only is set")
