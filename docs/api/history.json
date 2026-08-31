@@ -1,8 +1,10 @@
 {
   "schema_version": 2,
-  "generated_at": "2026-08-29T17:17:21+00:00",
+  "generated_at": "2026-08-31T15:51:46+00:00",
   "days": 31,
   "dates": [
+    "2026-08-31",
+    "2026-08-30",
     "2026-08-29",
     "2026-08-28",
     "2026-08-27",
@@ -31,9 +33,7 @@
     "2026-08-04",
     "2026-08-03",
     "2026-08-02",
-    "2026-08-01",
-    "2026-07-31",
-    "2026-07-30"
+    "2026-08-01"
   ],
   "tracks": {
     "5sOgJQ3N03Q": {
@@ -104,7 +104,7 @@
     "LBhcqYqeu0U": {
       "video_id": "LBhcqYqeu0U",
       "title": "LEMONADE",
-      "artist": "aespa",
+      "artist": "에스파",
       "album": "LEMONADE - The 2nd Album",
       "yt_title": "LEMONADE",
       "yt_artist": "aespa",
@@ -260,8 +260,8 @@
     "MUny_GDYIDM": {
       "video_id": "MUny_GDYIDM",
       "title": "404 (New Era)",
-      "artist": "키키",
-      "album": "Delulu Pack - EP",
+      "artist": "KiiiKiii (키키)",
+      "album": "Delulu Pack",
       "yt_title": "404 (New Era)",
       "yt_artist": "KiiiKiii",
       "yt_album": "Delulu Pack",
@@ -278,7 +278,7 @@
       "yt_title": "Less than a Lover",
       "yt_artist": "JENNIE",
       "yt_album": "Less than a Lover",
-      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/a0/8a/84/a08a8464-c3d8-04aa-84a0-9498a52985dd/196874620281.jpg/100x100bb.jpg",
+      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/27/b0/ed/27b0edf5-ec5e-fb16-0193-298a679e7a50/196874698273.jpg/100x100bb.jpg",
       "melon_url": "https://www.melon.com/song/detail.htm?songId=602584682",
       "spotify_url": "https://open.spotify.com/track/19UnXjpLshSLobPspdyxlD",
       "apple_url": ""
@@ -365,7 +365,7 @@
       "video_id": "g7FE94-5HQk",
       "title": "없어",
       "artist": "Shane",
-      "album": "없어",
+      "album": "없어 - Single",
       "yt_title": "Nothing",
       "yt_artist": "Shane",
       "yt_album": "Nothing",
@@ -481,12 +481,12 @@
     "cOARkf5ZmtI": {
       "video_id": "cOARkf5ZmtI",
       "title": "FALLEN ANGEL",
-      "artist": "JENNIE",
+      "artist": "제니",
       "album": "Fallen Angel - EP",
       "yt_title": "FALLEN ANGEL",
       "yt_artist": "JENNIE",
       "yt_album": "Fallen Angel (Digital EP)",
-      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music221/v4/42/03/45/420345e1-6e68-915e-fe8a-74c78b120280/cover_KM0025132_1.jpg/100x100bb.jpg",
+      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/27/b0/ed/27b0edf5-ec5e-fb16-0193-298a679e7a50/196874698273.jpg/100x100bb.jpg",
       "melon_url": "https://www.melon.com/song/detail.htm?songId=602930028",
       "apple_url": "",
       "spotify_url": ""
@@ -533,8 +533,8 @@
     "3G0A03PFMg0": {
       "video_id": "3G0A03PFMg0",
       "title": "ACAI",
-      "artist": "코르티스",
-      "album": "GREENGREEN - EP",
+      "artist": "CORTIS (코르티스)",
+      "album": "GREENGREEN",
       "yt_title": "ACAI",
       "yt_artist": "CORTIS",
       "yt_album": "GREENGREEN",
@@ -694,7 +694,7 @@
       "yt_title": "내 머리가 나빠서",
       "yt_artist": "SS501",
       "yt_album": "꽃보다 남자 (Original Television Soundtrack)",
-      "artwork_url": "https://kkoimg.melon.co.kr/cm/album/images/004/63/151/463151_500.jpg/melon/resize/96/quality/80/optimize",
+      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music221/v4/92/26/c6/9226c6ff-6156-e506-77e8-635a9ac158f1/8809717500528.jpg/100x100bb.jpg",
       "melon_url": "https://www.melon.com/song/detail.htm?songId=2017349",
       "apple_url": "",
       "spotify_url": ""
@@ -740,8 +740,8 @@
     },
     "UJn-F2kPCaQ": {
       "video_id": "UJn-F2kPCaQ",
-      "title": "붉은 노을",
-      "artist": "BIGBANG (빅뱅)",
+      "title": "붉은 노을 (Sunset Glow)",
+      "artist": "BIGBANG",
       "album": "Remember",
       "yt_title": "Sunset Glow",
       "yt_artist": "BIGBANG",
@@ -1066,7 +1066,7 @@
     "UpY5grXVZbg": {
       "video_id": "UpY5grXVZbg",
       "title": "HEAVEN",
-      "artist": "제니",
+      "artist": "JENNIE",
       "album": "Fallen Angel - EP",
       "yt_title": "HEAVEN",
       "yt_artist": "JENNIE",
@@ -1078,7 +1078,7 @@
     },
     "to3sjq-CAvA": {
       "video_id": "to3sjq-CAvA",
-      "title": "생각을 멈추다 보면 ",
+      "title": "생각을 멈추다 보면",
       "artist": "최유리, 진영",
       "album": "생각을 멈추다 보면",
       "yt_title": "생각을 멈추다 보면 ",
@@ -1364,9 +1364,9 @@
     },
     "k2zDLzfcb3I": {
       "video_id": "k2zDLzfcb3I",
-      "title": "BLUE",
-      "artist": "BIGBANG (빅뱅)",
-      "album": "빅뱅 미니앨범 5집 'ALIVE'",
+      "title": "Blue",
+      "artist": "BIGBANG",
+      "album": "ALIVE",
       "yt_title": "Blue",
       "yt_artist": "BIGBANG",
       "yt_album": "ALIVE",
@@ -1513,7 +1513,7 @@
       "yt_title": "외사랑 (feat. 최유리)",
       "yt_artist": "진영 (GOT7)",
       "yt_album": "Said & Done",
-      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/47/15/30/47153017-00a5-5979-0f4a-9d69c1f77514/cover_KM0024614_1.jpg/100x100bb.jpg",
+      "artwork_url": "https://kkoimg.melon.co.kr/cm2/album/images/133/88/831/13388831_20260512184549_500.jpg?b15686922be444f92f01ccc1dac220e9/melon/resize/96/quality/80/optimize",
       "melon_url": "https://www.melon.com/song/detail.htm?songId=601983813",
       "apple_url": "",
       "spotify_url": ""
@@ -1859,7 +1859,7 @@
     "Y4RmVcKav9Q": {
       "video_id": "Y4RmVcKav9Q",
       "title": "거짓말",
-      "artist": "BIGBANG (빅뱅)",
+      "artist": "BIGBANG",
       "album": "Always",
       "yt_title": "Lies",
       "yt_artist": "BIGBANG",
@@ -2032,8 +2032,8 @@
       "yt_title": "푸른 산호초",
       "yt_artist": "이수현",
       "artwork_url": "https://yt3.googleusercontent.com/QmXfUHRPmbCtLK3O_NNtJ4qNxiKGPV4E_O5aykhy3Ede1l_nBFeRtniDHPGu26aZAKLHWL6Aozd4rToO=w180-h180-l90-rj",
-      "album": "",
-      "yt_album": "",
+      "album": "J-POP REMAKE Vol.3",
+      "yt_album": "J-POP REMAKE Vol.3",
       "apple_url": "",
       "melon_url": "",
       "spotify_url": ""
@@ -2183,7 +2183,7 @@
     },
     "h9hdorPqukU": {
       "video_id": "h9hdorPqukU",
-      "title": "IF YOU",
+      "title": "IF YOU (Live)",
       "artist": "BIGBANG",
       "album": "MADE",
       "yt_title": "IF YOU",
@@ -2280,7 +2280,7 @@
       "yt_title": "question mark (feat. CHOIZA, Zion.T & CHOIZA Of Dynamicduo)",
       "yt_artist": "Primary",
       "yt_album": "Primary And The Messengers LP",
-      "artwork_url": "https://kkoimg.melon.co.kr/cm/album/images/021/61/126/2161126_500.jpg/melon/resize/96/quality/80/optimize",
+      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music116/v4/a8/60/e5/a860e5f0-2455-d081-9d2f-b0bf4c6cf77b/196922643460_Cover.jpg/100x100bb.jpg",
       "melon_url": "https://www.melon.com/song/detail.htm?songId=3947371",
       "apple_url": "",
       "spotify_url": ""
@@ -3366,11 +3366,11 @@
     },
     "pHciG9_2xXM": {
       "video_id": "pHciG9_2xXM",
-      "title": "Meet my GRLS",
+      "title": "GRLS",
       "artist": "FKA 트위그스",
       "yt_title": "Meet my GRLS",
       "yt_artist": "FKA twigs",
-      "artwork_url": "https://i.ytimg.com/vi/pHciG9_2xXM/maxresdefault.jpg",
+      "artwork_url": "https://yt3.googleusercontent.com/wO-brpVQUt_3eKSI86ufqbSTPY-kQHZ9TSgwToJ8S7-pwDLgVMx7DV3MWnGocLkqwyg5eb6WGHSxCgTHaw=w180-h180-l90-rj",
       "album": "",
       "yt_album": "",
       "apple_url": "",
@@ -4209,21 +4209,3304 @@
       "apple_url": "",
       "spotify_url": ""
     },
-    "VNLUaTxDs_4": {
-      "video_id": "VNLUaTxDs_4",
-      "title": "브레인워시",
-      "artist": "희대의, 씨잼 & 블랙넛",
-      "album": "도모 - EP",
-      "yt_title": "브레인워시",
-      "yt_artist": "희대의, C JAMM 및 블랙넛",
-      "yt_album": "도모",
-      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music221/v4/15/f2/fb/15f2fb63-3199-33bb-ce9b-5376ee298adb/191953561967.jpg/100x100bb.jpg",
+    "jWwdHeJ8XeU": {
+      "video_id": "jWwdHeJ8XeU",
+      "title": "Love Options",
+      "artist": "베스티",
+      "album": "Mini Album Repackage",
+      "yt_title": "Love Options(연애의 조건)",
+      "yt_artist": "BESTie(베스티)",
+      "yt_album": "Love Options(연애의 조건)",
+      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music4/v4/3d/d6/3f/3dd63f74-ceba-a540-cb38-7de3f26f3628/KM0002907-_-0829.jpg/100x100bb.jpg",
+      "apple_url": "",
+      "melon_url": "",
+      "spotify_url": ""
+    },
+    "Mp-xWPo95MU": {
+      "video_id": "Mp-xWPo95MU",
+      "title": "Sick Enough to Die",
+      "artist": "MC몽",
+      "album": "20th Anniversary Edition ‘Dark Hole’",
+      "yt_title": "죽을 만큼 아파서 ) (feat. JAMIE (제이미))",
+      "yt_artist": "MC 몽",
+      "yt_album": "20th Anniversary Edition ‘Dark Hole’",
+      "artwork_url": "https://yt3.googleusercontent.com/pvshZoetSKVqFwH3owPTuhr_2gdvOahgLOJtlxOG0OP9Kcb1z8Ry84-srrgjDZlBOZsAQRaDYlUq8KE=w180-h180-l90-rj",
+      "apple_url": "",
+      "melon_url": "",
+      "spotify_url": ""
+    },
+    "9XnsnNHj4Jk": {
+      "video_id": "9XnsnNHj4Jk",
+      "title": "녹슨 가슴",
+      "artist": "주호",
+      "album": "Incompletion",
+      "yt_title": "녹슨 가슴",
+      "yt_artist": "Juho",
+      "yt_album": "Incompletion",
+      "artwork_url": "https://yt3.googleusercontent.com/5yzDifr2WoDsy5xo6EiT_yiRGnNEcQb0n3JBlIYjNVHL7dc0ReAmTzUb9sZlGXRhXSswmOBAcc_QrDmY=w180-h180-l90-rj",
+      "apple_url": "",
+      "melon_url": "",
+      "spotify_url": ""
+    },
+    "-W5AqaIoZpg": {
+      "video_id": "-W5AqaIoZpg",
+      "title": "不得不愛",
+      "artist": "판웨이보, 弦子",
+      "album": "弦子首張同名專輯",
+      "yt_title": "不得不愛",
+      "yt_artist": "弦子",
+      "yt_album": "弦子首張同名專輯",
+      "artwork_url": "https://yt3.googleusercontent.com/_R5YOwK_fnqvE3RUSokFT3eLuX3OPMtcjkYhNweHrbGCIonDTxtVyziQkXDZoyGbePo9p-J10pAHkFx8=w180-h180-l90-rj",
+      "apple_url": "",
+      "melon_url": "",
+      "spotify_url": ""
+    },
+    "1bD_2ITkGwU": {
+      "video_id": "1bD_2ITkGwU",
+      "title": "뱅뱅뱅",
+      "artist": "BIGBANG",
+      "album": "A",
+      "yt_title": "뱅뱅뱅 (BANG BANG BANG)",
+      "yt_artist": "BIGBANG",
+      "yt_album": "A",
+      "artwork_url": "https://yt3.googleusercontent.com/c_TVJhHdMRfb_qPe0HqX6HVEWRpB23nK_jlfCGUYaUvmwLlFxhn4LeA_TTdzQcs2DCk5kaOlvVpy3w=w180-h180-l90-rj",
+      "apple_url": "",
+      "melon_url": "",
+      "spotify_url": ""
+    },
+    "ERbDApFPOxE": {
+      "video_id": "ERbDApFPOxE",
+      "title": "CROOKED",
+      "artist": "G-DRAGON",
+      "album": "COUP D'ETAT (Korean Version)",
+      "yt_title": "삐딱하게 (Crooked)",
+      "yt_artist": "지드래곤 (G-DRAGON)",
+      "yt_album": "COUP D'ETAT (Korean Version)",
+      "artwork_url": "https://yt3.googleusercontent.com/x2aF7DgRCcroZKLTsHLI_5zhU1DGc21y04BTdfi3YY3Vwca97lnsQ0hIcF6EBDKhGMhYK4VKkqtuDLuT=w180-h180-l90-rj",
+      "apple_url": "",
+      "melon_url": "",
+      "spotify_url": ""
+    },
+    "YSHzo9bi8OE": {
+      "video_id": "YSHzo9bi8OE",
+      "title": "JADED",
+      "artist": "비더후드(B THE HOOD)",
+      "album": "JADED",
+      "yt_title": "JADED",
+      "yt_artist": "비더후드(B THE HOOD)",
+      "yt_album": "JADED",
+      "artwork_url": "https://yt3.googleusercontent.com/wahLVvyGN91Wp-g1-3XmvWBA3wuu7l6gLbwKhY1ob1BA1fas1z88YGSBX51IucT7K0bP3OJEn1SxmMM=w180-h180-l90-rj",
+      "apple_url": "",
+      "melon_url": "",
+      "spotify_url": ""
+    },
+    "OmEPFmyKO74": {
+      "video_id": "OmEPFmyKO74",
+      "title": "사랑을 했다 (LOVE SCENARIO)",
+      "artist": "iKON",
+      "album": "Return",
+      "yt_title": "LOVE SCENARIO (사랑을 했다)",
+      "yt_artist": "iKON",
+      "yt_album": "Return",
+      "artwork_url": "https://yt3.googleusercontent.com/8J2SExQcgcK6emYZzhCFrsLght5KDsHpIKuVhBHIR7cKKCBqOXeGjmBq6zM5AIPlkNlpOIGyvgid-uo=w180-h180-l90-rj",
+      "apple_url": "",
+      "melon_url": "",
+      "spotify_url": ""
+    },
+    "JaMblWT0SXY": {
+      "video_id": "JaMblWT0SXY",
+      "title": "TOO BAD",
+      "artist": "G-DRAGON, Anderson .Paak",
+      "album": "Übermensch",
+      "yt_title": "TOO BAD",
+      "yt_artist": "G-DRAGON Anderson .Paak",
+      "yt_album": "Übermensch",
+      "artwork_url": "https://yt3.googleusercontent.com/USoq-O9jR-3J7k58eaAKv-Zeq7npaKuPJmMckzzyb2_Vr034l86KID23TMxnmvem1LqW3QqeSVTxnbk_=w180-h180-l90-rj",
+      "apple_url": "",
+      "melon_url": "",
+      "spotify_url": ""
+    },
+    "cPtvGVLuJYo": {
+      "video_id": "cPtvGVLuJYo",
+      "title": "헤어지지 못하는 여자, 떠나가지 못하는 남자 (feat. 정인)",
+      "artist": "리쌍(Leessang)",
+      "album": "Hexagonal",
+      "yt_title": "헤어지지 못하는 여자, 떠나가지 못하는 남자 Can't Breakup Girl, Can't Breakaway Boy (feat. 정인 Jung In)",
+      "yt_artist": "리쌍 LeeSSang",
+      "yt_album": "Hexagonal",
+      "artwork_url": "https://yt3.googleusercontent.com/A0nTQjof_ndZo2etRfs185BDhGRgKrZqOx1O4wnm8GFQhNLlLSE73nXMb6w2AkroMOjSsVtpzGamUEle=w180-h180-l90-rj",
+      "apple_url": "",
+      "melon_url": "",
+      "spotify_url": ""
+    },
+    "zT3VfvAjvtk": {
+      "video_id": "zT3VfvAjvtk",
+      "title": "맨정신",
+      "artist": "BIGBANG",
+      "album": "MADE",
+      "yt_title": "SOBER",
+      "yt_artist": "BIGBANG",
+      "yt_album": "MADE",
+      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music125/v4/5b/9b/8e/5b9b8ef2-998e-1210-8454-dfebfbf6271c/BB_COVER_IMAGE_4000.jpg/100x100bb.jpg",
+      "apple_url": "",
+      "melon_url": "",
+      "spotify_url": ""
+    },
+    "OrfLgp2bUL0": {
+      "video_id": "OrfLgp2bUL0",
+      "title": "High High",
+      "artist": "GD & TOP",
+      "album": "GD&TOP",
+      "yt_title": "High High",
+      "yt_artist": "GD & TOP",
+      "yt_album": "GD&TOP",
+      "artwork_url": "https://yt3.googleusercontent.com/ben7E4a6ZO8krQ3vAQf7n9MgSeci3-53rJkSlkuPPVJyaq-Z47eLF3uGgrXlNrCozc6XeOnvRROTy3I=w180-h180-l90-rj",
+      "apple_url": "",
+      "melon_url": "",
+      "spotify_url": ""
+    },
+    "Tvhjbj-WrF8": {
+      "video_id": "Tvhjbj-WrF8",
+      "title": "너에게 약속하는 7가지 (feat. 규리 (KYURI))",
+      "artist": "조성확(IHWAK)",
+      "album": "너에게 약속하는 7가지",
+      "yt_title": "너에게 약속하는 7가지 ) (feat. 규리 (KYURI))",
+      "yt_artist": "조성확(IHWAK)",
+      "yt_album": "너에게 약속하는 7가지",
+      "artwork_url": "https://yt3.googleusercontent.com/go453Ju0bSo7e4MmRL-SJLy_E0pXcQ74Bi02OfItmDkd-EPMJtJDfSUraRKaByjrIdIK4VCSyau9GY4=w180-h180-l90-rj",
+      "apple_url": "",
+      "melon_url": "",
+      "spotify_url": ""
+    },
+    "VWqxvBQKwKQ": {
+      "video_id": "VWqxvBQKwKQ",
+      "title": "꽃 길 (FLOWER ROAD)",
+      "artist": "BIGBANG",
+      "album": "FLOWER ROAD",
+      "yt_title": "꽃 길(Flower Road)",
+      "yt_artist": "BIGBANG",
+      "yt_album": "FLOWER ROAD",
+      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music118/v4/b2/c1/a7/b2c1a7e1-b6ff-c7dd-f888-d0a2fa28903f/cover_image4000.jpg/100x100bb.jpg",
+      "apple_url": "",
+      "melon_url": "",
+      "spotify_url": ""
+    },
+    "nZSETrecrUI": {
+      "video_id": "nZSETrecrUI",
+      "title": "우리 사랑하지 말아요",
+      "artist": "BIGBANG",
+      "album": "E",
+      "yt_title": "우리 사랑하지 말아요",
+      "yt_artist": "BIGBANG",
+      "yt_album": "E",
+      "artwork_url": "https://yt3.googleusercontent.com/SREG8SrcLNp4uMCXm_wxrpBnym7yRh54xcOen28SZ8XZGWrBigzVHLj2ITYo7bQ9k_J52ZOHJt050-V3=w180-h180-l90-rj",
+      "apple_url": "",
+      "melon_url": "",
+      "spotify_url": ""
+    },
+    "X2d_z31ezKA": {
+      "video_id": "X2d_z31ezKA",
+      "title": "DOWNPOUR",
+      "artist": "한동근",
+      "album": "소나기 DOWNPOUR",
+      "yt_title": "DOWNPOUR",
+      "yt_artist": "Han Dong Geun",
+      "yt_album": "소나기 DOWNPOUR",
+      "artwork_url": "https://i.ytimg.com/vi/X2d_z31ezKA/maxresdefault.jpg",
+      "apple_url": "",
+      "melon_url": "",
+      "spotify_url": ""
+    },
+    "GFU-RLTxSk4": {
+      "video_id": "GFU-RLTxSk4",
+      "title": "bgf",
+      "artist": "죠지",
+      "album": "solsol~ condo",
+      "yt_title": "bgf",
+      "yt_artist": "george",
+      "yt_album": "solsol~ condo",
+      "artwork_url": "https://yt3.googleusercontent.com/-N5TDxyqMMcToDSH__C8JnLTXN4RSWvHd29wqsxMsRD-D_pOmy92Xi5XyOlgdnsxV3MTUV3wznjSY0pD=w180-h180-l90-rj",
+      "apple_url": "",
+      "melon_url": "",
+      "spotify_url": ""
+    },
+    "zz723Sc3vak": {
+      "video_id": "zz723Sc3vak",
+      "title": "PO￦ER",
+      "artist": "G-DRAGON",
+      "album": "POWER",
+      "yt_title": "POWER",
+      "yt_artist": "G-DRAGON",
+      "yt_album": "POWER",
+      "artwork_url": "https://yt3.googleusercontent.com/tNSLJ-5GDSTDCrRrctBFzyF0ywffkPxPdwMYJetRVYFly-RmdnjT2ahinR883gJ4ZNQJEX7HHQ3ZE-MQrA=w180-h180-l90-rj",
+      "apple_url": "",
+      "melon_url": "",
+      "spotify_url": ""
+    },
+    "VT9lKAPWG5E": {
+      "video_id": "VT9lKAPWG5E",
+      "title": "마지막 인사",
+      "artist": "BIGBANG",
+      "album": "Hot Issue, Vol. 2",
+      "yt_title": "마지막 인사",
+      "yt_artist": "BIGBANG",
+      "yt_album": "Hot Issue, Vol. 2",
+      "artwork_url": "https://yt3.googleusercontent.com/yljIHQIUC5m1rUTLIp8gPfUIAvQSUO7GAHEOMquoylxUs21-IjnDkBE9BdXtaDGzrtPu0YJMohEfWaCS=w180-h180-l90-rj",
+      "apple_url": "",
+      "melon_url": "",
+      "spotify_url": ""
+    },
+    "Yyfv2R97dHA": {
+      "video_id": "Yyfv2R97dHA",
+      "title": "Invitation",
+      "artist": "Nam You Joung, 이민혁 (허타)",
+      "album": "샤먼 OST",
+      "yt_title": "Invitation",
+      "yt_artist": "Nam You Joung, LEE MINHYUK (HUTA)",
+      "yt_album": "샤먼 OST",
+      "artwork_url": "https://yt3.googleusercontent.com/pRyyoI55U1BKoskg4K6OIUFUY9_o5EDHxDnN92VuIM7LGJHRdjSJJHJZSSoTZKUujthZR468N6PmY66f=w180-h180-l90-rj",
       "apple_url": "",
       "melon_url": "",
       "spotify_url": ""
     }
   },
   "rankings": {
+    "2026-08-31": {
+      "5sOgJQ3N03Q": {
+        "hype_rank": 1,
+        "hype_index": 83.37,
+        "apple_rank": 3,
+        "melon_rank": 4,
+        "melon_genz_rank": 1,
+        "ytmusic_rank": 5
+      },
+      "1uDzUPzS2w8": {
+        "hype_rank": 2,
+        "hype_index": 72.71,
+        "apple_rank": 6,
+        "melon_rank": 1,
+        "melon_genz_rank": 2,
+        "ytmusic_rank": 4
+      },
+      "QbsbqekMkCU": {
+        "hype_rank": 3,
+        "hype_index": 71.59,
+        "apple_rank": 1,
+        "melon_rank": 23,
+        "melon_genz_rank": 12,
+        "ytmusic_rank": 12
+      },
+      "ZBFzUSdS2nI": {
+        "hype_rank": 4,
+        "hype_index": 71.13,
+        "apple_rank": 12,
+        "melon_rank": 2,
+        "melon_genz_rank": 3,
+        "ytmusic_rank": 1
+      },
+      "LBhcqYqeu0U": {
+        "hype_rank": 5,
+        "hype_index": 63.15,
+        "apple_rank": 8,
+        "melon_rank": 6,
+        "melon_genz_rank": 7,
+        "ytmusic_rank": 3
+      },
+      "YVjcmz9sBIs": {
+        "hype_rank": 6,
+        "hype_index": 62.41,
+        "apple_rank": 11,
+        "melon_rank": 5,
+        "melon_genz_rank": 4,
+        "ytmusic_rank": 6
+      },
+      "3F9jlnANW08": {
+        "hype_rank": 7,
+        "hype_index": 60.79,
+        "apple_rank": 13,
+        "melon_rank": 9,
+        "melon_genz_rank": 8,
+        "ytmusic_rank": 2
+      },
+      "_1juftZumOQ": {
+        "hype_rank": 8,
+        "hype_index": 60.16,
+        "apple_rank": 9,
+        "melon_rank": 10,
+        "melon_genz_rank": 6,
+        "ytmusic_rank": 8
+      },
+      "BEPSc8q6Bd8": {
+        "hype_rank": 9,
+        "hype_index": 55.43,
+        "apple_rank": 7,
+        "melon_rank": 19,
+        "melon_genz_rank": 10,
+        "ytmusic_rank": 20
+      },
+      "r7Rn4ryE_w8": {
+        "hype_rank": 10,
+        "hype_index": 51.12,
+        "apple_rank": 10,
+        "melon_rank": null,
+        "melon_genz_rank": 15,
+        "ytmusic_rank": 17
+      },
+      "Q4AE3ub4nBM": {
+        "hype_rank": 11,
+        "hype_index": 50.14,
+        "apple_rank": 17,
+        "melon_rank": 15,
+        "melon_genz_rank": 14,
+        "ytmusic_rank": 9
+      },
+      "XDzGoMtSqZA": {
+        "hype_rank": 12,
+        "hype_index": 49.58,
+        "apple_rank": 18,
+        "melon_rank": 7,
+        "melon_genz_rank": 16,
+        "ytmusic_rank": 7
+      },
+      "_cSciVF1FpY": {
+        "hype_rank": 13,
+        "hype_index": 47.56,
+        "apple_rank": 35,
+        "melon_rank": 11,
+        "melon_genz_rank": 5,
+        "ytmusic_rank": 22
+      },
+      "UOKLtaE2U90": {
+        "hype_rank": 14,
+        "hype_index": 46.34,
+        "apple_rank": 33,
+        "melon_rank": 8,
+        "melon_genz_rank": 9,
+        "ytmusic_rank": 13
+      },
+      "sgxwL8V39Lc": {
+        "hype_rank": 15,
+        "hype_index": 45.44,
+        "apple_rank": 24,
+        "melon_rank": 18,
+        "melon_genz_rank": 13,
+        "ytmusic_rank": 19
+      },
+      "MUny_GDYIDM": {
+        "hype_rank": 16,
+        "hype_index": 41.57,
+        "apple_rank": 20,
+        "melon_rank": 25,
+        "melon_genz_rank": 27,
+        "ytmusic_rank": 18
+      },
+      "R5By6ms2a3Y": {
+        "hype_rank": 17,
+        "hype_index": 38.02,
+        "apple_rank": 51,
+        "melon_rank": 3,
+        "melon_genz_rank": 18,
+        "ytmusic_rank": 10
+      },
+      "Snyan1_jGWc": {
+        "hype_rank": 18,
+        "hype_index": 36.95,
+        "apple_rank": 26,
+        "melon_rank": 14,
+        "melon_genz_rank": 11,
+        "ytmusic_rank": null
+      },
+      "z9ifbheDGFM": {
+        "hype_rank": 19,
+        "hype_index": 36.07,
+        "apple_rank": 16,
+        "melon_rank": 37,
+        "melon_genz_rank": 52,
+        "ytmusic_rank": 21
+      },
+      "obP2P15pO5w": {
+        "hype_rank": 20,
+        "hype_index": 35.41,
+        "apple_rank": 14,
+        "melon_rank": 51,
+        "melon_genz_rank": 57,
+        "ytmusic_rank": 24
+      },
+      "cOARkf5ZmtI": {
+        "hype_rank": 21,
+        "hype_index": 35.04,
+        "apple_rank": 4,
+        "melon_rank": 94,
+        "melon_genz_rank": 59,
+        "ytmusic_rank": null
+      },
+      "DWGROwMNFek": {
+        "hype_rank": 22,
+        "hype_index": 33.24,
+        "apple_rank": 2,
+        "melon_rank": null,
+        "melon_genz_rank": null,
+        "ytmusic_rank": null
+      },
+      "X0PUdt1gt5c": {
+        "hype_rank": 23,
+        "hype_index": 32.83,
+        "apple_rank": 43,
+        "melon_rank": null,
+        "melon_genz_rank": 24,
+        "ytmusic_rank": 35
+      },
+      "E5BLkMGxDgQ": {
+        "hype_rank": 24,
+        "hype_index": 32.42,
+        "apple_rank": 31,
+        "melon_rank": null,
+        "melon_genz_rank": 17,
+        "ytmusic_rank": null
+      },
+      "I0Hu7PRF4j0": {
+        "hype_rank": 25,
+        "hype_index": 31.9,
+        "apple_rank": 30,
+        "melon_rank": 54,
+        "melon_genz_rank": 19,
+        "ytmusic_rank": null
+      },
+      "g7FE94-5HQk": {
+        "hype_rank": 26,
+        "hype_index": 30.83,
+        "apple_rank": 21,
+        "melon_rank": null,
+        "melon_genz_rank": 31,
+        "ytmusic_rank": null
+      },
+      "4sdN33l2WTw": {
+        "hype_rank": 27,
+        "hype_index": 30.33,
+        "apple_rank": 32,
+        "melon_rank": null,
+        "melon_genz_rank": 26,
+        "ytmusic_rank": 81
+      },
+      "oP-WPpwBz80": {
+        "hype_rank": 28,
+        "hype_index": 29.62,
+        "apple_rank": 23,
+        "melon_rank": null,
+        "melon_genz_rank": 67,
+        "ytmusic_rank": 25
+      },
+      "8rMARLBfd3U": {
+        "hype_rank": 29,
+        "hype_index": 29.6,
+        "apple_rank": 34,
+        "melon_rank": null,
+        "melon_genz_rank": 22,
+        "ytmusic_rank": null
+      },
+      "c84VnpGFbrw": {
+        "hype_rank": 30,
+        "hype_index": 29.44,
+        "apple_rank": 66,
+        "melon_rank": 92,
+        "melon_genz_rank": 21,
+        "ytmusic_rank": 32
+      },
+      "1jtban6rFAA": {
+        "hype_rank": 31,
+        "hype_index": 28.47,
+        "apple_rank": 41,
+        "melon_rank": null,
+        "melon_genz_rank": 20,
+        "ytmusic_rank": null
+      },
+      "f7-z0FDBpZo": {
+        "hype_rank": 32,
+        "hype_index": 27.52,
+        "apple_rank": 5,
+        "melon_rank": null,
+        "melon_genz_rank": 96,
+        "ytmusic_rank": null
+      },
+      "EmRFwlGlbb8": {
+        "hype_rank": 33,
+        "hype_index": 26.14,
+        "apple_rank": 15,
+        "melon_rank": null,
+        "melon_genz_rank": null,
+        "ytmusic_rank": 33
+      },
+      "-_r_Y5nuHlo": {
+        "hype_rank": 34,
+        "hype_index": 24.96,
+        "apple_rank": 28,
+        "melon_rank": null,
+        "melon_genz_rank": 44,
+        "ytmusic_rank": null
+      },
+      "pMEvQz6HIA0": {
+        "hype_rank": 35,
+        "hype_index": 24.95,
+        "apple_rank": 62,
+        "melon_rank": null,
+        "melon_genz_rank": 33,
+        "ytmusic_rank": 42
+      },
+      "JwC6KUpBAAU": {
+        "hype_rank": 36,
+        "hype_index": 24.79,
+        "apple_rank": 52,
+        "melon_rank": 59,
+        "melon_genz_rank": 23,
+        "ytmusic_rank": null
+      },
+      "gjQwwWjxPaQ": {
+        "hype_rank": 37,
+        "hype_index": 24.76,
+        "apple_rank": 25,
+        "melon_rank": null,
+        "melon_genz_rank": 65,
+        "ytmusic_rank": 61
+      },
+      "sjtyqmA-pH4": {
+        "hype_rank": 38,
+        "hype_index": 24.69,
+        "apple_rank": null,
+        "melon_rank": 13,
+        "melon_genz_rank": 28,
+        "ytmusic_rank": 14
+      },
+      "j-seAiANLG8": {
+        "hype_rank": 39,
+        "hype_index": 24.1,
+        "apple_rank": 45,
+        "melon_rank": null,
+        "melon_genz_rank": 30,
+        "ytmusic_rank": null
+      },
+      "DbI-M_jZukE": {
+        "hype_rank": 40,
+        "hype_index": 23.48,
+        "apple_rank": 19,
+        "melon_rank": null,
+        "melon_genz_rank": null,
+        "ytmusic_rank": 40
+      },
+      "hGqYdubpcCM": {
+        "hype_rank": 41,
+        "hype_index": 22.6,
+        "apple_rank": 39,
+        "melon_rank": 38,
+        "melon_genz_rank": 77,
+        "ytmusic_rank": 28
+      },
+      "f73laCUMUW0": {
+        "hype_rank": 42,
+        "hype_index": 21.82,
+        "apple_rank": 44,
+        "melon_rank": 44,
+        "melon_genz_rank": 39,
+        "ytmusic_rank": null
+      },
+      "Cbs8h6nJWBc": {
+        "hype_rank": 43,
+        "hype_index": 20.78,
+        "apple_rank": 73,
+        "melon_rank": 58,
+        "melon_genz_rank": 53,
+        "ytmusic_rank": 23
+      },
+      "XJL-lduf174": {
+        "hype_rank": 44,
+        "hype_index": 19.72,
+        "apple_rank": 78,
+        "melon_rank": null,
+        "melon_genz_rank": 41,
+        "ytmusic_rank": 44
+      },
+      "NbKH4iZqq1Y": {
+        "hype_rank": 45,
+        "hype_index": 19.71,
+        "apple_rank": 75,
+        "melon_rank": 12,
+        "melon_genz_rank": 25,
+        "ytmusic_rank": null
+      },
+      "3G0A03PFMg0": {
+        "hype_rank": 46,
+        "hype_index": 19.66,
+        "apple_rank": 37,
+        "melon_rank": null,
+        "melon_genz_rank": 56,
+        "ytmusic_rank": null
+      },
+      "A9EpZWrQ3dM": {
+        "hype_rank": 47,
+        "hype_index": 19.27,
+        "apple_rank": 29,
+        "melon_rank": null,
+        "melon_genz_rank": null,
+        "ytmusic_rank": 46
+      },
+      "UJn-F2kPCaQ": {
+        "hype_rank": 48,
+        "hype_index": 18.24,
+        "apple_rank": 88,
+        "melon_rank": null,
+        "melon_genz_rank": 45,
+        "ytmusic_rank": 36
+      },
+      "fwNJdxUghcc": {
+        "hype_rank": 49,
+        "hype_index": 17.11,
+        "apple_rank": 74,
+        "melon_rank": 63,
+        "melon_genz_rank": 34,
+        "ytmusic_rank": null
+      },
+      "7CUz7Ec7cWc": {
+        "hype_rank": 50,
+        "hype_index": 16.7,
+        "apple_rank": 22,
+        "melon_rank": null,
+        "melon_genz_rank": null,
+        "ytmusic_rank": null
+      },
+      "pERDk4KoW-s": {
+        "hype_rank": 51,
+        "hype_index": 16.51,
+        "apple_rank": 58,
+        "melon_rank": null,
+        "melon_genz_rank": 48,
+        "ytmusic_rank": null
+      },
+      "NwO0H2bUhSQ": {
+        "hype_rank": 52,
+        "hype_index": 16.28,
+        "apple_rank": null,
+        "melon_rank": null,
+        "melon_genz_rank": 32,
+        "ytmusic_rank": 66
+      },
+      "dgZlLjfh6q4": {
+        "hype_rank": 53,
+        "hype_index": 16.19,
+        "apple_rank": 70,
+        "melon_rank": null,
+        "melon_genz_rank": 40,
+        "ytmusic_rank": null
+      },
+      "IMWT6937uUs": {
+        "hype_rank": 54,
+        "hype_index": 15.56,
+        "apple_rank": 94,
+        "melon_rank": 43,
+        "melon_genz_rank": 29,
+        "ytmusic_rank": null
+      },
+      "KczYjTVrK_o": {
+        "hype_rank": 55,
+        "hype_index": 15.31,
+        "apple_rank": 80,
+        "melon_rank": 26,
+        "melon_genz_rank": 37,
+        "ytmusic_rank": null
+      },
+      "op05giODUE0": {
+        "hype_rank": 56,
+        "hype_index": 15.15,
+        "apple_rank": 55,
+        "melon_rank": 62,
+        "melon_genz_rank": 80,
+        "ytmusic_rank": 53
+      },
+      "UpY5grXVZbg": {
+        "hype_rank": 57,
+        "hype_index": 15.0,
+        "apple_rank": 27,
+        "melon_rank": null,
+        "melon_genz_rank": null,
+        "ytmusic_rank": null
+      },
+      "QxGt54-oh1A": {
+        "hype_rank": 58,
+        "hype_index": 14.86,
+        "apple_rank": null,
+        "melon_rank": 16,
+        "melon_genz_rank": 69,
+        "ytmusic_rank": 15
+      },
+      "2zPGWGqdfJ8": {
+        "hype_rank": 59,
+        "hype_index": 13.66,
+        "apple_rank": 60,
+        "melon_rank": null,
+        "melon_genz_rank": null,
+        "ytmusic_rank": 31
+      },
+      "37W7Y2RRyiM": {
+        "hype_rank": 60,
+        "hype_index": 13.45,
+        "apple_rank": 47,
+        "melon_rank": null,
+        "melon_genz_rank": 76,
+        "ytmusic_rank": null
+      },
+      "t8P-zdkoeJA": {
+        "hype_rank": 61,
+        "hype_index": 13.45,
+        "apple_rank": 82,
+        "melon_rank": 52,
+        "melon_genz_rank": 43,
+        "ytmusic_rank": null
+      },
+      "jCKcEoZrlJQ": {
+        "hype_rank": 62,
+        "hype_index": 13.24,
+        "apple_rank": 85,
+        "melon_rank": 50,
+        "melon_genz_rank": 42,
+        "ytmusic_rank": null
+      },
+      "jWYFI10cZfw": {
+        "hype_rank": 63,
+        "hype_index": 13.13,
+        "apple_rank": 97,
+        "melon_rank": 22,
+        "melon_genz_rank": 36,
+        "ytmusic_rank": null
+      },
+      "pJ-IGZKyfpU": {
+        "hype_rank": 64,
+        "hype_index": 12.61,
+        "apple_rank": null,
+        "melon_rank": null,
+        "melon_genz_rank": 35,
+        "ytmusic_rank": null
+      },
+      "Yc4gp6oeN7k": {
+        "hype_rank": 65,
+        "hype_index": 12.51,
+        "apple_rank": 79,
+        "melon_rank": null,
+        "melon_genz_rank": 49,
+        "ytmusic_rank": null
+      },
+      "HaOz1PhGXhs": {
+        "hype_rank": 66,
+        "hype_index": 12.5,
+        "apple_rank": 91,
+        "melon_rank": null,
+        "melon_genz_rank": 55,
+        "ytmusic_rank": 63
+      },
+      "HXV5aZaBLDo": {
+        "hype_rank": 67,
+        "hype_index": 12.34,
+        "apple_rank": 36,
+        "melon_rank": null,
+        "melon_genz_rank": null,
+        "ytmusic_rank": null
+      },
+      "TLftyCObb_E": {
+        "hype_rank": 68,
+        "hype_index": 11.88,
+        "apple_rank": null,
+        "melon_rank": 34,
+        "melon_genz_rank": 74,
+        "ytmusic_rank": 26
+      },
+      "eqKhhG4FVoQ": {
+        "hype_rank": 69,
+        "hype_index": 11.8,
+        "apple_rank": 38,
+        "melon_rank": 90,
+        "melon_genz_rank": null,
+        "ytmusic_rank": null
+      },
+      "D9IVOL9felk": {
+        "hype_rank": 70,
+        "hype_index": 11.8,
+        "apple_rank": null,
+        "melon_rank": 47,
+        "melon_genz_rank": 38,
+        "ytmusic_rank": null
+      },
+      "0awcpa28W1s": {
+        "hype_rank": 71,
+        "hype_index": 11.62,
+        "apple_rank": 48,
+        "melon_rank": null,
+        "melon_genz_rank": null,
+        "ytmusic_rank": 72
+      },
+      "K6X38sM_WSo": {
+        "hype_rank": 72,
+        "hype_index": 11.36,
+        "apple_rank": null,
+        "melon_rank": 24,
+        "melon_genz_rank": 61,
+        "ytmusic_rank": 47
+      },
+      "vrM2mrI83uk": {
+        "hype_rank": 73,
+        "hype_index": 11.28,
+        "apple_rank": 40,
+        "melon_rank": null,
+        "melon_genz_rank": null,
+        "ytmusic_rank": null
+      },
+      "6Xa1VDLACPo": {
+        "hype_rank": 74,
+        "hype_index": 11.02,
+        "apple_rank": null,
+        "melon_rank": 17,
+        "melon_genz_rank": 64,
+        "ytmusic_rank": 45
+      },
+      "LlFB4Tk49kI": {
+        "hype_rank": 75,
+        "hype_index": 10.81,
+        "apple_rank": null,
+        "melon_rank": null,
+        "melon_genz_rank": null,
+        "ytmusic_rank": 11
+      },
+      "7Eo-TAWu0oo": {
+        "hype_rank": 76,
+        "hype_index": 10.77,
+        "apple_rank": 42,
+        "melon_rank": 45,
+        "melon_genz_rank": null,
+        "ytmusic_rank": null
+      },
+      "D3tUvbqOAAY": {
+        "hype_rank": 77,
+        "hype_index": 10.53,
+        "apple_rank": 59,
+        "melon_rank": 67,
+        "melon_genz_rank": 78,
+        "ytmusic_rank": null
+      },
+      "HBqH4uJS0PU": {
+        "hype_rank": 78,
+        "hype_index": 9.8,
+        "apple_rank": 46,
+        "melon_rank": 74,
+        "melon_genz_rank": null,
+        "ytmusic_rank": null
+      },
+      "XfzE8ku3TCI": {
+        "hype_rank": 79,
+        "hype_index": 9.8,
+        "apple_rank": null,
+        "melon_rank": null,
+        "melon_genz_rank": 46,
+        "ytmusic_rank": null
+      },
+      "p1tsL0YmNqU": {
+        "hype_rank": 80,
+        "hype_index": 9.57,
+        "apple_rank": null,
+        "melon_rank": null,
+        "melon_genz_rank": 47,
+        "ytmusic_rank": null
+      },
+      "to3sjq-CAvA": {
+        "hype_rank": 81,
+        "hype_index": 9.55,
+        "apple_rank": null,
+        "melon_rank": null,
+        "melon_genz_rank": null,
+        "ytmusic_rank": 16
+      },
+      "wt2qlecXbUc": {
+        "hype_rank": 82,
+        "hype_index": 9.31,
+        "apple_rank": null,
+        "melon_rank": null,
+        "melon_genz_rank": 75,
+        "ytmusic_rank": 43
+      },
+      "vdIYAimoLVs": {
+        "hype_rank": 83,
+        "hype_index": 9.11,
+        "apple_rank": 49,
+        "melon_rank": null,
+        "melon_genz_rank": null,
+        "ytmusic_rank": null
+      },
+      "QX2dqXr8mOU": {
+        "hype_rank": 84,
+        "hype_index": 9.09,
+        "apple_rank": 64,
+        "melon_rank": null,
+        "melon_genz_rank": 81,
+        "ytmusic_rank": null
+      },
+      "yuH4OnvoADU": {
+        "hype_rank": 85,
+        "hype_index": 9.02,
+        "apple_rank": null,
+        "melon_rank": null,
+        "melon_genz_rank": 66,
+        "ytmusic_rank": 60
+      },
+      "aLUvL0mNQmY": {
+        "hype_rank": 86,
+        "hype_index": 8.96,
+        "apple_rank": null,
+        "melon_rank": 21,
+        "melon_genz_rank": 82,
+        "ytmusic_rank": 37
+      },
+      "29lj9jFfJvY": {
+        "hype_rank": 87,
+        "hype_index": 8.88,
+        "apple_rank": null,
+        "melon_rank": 30,
+        "melon_genz_rank": 50,
+        "ytmusic_rank": null
+      },
+      "OdFVPP_Rcos": {
+        "hype_rank": 88,
+        "hype_index": 8.66,
+        "apple_rank": null,
+        "melon_rank": 29,
+        "melon_genz_rank": 51,
+        "ytmusic_rank": null
+      },
+      "ghrlZIMDzbM": {
+        "hype_rank": 89,
+        "hype_index": 8.22,
+        "apple_rank": 53,
+        "melon_rank": 66,
+        "melon_genz_rank": null,
+        "ytmusic_rank": null
+      },
+      "aWkPBCF8rFU": {
+        "hype_rank": 90,
+        "hype_index": 8.01,
+        "apple_rank": 54,
+        "melon_rank": null,
+        "melon_genz_rank": null,
+        "ytmusic_rank": null
+      },
+      "bLahVNBGdLQ": {
+        "hype_rank": 91,
+        "hype_index": 8.01,
+        "apple_rank": null,
+        "melon_rank": 41,
+        "melon_genz_rank": 54,
+        "ytmusic_rank": null
+      },
+      "nWXdtLEdvkI": {
+        "hype_rank": 92,
+        "hype_index": 7.59,
+        "apple_rank": 56,
+        "melon_rank": null,
+        "melon_genz_rank": null,
+        "ytmusic_rank": null
+      },
+      "TEbPKeeJnlA": {
+        "hype_rank": 93,
+        "hype_index": 7.5,
+        "apple_rank": null,
+        "melon_rank": null,
+        "melon_genz_rank": null,
+        "ytmusic_rank": 27
+      },
+      "kdOS94IjzzE": {
+        "hype_rank": 94,
+        "hype_index": 7.38,
+        "apple_rank": 57,
+        "melon_rank": null,
+        "melon_genz_rank": null,
+        "ytmusic_rank": null
+      },
+      "N4N8nam2QbI": {
+        "hype_rank": 95,
+        "hype_index": 7.18,
+        "apple_rank": null,
+        "melon_rank": 77,
+        "melon_genz_rank": 58,
+        "ytmusic_rank": null
+      },
+      "Cb0JZhdmjtg": {
+        "hype_rank": 96,
+        "hype_index": 7.18,
+        "apple_rank": null,
+        "melon_rank": null,
+        "melon_genz_rank": null,
+        "ytmusic_rank": 29
+      },
+      "GxChUrrY4bc": {
+        "hype_rank": 97,
+        "hype_index": 7.03,
+        "apple_rank": null,
+        "melon_rank": null,
+        "melon_genz_rank": null,
+        "ytmusic_rank": 30
+      },
+      "PJfZViVdOwM": {
+        "hype_rank": 98,
+        "hype_index": 6.78,
+        "apple_rank": null,
+        "melon_rank": null,
+        "melon_genz_rank": 60,
+        "ytmusic_rank": null
+      },
+      "PGADim6UzHE": {
+        "hype_rank": 99,
+        "hype_index": 6.58,
+        "apple_rank": 61,
+        "melon_rank": null,
+        "melon_genz_rank": null,
+        "ytmusic_rank": null
+      },
+      "v8mCh6TZfEU": {
+        "hype_rank": 100,
+        "hype_index": 6.54,
+        "apple_rank": null,
+        "melon_rank": null,
+        "melon_genz_rank": 86,
+        "ytmusic_rank": 52
+      },
+      "TfAiFxoXVlE": {
+        "hype_rank": 101,
+        "hype_index": 6.45,
+        "apple_rank": null,
+        "melon_rank": 27,
+        "melon_genz_rank": null,
+        "ytmusic_rank": 34
+      },
+      "5USBozeR4eg": {
+        "hype_rank": 102,
+        "hype_index": 6.39,
+        "apple_rank": null,
+        "melon_rank": null,
+        "melon_genz_rank": 62,
+        "ytmusic_rank": null
+      },
+      "tCSBgOIA63M": {
+        "hype_rank": 103,
+        "hype_index": 6.19,
+        "apple_rank": 63,
+        "melon_rank": null,
+        "melon_genz_rank": null,
+        "ytmusic_rank": null
+      },
+      "IhKjZk5AYRg": {
+        "hype_rank": 104,
+        "hype_index": 6.19,
+        "apple_rank": null,
+        "melon_rank": 28,
+        "melon_genz_rank": 63,
+        "ytmusic_rank": null
+      },
+      "ufdjbG7z5lQ": {
+        "hype_rank": 105,
+        "hype_index": 5.91,
+        "apple_rank": 86,
+        "melon_rank": null,
+        "melon_genz_rank": null,
+        "ytmusic_rank": 58
+      },
+      "oZ61Le_JdVY": {
+        "hype_rank": 106,
+        "hype_index": 5.9,
+        "apple_rank": null,
+        "melon_rank": null,
+        "melon_genz_rank": null,
+        "ytmusic_rank": 38
+      },
+      "dTVCk33AQEs": {
+        "hype_rank": 107,
+        "hype_index": 5.82,
+        "apple_rank": 65,
+        "melon_rank": null,
+        "melon_genz_rank": null,
+        "ytmusic_rank": null
+      },
+      "kjNGAVT_ySg": {
+        "hype_rank": 108,
+        "hype_index": 5.77,
+        "apple_rank": null,
+        "melon_rank": null,
+        "melon_genz_rank": null,
+        "ytmusic_rank": 39
+      },
+      "ZAsxW7bkK-A": {
+        "hype_rank": 109,
+        "hype_index": 5.51,
+        "apple_rank": null,
+        "melon_rank": 87,
+        "melon_genz_rank": null,
+        "ytmusic_rank": 41
+      },
+      "jWwdHeJ8XeU": {
+        "hype_rank": 110,
+        "hype_index": 5.45,
+        "apple_rank": 67,
+        "melon_rank": null,
+        "melon_genz_rank": null,
+        "ytmusic_rank": null
+      },
+      "RwrZPCKLs2E": {
+        "hype_rank": 111,
+        "hype_index": 5.26,
+        "apple_rank": 68,
+        "melon_rank": null,
+        "melon_genz_rank": null,
+        "ytmusic_rank": null
+      },
+      "dYnU0DZ_iQc": {
+        "hype_rank": 112,
+        "hype_index": 5.26,
+        "apple_rank": null,
+        "melon_rank": null,
+        "melon_genz_rank": 68,
+        "ytmusic_rank": null
+      },
+      "tiFpz-FxSJg": {
+        "hype_rank": 113,
+        "hype_index": 5.09,
+        "apple_rank": 69,
+        "melon_rank": null,
+        "melon_genz_rank": null,
+        "ytmusic_rank": null
+      },
+      "VZnfZ14fIig": {
+        "hype_rank": 114,
+        "hype_index": 4.91,
+        "apple_rank": null,
+        "melon_rank": null,
+        "melon_genz_rank": 70,
+        "ytmusic_rank": null
+      },
+      "AzS4LokpHmg": {
+        "hype_rank": 115,
+        "hype_index": 4.73,
+        "apple_rank": 71,
+        "melon_rank": null,
+        "melon_genz_rank": null,
+        "ytmusic_rank": null
+      },
+      "LZWlP4kjEtw": {
+        "hype_rank": 116,
+        "hype_index": 4.73,
+        "apple_rank": null,
+        "melon_rank": null,
+        "melon_genz_rank": 71,
+        "ytmusic_rank": null
+      },
+      "HJstyRBLqBQ": {
+        "hype_rank": 117,
+        "hype_index": 4.69,
+        "apple_rank": 81,
+        "melon_rank": null,
+        "melon_genz_rank": 91,
+        "ytmusic_rank": null
+      },
+      "zuO2fClon98": {
+        "hype_rank": 118,
+        "hype_index": 4.67,
+        "apple_rank": null,
+        "melon_rank": null,
+        "melon_genz_rank": null,
+        "ytmusic_rank": 48
+      },
+      "GCkhFdMdGOY": {
+        "hype_rank": 119,
+        "hype_index": 4.56,
+        "apple_rank": 72,
+        "melon_rank": null,
+        "melon_genz_rank": null,
+        "ytmusic_rank": null
+      },
+      "O4ZZJ_ek2gs": {
+        "hype_rank": 120,
+        "hype_index": 4.56,
+        "apple_rank": null,
+        "melon_rank": null,
+        "melon_genz_rank": 72,
+        "ytmusic_rank": null
+      },
+      "wDlgvn_uApo": {
+        "hype_rank": 121,
+        "hype_index": 4.55,
+        "apple_rank": null,
+        "melon_rank": null,
+        "melon_genz_rank": null,
+        "ytmusic_rank": 49
+      },
+      "Gy32XOFT2ww": {
+        "hype_rank": 122,
+        "hype_index": 4.44,
+        "apple_rank": null,
+        "melon_rank": 91,
+        "melon_genz_rank": null,
+        "ytmusic_rank": 50
+      },
+      "e6-TxMisjh8": {
+        "hype_rank": 123,
+        "hype_index": 4.39,
+        "apple_rank": null,
+        "melon_rank": null,
+        "melon_genz_rank": 73,
+        "ytmusic_rank": null
+      },
+      "h9hdorPqukU": {
+        "hype_rank": 124,
+        "hype_index": 4.37,
+        "apple_rank": 92,
+        "melon_rank": null,
+        "melon_genz_rank": null,
+        "ytmusic_rank": 65
+      },
+      "vOfyxPRunFM": {
+        "hype_rank": 125,
+        "hype_index": 4.33,
+        "apple_rank": null,
+        "melon_rank": null,
+        "melon_genz_rank": null,
+        "ytmusic_rank": 51
+      },
+      "Mp-xWPo95MU": {
+        "hype_rank": 126,
+        "hype_index": 4.0,
+        "apple_rank": null,
+        "melon_rank": null,
+        "melon_genz_rank": null,
+        "ytmusic_rank": 54
+      },
+      "QmJbHPYx97M": {
+        "hype_rank": 127,
+        "hype_index": 3.9,
+        "apple_rank": null,
+        "melon_rank": null,
+        "melon_genz_rank": null,
+        "ytmusic_rank": 55
+      },
+      "5C-UzW1FLiA": {
+        "hype_rank": 128,
+        "hype_index": 3.88,
+        "apple_rank": 76,
+        "melon_rank": null,
+        "melon_genz_rank": null,
+        "ytmusic_rank": null
+      },
+      "9XnsnNHj4Jk": {
+        "hype_rank": 129,
+        "hype_index": 3.79,
+        "apple_rank": null,
+        "melon_rank": null,
+        "melon_genz_rank": null,
+        "ytmusic_rank": 56
+      },
+      "k2zDLzfcb3I": {
+        "hype_rank": 130,
+        "hype_index": 3.78,
+        "apple_rank": 95,
+        "melon_rank": null,
+        "melon_genz_rank": null,
+        "ytmusic_rank": 67
+      },
+      "NBIu5QpD3X8": {
+        "hype_rank": 131,
+        "hype_index": 3.72,
+        "apple_rank": 77,
+        "melon_rank": null,
+        "melon_genz_rank": null,
+        "ytmusic_rank": null
+      },
+      "-W5AqaIoZpg": {
+        "hype_rank": 132,
+        "hype_index": 3.69,
+        "apple_rank": null,
+        "melon_rank": null,
+        "melon_genz_rank": null,
+        "ytmusic_rank": 57
+      },
+      "Nged3LwJsvQ": {
+        "hype_rank": 133,
+        "hype_index": 3.49,
+        "apple_rank": null,
+        "melon_rank": null,
+        "melon_genz_rank": null,
+        "ytmusic_rank": 59
+      },
+      "HLTQoCRBfxc": {
+        "hype_rank": 134,
+        "hype_index": 3.4,
+        "apple_rank": null,
+        "melon_rank": null,
+        "melon_genz_rank": 79,
+        "ytmusic_rank": null
+      },
+      "pHciG9_2xXM": {
+        "hype_rank": 135,
+        "hype_index": 3.19,
+        "apple_rank": null,
+        "melon_rank": null,
+        "melon_genz_rank": null,
+        "ytmusic_rank": 62
+      },
+      "w0t18LgzTSA": {
+        "hype_rank": 136,
+        "hype_index": 3.12,
+        "apple_rank": 89,
+        "melon_rank": null,
+        "melon_genz_rank": null,
+        "ytmusic_rank": 85
+      },
+      "Y4RmVcKav9Q": {
+        "hype_rank": 137,
+        "hype_index": 3.0,
+        "apple_rank": null,
+        "melon_rank": null,
+        "melon_genz_rank": null,
+        "ytmusic_rank": 64
+      },
+      "tkzYyEp4zB4": {
+        "hype_rank": 138,
+        "hype_index": 2.77,
+        "apple_rank": 83,
+        "melon_rank": null,
+        "melon_genz_rank": null,
+        "ytmusic_rank": null
+      },
+      "btLRj_ueSeA": {
+        "hype_rank": 139,
+        "hype_index": 2.77,
+        "apple_rank": null,
+        "melon_rank": null,
+        "melon_genz_rank": 83,
+        "ytmusic_rank": null
+      },
+      "Z5LPrVc1MtU": {
+        "hype_rank": 140,
+        "hype_index": 2.63,
+        "apple_rank": null,
+        "melon_rank": null,
+        "melon_genz_rank": null,
+        "ytmusic_rank": 68
+      },
+      "fniLCqL9WOM": {
+        "hype_rank": 141,
+        "hype_index": 2.62,
+        "apple_rank": 84,
+        "melon_rank": null,
+        "melon_genz_rank": null,
+        "ytmusic_rank": null
+      },
+      "RZMp2kQObCs": {
+        "hype_rank": 142,
+        "hype_index": 2.62,
+        "apple_rank": null,
+        "melon_rank": 32,
+        "melon_genz_rank": 84,
+        "ytmusic_rank": null
+      },
+      "4Uh-Pf02qeQ": {
+        "hype_rank": 143,
+        "hype_index": 2.58,
+        "apple_rank": null,
+        "melon_rank": null,
+        "melon_genz_rank": 94,
+        "ytmusic_rank": 83
+      },
+      "k7D4i1ILCCk": {
+        "hype_rank": 144,
+        "hype_index": 2.54,
+        "apple_rank": null,
+        "melon_rank": null,
+        "melon_genz_rank": null,
+        "ytmusic_rank": 69
+      },
+      "ZcHRydIz0eM": {
+        "hype_rank": 145,
+        "hype_index": 2.47,
+        "apple_rank": null,
+        "melon_rank": 39,
+        "melon_genz_rank": 85,
+        "ytmusic_rank": null
+      },
+      "1bD_2ITkGwU": {
+        "hype_rank": 146,
+        "hype_index": 2.45,
+        "apple_rank": null,
+        "melon_rank": null,
+        "melon_genz_rank": null,
+        "ytmusic_rank": 70
+      },
+      "pRmsP7A-DtY": {
+        "hype_rank": 147,
+        "hype_index": 2.37,
+        "apple_rank": null,
+        "melon_rank": null,
+        "melon_genz_rank": null,
+        "ytmusic_rank": 71
+      },
+      "ERbDApFPOxE": {
+        "hype_rank": 148,
+        "hype_index": 2.19,
+        "apple_rank": null,
+        "melon_rank": null,
+        "melon_genz_rank": null,
+        "ytmusic_rank": 73
+      },
+      "8W64YPnRu1Y": {
+        "hype_rank": 149,
+        "hype_index": 2.18,
+        "apple_rank": 87,
+        "melon_rank": null,
+        "melon_genz_rank": null,
+        "ytmusic_rank": null
+      },
+      "2VkWaOOF4Rc": {
+        "hype_rank": 150,
+        "hype_index": 2.18,
+        "apple_rank": null,
+        "melon_rank": null,
+        "melon_genz_rank": 87,
+        "ytmusic_rank": null
+      },
+      "ZIBoYP1MIt8": {
+        "hype_rank": 151,
+        "hype_index": 2.11,
+        "apple_rank": null,
+        "melon_rank": null,
+        "melon_genz_rank": null,
+        "ytmusic_rank": 74
+      },
+      "kh4hpnGs9iY": {
+        "hype_rank": 152,
+        "hype_index": 2.03,
+        "apple_rank": null,
+        "melon_rank": null,
+        "melon_genz_rank": 88,
+        "ytmusic_rank": null
+      },
+      "W2DExL93yvQ": {
+        "hype_rank": 153,
+        "hype_index": 2.03,
+        "apple_rank": null,
+        "melon_rank": null,
+        "melon_genz_rank": null,
+        "ytmusic_rank": 75
+      },
+      "YSHzo9bi8OE": {
+        "hype_rank": 154,
+        "hype_index": 1.94,
+        "apple_rank": null,
+        "melon_rank": null,
+        "melon_genz_rank": null,
+        "ytmusic_rank": 76
+      },
+      "oPVxdNe1hrk": {
+        "hype_rank": 155,
+        "hype_index": 1.89,
+        "apple_rank": null,
+        "melon_rank": null,
+        "melon_genz_rank": 89,
+        "ytmusic_rank": null
+      },
+      "ljCOHKamf4Q": {
+        "hype_rank": 156,
+        "hype_index": 1.86,
+        "apple_rank": null,
+        "melon_rank": null,
+        "melon_genz_rank": null,
+        "ytmusic_rank": 77
+      },
+      "jsXAwVnd1gE": {
+        "hype_rank": 157,
+        "hype_index": 1.78,
+        "apple_rank": null,
+        "melon_rank": null,
+        "melon_genz_rank": null,
+        "ytmusic_rank": 78
+      },
+      "4ZHxBEDHTFg": {
+        "hype_rank": 158,
+        "hype_index": 1.74,
+        "apple_rank": 90,
+        "melon_rank": null,
+        "melon_genz_rank": null,
+        "ytmusic_rank": null
+      },
+      "eNiPuDEUQpQ": {
+        "hype_rank": 159,
+        "hype_index": 1.74,
+        "apple_rank": null,
+        "melon_rank": 20,
+        "melon_genz_rank": 90,
+        "ytmusic_rank": null
+      },
+      "BD3MbtUBuTM": {
+        "hype_rank": 160,
+        "hype_index": 1.7,
+        "apple_rank": null,
+        "melon_rank": null,
+        "melon_genz_rank": null,
+        "ytmusic_rank": 79
+      },
+      "OmEPFmyKO74": {
+        "hype_rank": 161,
+        "hype_index": 1.62,
+        "apple_rank": null,
+        "melon_rank": null,
+        "melon_genz_rank": null,
+        "ytmusic_rank": 80
+      },
+      "-9fC6oDFl5k": {
+        "hype_rank": 162,
+        "hype_index": 1.46,
+        "apple_rank": null,
+        "melon_rank": 31,
+        "melon_genz_rank": 92,
+        "ytmusic_rank": null
+      },
+      "JaMblWT0SXY": {
+        "hype_rank": 163,
+        "hype_index": 1.46,
+        "apple_rank": null,
+        "melon_rank": null,
+        "melon_genz_rank": null,
+        "ytmusic_rank": 82
+      },
+      "7mjg-7ibaQA": {
+        "hype_rank": 164,
+        "hype_index": 1.33,
+        "apple_rank": 93,
+        "melon_rank": null,
+        "melon_genz_rank": null,
+        "ytmusic_rank": null
+      },
+      "fsYE8vJRTj4": {
+        "hype_rank": 165,
+        "hype_index": 1.33,
+        "apple_rank": null,
+        "melon_rank": null,
+        "melon_genz_rank": 93,
+        "ytmusic_rank": null
+      },
+      "cPtvGVLuJYo": {
+        "hype_rank": 166,
+        "hype_index": 1.31,
+        "apple_rank": null,
+        "melon_rank": null,
+        "melon_genz_rank": null,
+        "ytmusic_rank": 84
+      },
+      "zT3VfvAjvtk": {
+        "hype_rank": 167,
+        "hype_index": 1.16,
+        "apple_rank": null,
+        "melon_rank": null,
+        "melon_genz_rank": null,
+        "ytmusic_rank": 86
+      },
+      "NXOHRi3wf8s": {
+        "hype_rank": 168,
+        "hype_index": 1.09,
+        "apple_rank": null,
+        "melon_rank": null,
+        "melon_genz_rank": null,
+        "ytmusic_rank": 87
+      },
+      "mLwfuskNDOo": {
+        "hype_rank": 169,
+        "hype_index": 1.05,
+        "apple_rank": null,
+        "melon_rank": null,
+        "melon_genz_rank": 95,
+        "ytmusic_rank": null
+      },
+      "OrfLgp2bUL0": {
+        "hype_rank": 170,
+        "hype_index": 1.02,
+        "apple_rank": null,
+        "melon_rank": null,
+        "melon_genz_rank": null,
+        "ytmusic_rank": 88
+      },
+      "ORqWQi3hm_k": {
+        "hype_rank": 171,
+        "hype_index": 0.94,
+        "apple_rank": null,
+        "melon_rank": null,
+        "melon_genz_rank": null,
+        "ytmusic_rank": 89
+      },
+      "GV_HP7yoIyc": {
+        "hype_rank": 172,
+        "hype_index": 0.92,
+        "apple_rank": 96,
+        "melon_rank": null,
+        "melon_genz_rank": null,
+        "ytmusic_rank": null
+      },
+      "Tvhjbj-WrF8": {
+        "hype_rank": 173,
+        "hype_index": 0.87,
+        "apple_rank": null,
+        "melon_rank": null,
+        "melon_genz_rank": null,
+        "ytmusic_rank": 90
+      },
+      "MX7FSAnRPug": {
+        "hype_rank": 174,
+        "hype_index": 0.8,
+        "apple_rank": null,
+        "melon_rank": null,
+        "melon_genz_rank": null,
+        "ytmusic_rank": 91
+      },
+      "l-H4QHLC-Uc": {
+        "hype_rank": 175,
+        "hype_index": 0.79,
+        "apple_rank": null,
+        "melon_rank": 46,
+        "melon_genz_rank": 97,
+        "ytmusic_rank": null
+      },
+      "VWqxvBQKwKQ": {
+        "hype_rank": 176,
+        "hype_index": 0.73,
+        "apple_rank": null,
+        "melon_rank": null,
+        "melon_genz_rank": null,
+        "ytmusic_rank": 92
+      },
+      "w6KQ385IANI": {
+        "hype_rank": 177,
+        "hype_index": 0.66,
+        "apple_rank": 98,
+        "melon_rank": null,
+        "melon_genz_rank": null,
+        "ytmusic_rank": null
+      },
+      "ViDjwX-yfgc": {
+        "hype_rank": 178,
+        "hype_index": 0.66,
+        "apple_rank": null,
+        "melon_rank": 70,
+        "melon_genz_rank": 98,
+        "ytmusic_rank": null
+      },
+      "aGwmkWxALiw": {
+        "hype_rank": 179,
+        "hype_index": 0.66,
+        "apple_rank": null,
+        "melon_rank": null,
+        "melon_genz_rank": null,
+        "ytmusic_rank": 93
+      },
+      "nZSETrecrUI": {
+        "hype_rank": 180,
+        "hype_index": 0.59,
+        "apple_rank": null,
+        "melon_rank": null,
+        "melon_genz_rank": null,
+        "ytmusic_rank": 94
+      },
+      "8QFM8Ews68c": {
+        "hype_rank": 181,
+        "hype_index": 0.53,
+        "apple_rank": 99,
+        "melon_rank": null,
+        "melon_genz_rank": null,
+        "ytmusic_rank": null
+      },
+      "-tCUWBHihu4": {
+        "hype_rank": 182,
+        "hype_index": 0.53,
+        "apple_rank": null,
+        "melon_rank": null,
+        "melon_genz_rank": 99,
+        "ytmusic_rank": null
+      },
+      "X2d_z31ezKA": {
+        "hype_rank": 183,
+        "hype_index": 0.53,
+        "apple_rank": null,
+        "melon_rank": null,
+        "melon_genz_rank": null,
+        "ytmusic_rank": 95
+      },
+      "GFU-RLTxSk4": {
+        "hype_rank": 184,
+        "hype_index": 0.46,
+        "apple_rank": null,
+        "melon_rank": null,
+        "melon_genz_rank": null,
+        "ytmusic_rank": 96
+      },
+      "7wJsfALKRR8": {
+        "hype_rank": 185,
+        "hype_index": 0.4,
+        "apple_rank": 100,
+        "melon_rank": null,
+        "melon_genz_rank": null,
+        "ytmusic_rank": null
+      },
+      "5xJFMN1KQko": {
+        "hype_rank": 186,
+        "hype_index": 0.4,
+        "apple_rank": null,
+        "melon_rank": null,
+        "melon_genz_rank": 100,
+        "ytmusic_rank": null
+      },
+      "zz723Sc3vak": {
+        "hype_rank": 187,
+        "hype_index": 0.39,
+        "apple_rank": null,
+        "melon_rank": null,
+        "melon_genz_rank": null,
+        "ytmusic_rank": 97
+      },
+      "9MbXeqCbS4Q": {
+        "hype_rank": 188,
+        "hype_index": 0.33,
+        "apple_rank": null,
+        "melon_rank": null,
+        "melon_genz_rank": null,
+        "ytmusic_rank": 98
+      },
+      "VT9lKAPWG5E": {
+        "hype_rank": 189,
+        "hype_index": 0.26,
+        "apple_rank": null,
+        "melon_rank": null,
+        "melon_genz_rank": null,
+        "ytmusic_rank": 99
+      },
+      "Yyfv2R97dHA": {
+        "hype_rank": 190,
+        "hype_index": 0.2,
+        "apple_rank": null,
+        "melon_rank": null,
+        "melon_genz_rank": null,
+        "ytmusic_rank": 100
+      }
+    },
+    "2026-08-30": {
+      "5sOgJQ3N03Q": {
+        "hype_rank": 1,
+        "hype_index": 86.54,
+        "apple_rank": 2,
+        "melon_rank": 4,
+        "melon_genz_rank": 1,
+        "ytmusic_rank": 5
+      },
+      "1uDzUPzS2w8": {
+        "hype_rank": 2,
+        "hype_index": 77.35,
+        "apple_rank": 3,
+        "melon_rank": 1,
+        "melon_genz_rank": 2,
+        "ytmusic_rank": 4
+      },
+      "QbsbqekMkCU": {
+        "hype_rank": 3,
+        "hype_index": 73.43,
+        "apple_rank": 1,
+        "melon_rank": 27,
+        "melon_genz_rank": 9,
+        "ytmusic_rank": 12
+      },
+      "ZBFzUSdS2nI": {
+        "hype_rank": 4,
+        "hype_index": 71.7,
+        "apple_rank": 11,
+        "melon_rank": 2,
+        "melon_genz_rank": 3,
+        "ytmusic_rank": 1
+      },
+      "LBhcqYqeu0U": {
+        "hype_rank": 5,
+        "hype_index": 63.98,
+        "apple_rank": 7,
+        "melon_rank": 6,
+        "melon_genz_rank": 7,
+        "ytmusic_rank": 3
+      },
+      "YVjcmz9sBIs": {
+        "hype_rank": 6,
+        "hype_index": 61.84,
+        "apple_rank": 12,
+        "melon_rank": 5,
+        "melon_genz_rank": 4,
+        "ytmusic_rank": 6
+      },
+      "3F9jlnANW08": {
+        "hype_rank": 7,
+        "hype_index": 60.79,
+        "apple_rank": 13,
+        "melon_rank": 8,
+        "melon_genz_rank": 8,
+        "ytmusic_rank": 2
+      },
+      "_1juftZumOQ": {
+        "hype_rank": 8,
+        "hype_index": 59.49,
+        "apple_rank": 10,
+        "melon_rank": 9,
+        "melon_genz_rank": 6,
+        "ytmusic_rank": 8
+      },
+      "BEPSc8q6Bd8": {
+        "hype_rank": 9,
+        "hype_index": 56.4,
+        "apple_rank": 6,
+        "melon_rank": 19,
+        "melon_genz_rank": 10,
+        "ytmusic_rank": 20
+      },
+      "r7Rn4ryE_w8": {
+        "hype_rank": 10,
+        "hype_index": 51.78,
+        "apple_rank": 9,
+        "melon_rank": null,
+        "melon_genz_rank": 15,
+        "ytmusic_rank": 17
+      },
+      "Q4AE3ub4nBM": {
+        "hype_rank": 11,
+        "hype_index": 50.64,
+        "apple_rank": 17,
+        "melon_rank": 15,
+        "melon_genz_rank": 13,
+        "ytmusic_rank": 9
+      },
+      "XDzGoMtSqZA": {
+        "hype_rank": 12,
+        "hype_index": 49.58,
+        "apple_rank": 18,
+        "melon_rank": 7,
+        "melon_genz_rank": 16,
+        "ytmusic_rank": 7
+      },
+      "_cSciVF1FpY": {
+        "hype_rank": 13,
+        "hype_index": 49.01,
+        "apple_rank": 30,
+        "melon_rank": 11,
+        "melon_genz_rank": 5,
+        "ytmusic_rank": 22
+      },
+      "UOKLtaE2U90": {
+        "hype_rank": 14,
+        "hype_index": 45.35,
+        "apple_rank": 32,
+        "melon_rank": 10,
+        "melon_genz_rank": 11,
+        "ytmusic_rank": 13
+      },
+      "sgxwL8V39Lc": {
+        "hype_rank": 15,
+        "hype_index": 44.94,
+        "apple_rank": 24,
+        "melon_rank": 18,
+        "melon_genz_rank": 14,
+        "ytmusic_rank": 19
+      },
+      "MUny_GDYIDM": {
+        "hype_rank": 16,
+        "hype_index": 41.9,
+        "apple_rank": 20,
+        "melon_rank": 23,
+        "melon_genz_rank": 26,
+        "ytmusic_rank": 18
+      },
+      "R5By6ms2a3Y": {
+        "hype_rank": 17,
+        "hype_index": 39.64,
+        "apple_rank": 44,
+        "melon_rank": 3,
+        "melon_genz_rank": 18,
+        "ytmusic_rank": 10
+      },
+      "Snyan1_jGWc": {
+        "hype_rank": 18,
+        "hype_index": 36.71,
+        "apple_rank": 25,
+        "melon_rank": 14,
+        "melon_genz_rank": 12,
+        "ytmusic_rank": null
+      },
+      "z9ifbheDGFM": {
+        "hype_rank": 19,
+        "hype_index": 36.31,
+        "apple_rank": 15,
+        "melon_rank": 46,
+        "melon_genz_rank": 53,
+        "ytmusic_rank": 21
+      },
+      "obP2P15pO5w": {
+        "hype_rank": 20,
+        "hype_index": 35.41,
+        "apple_rank": 14,
+        "melon_rank": 53,
+        "melon_genz_rank": 57,
+        "ytmusic_rank": 24
+      },
+      "X0PUdt1gt5c": {
+        "hype_rank": 21,
+        "hype_index": 32.0,
+        "apple_rank": 45,
+        "melon_rank": null,
+        "melon_genz_rank": 25,
+        "ytmusic_rank": 35
+      },
+      "I0Hu7PRF4j0": {
+        "hype_rank": 22,
+        "hype_index": 31.6,
+        "apple_rank": 31,
+        "melon_rank": 59,
+        "melon_genz_rank": 19,
+        "ytmusic_rank": null
+      },
+      "c84VnpGFbrw": {
+        "hype_rank": 23,
+        "hype_index": 31.59,
+        "apple_rank": 63,
+        "melon_rank": 92,
+        "melon_genz_rank": 17,
+        "ytmusic_rank": 32
+      },
+      "4sdN33l2WTw": {
+        "hype_rank": 24,
+        "hype_index": 30.5,
+        "apple_rank": 35,
+        "melon_rank": null,
+        "melon_genz_rank": 23,
+        "ytmusic_rank": 81
+      },
+      "cOARkf5ZmtI": {
+        "hype_rank": 25,
+        "hype_index": 30.22,
+        "apple_rank": 8,
+        "melon_rank": null,
+        "melon_genz_rank": 61,
+        "ytmusic_rank": null
+      },
+      "g7FE94-5HQk": {
+        "hype_rank": 26,
+        "hype_index": 29.81,
+        "apple_rank": 23,
+        "melon_rank": null,
+        "melon_genz_rank": 32,
+        "ytmusic_rank": null
+      },
+      "E5BLkMGxDgQ": {
+        "hype_rank": 27,
+        "hype_index": 29.52,
+        "apple_rank": 37,
+        "melon_rank": null,
+        "melon_genz_rank": 20,
+        "ytmusic_rank": null
+      },
+      "f7-z0FDBpZo": {
+        "hype_rank": 28,
+        "hype_index": 28.85,
+        "apple_rank": 4,
+        "melon_rank": null,
+        "melon_genz_rank": 97,
+        "ytmusic_rank": null
+      },
+      "8rMARLBfd3U": {
+        "hype_rank": 29,
+        "hype_index": 28.18,
+        "apple_rank": 33,
+        "melon_rank": null,
+        "melon_genz_rank": 27,
+        "ytmusic_rank": null
+      },
+      "1jtban6rFAA": {
+        "hype_rank": 30,
+        "hype_index": 27.48,
+        "apple_rank": 42,
+        "melon_rank": null,
+        "melon_genz_rank": 22,
+        "ytmusic_rank": null
+      },
+      "EmRFwlGlbb8": {
+        "hype_rank": 31,
+        "hype_index": 27.15,
+        "apple_rank": 16,
+        "melon_rank": null,
+        "melon_genz_rank": 92,
+        "ytmusic_rank": 33
+      },
+      "sjtyqmA-pH4": {
+        "hype_rank": 32,
+        "hype_index": 27.08,
+        "apple_rank": null,
+        "melon_rank": 12,
+        "melon_genz_rank": 21,
+        "ytmusic_rank": 14
+      },
+      "DWGROwMNFek": {
+        "hype_rank": 33,
+        "hype_index": 26.6,
+        "apple_rank": 5,
+        "melon_rank": null,
+        "melon_genz_rank": null,
+        "ytmusic_rank": null
+      },
+      "oP-WPpwBz80": {
+        "hype_rank": 34,
+        "hype_index": 26.56,
+        "apple_rank": 22,
+        "melon_rank": null,
+        "melon_genz_rank": 88,
+        "ytmusic_rank": 25
+      },
+      "-_r_Y5nuHlo": {
+        "hype_rank": 35,
+        "hype_index": 26.28,
+        "apple_rank": 27,
+        "melon_rank": null,
+        "melon_genz_rank": 40,
+        "ytmusic_rank": null
+      },
+      "gjQwwWjxPaQ": {
+        "hype_rank": 36,
+        "hype_index": 25.79,
+        "apple_rank": 26,
+        "melon_rank": null,
+        "melon_genz_rank": 58,
+        "ytmusic_rank": 61
+      },
+      "pMEvQz6HIA0": {
+        "hype_rank": 37,
+        "hype_index": 25.15,
+        "apple_rank": 64,
+        "melon_rank": null,
+        "melon_genz_rank": 31,
+        "ytmusic_rank": 42
+      },
+      "XJL-lduf174": {
+        "hype_rank": 38,
+        "hype_index": 24.91,
+        "apple_rank": 69,
+        "melon_rank": null,
+        "melon_genz_rank": 28,
+        "ytmusic_rank": 44
+      },
+      "hGqYdubpcCM": {
+        "hype_rank": 39,
+        "hype_index": 24.59,
+        "apple_rank": 36,
+        "melon_rank": 36,
+        "melon_genz_rank": 70,
+        "ytmusic_rank": 28
+      },
+      "JwC6KUpBAAU": {
+        "hype_rank": 40,
+        "hype_index": 24.44,
+        "apple_rank": 52,
+        "melon_rank": 60,
+        "melon_genz_rank": 24,
+        "ytmusic_rank": null
+      },
+      "Cbs8h6nJWBc": {
+        "hype_rank": 41,
+        "hype_index": 23.61,
+        "apple_rank": 70,
+        "melon_rank": 61,
+        "melon_genz_rank": 43,
+        "ytmusic_rank": 23
+      },
+      "DbI-M_jZukE": {
+        "hype_rank": 42,
+        "hype_index": 23.48,
+        "apple_rank": 19,
+        "melon_rank": null,
+        "melon_genz_rank": null,
+        "ytmusic_rank": 40
+      },
+      "j-seAiANLG8": {
+        "hype_rank": 43,
+        "hype_index": 23.4,
+        "apple_rank": 48,
+        "melon_rank": null,
+        "melon_genz_rank": 30,
+        "ytmusic_rank": null
+      },
+      "3G0A03PFMg0": {
+        "hype_rank": 44,
+        "hype_index": 22.46,
+        "apple_rank": 34,
+        "melon_rank": null,
+        "melon_genz_rank": 47,
+        "ytmusic_rank": null
+      },
+      "f73laCUMUW0": {
+        "hype_rank": 45,
+        "hype_index": 22.0,
+        "apple_rank": 49,
+        "melon_rank": 44,
+        "melon_genz_rank": 34,
+        "ytmusic_rank": null
+      },
+      "UJn-F2kPCaQ": {
+        "hype_rank": 46,
+        "hype_index": 21.64,
+        "apple_rank": 79,
+        "melon_rank": null,
+        "melon_genz_rank": 37,
+        "ytmusic_rank": 36
+      },
+      "37W7Y2RRyiM": {
+        "hype_rank": 47,
+        "hype_index": 20.34,
+        "apple_rank": 47,
+        "melon_rank": null,
+        "melon_genz_rank": 42,
+        "ytmusic_rank": null
+      },
+      "A9EpZWrQ3dM": {
+        "hype_rank": 48,
+        "hype_index": 19.27,
+        "apple_rank": 29,
+        "melon_rank": null,
+        "melon_genz_rank": null,
+        "ytmusic_rank": 46
+      },
+      "NbKH4iZqq1Y": {
+        "hype_rank": 49,
+        "hype_index": 18.42,
+        "apple_rank": 75,
+        "melon_rank": 13,
+        "melon_genz_rank": 29,
+        "ytmusic_rank": null
+      },
+      "7CUz7Ec7cWc": {
+        "hype_rank": 50,
+        "hype_index": 17.07,
+        "apple_rank": 21,
+        "melon_rank": null,
+        "melon_genz_rank": null,
+        "ytmusic_rank": null
+      },
+      "dgZlLjfh6q4": {
+        "hype_rank": 51,
+        "hype_index": 16.83,
+        "apple_rank": 74,
+        "melon_rank": null,
+        "melon_genz_rank": 35,
+        "ytmusic_rank": null
+      },
+      "QxGt54-oh1A": {
+        "hype_rank": 52,
+        "hype_index": 15.97,
+        "apple_rank": null,
+        "melon_rank": 16,
+        "melon_genz_rank": 63,
+        "ytmusic_rank": 15
+      },
+      "UpY5grXVZbg": {
+        "hype_rank": 53,
+        "hype_index": 14.68,
+        "apple_rank": 28,
+        "melon_rank": null,
+        "melon_genz_rank": null,
+        "ytmusic_rank": null
+      },
+      "pERDk4KoW-s": {
+        "hype_rank": 54,
+        "hype_index": 14.37,
+        "apple_rank": 60,
+        "melon_rank": null,
+        "melon_genz_rank": 56,
+        "ytmusic_rank": null
+      },
+      "NwO0H2bUhSQ": {
+        "hype_rank": 55,
+        "hype_index": 14.35,
+        "apple_rank": null,
+        "melon_rank": null,
+        "melon_genz_rank": 39,
+        "ytmusic_rank": 66
+      },
+      "HaOz1PhGXhs": {
+        "hype_rank": 56,
+        "hype_index": 14.16,
+        "apple_rank": 87,
+        "melon_rank": null,
+        "melon_genz_rank": 50,
+        "ytmusic_rank": 63
+      },
+      "KczYjTVrK_o": {
+        "hype_rank": 57,
+        "hype_index": 13.95,
+        "apple_rank": 82,
+        "melon_rank": 25,
+        "melon_genz_rank": 41,
+        "ytmusic_rank": null
+      },
+      "2zPGWGqdfJ8": {
+        "hype_rank": 58,
+        "hype_index": 13.46,
+        "apple_rank": 61,
+        "melon_rank": null,
+        "melon_genz_rank": null,
+        "ytmusic_rank": 31
+      },
+      "pJ-IGZKyfpU": {
+        "hype_rank": 59,
+        "hype_index": 13.18,
+        "apple_rank": null,
+        "melon_rank": null,
+        "melon_genz_rank": 33,
+        "ytmusic_rank": null
+      },
+      "fwNJdxUghcc": {
+        "hype_rank": 60,
+        "hype_index": 12.9,
+        "apple_rank": 84,
+        "melon_rank": 73,
+        "melon_genz_rank": 44,
+        "ytmusic_rank": null
+      },
+      "0awcpa28W1s": {
+        "hype_rank": 61,
+        "hype_index": 12.81,
+        "apple_rank": 43,
+        "melon_rank": null,
+        "melon_genz_rank": null,
+        "ytmusic_rank": 72
+      },
+      "jWYFI10cZfw": {
+        "hype_rank": 62,
+        "hype_index": 12.74,
+        "apple_rank": 100,
+        "melon_rank": 24,
+        "melon_genz_rank": 36,
+        "ytmusic_rank": null
+      },
+      "IMWT6937uUs": {
+        "hype_rank": 63,
+        "hype_index": 12.59,
+        "apple_rank": 97,
+        "melon_rank": 43,
+        "melon_genz_rank": 38,
+        "ytmusic_rank": null
+      },
+      "op05giODUE0": {
+        "hype_rank": 64,
+        "hype_index": 12.12,
+        "apple_rank": 54,
+        "melon_rank": 71,
+        "melon_genz_rank": null,
+        "ytmusic_rank": 53
+      },
+      "TLftyCObb_E": {
+        "hype_rank": 65,
+        "hype_index": 12.05,
+        "apple_rank": null,
+        "melon_rank": 32,
+        "melon_genz_rank": 73,
+        "ytmusic_rank": 26
+      },
+      "jCKcEoZrlJQ": {
+        "hype_rank": 66,
+        "hype_index": 11.81,
+        "apple_rank": 85,
+        "melon_rank": 50,
+        "melon_genz_rank": 48,
+        "ytmusic_rank": null
+      },
+      "eqKhhG4FVoQ": {
+        "hype_rank": 67,
+        "hype_index": 11.8,
+        "apple_rank": 38,
+        "melon_rank": 91,
+        "melon_genz_rank": null,
+        "ytmusic_rank": null
+      },
+      "vrM2mrI83uk": {
+        "hype_rank": 68,
+        "hype_index": 11.54,
+        "apple_rank": 39,
+        "melon_rank": null,
+        "melon_genz_rank": null,
+        "ytmusic_rank": null
+      },
+      "7Eo-TAWu0oo": {
+        "hype_rank": 69,
+        "hype_index": 11.28,
+        "apple_rank": 40,
+        "melon_rank": 42,
+        "melon_genz_rank": null,
+        "ytmusic_rank": null
+      },
+      "HXV5aZaBLDo": {
+        "hype_rank": 70,
+        "hype_index": 11.02,
+        "apple_rank": 41,
+        "melon_rank": null,
+        "melon_genz_rank": null,
+        "ytmusic_rank": null
+      },
+      "6Xa1VDLACPo": {
+        "hype_rank": 71,
+        "hype_index": 10.84,
+        "apple_rank": null,
+        "melon_rank": 17,
+        "melon_genz_rank": 65,
+        "ytmusic_rank": 45
+      },
+      "LlFB4Tk49kI": {
+        "hype_rank": 72,
+        "hype_index": 10.81,
+        "apple_rank": null,
+        "melon_rank": null,
+        "melon_genz_rank": null,
+        "ytmusic_rank": 11
+      },
+      "t8P-zdkoeJA": {
+        "hype_rank": 73,
+        "hype_index": 10.78,
+        "apple_rank": 83,
+        "melon_rank": 51,
+        "melon_genz_rank": 54,
+        "ytmusic_rank": null
+      },
+      "D3tUvbqOAAY": {
+        "hype_rank": 74,
+        "hype_index": 10.62,
+        "apple_rank": 57,
+        "melon_rank": 65,
+        "melon_genz_rank": 80,
+        "ytmusic_rank": null
+      },
+      "aLUvL0mNQmY": {
+        "hype_rank": 75,
+        "hype_index": 10.08,
+        "apple_rank": null,
+        "melon_rank": 21,
+        "melon_genz_rank": 75,
+        "ytmusic_rank": 37
+      },
+      "K6X38sM_WSo": {
+        "hype_rank": 76,
+        "hype_index": 10.05,
+        "apple_rank": null,
+        "melon_rank": 22,
+        "melon_genz_rank": 68,
+        "ytmusic_rank": 47
+      },
+      "XfzE8ku3TCI": {
+        "hype_rank": 77,
+        "hype_index": 10.04,
+        "apple_rank": null,
+        "melon_rank": null,
+        "melon_genz_rank": 45,
+        "ytmusic_rank": null
+      },
+      "HBqH4uJS0PU": {
+        "hype_rank": 78,
+        "hype_index": 9.8,
+        "apple_rank": 46,
+        "melon_rank": 69,
+        "melon_genz_rank": null,
+        "ytmusic_rank": null
+      },
+      "p1tsL0YmNqU": {
+        "hype_rank": 79,
+        "hype_index": 9.8,
+        "apple_rank": null,
+        "melon_rank": null,
+        "melon_genz_rank": 46,
+        "ytmusic_rank": null
+      },
+      "to3sjq-CAvA": {
+        "hype_rank": 80,
+        "hype_index": 9.55,
+        "apple_rank": null,
+        "melon_rank": null,
+        "melon_genz_rank": null,
+        "ytmusic_rank": 16
+      },
+      "N4N8nam2QbI": {
+        "hype_rank": 81,
+        "hype_index": 9.11,
+        "apple_rank": null,
+        "melon_rank": 76,
+        "melon_genz_rank": 49,
+        "ytmusic_rank": null
+      },
+      "aWkPBCF8rFU": {
+        "hype_rank": 82,
+        "hype_index": 8.88,
+        "apple_rank": 50,
+        "melon_rank": null,
+        "melon_genz_rank": null,
+        "ytmusic_rank": null
+      },
+      "wt2qlecXbUc": {
+        "hype_rank": 83,
+        "hype_index": 8.82,
+        "apple_rank": null,
+        "melon_rank": null,
+        "melon_genz_rank": 78,
+        "ytmusic_rank": 43
+      },
+      "ghrlZIMDzbM": {
+        "hype_rank": 84,
+        "hype_index": 8.66,
+        "apple_rank": 51,
+        "melon_rank": 62,
+        "melon_genz_rank": null,
+        "ytmusic_rank": null
+      },
+      "PJfZViVdOwM": {
+        "hype_rank": 85,
+        "hype_index": 8.66,
+        "apple_rank": null,
+        "melon_rank": null,
+        "melon_genz_rank": 51,
+        "ytmusic_rank": null
+      },
+      "VZnfZ14fIig": {
+        "hype_rank": 86,
+        "hype_index": 8.44,
+        "apple_rank": null,
+        "melon_rank": null,
+        "melon_genz_rank": 52,
+        "ytmusic_rank": null
+      },
+      "vdIYAimoLVs": {
+        "hype_rank": 87,
+        "hype_index": 8.22,
+        "apple_rank": 53,
+        "melon_rank": null,
+        "melon_genz_rank": null,
+        "ytmusic_rank": null
+      },
+      "QX2dqXr8mOU": {
+        "hype_rank": 88,
+        "hype_index": 7.99,
+        "apple_rank": 65,
+        "melon_rank": null,
+        "melon_genz_rank": 87,
+        "ytmusic_rank": null
+      },
+      "ufdjbG7z5lQ": {
+        "hype_rank": 89,
+        "hype_index": 7.98,
+        "apple_rank": 73,
+        "melon_rank": null,
+        "melon_genz_rank": null,
+        "ytmusic_rank": 58
+      },
+      "Yc4gp6oeN7k": {
+        "hype_rank": 90,
+        "hype_index": 7.82,
+        "apple_rank": 81,
+        "melon_rank": null,
+        "melon_genz_rank": 71,
+        "ytmusic_rank": null
+      },
+      "kdOS94IjzzE": {
+        "hype_rank": 91,
+        "hype_index": 7.8,
+        "apple_rank": 55,
+        "melon_rank": null,
+        "melon_genz_rank": null,
+        "ytmusic_rank": null
+      },
+      "OdFVPP_Rcos": {
+        "hype_rank": 92,
+        "hype_index": 7.8,
+        "apple_rank": null,
+        "melon_rank": 30,
+        "melon_genz_rank": 55,
+        "ytmusic_rank": null
+      },
+      "nWXdtLEdvkI": {
+        "hype_rank": 93,
+        "hype_index": 7.59,
+        "apple_rank": 56,
+        "melon_rank": null,
+        "melon_genz_rank": null,
+        "ytmusic_rank": null
+      },
+      "TfAiFxoXVlE": {
+        "hype_rank": 94,
+        "hype_index": 7.5,
+        "apple_rank": null,
+        "melon_rank": 26,
+        "melon_genz_rank": 95,
+        "ytmusic_rank": 34
+      },
+      "TEbPKeeJnlA": {
+        "hype_rank": 95,
+        "hype_index": 7.5,
+        "apple_rank": null,
+        "melon_rank": null,
+        "melon_genz_rank": null,
+        "ytmusic_rank": 27
+      },
+      "Cb0JZhdmjtg": {
+        "hype_rank": 96,
+        "hype_index": 7.18,
+        "apple_rank": null,
+        "melon_rank": null,
+        "melon_genz_rank": null,
+        "ytmusic_rank": 29
+      },
+      "GxChUrrY4bc": {
+        "hype_rank": 97,
+        "hype_index": 7.03,
+        "apple_rank": null,
+        "melon_rank": null,
+        "melon_genz_rank": null,
+        "ytmusic_rank": 30
+      },
+      "tCSBgOIA63M": {
+        "hype_rank": 98,
+        "hype_index": 6.98,
+        "apple_rank": 59,
+        "melon_rank": null,
+        "melon_genz_rank": null,
+        "ytmusic_rank": null
+      },
+      "bLahVNBGdLQ": {
+        "hype_rank": 99,
+        "hype_index": 6.98,
+        "apple_rank": null,
+        "melon_rank": 40,
+        "melon_genz_rank": 59,
+        "ytmusic_rank": null
+      },
+      "v8mCh6TZfEU": {
+        "hype_rank": 100,
+        "hype_index": 6.84,
+        "apple_rank": null,
+        "melon_rank": null,
+        "melon_genz_rank": 84,
+        "ytmusic_rank": 52
+      },
+      "yuH4OnvoADU": {
+        "hype_rank": 101,
+        "hype_index": 6.79,
+        "apple_rank": null,
+        "melon_rank": null,
+        "melon_genz_rank": 79,
+        "ytmusic_rank": 60
+      },
+      "IhKjZk5AYRg": {
+        "hype_rank": 102,
+        "hype_index": 6.78,
+        "apple_rank": null,
+        "melon_rank": 28,
+        "melon_genz_rank": 60,
+        "ytmusic_rank": null
+      },
+      "PGADim6UzHE": {
+        "hype_rank": 103,
+        "hype_index": 6.39,
+        "apple_rank": 62,
+        "melon_rank": null,
+        "melon_genz_rank": null,
+        "ytmusic_rank": null
+      },
+      "5USBozeR4eg": {
+        "hype_rank": 104,
+        "hype_index": 6.39,
+        "apple_rank": null,
+        "melon_rank": null,
+        "melon_genz_rank": 62,
+        "ytmusic_rank": null
+      },
+      "k2zDLzfcb3I": {
+        "hype_rank": 105,
+        "hype_index": 6.07,
+        "apple_rank": 90,
+        "melon_rank": null,
+        "melon_genz_rank": 91,
+        "ytmusic_rank": 67
+      },
+      "29lj9jFfJvY": {
+        "hype_rank": 106,
+        "hype_index": 6.0,
+        "apple_rank": null,
+        "melon_rank": 29,
+        "melon_genz_rank": 64,
+        "ytmusic_rank": null
+      },
+      "oZ61Le_JdVY": {
+        "hype_rank": 107,
+        "hype_index": 5.9,
+        "apple_rank": null,
+        "melon_rank": null,
+        "melon_genz_rank": null,
+        "ytmusic_rank": 38
+      },
+      "kjNGAVT_ySg": {
+        "hype_rank": 108,
+        "hype_index": 5.77,
+        "apple_rank": null,
+        "melon_rank": null,
+        "melon_genz_rank": null,
+        "ytmusic_rank": 39
+      },
+      "dTVCk33AQEs": {
+        "hype_rank": 109,
+        "hype_index": 5.63,
+        "apple_rank": 66,
+        "melon_rank": null,
+        "melon_genz_rank": null,
+        "ytmusic_rank": null
+      },
+      "oPVxdNe1hrk": {
+        "hype_rank": 110,
+        "hype_index": 5.63,
+        "apple_rank": null,
+        "melon_rank": null,
+        "melon_genz_rank": 66,
+        "ytmusic_rank": null
+      },
+      "ZAsxW7bkK-A": {
+        "hype_rank": 111,
+        "hype_index": 5.51,
+        "apple_rank": null,
+        "melon_rank": 88,
+        "melon_genz_rank": null,
+        "ytmusic_rank": 41
+      },
+      "RwrZPCKLs2E": {
+        "hype_rank": 112,
+        "hype_index": 5.45,
+        "apple_rank": 67,
+        "melon_rank": null,
+        "melon_genz_rank": null,
+        "ytmusic_rank": null
+      },
+      "btLRj_ueSeA": {
+        "hype_rank": 113,
+        "hype_index": 5.45,
+        "apple_rank": null,
+        "melon_rank": null,
+        "melon_genz_rank": 67,
+        "ytmusic_rank": null
+      },
+      "GCkhFdMdGOY": {
+        "hype_rank": 114,
+        "hype_index": 5.26,
+        "apple_rank": 68,
+        "melon_rank": null,
+        "melon_genz_rank": null,
+        "ytmusic_rank": null
+      },
+      "D9IVOL9felk": {
+        "hype_rank": 115,
+        "hype_index": 5.09,
+        "apple_rank": null,
+        "melon_rank": 49,
+        "melon_genz_rank": 69,
+        "ytmusic_rank": null
+      },
+      "NBIu5QpD3X8": {
+        "hype_rank": 116,
+        "hype_index": 4.73,
+        "apple_rank": 71,
+        "melon_rank": null,
+        "melon_genz_rank": null,
+        "ytmusic_rank": null
+      },
+      "zuO2fClon98": {
+        "hype_rank": 117,
+        "hype_index": 4.67,
+        "apple_rank": null,
+        "melon_rank": null,
+        "melon_genz_rank": null,
+        "ytmusic_rank": 48
+      },
+      "tiFpz-FxSJg": {
+        "hype_rank": 118,
+        "hype_index": 4.56,
+        "apple_rank": 72,
+        "melon_rank": null,
+        "melon_genz_rank": null,
+        "ytmusic_rank": null
+      },
+      "e6-TxMisjh8": {
+        "hype_rank": 119,
+        "hype_index": 4.56,
+        "apple_rank": null,
+        "melon_rank": null,
+        "melon_genz_rank": 72,
+        "ytmusic_rank": null
+      },
+      "wDlgvn_uApo": {
+        "hype_rank": 120,
+        "hype_index": 4.55,
+        "apple_rank": null,
+        "melon_rank": null,
+        "melon_genz_rank": null,
+        "ytmusic_rank": 49
+      },
+      "Gy32XOFT2ww": {
+        "hype_rank": 121,
+        "hype_index": 4.44,
+        "apple_rank": null,
+        "melon_rank": 90,
+        "melon_genz_rank": null,
+        "ytmusic_rank": 50
+      },
+      "vOfyxPRunFM": {
+        "hype_rank": 122,
+        "hype_index": 4.33,
+        "apple_rank": null,
+        "melon_rank": null,
+        "melon_genz_rank": null,
+        "ytmusic_rank": 51
+      },
+      "dYnU0DZ_iQc": {
+        "hype_rank": 123,
+        "hype_index": 4.22,
+        "apple_rank": null,
+        "melon_rank": null,
+        "melon_genz_rank": 74,
+        "ytmusic_rank": null
+      },
+      "h9hdorPqukU": {
+        "hype_rank": 124,
+        "hype_index": 4.1,
+        "apple_rank": 94,
+        "melon_rank": null,
+        "melon_genz_rank": null,
+        "ytmusic_rank": 65
+      },
+      "Mp-xWPo95MU": {
+        "hype_rank": 125,
+        "hype_index": 4.0,
+        "apple_rank": null,
+        "melon_rank": null,
+        "melon_genz_rank": null,
+        "ytmusic_rank": 54
+      },
+      "QmJbHPYx97M": {
+        "hype_rank": 126,
+        "hype_index": 3.9,
+        "apple_rank": null,
+        "melon_rank": null,
+        "melon_genz_rank": null,
+        "ytmusic_rank": 55
+      },
+      "5C-UzW1FLiA": {
+        "hype_rank": 127,
+        "hype_index": 3.88,
+        "apple_rank": 76,
+        "melon_rank": null,
+        "melon_genz_rank": null,
+        "ytmusic_rank": null
+      },
+      "O4ZZJ_ek2gs": {
+        "hype_rank": 128,
+        "hype_index": 3.88,
+        "apple_rank": null,
+        "melon_rank": null,
+        "melon_genz_rank": 76,
+        "ytmusic_rank": null
+      },
+      "9XnsnNHj4Jk": {
+        "hype_rank": 129,
+        "hype_index": 3.79,
+        "apple_rank": null,
+        "melon_rank": null,
+        "melon_genz_rank": null,
+        "ytmusic_rank": 56
+      },
+      "tkzYyEp4zB4": {
+        "hype_rank": 130,
+        "hype_index": 3.72,
+        "apple_rank": 77,
+        "melon_rank": null,
+        "melon_genz_rank": null,
+        "ytmusic_rank": null
+      },
+      "LZWlP4kjEtw": {
+        "hype_rank": 131,
+        "hype_index": 3.72,
+        "apple_rank": null,
+        "melon_rank": null,
+        "melon_genz_rank": 77,
+        "ytmusic_rank": null
+      },
+      "-W5AqaIoZpg": {
+        "hype_rank": 132,
+        "hype_index": 3.69,
+        "apple_rank": null,
+        "melon_rank": null,
+        "melon_genz_rank": null,
+        "ytmusic_rank": 57
+      },
+      "AzS4LokpHmg": {
+        "hype_rank": 133,
+        "hype_index": 3.56,
+        "apple_rank": 78,
+        "melon_rank": null,
+        "melon_genz_rank": null,
+        "ytmusic_rank": null
+      },
+      "w0t18LgzTSA": {
+        "hype_rank": 134,
+        "hype_index": 3.56,
+        "apple_rank": 86,
+        "melon_rank": null,
+        "melon_genz_rank": null,
+        "ytmusic_rank": 85
+      },
+      "Nged3LwJsvQ": {
+        "hype_rank": 135,
+        "hype_index": 3.49,
+        "apple_rank": null,
+        "melon_rank": null,
+        "melon_genz_rank": null,
+        "ytmusic_rank": 59
+      },
+      "HJstyRBLqBQ": {
+        "hype_rank": 136,
+        "hype_index": 3.24,
+        "apple_rank": 80,
+        "melon_rank": null,
+        "melon_genz_rank": null,
+        "ytmusic_rank": null
+      },
+      "pHciG9_2xXM": {
+        "hype_rank": 137,
+        "hype_index": 3.19,
+        "apple_rank": null,
+        "melon_rank": null,
+        "melon_genz_rank": null,
+        "ytmusic_rank": 62
+      },
+      "4Uh-Pf02qeQ": {
+        "hype_rank": 138,
+        "hype_index": 3.13,
+        "apple_rank": null,
+        "melon_rank": null,
+        "melon_genz_rank": 90,
+        "ytmusic_rank": 83
+      },
+      "RZMp2kQObCs": {
+        "hype_rank": 139,
+        "hype_index": 3.08,
+        "apple_rank": null,
+        "melon_rank": 33,
+        "melon_genz_rank": 81,
+        "ytmusic_rank": null
+      },
+      "Y4RmVcKav9Q": {
+        "hype_rank": 140,
+        "hype_index": 3.0,
+        "apple_rank": null,
+        "melon_rank": null,
+        "melon_genz_rank": null,
+        "ytmusic_rank": 64
+      },
+      "ZcHRydIz0eM": {
+        "hype_rank": 141,
+        "hype_index": 2.93,
+        "apple_rank": null,
+        "melon_rank": 38,
+        "melon_genz_rank": 82,
+        "ytmusic_rank": null
+      },
+      "mLwfuskNDOo": {
+        "hype_rank": 142,
+        "hype_index": 2.77,
+        "apple_rank": null,
+        "melon_rank": null,
+        "melon_genz_rank": 83,
+        "ytmusic_rank": null
+      },
+      "Z5LPrVc1MtU": {
+        "hype_rank": 143,
+        "hype_index": 2.63,
+        "apple_rank": null,
+        "melon_rank": null,
+        "melon_genz_rank": null,
+        "ytmusic_rank": 68
+      },
+      "k7D4i1ILCCk": {
+        "hype_rank": 144,
+        "hype_index": 2.54,
+        "apple_rank": null,
+        "melon_rank": null,
+        "melon_genz_rank": null,
+        "ytmusic_rank": 69
+      },
+      "HLTQoCRBfxc": {
+        "hype_rank": 145,
+        "hype_index": 2.47,
+        "apple_rank": null,
+        "melon_rank": null,
+        "melon_genz_rank": 85,
+        "ytmusic_rank": null
+      },
+      "1bD_2ITkGwU": {
+        "hype_rank": 146,
+        "hype_index": 2.45,
+        "apple_rank": null,
+        "melon_rank": null,
+        "melon_genz_rank": null,
+        "ytmusic_rank": 70
+      },
+      "pRmsP7A-DtY": {
+        "hype_rank": 147,
+        "hype_index": 2.37,
+        "apple_rank": null,
+        "melon_rank": null,
+        "melon_genz_rank": null,
+        "ytmusic_rank": 71
+      },
+      "eNiPuDEUQpQ": {
+        "hype_rank": 148,
+        "hype_index": 2.32,
+        "apple_rank": null,
+        "melon_rank": 20,
+        "melon_genz_rank": 86,
+        "ytmusic_rank": null
+      },
+      "ERbDApFPOxE": {
+        "hype_rank": 149,
+        "hype_index": 2.19,
+        "apple_rank": null,
+        "melon_rank": null,
+        "melon_genz_rank": null,
+        "ytmusic_rank": 73
+      },
+      "ZIBoYP1MIt8": {
+        "hype_rank": 150,
+        "hype_index": 2.11,
+        "apple_rank": null,
+        "melon_rank": null,
+        "melon_genz_rank": null,
+        "ytmusic_rank": 74
+      },
+      "fniLCqL9WOM": {
+        "hype_rank": 151,
+        "hype_index": 2.03,
+        "apple_rank": 88,
+        "melon_rank": null,
+        "melon_genz_rank": null,
+        "ytmusic_rank": null
+      },
+      "W2DExL93yvQ": {
+        "hype_rank": 152,
+        "hype_index": 2.03,
+        "apple_rank": null,
+        "melon_rank": null,
+        "melon_genz_rank": null,
+        "ytmusic_rank": 75
+      },
+      "YSHzo9bi8OE": {
+        "hype_rank": 153,
+        "hype_index": 1.94,
+        "apple_rank": null,
+        "melon_rank": null,
+        "melon_genz_rank": null,
+        "ytmusic_rank": 76
+      },
+      "8W64YPnRu1Y": {
+        "hype_rank": 154,
+        "hype_index": 1.89,
+        "apple_rank": 89,
+        "melon_rank": null,
+        "melon_genz_rank": null,
+        "ytmusic_rank": null
+      },
+      "l-H4QHLC-Uc": {
+        "hype_rank": 155,
+        "hype_index": 1.89,
+        "apple_rank": null,
+        "melon_rank": 45,
+        "melon_genz_rank": 89,
+        "ytmusic_rank": null
+      },
+      "ljCOHKamf4Q": {
+        "hype_rank": 156,
+        "hype_index": 1.86,
+        "apple_rank": null,
+        "melon_rank": null,
+        "melon_genz_rank": null,
+        "ytmusic_rank": 77
+      },
+      "jsXAwVnd1gE": {
+        "hype_rank": 157,
+        "hype_index": 1.78,
+        "apple_rank": null,
+        "melon_rank": null,
+        "melon_genz_rank": null,
+        "ytmusic_rank": 78
+      },
+      "BD3MbtUBuTM": {
+        "hype_rank": 158,
+        "hype_index": 1.7,
+        "apple_rank": null,
+        "melon_rank": null,
+        "melon_genz_rank": null,
+        "ytmusic_rank": 79
+      },
+      "OmEPFmyKO74": {
+        "hype_rank": 159,
+        "hype_index": 1.62,
+        "apple_rank": null,
+        "melon_rank": null,
+        "melon_genz_rank": null,
+        "ytmusic_rank": 80
+      },
+      "jWwdHeJ8XeU": {
+        "hype_rank": 160,
+        "hype_index": 1.6,
+        "apple_rank": 91,
+        "melon_rank": null,
+        "melon_genz_rank": null,
+        "ytmusic_rank": null
+      },
+      "4ZHxBEDHTFg": {
+        "hype_rank": 161,
+        "hype_index": 1.46,
+        "apple_rank": 92,
+        "melon_rank": null,
+        "melon_genz_rank": null,
+        "ytmusic_rank": null
+      },
+      "JaMblWT0SXY": {
+        "hype_rank": 162,
+        "hype_index": 1.46,
+        "apple_rank": null,
+        "melon_rank": null,
+        "melon_genz_rank": null,
+        "ytmusic_rank": 82
+      },
+      "w6KQ385IANI": {
+        "hype_rank": 163,
+        "hype_index": 1.33,
+        "apple_rank": 93,
+        "melon_rank": null,
+        "melon_genz_rank": null,
+        "ytmusic_rank": null
+      },
+      "rNvli9cD9Mw": {
+        "hype_rank": 164,
+        "hype_index": 1.33,
+        "apple_rank": null,
+        "melon_rank": null,
+        "melon_genz_rank": 93,
+        "ytmusic_rank": null
+      },
+      "cPtvGVLuJYo": {
+        "hype_rank": 165,
+        "hype_index": 1.31,
+        "apple_rank": null,
+        "melon_rank": null,
+        "melon_genz_rank": null,
+        "ytmusic_rank": 84
+      },
+      "-9fC6oDFl5k": {
+        "hype_rank": 166,
+        "hype_index": 1.19,
+        "apple_rank": null,
+        "melon_rank": 31,
+        "melon_genz_rank": 94,
+        "ytmusic_rank": null
+      },
+      "zT3VfvAjvtk": {
+        "hype_rank": 167,
+        "hype_index": 1.16,
+        "apple_rank": null,
+        "melon_rank": null,
+        "melon_genz_rank": null,
+        "ytmusic_rank": 86
+      },
+      "NXOHRi3wf8s": {
+        "hype_rank": 168,
+        "hype_index": 1.09,
+        "apple_rank": null,
+        "melon_rank": null,
+        "melon_genz_rank": null,
+        "ytmusic_rank": 87
+      },
+      "7mjg-7ibaQA": {
+        "hype_rank": 169,
+        "hype_index": 1.05,
+        "apple_rank": 95,
+        "melon_rank": null,
+        "melon_genz_rank": null,
+        "ytmusic_rank": null
+      },
+      "OrfLgp2bUL0": {
+        "hype_rank": 170,
+        "hype_index": 1.02,
+        "apple_rank": null,
+        "melon_rank": null,
+        "melon_genz_rank": null,
+        "ytmusic_rank": 88
+      },
+      "ORqWQi3hm_k": {
+        "hype_rank": 171,
+        "hype_index": 0.94,
+        "apple_rank": null,
+        "melon_rank": null,
+        "melon_genz_rank": null,
+        "ytmusic_rank": 89
+      },
+      "GV_HP7yoIyc": {
+        "hype_rank": 172,
+        "hype_index": 0.92,
+        "apple_rank": 96,
+        "melon_rank": null,
+        "melon_genz_rank": null,
+        "ytmusic_rank": null
+      },
+      "fsYE8vJRTj4": {
+        "hype_rank": 173,
+        "hype_index": 0.92,
+        "apple_rank": null,
+        "melon_rank": null,
+        "melon_genz_rank": 96,
+        "ytmusic_rank": null
+      },
+      "Tvhjbj-WrF8": {
+        "hype_rank": 174,
+        "hype_index": 0.87,
+        "apple_rank": null,
+        "melon_rank": null,
+        "melon_genz_rank": null,
+        "ytmusic_rank": 90
+      },
+      "MX7FSAnRPug": {
+        "hype_rank": 175,
+        "hype_index": 0.8,
+        "apple_rank": null,
+        "melon_rank": null,
+        "melon_genz_rank": null,
+        "ytmusic_rank": 91
+      },
+      "VWqxvBQKwKQ": {
+        "hype_rank": 176,
+        "hype_index": 0.73,
+        "apple_rank": null,
+        "melon_rank": null,
+        "melon_genz_rank": null,
+        "ytmusic_rank": 92
+      },
+      "8QFM8Ews68c": {
+        "hype_rank": 177,
+        "hype_index": 0.66,
+        "apple_rank": 98,
+        "melon_rank": null,
+        "melon_genz_rank": null,
+        "ytmusic_rank": null
+      },
+      "ViDjwX-yfgc": {
+        "hype_rank": 178,
+        "hype_index": 0.66,
+        "apple_rank": null,
+        "melon_rank": 67,
+        "melon_genz_rank": 98,
+        "ytmusic_rank": null
+      },
+      "aGwmkWxALiw": {
+        "hype_rank": 179,
+        "hype_index": 0.66,
+        "apple_rank": null,
+        "melon_rank": null,
+        "melon_genz_rank": null,
+        "ytmusic_rank": 93
+      },
+      "nZSETrecrUI": {
+        "hype_rank": 180,
+        "hype_index": 0.59,
+        "apple_rank": null,
+        "melon_rank": null,
+        "melon_genz_rank": null,
+        "ytmusic_rank": 94
+      },
+      "7wJsfALKRR8": {
+        "hype_rank": 181,
+        "hype_index": 0.53,
+        "apple_rank": 99,
+        "melon_rank": null,
+        "melon_genz_rank": null,
+        "ytmusic_rank": null
+      },
+      "VX7w5fwdMkI": {
+        "hype_rank": 182,
+        "hype_index": 0.53,
+        "apple_rank": null,
+        "melon_rank": null,
+        "melon_genz_rank": 99,
+        "ytmusic_rank": null
+      },
+      "X2d_z31ezKA": {
+        "hype_rank": 183,
+        "hype_index": 0.53,
+        "apple_rank": null,
+        "melon_rank": null,
+        "melon_genz_rank": null,
+        "ytmusic_rank": 95
+      },
+      "GFU-RLTxSk4": {
+        "hype_rank": 184,
+        "hype_index": 0.46,
+        "apple_rank": null,
+        "melon_rank": null,
+        "melon_genz_rank": null,
+        "ytmusic_rank": 96
+      },
+      "cZL7mpzVpgI": {
+        "hype_rank": 185,
+        "hype_index": 0.4,
+        "apple_rank": null,
+        "melon_rank": null,
+        "melon_genz_rank": 100,
+        "ytmusic_rank": null
+      },
+      "zz723Sc3vak": {
+        "hype_rank": 186,
+        "hype_index": 0.39,
+        "apple_rank": null,
+        "melon_rank": null,
+        "melon_genz_rank": null,
+        "ytmusic_rank": 97
+      },
+      "9MbXeqCbS4Q": {
+        "hype_rank": 187,
+        "hype_index": 0.33,
+        "apple_rank": null,
+        "melon_rank": null,
+        "melon_genz_rank": null,
+        "ytmusic_rank": 98
+      },
+      "VT9lKAPWG5E": {
+        "hype_rank": 188,
+        "hype_index": 0.26,
+        "apple_rank": null,
+        "melon_rank": null,
+        "melon_genz_rank": null,
+        "ytmusic_rank": 99
+      },
+      "Yyfv2R97dHA": {
+        "hype_rank": 189,
+        "hype_index": 0.2,
+        "apple_rank": null,
+        "melon_rank": null,
+        "melon_genz_rank": null,
+        "ytmusic_rank": 100
+      }
+    },
     "2026-08-29": {
       "5sOgJQ3N03Q": {
         "hype_rank": 1,
@@ -49307,3066 +52590,6 @@
       },
       "23U2t6ecnFQ": {
         "hype_rank": 194,
-        "hype_index": 0.2,
-        "apple_rank": null,
-        "melon_rank": null,
-        "melon_genz_rank": null,
-        "ytmusic_rank": 100
-      }
-    },
-    "2026-07-31": {
-      "5sOgJQ3N03Q": {
-        "hype_rank": 1,
-        "hype_index": 89.86,
-        "apple_rank": 2,
-        "melon_rank": 3,
-        "melon_genz_rank": 1,
-        "ytmusic_rank": 2
-      },
-      "1uDzUPzS2w8": {
-        "hype_rank": 2,
-        "hype_index": 81.31,
-        "apple_rank": 4,
-        "melon_rank": 1,
-        "melon_genz_rank": 2,
-        "ytmusic_rank": 1
-      },
-      "LBhcqYqeu0U": {
-        "hype_rank": 3,
-        "hype_index": 69.7,
-        "apple_rank": 5,
-        "melon_rank": 4,
-        "melon_genz_rank": 4,
-        "ytmusic_rank": 3
-      },
-      "YVjcmz9sBIs": {
-        "hype_rank": 4,
-        "hype_index": 68.23,
-        "apple_rank": 6,
-        "melon_rank": 6,
-        "melon_genz_rank": 3,
-        "ytmusic_rank": 6
-      },
-      "BEPSc8q6Bd8": {
-        "hype_rank": 5,
-        "hype_index": 64.64,
-        "apple_rank": 3,
-        "melon_rank": 18,
-        "melon_genz_rank": 6,
-        "ytmusic_rank": 18
-      },
-      "z9ifbheDGFM": {
-        "hype_rank": 6,
-        "hype_index": 63.34,
-        "apple_rank": 1,
-        "melon_rank": 51,
-        "melon_genz_rank": 45,
-        "ytmusic_rank": 5
-      },
-      "_1juftZumOQ": {
-        "hype_rank": 7,
-        "hype_index": 61.36,
-        "apple_rank": 8,
-        "melon_rank": 12,
-        "melon_genz_rank": 5,
-        "ytmusic_rank": 10
-      },
-      "XDzGoMtSqZA": {
-        "hype_rank": 8,
-        "hype_index": 61.18,
-        "apple_rank": 7,
-        "melon_rank": 5,
-        "melon_genz_rank": 7,
-        "ytmusic_rank": 7
-      },
-      "3F9jlnANW08": {
-        "hype_rank": 9,
-        "hype_index": 59.17,
-        "apple_rank": 9,
-        "melon_rank": 17,
-        "melon_genz_rank": 10,
-        "ytmusic_rank": 4
-      },
-      "Q4AE3ub4nBM": {
-        "hype_rank": 10,
-        "hype_index": 56.59,
-        "apple_rank": 10,
-        "melon_rank": 13,
-        "melon_genz_rank": 9,
-        "ytmusic_rank": 9
-      },
-      "Snyan1_jGWc": {
-        "hype_rank": 11,
-        "hype_index": 52.07,
-        "apple_rank": 16,
-        "melon_rank": 11,
-        "melon_genz_rank": 8,
-        "ytmusic_rank": 17
-      },
-      "UOKLtaE2U90": {
-        "hype_rank": 12,
-        "hype_index": 51.89,
-        "apple_rank": 14,
-        "melon_rank": 9,
-        "melon_genz_rank": 12,
-        "ytmusic_rank": 11
-      },
-      "R5By6ms2a3Y": {
-        "hype_rank": 13,
-        "hype_index": 51.69,
-        "apple_rank": 18,
-        "melon_rank": 2,
-        "melon_genz_rank": 11,
-        "ytmusic_rank": 8
-      },
-      "_cSciVF1FpY": {
-        "hype_rank": 14,
-        "hype_index": 50.34,
-        "apple_rank": 15,
-        "melon_rank": 52,
-        "melon_genz_rank": 13,
-        "ytmusic_rank": 13
-      },
-      "sgxwL8V39Lc": {
-        "hype_rank": 15,
-        "hype_index": 49.28,
-        "apple_rank": 13,
-        "melon_rank": 15,
-        "melon_genz_rank": 14,
-        "ytmusic_rank": 20
-      },
-      "MUny_GDYIDM": {
-        "hype_rank": 16,
-        "hype_index": 47.04,
-        "apple_rank": 12,
-        "melon_rank": 20,
-        "melon_genz_rank": 20,
-        "ytmusic_rank": 21
-      },
-      "hGqYdubpcCM": {
-        "hype_rank": 17,
-        "hype_index": 42.34,
-        "apple_rank": 17,
-        "melon_rank": 22,
-        "melon_genz_rank": 26,
-        "ytmusic_rank": 22
-      },
-      "I0Hu7PRF4j0": {
-        "hype_rank": 18,
-        "hype_index": 41.17,
-        "apple_rank": 28,
-        "melon_rank": 58,
-        "melon_genz_rank": 17,
-        "ytmusic_rank": 25
-      },
-      "3G0A03PFMg0": {
-        "hype_rank": 19,
-        "hype_index": 38.37,
-        "apple_rank": 11,
-        "melon_rank": null,
-        "melon_genz_rank": 25,
-        "ytmusic_rank": 87
-      },
-      "Cbs8h6nJWBc": {
-        "hype_rank": 20,
-        "hype_index": 37.61,
-        "apple_rank": 43,
-        "melon_rank": 91,
-        "melon_genz_rank": 21,
-        "ytmusic_rank": 14
-      },
-      "8rMARLBfd3U": {
-        "hype_rank": 21,
-        "hype_index": 34.91,
-        "apple_rank": 21,
-        "melon_rank": null,
-        "melon_genz_rank": 19,
-        "ytmusic_rank": null
-      },
-      "1jtban6rFAA": {
-        "hype_rank": 22,
-        "hype_index": 34.1,
-        "apple_rank": 27,
-        "melon_rank": null,
-        "melon_genz_rank": 16,
-        "ytmusic_rank": null
-      },
-      "JwC6KUpBAAU": {
-        "hype_rank": 23,
-        "hype_index": 32.03,
-        "apple_rank": 50,
-        "melon_rank": 68,
-        "melon_genz_rank": 22,
-        "ytmusic_rank": 34
-      },
-      "sjtyqmA-pH4": {
-        "hype_rank": 24,
-        "hype_index": 31.9,
-        "apple_rank": 71,
-        "melon_rank": 7,
-        "melon_genz_rank": 18,
-        "ytmusic_rank": 19
-      },
-      "p1tsL0YmNqU": {
-        "hype_rank": 25,
-        "hype_index": 29.77,
-        "apple_rank": 66,
-        "melon_rank": null,
-        "melon_genz_rank": 29,
-        "ytmusic_rank": 15
-      },
-      "j-seAiANLG8": {
-        "hype_rank": 26,
-        "hype_index": 28.13,
-        "apple_rank": 30,
-        "melon_rank": null,
-        "melon_genz_rank": 30,
-        "ytmusic_rank": null
-      },
-      "tCSBgOIA63M": {
-        "hype_rank": 27,
-        "hype_index": 27.73,
-        "apple_rank": 20,
-        "melon_rank": null,
-        "melon_genz_rank": 44,
-        "ytmusic_rank": null
-      },
-      "NbKH4iZqq1Y": {
-        "hype_rank": 28,
-        "hype_index": 27.56,
-        "apple_rank": 54,
-        "melon_rank": 8,
-        "melon_genz_rank": 15,
-        "ytmusic_rank": null
-      },
-      "f73laCUMUW0": {
-        "hype_rank": 29,
-        "hype_index": 27.54,
-        "apple_rank": 39,
-        "melon_rank": 38,
-        "melon_genz_rank": 24,
-        "ytmusic_rank": null
-      },
-      "E5BLkMGxDgQ": {
-        "hype_rank": 30,
-        "hype_index": 26.39,
-        "apple_rank": 45,
-        "melon_rank": null,
-        "melon_genz_rank": 23,
-        "ytmusic_rank": null
-      },
-      "op05giODUE0": {
-        "hype_rank": 31,
-        "hype_index": 25.2,
-        "apple_rank": 26,
-        "melon_rank": 69,
-        "melon_genz_rank": 71,
-        "ytmusic_rank": 44
-      },
-      "4sdN33l2WTw": {
-        "hype_rank": 32,
-        "hype_index": 24.14,
-        "apple_rank": 36,
-        "melon_rank": null,
-        "melon_genz_rank": 38,
-        "ytmusic_rank": null
-      },
-      "37W7Y2RRyiM": {
-        "hype_rank": 33,
-        "hype_index": 23.34,
-        "apple_rank": 38,
-        "melon_rank": null,
-        "melon_genz_rank": 39,
-        "ytmusic_rank": null
-      },
-      "oP-WPpwBz80": {
-        "hype_rank": 34,
-        "hype_index": 23.3,
-        "apple_rank": 23,
-        "melon_rank": null,
-        "melon_genz_rank": 97,
-        "ytmusic_rank": 36
-      },
-      "6Xa1VDLACPo": {
-        "hype_rank": 35,
-        "hype_index": 22.98,
-        "apple_rank": 61,
-        "melon_rank": 10,
-        "melon_genz_rank": 53,
-        "ytmusic_rank": 23
-      },
-      "r7Rn4ryE_w8": {
-        "hype_rank": 36,
-        "hype_index": 22.67,
-        "apple_rank": 25,
-        "melon_rank": null,
-        "melon_genz_rank": 72,
-        "ytmusic_rank": 70
-      },
-      "D3tUvbqOAAY": {
-        "hype_rank": 37,
-        "hype_index": 22.05,
-        "apple_rank": 40,
-        "melon_rank": 56,
-        "melon_genz_rank": 42,
-        "ytmusic_rank": null
-      },
-      "-_r_Y5nuHlo": {
-        "hype_rank": 38,
-        "hype_index": 21.91,
-        "apple_rank": 32,
-        "melon_rank": null,
-        "melon_genz_rank": 52,
-        "ytmusic_rank": null
-      },
-      "VZnfZ14fIig": {
-        "hype_rank": 39,
-        "hype_index": 21.0,
-        "apple_rank": 64,
-        "melon_rank": null,
-        "melon_genz_rank": 27,
-        "ytmusic_rank": null
-      },
-      "jWYFI10cZfw": {
-        "hype_rank": 40,
-        "hype_index": 20.65,
-        "apple_rank": 58,
-        "melon_rank": 29,
-        "melon_genz_rank": 32,
-        "ytmusic_rank": null
-      },
-      "dgZlLjfh6q4": {
-        "hype_rank": 41,
-        "hype_index": 19.03,
-        "apple_rank": 68,
-        "melon_rank": null,
-        "melon_genz_rank": 31,
-        "ytmusic_rank": null
-      },
-      "pERDk4KoW-s": {
-        "hype_rank": 42,
-        "hype_index": 18.41,
-        "apple_rank": 57,
-        "melon_rank": null,
-        "melon_genz_rank": 41,
-        "ytmusic_rank": null
-      },
-      "w0t18LgzTSA": {
-        "hype_rank": 43,
-        "hype_index": 18.21,
-        "apple_rank": 41,
-        "melon_rank": null,
-        "melon_genz_rank": null,
-        "ytmusic_rank": 29
-      },
-      "vrM2mrI83uk": {
-        "hype_rank": 44,
-        "hype_index": 17.84,
-        "apple_rank": 19,
-        "melon_rank": null,
-        "melon_genz_rank": null,
-        "ytmusic_rank": null
-      },
-      "TEbPKeeJnlA": {
-        "hype_rank": 45,
-        "hype_index": 17.61,
-        "apple_rank": 99,
-        "melon_rank": null,
-        "melon_genz_rank": 33,
-        "ytmusic_rank": 55
-      },
-      "QxGt54-oh1A": {
-        "hype_rank": 46,
-        "hype_index": 17.11,
-        "apple_rank": null,
-        "melon_rank": 14,
-        "melon_genz_rank": 61,
-        "ytmusic_rank": 12
-      },
-      "7CUz7Ec7cWc": {
-        "hype_rank": 47,
-        "hype_index": 16.7,
-        "apple_rank": 22,
-        "melon_rank": null,
-        "melon_genz_rank": null,
-        "ytmusic_rank": null
-      },
-      "jCKcEoZrlJQ": {
-        "hype_rank": 48,
-        "hype_index": 16.56,
-        "apple_rank": 74,
-        "melon_rank": 45,
-        "melon_genz_rank": 36,
-        "ytmusic_rank": null
-      },
-      "NwO0H2bUhSQ": {
-        "hype_rank": 49,
-        "hype_index": 16.46,
-        "apple_rank": null,
-        "melon_rank": null,
-        "melon_genz_rank": 28,
-        "ytmusic_rank": 78
-      },
-      "kdOS94IjzzE": {
-        "hype_rank": 50,
-        "hype_index": 16.0,
-        "apple_rank": 24,
-        "melon_rank": null,
-        "melon_genz_rank": null,
-        "ytmusic_rank": null
-      },
-      "ZAsxW7bkK-A": {
-        "hype_rank": 51,
-        "hype_index": 15.98,
-        "apple_rank": 56,
-        "melon_rank": 46,
-        "melon_genz_rank": 95,
-        "ytmusic_rank": 28
-      },
-      "pJ-IGZKyfpU": {
-        "hype_rank": 52,
-        "hype_index": 15.52,
-        "apple_rank": 84,
-        "melon_rank": null,
-        "melon_genz_rank": 34,
-        "ytmusic_rank": null
-      },
-      "GCkhFdMdGOY": {
-        "hype_rank": 53,
-        "hype_index": 15.31,
-        "apple_rank": 37,
-        "melon_rank": null,
-        "melon_genz_rank": 80,
-        "ytmusic_rank": null
-      },
-      "ghrlZIMDzbM": {
-        "hype_rank": 54,
-        "hype_index": 14.9,
-        "apple_rank": 29,
-        "melon_rank": 55,
-        "melon_genz_rank": 99,
-        "ytmusic_rank": null
-      },
-      "7Eo-TAWu0oo": {
-        "hype_rank": 55,
-        "hype_index": 14.5,
-        "apple_rank": 33,
-        "melon_rank": 36,
-        "melon_genz_rank": 93,
-        "ytmusic_rank": null
-      },
-      "eqKhhG4FVoQ": {
-        "hype_rank": 56,
-        "hype_index": 14.5,
-        "apple_rank": 35,
-        "melon_rank": 89,
-        "melon_genz_rank": 89,
-        "ytmusic_rank": null
-      },
-      "IMWT6937uUs": {
-        "hype_rank": 57,
-        "hype_index": 14.22,
-        "apple_rank": 91,
-        "melon_rank": 42,
-        "melon_genz_rank": 35,
-        "ytmusic_rank": null
-      },
-      "aWkPBCF8rFU": {
-        "hype_rank": 58,
-        "hype_index": 13.76,
-        "apple_rank": 31,
-        "melon_rank": null,
-        "melon_genz_rank": null,
-        "ytmusic_rank": null
-      },
-      "X0PUdt1gt5c": {
-        "hype_rank": 59,
-        "hype_index": 13.76,
-        "apple_rank": 72,
-        "melon_rank": null,
-        "melon_genz_rank": 62,
-        "ytmusic_rank": 66
-      },
-      "TLftyCObb_E": {
-        "hype_rank": 60,
-        "hype_index": 13.32,
-        "apple_rank": null,
-        "melon_rank": 26,
-        "melon_genz_rank": 65,
-        "ytmusic_rank": 27
-      },
-      "HBqH4uJS0PU": {
-        "hype_rank": 61,
-        "hype_index": 12.89,
-        "apple_rank": 34,
-        "melon_rank": 64,
-        "melon_genz_rank": null,
-        "ytmusic_rank": null
-      },
-      "aLUvL0mNQmY": {
-        "hype_rank": 62,
-        "hype_index": 12.88,
-        "apple_rank": null,
-        "melon_rank": 19,
-        "melon_genz_rank": 64,
-        "ytmusic_rank": 31
-      },
-      "PGADim6UzHE": {
-        "hype_rank": 63,
-        "hype_index": 12.44,
-        "apple_rank": 53,
-        "melon_rank": null,
-        "melon_genz_rank": 74,
-        "ytmusic_rank": null
-      },
-      "fwNJdxUghcc": {
-        "hype_rank": 64,
-        "hype_index": 12.41,
-        "apple_rank": 89,
-        "melon_rank": 78,
-        "melon_genz_rank": 43,
-        "ytmusic_rank": null
-      },
-      "HLTQoCRBfxc": {
-        "hype_rank": 65,
-        "hype_index": 12.07,
-        "apple_rank": null,
-        "melon_rank": null,
-        "melon_genz_rank": 37,
-        "ytmusic_rank": null
-      },
-      "gjQwwWjxPaQ": {
-        "hype_rank": 66,
-        "hype_index": 12.01,
-        "apple_rank": 42,
-        "melon_rank": null,
-        "melon_genz_rank": null,
-        "ytmusic_rank": 85
-      },
-      "KczYjTVrK_o": {
-        "hype_rank": 67,
-        "hype_index": 11.81,
-        "apple_rank": 85,
-        "melon_rank": 25,
-        "melon_genz_rank": 48,
-        "ytmusic_rank": null
-      },
-      "D9IVOL9felk": {
-        "hype_rank": 68,
-        "hype_index": 11.28,
-        "apple_rank": null,
-        "melon_rank": 47,
-        "melon_genz_rank": 40,
-        "ytmusic_rank": null
-      },
-      "m-aWrIOP_3o": {
-        "hype_rank": 69,
-        "hype_index": 11.27,
-        "apple_rank": 46,
-        "melon_rank": null,
-        "melon_genz_rank": null,
-        "ytmusic_rank": 82
-      },
-      "LZWlP4kjEtw": {
-        "hype_rank": 70,
-        "hype_index": 11.15,
-        "apple_rank": 78,
-        "melon_rank": null,
-        "melon_genz_rank": 56,
-        "ytmusic_rank": null
-      },
-      "dYrIKmLLBbg": {
-        "hype_rank": 71,
-        "hype_index": 10.97,
-        "apple_rank": 49,
-        "melon_rank": null,
-        "melon_genz_rank": null,
-        "ytmusic_rank": 77
-      },
-      "Gy32XOFT2ww": {
-        "hype_rank": 72,
-        "hype_index": 10.74,
-        "apple_rank": 81,
-        "melon_rank": 74,
-        "melon_genz_rank": null,
-        "ytmusic_rank": 26
-      },
-      "XfzE8ku3TCI": {
-        "hype_rank": 73,
-        "hype_index": 10.59,
-        "apple_rank": 97,
-        "melon_rank": null,
-        "melon_genz_rank": 46,
-        "ytmusic_rank": null
-      },
-      "eNiPuDEUQpQ": {
-        "hype_rank": 74,
-        "hype_index": 10.35,
-        "apple_rank": null,
-        "melon_rank": 16,
-        "melon_genz_rank": 69,
-        "ytmusic_rank": 43
-      },
-      "proAJg4sVhM": {
-        "hype_rank": 75,
-        "hype_index": 10.28,
-        "apple_rank": 44,
-        "melon_rank": 100,
-        "melon_genz_rank": null,
-        "ytmusic_rank": null
-      },
-      "TfAiFxoXVlE": {
-        "hype_rank": 76,
-        "hype_index": 9.81,
-        "apple_rank": null,
-        "melon_rank": 21,
-        "melon_genz_rank": 83,
-        "ytmusic_rank": 30
-      },
-      "gw9dm2tHf9k": {
-        "hype_rank": 77,
-        "hype_index": 9.78,
-        "apple_rank": 100,
-        "melon_rank": 94,
-        "melon_genz_rank": 68,
-        "ytmusic_rank": 53
-      },
-      "7wJsfALKRR8": {
-        "hype_rank": 78,
-        "hype_index": 9.74,
-        "apple_rank": 48,
-        "melon_rank": null,
-        "melon_genz_rank": 100,
-        "ytmusic_rank": null
-      },
-      "HXV5aZaBLDo": {
-        "hype_rank": 79,
-        "hype_index": 9.57,
-        "apple_rank": 47,
-        "melon_rank": null,
-        "melon_genz_rank": null,
-        "ytmusic_rank": null
-      },
-      "OdFVPP_Rcos": {
-        "hype_rank": 80,
-        "hype_index": 9.57,
-        "apple_rank": null,
-        "melon_rank": 32,
-        "melon_genz_rank": 47,
-        "ytmusic_rank": null
-      },
-      "to3sjq-CAvA": {
-        "hype_rank": 81,
-        "hype_index": 9.55,
-        "apple_rank": null,
-        "melon_rank": null,
-        "melon_genz_rank": null,
-        "ytmusic_rank": 16
-      },
-      "bLahVNBGdLQ": {
-        "hype_rank": 82,
-        "hype_index": 9.11,
-        "apple_rank": null,
-        "melon_rank": 35,
-        "melon_genz_rank": 49,
-        "ytmusic_rank": null
-      },
-      "29lj9jFfJvY": {
-        "hype_rank": 83,
-        "hype_index": 8.88,
-        "apple_rank": null,
-        "melon_rank": 27,
-        "melon_genz_rank": 50,
-        "ytmusic_rank": null
-      },
-      "Yc4gp6oeN7k": {
-        "hype_rank": 84,
-        "hype_index": 8.85,
-        "apple_rank": 92,
-        "melon_rank": null,
-        "melon_genz_rank": 57,
-        "ytmusic_rank": null
-      },
-      "GV_HP7yoIyc": {
-        "hype_rank": 85,
-        "hype_index": 8.66,
-        "apple_rank": 51,
-        "melon_rank": null,
-        "melon_genz_rank": null,
-        "ytmusic_rank": null
-      },
-      "5USBozeR4eg": {
-        "hype_rank": 86,
-        "hype_index": 8.66,
-        "apple_rank": null,
-        "melon_rank": null,
-        "melon_genz_rank": 51,
-        "ytmusic_rank": null
-      },
-      "RwrZPCKLs2E": {
-        "hype_rank": 87,
-        "hype_index": 8.44,
-        "apple_rank": 52,
-        "melon_rank": null,
-        "melon_genz_rank": null,
-        "ytmusic_rank": null
-      },
-      "LKMCTq3ZfFk": {
-        "hype_rank": 88,
-        "hype_index": 8.44,
-        "apple_rank": 65,
-        "melon_rank": 95,
-        "melon_genz_rank": 84,
-        "ytmusic_rank": null
-      },
-      "H4mB3mxPTrQ": {
-        "hype_rank": 89,
-        "hype_index": 8.01,
-        "apple_rank": null,
-        "melon_rank": null,
-        "melon_genz_rank": 54,
-        "ytmusic_rank": null
-      },
-      "Cb0JZhdmjtg": {
-        "hype_rank": 90,
-        "hype_index": 8.0,
-        "apple_rank": null,
-        "melon_rank": null,
-        "melon_genz_rank": null,
-        "ytmusic_rank": 24
-      },
-      "t8P-zdkoeJA": {
-        "hype_rank": 91,
-        "hype_index": 7.9,
-        "apple_rank": 96,
-        "melon_rank": 53,
-        "melon_genz_rank": 59,
-        "ytmusic_rank": null
-      },
-      "ib3hV9iyqsE": {
-        "hype_rank": 92,
-        "hype_index": 7.8,
-        "apple_rank": 55,
-        "melon_rank": null,
-        "melon_genz_rank": null,
-        "ytmusic_rank": null
-      },
-      "IhKjZk5AYRg": {
-        "hype_rank": 93,
-        "hype_index": 7.8,
-        "apple_rank": null,
-        "melon_rank": 24,
-        "melon_genz_rank": 55,
-        "ytmusic_rank": null
-      },
-      "RZMp2kQObCs": {
-        "hype_rank": 94,
-        "hype_index": 7.18,
-        "apple_rank": null,
-        "melon_rank": 28,
-        "melon_genz_rank": 58,
-        "ytmusic_rank": null
-      },
-      "TZHoqQnUbas": {
-        "hype_rank": 95,
-        "hype_index": 6.98,
-        "apple_rank": 59,
-        "melon_rank": null,
-        "melon_genz_rank": null,
-        "ytmusic_rank": null
-      },
-      "dTVCk33AQEs": {
-        "hype_rank": 96,
-        "hype_index": 6.78,
-        "apple_rank": 60,
-        "melon_rank": null,
-        "melon_genz_rank": null,
-        "ytmusic_rank": null
-      },
-      "kh4hpnGs9iY": {
-        "hype_rank": 97,
-        "hype_index": 6.78,
-        "apple_rank": null,
-        "melon_rank": null,
-        "melon_genz_rank": 60,
-        "ytmusic_rank": null
-      },
-      "Qye9VHIv6qM": {
-        "hype_rank": 98,
-        "hype_index": 6.73,
-        "apple_rank": null,
-        "melon_rank": null,
-        "melon_genz_rank": null,
-        "ytmusic_rank": 32
-      },
-      "HaEYUJ2aRHs": {
-        "hype_rank": 99,
-        "hype_index": 6.59,
-        "apple_rank": null,
-        "melon_rank": 70,
-        "melon_genz_rank": null,
-        "ytmusic_rank": 33
-      },
-      "2Kff0U8w-aU": {
-        "hype_rank": 100,
-        "hype_index": 6.39,
-        "apple_rank": 62,
-        "melon_rank": null,
-        "melon_genz_rank": null,
-        "ytmusic_rank": null
-      },
-      "QX2dqXr8mOU": {
-        "hype_rank": 101,
-        "hype_index": 6.33,
-        "apple_rank": 82,
-        "melon_rank": null,
-        "melon_genz_rank": 79,
-        "ytmusic_rank": null
-      },
-      "DiTd771WumE": {
-        "hype_rank": 102,
-        "hype_index": 6.31,
-        "apple_rank": null,
-        "melon_rank": 49,
-        "melon_genz_rank": null,
-        "ytmusic_rank": 35
-      },
-      "tkzYyEp4zB4": {
-        "hype_rank": 103,
-        "hype_index": 6.19,
-        "apple_rank": 63,
-        "melon_rank": null,
-        "melon_genz_rank": null,
-        "ytmusic_rank": null
-      },
-      "N4N8nam2QbI": {
-        "hype_rank": 104,
-        "hype_index": 6.19,
-        "apple_rank": null,
-        "melon_rank": 76,
-        "melon_genz_rank": 63,
-        "ytmusic_rank": null
-      },
-      "UtYBunDqp30": {
-        "hype_rank": 105,
-        "hype_index": 6.03,
-        "apple_rank": null,
-        "melon_rank": null,
-        "melon_genz_rank": null,
-        "ytmusic_rank": 37
-      },
-      "vOfyxPRunFM": {
-        "hype_rank": 106,
-        "hype_index": 5.9,
-        "apple_rank": null,
-        "melon_rank": null,
-        "melon_genz_rank": null,
-        "ytmusic_rank": 38
-      },
-      "UJn-F2kPCaQ": {
-        "hype_rank": 107,
-        "hype_index": 5.77,
-        "apple_rank": null,
-        "melon_rank": null,
-        "melon_genz_rank": null,
-        "ytmusic_rank": 39
-      },
-      "LVcbpFaGc_o": {
-        "hype_rank": 108,
-        "hype_index": 5.74,
-        "apple_rank": 94,
-        "melon_rank": null,
-        "melon_genz_rank": null,
-        "ytmusic_rank": 49
-      },
-      "cvQQEs4TDGM": {
-        "hype_rank": 109,
-        "hype_index": 5.64,
-        "apple_rank": null,
-        "melon_rank": null,
-        "melon_genz_rank": null,
-        "ytmusic_rank": 40
-      },
-      "e6-TxMisjh8": {
-        "hype_rank": 110,
-        "hype_index": 5.63,
-        "apple_rank": null,
-        "melon_rank": 96,
-        "melon_genz_rank": 66,
-        "ytmusic_rank": null
-      },
-      "zuO2fClon98": {
-        "hype_rank": 111,
-        "hype_index": 5.51,
-        "apple_rank": null,
-        "melon_rank": null,
-        "melon_genz_rank": null,
-        "ytmusic_rank": 41
-      },
-      "7mjg-7ibaQA": {
-        "hype_rank": 112,
-        "hype_index": 5.45,
-        "apple_rank": 67,
-        "melon_rank": null,
-        "melon_genz_rank": null,
-        "ytmusic_rank": null
-      },
-      "PJfZViVdOwM": {
-        "hype_rank": 113,
-        "hype_index": 5.45,
-        "apple_rank": null,
-        "melon_rank": null,
-        "melon_genz_rank": 67,
-        "ytmusic_rank": null
-      },
-      "oZ61Le_JdVY": {
-        "hype_rank": 114,
-        "hype_index": 5.39,
-        "apple_rank": null,
-        "melon_rank": null,
-        "melon_genz_rank": null,
-        "ytmusic_rank": 42
-      },
-      "gTG9evSpuWg": {
-        "hype_rank": 115,
-        "hype_index": 5.19,
-        "apple_rank": null,
-        "melon_rank": null,
-        "melon_genz_rank": 85,
-        "ytmusic_rank": 67
-      },
-      "yuH4OnvoADU": {
-        "hype_rank": 116,
-        "hype_index": 5.1,
-        "apple_rank": null,
-        "melon_rank": null,
-        "melon_genz_rank": 78,
-        "ytmusic_rank": 81
-      },
-      "5C-UzW1FLiA": {
-        "hype_rank": 117,
-        "hype_index": 5.09,
-        "apple_rank": 69,
-        "melon_rank": null,
-        "melon_genz_rank": null,
-        "ytmusic_rank": null
-      },
-      "sEA5NGU7KW4": {
-        "hype_rank": 118,
-        "hype_index": 5.02,
-        "apple_rank": null,
-        "melon_rank": null,
-        "melon_genz_rank": null,
-        "ytmusic_rank": 45
-      },
-      "8yXGI3kcLsw": {
-        "hype_rank": 119,
-        "hype_index": 4.91,
-        "apple_rank": 70,
-        "melon_rank": null,
-        "melon_genz_rank": null,
-        "ytmusic_rank": null
-      },
-      "-9fC6oDFl5k": {
-        "hype_rank": 120,
-        "hype_index": 4.91,
-        "apple_rank": null,
-        "melon_rank": 23,
-        "melon_genz_rank": 70,
-        "ytmusic_rank": null
-      },
-      "QJa8TKXNavc": {
-        "hype_rank": 121,
-        "hype_index": 4.9,
-        "apple_rank": null,
-        "melon_rank": null,
-        "melon_genz_rank": null,
-        "ytmusic_rank": 46
-      },
-      "oplra1FJxWI": {
-        "hype_rank": 122,
-        "hype_index": 4.88,
-        "apple_rank": 98,
-        "melon_rank": null,
-        "melon_genz_rank": null,
-        "ytmusic_rank": 52
-      },
-      "QmJbHPYx97M": {
-        "hype_rank": 123,
-        "hype_index": 4.78,
-        "apple_rank": null,
-        "melon_rank": null,
-        "melon_genz_rank": null,
-        "ytmusic_rank": 47
-      },
-      "12ELDQy3IUc": {
-        "hype_rank": 124,
-        "hype_index": 4.67,
-        "apple_rank": null,
-        "melon_rank": 73,
-        "melon_genz_rank": null,
-        "ytmusic_rank": 48
-      },
-      "DMcRIihAq9Q": {
-        "hype_rank": 125,
-        "hype_index": 4.44,
-        "apple_rank": null,
-        "melon_rank": null,
-        "melon_genz_rank": null,
-        "ytmusic_rank": 50
-      },
-      "-BX7DpABCbE": {
-        "hype_rank": 126,
-        "hype_index": 4.39,
-        "apple_rank": 73,
-        "melon_rank": null,
-        "melon_genz_rank": null,
-        "ytmusic_rank": null
-      },
-      "mLwfuskNDOo": {
-        "hype_rank": 127,
-        "hype_index": 4.39,
-        "apple_rank": null,
-        "melon_rank": null,
-        "melon_genz_rank": 73,
-        "ytmusic_rank": null
-      },
-      "3YSfRCtZ-AY": {
-        "hype_rank": 128,
-        "hype_index": 4.33,
-        "apple_rank": null,
-        "melon_rank": null,
-        "melon_genz_rank": null,
-        "ytmusic_rank": 51
-      },
-      "4Uh-Pf02qeQ": {
-        "hype_rank": 129,
-        "hype_index": 4.24,
-        "apple_rank": null,
-        "melon_rank": null,
-        "melon_genz_rank": 82,
-        "ytmusic_rank": 84
-      },
-      "5xJFMN1KQko": {
-        "hype_rank": 130,
-        "hype_index": 4.1,
-        "apple_rank": null,
-        "melon_rank": null,
-        "melon_genz_rank": 81,
-        "ytmusic_rank": 88
-      },
-      "Krr2u8BUtLw": {
-        "hype_rank": 131,
-        "hype_index": 4.05,
-        "apple_rank": 75,
-        "melon_rank": null,
-        "melon_genz_rank": null,
-        "ytmusic_rank": null
-      },
-      "l-H4QHLC-Uc": {
-        "hype_rank": 132,
-        "hype_index": 4.05,
-        "apple_rank": null,
-        "melon_rank": 33,
-        "melon_genz_rank": 75,
-        "ytmusic_rank": null
-      },
-      "VnJSlzKW-Is": {
-        "hype_rank": 133,
-        "hype_index": 4.0,
-        "apple_rank": null,
-        "melon_rank": null,
-        "melon_genz_rank": null,
-        "ytmusic_rank": 54
-      },
-      "jaTPb7JJUt8": {
-        "hype_rank": 134,
-        "hype_index": 3.88,
-        "apple_rank": 76,
-        "melon_rank": null,
-        "melon_genz_rank": null,
-        "ytmusic_rank": null
-      },
-      "08h8u8Z9iJQ": {
-        "hype_rank": 135,
-        "hype_index": 3.88,
-        "apple_rank": null,
-        "melon_rank": null,
-        "melon_genz_rank": 76,
-        "ytmusic_rank": null
-      },
-      "_QAsLRbNfuI": {
-        "hype_rank": 136,
-        "hype_index": 3.79,
-        "apple_rank": null,
-        "melon_rank": null,
-        "melon_genz_rank": null,
-        "ytmusic_rank": 56
-      },
-      "0M4QMVQJRsw": {
-        "hype_rank": 137,
-        "hype_index": 3.72,
-        "apple_rank": 77,
-        "melon_rank": null,
-        "melon_genz_rank": null,
-        "ytmusic_rank": null
-      },
-      "dYnU0DZ_iQc": {
-        "hype_rank": 138,
-        "hype_index": 3.72,
-        "apple_rank": null,
-        "melon_rank": null,
-        "melon_genz_rank": 77,
-        "ytmusic_rank": null
-      },
-      "AFpImN9O4bY": {
-        "hype_rank": 139,
-        "hype_index": 3.69,
-        "apple_rank": null,
-        "melon_rank": null,
-        "melon_genz_rank": null,
-        "ytmusic_rank": 57
-      },
-      "k7D4i1ILCCk": {
-        "hype_rank": 140,
-        "hype_index": 3.59,
-        "apple_rank": null,
-        "melon_rank": null,
-        "melon_genz_rank": null,
-        "ytmusic_rank": 58
-      },
-      "QnqVpRDaQ90": {
-        "hype_rank": 141,
-        "hype_index": 3.49,
-        "apple_rank": null,
-        "melon_rank": null,
-        "melon_genz_rank": null,
-        "ytmusic_rank": 59
-      },
-      "4ZHxBEDHTFg": {
-        "hype_rank": 142,
-        "hype_index": 3.4,
-        "apple_rank": 79,
-        "melon_rank": null,
-        "melon_genz_rank": null,
-        "ytmusic_rank": null
-      },
-      "Z5LPrVc1MtU": {
-        "hype_rank": 143,
-        "hype_index": 3.39,
-        "apple_rank": null,
-        "melon_rank": null,
-        "melon_genz_rank": null,
-        "ytmusic_rank": 60
-      },
-      "UkrtPom_3Q0": {
-        "hype_rank": 144,
-        "hype_index": 3.29,
-        "apple_rank": null,
-        "melon_rank": null,
-        "melon_genz_rank": null,
-        "ytmusic_rank": 61
-      },
-      "s5oSscNIyIs": {
-        "hype_rank": 145,
-        "hype_index": 3.24,
-        "apple_rank": 80,
-        "melon_rank": null,
-        "melon_genz_rank": null,
-        "ytmusic_rank": null
-      },
-      "sNAEQyGMt-A": {
-        "hype_rank": 146,
-        "hype_index": 3.19,
-        "apple_rank": null,
-        "melon_rank": null,
-        "melon_genz_rank": null,
-        "ytmusic_rank": 62
-      },
-      "cfhwSpSDA9c": {
-        "hype_rank": 147,
-        "hype_index": 3.1,
-        "apple_rank": null,
-        "melon_rank": null,
-        "melon_genz_rank": null,
-        "ytmusic_rank": 63
-      },
-      "BD3MbtUBuTM": {
-        "hype_rank": 148,
-        "hype_index": 3.0,
-        "apple_rank": null,
-        "melon_rank": null,
-        "melon_genz_rank": null,
-        "ytmusic_rank": 64
-      },
-      "ORqWQi3hm_k": {
-        "hype_rank": 149,
-        "hype_index": 2.91,
-        "apple_rank": null,
-        "melon_rank": null,
-        "melon_genz_rank": null,
-        "ytmusic_rank": 65
-      },
-      "8QFM8Ews68c": {
-        "hype_rank": 150,
-        "hype_index": 2.77,
-        "apple_rank": 83,
-        "melon_rank": null,
-        "melon_genz_rank": null,
-        "ytmusic_rank": null
-      },
-      "aGwmkWxALiw": {
-        "hype_rank": 151,
-        "hype_index": 2.63,
-        "apple_rank": null,
-        "melon_rank": null,
-        "melon_genz_rank": null,
-        "ytmusic_rank": 68
-      },
-      "QLopiRM51TA": {
-        "hype_rank": 152,
-        "hype_index": 2.54,
-        "apple_rank": null,
-        "melon_rank": null,
-        "melon_genz_rank": null,
-        "ytmusic_rank": 69
-      },
-      "oQY1UeoEp-0": {
-        "hype_rank": 153,
-        "hype_index": 2.37,
-        "apple_rank": null,
-        "melon_rank": null,
-        "melon_genz_rank": null,
-        "ytmusic_rank": 71
-      },
-      "YNppT8Y7IKU": {
-        "hype_rank": 154,
-        "hype_index": 2.32,
-        "apple_rank": 86,
-        "melon_rank": null,
-        "melon_genz_rank": null,
-        "ytmusic_rank": null
-      },
-      "ZcHRydIz0eM": {
-        "hype_rank": 155,
-        "hype_index": 2.32,
-        "apple_rank": null,
-        "melon_rank": 39,
-        "melon_genz_rank": 86,
-        "ytmusic_rank": null
-      },
-      "OjoLYGcbJcI": {
-        "hype_rank": 156,
-        "hype_index": 2.28,
-        "apple_rank": null,
-        "melon_rank": null,
-        "melon_genz_rank": null,
-        "ytmusic_rank": 72
-      },
-      "Zae9tJyV-J4": {
-        "hype_rank": 157,
-        "hype_index": 2.19,
-        "apple_rank": null,
-        "melon_rank": null,
-        "melon_genz_rank": null,
-        "ytmusic_rank": 73
-      },
-      "pzJjpzayczc": {
-        "hype_rank": 158,
-        "hype_index": 2.18,
-        "apple_rank": 87,
-        "melon_rank": null,
-        "melon_genz_rank": null,
-        "ytmusic_rank": null
-      },
-      "XfEMj-z3TtA": {
-        "hype_rank": 159,
-        "hype_index": 2.18,
-        "apple_rank": null,
-        "melon_rank": null,
-        "melon_genz_rank": 87,
-        "ytmusic_rank": null
-      },
-      "ga-D8JKAs58": {
-        "hype_rank": 160,
-        "hype_index": 2.11,
-        "apple_rank": null,
-        "melon_rank": null,
-        "melon_genz_rank": null,
-        "ytmusic_rank": 74
-      },
-      "AzS4LokpHmg": {
-        "hype_rank": 161,
-        "hype_index": 2.03,
-        "apple_rank": 88,
-        "melon_rank": null,
-        "melon_genz_rank": null,
-        "ytmusic_rank": null
-      },
-      "PBp8c0qCKno": {
-        "hype_rank": 162,
-        "hype_index": 2.03,
-        "apple_rank": null,
-        "melon_rank": 43,
-        "melon_genz_rank": 88,
-        "ytmusic_rank": null
-      },
-      "g4pDuadNyzo": {
-        "hype_rank": 163,
-        "hype_index": 2.03,
-        "apple_rank": null,
-        "melon_rank": null,
-        "melon_genz_rank": null,
-        "ytmusic_rank": 75
-      },
-      "uPSZqQ0gpqc": {
-        "hype_rank": 164,
-        "hype_index": 1.94,
-        "apple_rank": null,
-        "melon_rank": null,
-        "melon_genz_rank": null,
-        "ytmusic_rank": 76
-      },
-      "cgJAmkE_j7U": {
-        "hype_rank": 165,
-        "hype_index": 1.74,
-        "apple_rank": 90,
-        "melon_rank": null,
-        "melon_genz_rank": null,
-        "ytmusic_rank": null
-      },
-      "ViDjwX-yfgc": {
-        "hype_rank": 166,
-        "hype_index": 1.74,
-        "apple_rank": null,
-        "melon_rank": 66,
-        "melon_genz_rank": 90,
-        "ytmusic_rank": null
-      },
-      "kjNGAVT_ySg": {
-        "hype_rank": 167,
-        "hype_index": 1.7,
-        "apple_rank": null,
-        "melon_rank": null,
-        "melon_genz_rank": null,
-        "ytmusic_rank": 79
-      },
-      "XsUv4WoptVE": {
-        "hype_rank": 168,
-        "hype_index": 1.62,
-        "apple_rank": null,
-        "melon_rank": null,
-        "melon_genz_rank": null,
-        "ytmusic_rank": 80
-      },
-      "HMQlkbXjSTM": {
-        "hype_rank": 169,
-        "hype_index": 1.6,
-        "apple_rank": null,
-        "melon_rank": 44,
-        "melon_genz_rank": 91,
-        "ytmusic_rank": null
-      },
-      "MR2ela9evnk": {
-        "hype_rank": 170,
-        "hype_index": 1.46,
-        "apple_rank": null,
-        "melon_rank": null,
-        "melon_genz_rank": 92,
-        "ytmusic_rank": null
-      },
-      "jZqTz1G8G04": {
-        "hype_rank": 171,
-        "hype_index": 1.39,
-        "apple_rank": null,
-        "melon_rank": null,
-        "melon_genz_rank": null,
-        "ytmusic_rank": 83
-      },
-      "VNLUaTxDs_4": {
-        "hype_rank": 172,
-        "hype_index": 1.33,
-        "apple_rank": 93,
-        "melon_rank": null,
-        "melon_genz_rank": null,
-        "ytmusic_rank": null
-      },
-      "iT267zwmFBw": {
-        "hype_rank": 173,
-        "hype_index": 1.19,
-        "apple_rank": null,
-        "melon_rank": null,
-        "melon_genz_rank": 94,
-        "ytmusic_rank": null
-      },
-      "rE4ma9cef20": {
-        "hype_rank": 174,
-        "hype_index": 1.16,
-        "apple_rank": null,
-        "melon_rank": null,
-        "melon_genz_rank": null,
-        "ytmusic_rank": 86
-      },
-      "8QWtOgBJZNc": {
-        "hype_rank": 175,
-        "hype_index": 1.05,
-        "apple_rank": 95,
-        "melon_rank": null,
-        "melon_genz_rank": null,
-        "ytmusic_rank": null
-      },
-      "UCPwHlZ2EDI": {
-        "hype_rank": 176,
-        "hype_index": 0.94,
-        "apple_rank": null,
-        "melon_rank": null,
-        "melon_genz_rank": null,
-        "ytmusic_rank": 89
-      },
-      "6d-ygS1tKuU": {
-        "hype_rank": 177,
-        "hype_index": 0.92,
-        "apple_rank": null,
-        "melon_rank": null,
-        "melon_genz_rank": 96,
-        "ytmusic_rank": null
-      },
-      "QT60l6MSoz8": {
-        "hype_rank": 178,
-        "hype_index": 0.87,
-        "apple_rank": null,
-        "melon_rank": null,
-        "melon_genz_rank": null,
-        "ytmusic_rank": 90
-      },
-      "_oTaQXf_iX8": {
-        "hype_rank": 179,
-        "hype_index": 0.8,
-        "apple_rank": null,
-        "melon_rank": null,
-        "melon_genz_rank": null,
-        "ytmusic_rank": 91
-      },
-      "j1DnOm0DdQU": {
-        "hype_rank": 180,
-        "hype_index": 0.73,
-        "apple_rank": null,
-        "melon_rank": null,
-        "melon_genz_rank": null,
-        "ytmusic_rank": 92
-      },
-      "O4ZZJ_ek2gs": {
-        "hype_rank": 181,
-        "hype_index": 0.66,
-        "apple_rank": null,
-        "melon_rank": null,
-        "melon_genz_rank": 98,
-        "ytmusic_rank": null
-      },
-      "sJlGEc-kyrU": {
-        "hype_rank": 182,
-        "hype_index": 0.66,
-        "apple_rank": null,
-        "melon_rank": null,
-        "melon_genz_rank": null,
-        "ytmusic_rank": 93
-      },
-      "wt2qlecXbUc": {
-        "hype_rank": 183,
-        "hype_index": 0.59,
-        "apple_rank": null,
-        "melon_rank": null,
-        "melon_genz_rank": null,
-        "ytmusic_rank": 94
-      },
-      "c70TkZH7fr0": {
-        "hype_rank": 184,
-        "hype_index": 0.53,
-        "apple_rank": null,
-        "melon_rank": null,
-        "melon_genz_rank": null,
-        "ytmusic_rank": 95
-      },
-      "J3-oRJ606Jw": {
-        "hype_rank": 185,
-        "hype_index": 0.46,
-        "apple_rank": null,
-        "melon_rank": null,
-        "melon_genz_rank": null,
-        "ytmusic_rank": 96
-      },
-      "jcKUEQMCqYc": {
-        "hype_rank": 186,
-        "hype_index": 0.39,
-        "apple_rank": null,
-        "melon_rank": null,
-        "melon_genz_rank": null,
-        "ytmusic_rank": 97
-      },
-      "0Z9Li1g-oUc": {
-        "hype_rank": 187,
-        "hype_index": 0.33,
-        "apple_rank": null,
-        "melon_rank": null,
-        "melon_genz_rank": null,
-        "ytmusic_rank": 98
-      },
-      "qQ8BBgJFPWU": {
-        "hype_rank": 188,
-        "hype_index": 0.26,
-        "apple_rank": null,
-        "melon_rank": null,
-        "melon_genz_rank": null,
-        "ytmusic_rank": 99
-      },
-      "23U2t6ecnFQ": {
-        "hype_rank": 189,
-        "hype_index": 0.2,
-        "apple_rank": null,
-        "melon_rank": null,
-        "melon_genz_rank": null,
-        "ytmusic_rank": 100
-      }
-    },
-    "2026-07-30": {
-      "5sOgJQ3N03Q": {
-        "hype_rank": 1,
-        "hype_index": 89.86,
-        "apple_rank": 2,
-        "melon_rank": 3,
-        "melon_genz_rank": 1,
-        "ytmusic_rank": 2
-      },
-      "1uDzUPzS2w8": {
-        "hype_rank": 2,
-        "hype_index": 81.31,
-        "apple_rank": 4,
-        "melon_rank": 1,
-        "melon_genz_rank": 2,
-        "ytmusic_rank": 1
-      },
-      "LBhcqYqeu0U": {
-        "hype_rank": 3,
-        "hype_index": 69.7,
-        "apple_rank": 5,
-        "melon_rank": 4,
-        "melon_genz_rank": 4,
-        "ytmusic_rank": 3
-      },
-      "YVjcmz9sBIs": {
-        "hype_rank": 4,
-        "hype_index": 68.23,
-        "apple_rank": 6,
-        "melon_rank": 6,
-        "melon_genz_rank": 3,
-        "ytmusic_rank": 6
-      },
-      "BEPSc8q6Bd8": {
-        "hype_rank": 5,
-        "hype_index": 64.64,
-        "apple_rank": 3,
-        "melon_rank": 18,
-        "melon_genz_rank": 6,
-        "ytmusic_rank": 18
-      },
-      "z9ifbheDGFM": {
-        "hype_rank": 6,
-        "hype_index": 63.82,
-        "apple_rank": 1,
-        "melon_rank": 58,
-        "melon_genz_rank": 43,
-        "ytmusic_rank": 5
-      },
-      "_1juftZumOQ": {
-        "hype_rank": 7,
-        "hype_index": 61.36,
-        "apple_rank": 8,
-        "melon_rank": 11,
-        "melon_genz_rank": 5,
-        "ytmusic_rank": 10
-      },
-      "XDzGoMtSqZA": {
-        "hype_rank": 8,
-        "hype_index": 61.18,
-        "apple_rank": 7,
-        "melon_rank": 5,
-        "melon_genz_rank": 7,
-        "ytmusic_rank": 7
-      },
-      "3F9jlnANW08": {
-        "hype_rank": 9,
-        "hype_index": 59.84,
-        "apple_rank": 9,
-        "melon_rank": 17,
-        "melon_genz_rank": 9,
-        "ytmusic_rank": 4
-      },
-      "Q4AE3ub4nBM": {
-        "hype_rank": 10,
-        "hype_index": 55.31,
-        "apple_rank": 10,
-        "melon_rank": 13,
-        "melon_genz_rank": 11,
-        "ytmusic_rank": 9
-      },
-      "Snyan1_jGWc": {
-        "hype_rank": 11,
-        "hype_index": 52.52,
-        "apple_rank": 15,
-        "melon_rank": 12,
-        "melon_genz_rank": 8,
-        "ytmusic_rank": 17
-      },
-      "R5By6ms2a3Y": {
-        "hype_rank": 12,
-        "hype_index": 52.3,
-        "apple_rank": 18,
-        "melon_rank": 2,
-        "melon_genz_rank": 10,
-        "ytmusic_rank": 8
-      },
-      "UOKLtaE2U90": {
-        "hype_rank": 13,
-        "hype_index": 51.89,
-        "apple_rank": 14,
-        "melon_rank": 10,
-        "melon_genz_rank": 12,
-        "ytmusic_rank": 11
-      },
-      "sgxwL8V39Lc": {
-        "hype_rank": 14,
-        "hype_index": 49.78,
-        "apple_rank": 13,
-        "melon_rank": 15,
-        "melon_genz_rank": 13,
-        "ytmusic_rank": 20
-      },
-      "_cSciVF1FpY": {
-        "hype_rank": 15,
-        "hype_index": 48.95,
-        "apple_rank": 17,
-        "melon_rank": 65,
-        "melon_genz_rank": 14,
-        "ytmusic_rank": 13
-      },
-      "MUny_GDYIDM": {
-        "hype_rank": 16,
-        "hype_index": 47.04,
-        "apple_rank": 12,
-        "melon_rank": 20,
-        "melon_genz_rank": 20,
-        "ytmusic_rank": 21
-      },
-      "I0Hu7PRF4j0": {
-        "hype_rank": 17,
-        "hype_index": 41.92,
-        "apple_rank": 27,
-        "melon_rank": 55,
-        "melon_genz_rank": 16,
-        "ytmusic_rank": 25
-      },
-      "hGqYdubpcCM": {
-        "hype_rank": 18,
-        "hype_index": 41.51,
-        "apple_rank": 16,
-        "melon_rank": 21,
-        "melon_genz_rank": 30,
-        "ytmusic_rank": 22
-      },
-      "3G0A03PFMg0": {
-        "hype_rank": 19,
-        "hype_index": 38.71,
-        "apple_rank": 11,
-        "melon_rank": null,
-        "melon_genz_rank": 24,
-        "ytmusic_rank": 87
-      },
-      "Cbs8h6nJWBc": {
-        "hype_rank": 20,
-        "hype_index": 37.86,
-        "apple_rank": 42,
-        "melon_rank": 92,
-        "melon_genz_rank": 21,
-        "ytmusic_rank": 14
-      },
-      "8rMARLBfd3U": {
-        "hype_rank": 21,
-        "hype_index": 35.31,
-        "apple_rank": 21,
-        "melon_rank": null,
-        "melon_genz_rank": 18,
-        "ytmusic_rank": null
-      },
-      "1jtban6rFAA": {
-        "hype_rank": 22,
-        "hype_index": 34.87,
-        "apple_rank": 26,
-        "melon_rank": null,
-        "melon_genz_rank": 15,
-        "ytmusic_rank": null
-      },
-      "sjtyqmA-pH4": {
-        "hype_rank": 23,
-        "hype_index": 31.97,
-        "apple_rank": 73,
-        "melon_rank": 7,
-        "melon_genz_rank": 17,
-        "ytmusic_rank": 19
-      },
-      "JwC6KUpBAAU": {
-        "hype_rank": 24,
-        "hype_index": 31.81,
-        "apple_rank": 51,
-        "melon_rank": 69,
-        "melon_genz_rank": 22,
-        "ytmusic_rank": 34
-      },
-      "p1tsL0YmNqU": {
-        "hype_rank": 25,
-        "hype_index": 31.25,
-        "apple_rank": 65,
-        "melon_rank": null,
-        "melon_genz_rank": 25,
-        "ytmusic_rank": 15
-      },
-      "j-seAiANLG8": {
-        "hype_rank": 26,
-        "hype_index": 28.76,
-        "apple_rank": 31,
-        "melon_rank": null,
-        "melon_genz_rank": 27,
-        "ytmusic_rank": null
-      },
-      "tCSBgOIA63M": {
-        "hype_rank": 27,
-        "hype_index": 28.22,
-        "apple_rank": 20,
-        "melon_rank": null,
-        "melon_genz_rank": 42,
-        "ytmusic_rank": null
-      },
-      "op05giODUE0": {
-        "hype_rank": 28,
-        "hype_index": 26.95,
-        "apple_rank": 24,
-        "melon_rank": 67,
-        "melon_genz_rank": 65,
-        "ytmusic_rank": 44
-      },
-      "4sdN33l2WTw": {
-        "hype_rank": 29,
-        "hype_index": 26.66,
-        "apple_rank": 34,
-        "melon_rank": null,
-        "melon_genz_rank": 31,
-        "ytmusic_rank": null
-      },
-      "-_r_Y5nuHlo": {
-        "hype_rank": 30,
-        "hype_index": 25.34,
-        "apple_rank": 30,
-        "melon_rank": null,
-        "melon_genz_rank": 40,
-        "ytmusic_rank": null
-      },
-      "NbKH4iZqq1Y": {
-        "hype_rank": 31,
-        "hype_index": 25.02,
-        "apple_rank": 58,
-        "melon_rank": 8,
-        "melon_genz_rank": 19,
-        "ytmusic_rank": null
-      },
-      "37W7Y2RRyiM": {
-        "hype_rank": 32,
-        "hype_index": 24.41,
-        "apple_rank": 37,
-        "melon_rank": null,
-        "melon_genz_rank": 36,
-        "ytmusic_rank": null
-      },
-      "f73laCUMUW0": {
-        "hype_rank": 33,
-        "hype_index": 24.41,
-        "apple_rank": 38,
-        "melon_rank": 39,
-        "melon_genz_rank": 35,
-        "ytmusic_rank": null
-      },
-      "oP-WPpwBz80": {
-        "hype_rank": 34,
-        "hype_index": 23.27,
-        "apple_rank": 22,
-        "melon_rank": null,
-        "melon_genz_rank": 100,
-        "ytmusic_rank": 36
-      },
-      "6Xa1VDLACPo": {
-        "hype_rank": 35,
-        "hype_index": 23.17,
-        "apple_rank": 60,
-        "melon_rank": 9,
-        "melon_genz_rank": 53,
-        "ytmusic_rank": 23
-      },
-      "E5BLkMGxDgQ": {
-        "hype_rank": 36,
-        "hype_index": 23.04,
-        "apple_rank": 47,
-        "melon_rank": null,
-        "melon_genz_rank": 32,
-        "ytmusic_rank": null
-      },
-      "jWYFI10cZfw": {
-        "hype_rank": 37,
-        "hype_index": 22.48,
-        "apple_rank": 55,
-        "melon_rank": 27,
-        "melon_genz_rank": 28,
-        "ytmusic_rank": null
-      },
-      "D3tUvbqOAAY": {
-        "hype_rank": 38,
-        "hype_index": 21.11,
-        "apple_rank": 39,
-        "melon_rank": 53,
-        "melon_genz_rank": 47,
-        "ytmusic_rank": null
-      },
-      "TEbPKeeJnlA": {
-        "hype_rank": 39,
-        "hype_index": 19.7,
-        "apple_rank": 84,
-        "melon_rank": null,
-        "melon_genz_rank": 33,
-        "ytmusic_rank": 55
-      },
-      "dgZlLjfh6q4": {
-        "hype_rank": 40,
-        "hype_index": 19.45,
-        "apple_rank": 69,
-        "melon_rank": null,
-        "melon_genz_rank": 29,
-        "ytmusic_rank": null
-      },
-      "GCkhFdMdGOY": {
-        "hype_rank": 41,
-        "hype_index": 18.62,
-        "apple_rank": 35,
-        "melon_rank": null,
-        "melon_genz_rank": 64,
-        "ytmusic_rank": null
-      },
-      "VZnfZ14fIig": {
-        "hype_rank": 42,
-        "hype_index": 18.26,
-        "apple_rank": 63,
-        "melon_rank": null,
-        "melon_genz_rank": 37,
-        "ytmusic_rank": null
-      },
-      "NwO0H2bUhSQ": {
-        "hype_rank": 43,
-        "hype_index": 18.13,
-        "apple_rank": null,
-        "melon_rank": null,
-        "melon_genz_rank": 23,
-        "ytmusic_rank": 78
-      },
-      "pERDk4KoW-s": {
-        "hype_rank": 44,
-        "hype_index": 17.87,
-        "apple_rank": 56,
-        "melon_rank": null,
-        "melon_genz_rank": 44,
-        "ytmusic_rank": null
-      },
-      "vrM2mrI83uk": {
-        "hype_rank": 45,
-        "hype_index": 17.84,
-        "apple_rank": 19,
-        "melon_rank": null,
-        "melon_genz_rank": null,
-        "ytmusic_rank": null
-      },
-      "QxGt54-oh1A": {
-        "hype_rank": 46,
-        "hype_index": 17.5,
-        "apple_rank": null,
-        "melon_rank": 14,
-        "melon_genz_rank": 59,
-        "ytmusic_rank": 12
-      },
-      "pJ-IGZKyfpU": {
-        "hype_rank": 47,
-        "hype_index": 17.07,
-        "apple_rank": 90,
-        "melon_rank": null,
-        "melon_genz_rank": 26,
-        "ytmusic_rank": null
-      },
-      "ZAsxW7bkK-A": {
-        "hype_rank": 48,
-        "hype_index": 17.05,
-        "apple_rank": 57,
-        "melon_rank": 45,
-        "melon_genz_rank": 86,
-        "ytmusic_rank": 28
-      },
-      "w0t18LgzTSA": {
-        "hype_rank": 49,
-        "hype_index": 16.99,
-        "apple_rank": 46,
-        "melon_rank": null,
-        "melon_genz_rank": null,
-        "ytmusic_rank": 29
-      },
-      "jCKcEoZrlJQ": {
-        "hype_rank": 50,
-        "hype_index": 16.61,
-        "apple_rank": 77,
-        "melon_rank": 46,
-        "melon_genz_rank": 34,
-        "ytmusic_rank": null
-      },
-      "7CUz7Ec7cWc": {
-        "hype_rank": 51,
-        "hype_index": 16.35,
-        "apple_rank": 23,
-        "melon_rank": null,
-        "melon_genz_rank": null,
-        "ytmusic_rank": null
-      },
-      "X0PUdt1gt5c": {
-        "hype_rank": 52,
-        "hype_index": 15.81,
-        "apple_rank": 76,
-        "melon_rank": null,
-        "melon_genz_rank": 49,
-        "ytmusic_rank": 66
-      },
-      "kdOS94IjzzE": {
-        "hype_rank": 53,
-        "hype_index": 15.66,
-        "apple_rank": 25,
-        "melon_rank": null,
-        "melon_genz_rank": null,
-        "ytmusic_rank": null
-      },
-      "7Eo-TAWu0oo": {
-        "hype_rank": 54,
-        "hype_index": 14.92,
-        "apple_rank": 33,
-        "melon_rank": 36,
-        "melon_genz_rank": 90,
-        "ytmusic_rank": null
-      },
-      "ghrlZIMDzbM": {
-        "hype_rank": 55,
-        "hype_index": 14.68,
-        "apple_rank": 28,
-        "melon_rank": 54,
-        "melon_genz_rank": null,
-        "ytmusic_rank": null
-      },
-      "aWkPBCF8rFU": {
-        "hype_rank": 56,
-        "hype_index": 14.37,
-        "apple_rank": 29,
-        "melon_rank": null,
-        "melon_genz_rank": null,
-        "ytmusic_rank": null
-      },
-      "TLftyCObb_E": {
-        "hype_rank": 57,
-        "hype_index": 14.28,
-        "apple_rank": null,
-        "melon_rank": 26,
-        "melon_genz_rank": 60,
-        "ytmusic_rank": 27
-      },
-      "r7Rn4ryE_w8": {
-        "hype_rank": 58,
-        "hype_index": 13.73,
-        "apple_rank": 40,
-        "melon_rank": null,
-        "melon_genz_rank": null,
-        "ytmusic_rank": 70
-      },
-      "HBqH4uJS0PU": {
-        "hype_rank": 59,
-        "hype_index": 13.47,
-        "apple_rank": 32,
-        "melon_rank": 62,
-        "melon_genz_rank": null,
-        "ytmusic_rank": null
-      },
-      "PGADim6UzHE": {
-        "hype_rank": 60,
-        "hype_index": 13.35,
-        "apple_rank": 52,
-        "melon_rank": null,
-        "melon_genz_rank": 70,
-        "ytmusic_rank": null
-      },
-      "IMWT6937uUs": {
-        "hype_rank": 61,
-        "hype_index": 12.63,
-        "apple_rank": 91,
-        "melon_rank": 42,
-        "melon_genz_rank": 41,
-        "ytmusic_rank": null
-      },
-      "LZWlP4kjEtw": {
-        "hype_rank": 62,
-        "hype_index": 12.42,
-        "apple_rank": 81,
-        "melon_rank": null,
-        "melon_genz_rank": 48,
-        "ytmusic_rank": null
-      },
-      "eqKhhG4FVoQ": {
-        "hype_rank": 63,
-        "hype_index": 12.34,
-        "apple_rank": 36,
-        "melon_rank": 89,
-        "melon_genz_rank": null,
-        "ytmusic_rank": null
-      },
-      "gjQwwWjxPaQ": {
-        "hype_rank": 64,
-        "hype_index": 12.26,
-        "apple_rank": 41,
-        "melon_rank": null,
-        "melon_genz_rank": null,
-        "ytmusic_rank": 85
-      },
-      "dYrIKmLLBbg": {
-        "hype_rank": 65,
-        "hype_index": 12.14,
-        "apple_rank": 44,
-        "melon_rank": null,
-        "melon_genz_rank": null,
-        "ytmusic_rank": 77
-      },
-      "aLUvL0mNQmY": {
-        "hype_rank": 66,
-        "hype_index": 11.97,
-        "apple_rank": null,
-        "melon_rank": 19,
-        "melon_genz_rank": 69,
-        "ytmusic_rank": 31
-      },
-      "HLTQoCRBfxc": {
-        "hype_rank": 67,
-        "hype_index": 11.8,
-        "apple_rank": null,
-        "melon_rank": null,
-        "melon_genz_rank": 38,
-        "ytmusic_rank": null
-      },
-      "D9IVOL9felk": {
-        "hype_rank": 68,
-        "hype_index": 11.54,
-        "apple_rank": null,
-        "melon_rank": 47,
-        "melon_genz_rank": 39,
-        "ytmusic_rank": null
-      },
-      "m-aWrIOP_3o": {
-        "hype_rank": 69,
-        "hype_index": 11.5,
-        "apple_rank": 45,
-        "melon_rank": null,
-        "melon_genz_rank": null,
-        "ytmusic_rank": 82
-      },
-      "gw9dm2tHf9k": {
-        "hype_rank": 70,
-        "hype_index": 11.42,
-        "apple_rank": 96,
-        "melon_rank": 94,
-        "melon_genz_rank": 62,
-        "ytmusic_rank": 53
-      },
-      "Gy32XOFT2ww": {
-        "hype_rank": 71,
-        "hype_index": 11.22,
-        "apple_rank": 78,
-        "melon_rank": 74,
-        "melon_genz_rank": null,
-        "ytmusic_rank": 26
-      },
-      "eNiPuDEUQpQ": {
-        "hype_rank": 72,
-        "hype_index": 10.71,
-        "apple_rank": null,
-        "melon_rank": 16,
-        "melon_genz_rank": 67,
-        "ytmusic_rank": 43
-      },
-      "proAJg4sVhM": {
-        "hype_rank": 73,
-        "hype_index": 10.53,
-        "apple_rank": 43,
-        "melon_rank": 99,
-        "melon_genz_rank": null,
-        "ytmusic_rank": null
-      },
-      "bLahVNBGdLQ": {
-        "hype_rank": 74,
-        "hype_index": 10.04,
-        "apple_rank": null,
-        "melon_rank": 34,
-        "melon_genz_rank": 45,
-        "ytmusic_rank": null
-      },
-      "KczYjTVrK_o": {
-        "hype_rank": 75,
-        "hype_index": 9.97,
-        "apple_rank": 87,
-        "melon_rank": 25,
-        "melon_genz_rank": 55,
-        "ytmusic_rank": null
-      },
-      "TfAiFxoXVlE": {
-        "hype_rank": 76,
-        "hype_index": 9.81,
-        "apple_rank": null,
-        "melon_rank": 22,
-        "melon_genz_rank": 83,
-        "ytmusic_rank": 30
-      },
-      "IhKjZk5AYRg": {
-        "hype_rank": 77,
-        "hype_index": 9.8,
-        "apple_rank": null,
-        "melon_rank": 24,
-        "melon_genz_rank": 46,
-        "ytmusic_rank": null
-      },
-      "to3sjq-CAvA": {
-        "hype_rank": 78,
-        "hype_index": 9.55,
-        "apple_rank": null,
-        "melon_rank": null,
-        "melon_genz_rank": null,
-        "ytmusic_rank": 16
-      },
-      "XfzE8ku3TCI": {
-        "hype_rank": 79,
-        "hype_index": 9.41,
-        "apple_rank": 99,
-        "melon_rank": null,
-        "melon_genz_rank": 50,
-        "ytmusic_rank": null
-      },
-      "HXV5aZaBLDo": {
-        "hype_rank": 80,
-        "hype_index": 9.34,
-        "apple_rank": 48,
-        "melon_rank": null,
-        "melon_genz_rank": null,
-        "ytmusic_rank": null
-      },
-      "7wJsfALKRR8": {
-        "hype_rank": 81,
-        "hype_index": 9.11,
-        "apple_rank": 49,
-        "melon_rank": null,
-        "melon_genz_rank": null,
-        "ytmusic_rank": null
-      },
-      "GV_HP7yoIyc": {
-        "hype_rank": 82,
-        "hype_index": 8.88,
-        "apple_rank": 50,
-        "melon_rank": null,
-        "melon_genz_rank": null,
-        "ytmusic_rank": null
-      },
-      "PJfZViVdOwM": {
-        "hype_rank": 83,
-        "hype_index": 8.66,
-        "apple_rank": null,
-        "melon_rank": null,
-        "melon_genz_rank": 51,
-        "ytmusic_rank": null
-      },
-      "fwNJdxUghcc": {
-        "hype_rank": 84,
-        "hype_index": 8.5,
-        "apple_rank": 93,
-        "melon_rank": 78,
-        "melon_genz_rank": 58,
-        "ytmusic_rank": null
-      },
-      "Yc4gp6oeN7k": {
-        "hype_rank": 85,
-        "hype_index": 8.44,
-        "apple_rank": 95,
-        "melon_rank": null,
-        "melon_genz_rank": 57,
-        "ytmusic_rank": null
-      },
-      "5USBozeR4eg": {
-        "hype_rank": 86,
-        "hype_index": 8.44,
-        "apple_rank": null,
-        "melon_rank": null,
-        "melon_genz_rank": 52,
-        "ytmusic_rank": null
-      },
-      "RwrZPCKLs2E": {
-        "hype_rank": 87,
-        "hype_index": 8.22,
-        "apple_rank": 53,
-        "melon_rank": null,
-        "melon_genz_rank": null,
-        "ytmusic_rank": null
-      },
-      "ib3hV9iyqsE": {
-        "hype_rank": 88,
-        "hype_index": 8.01,
-        "apple_rank": 54,
-        "melon_rank": null,
-        "melon_genz_rank": null,
-        "ytmusic_rank": null
-      },
-      "kh4hpnGs9iY": {
-        "hype_rank": 89,
-        "hype_index": 8.01,
-        "apple_rank": null,
-        "melon_rank": null,
-        "melon_genz_rank": 54,
-        "ytmusic_rank": null
-      },
-      "Cb0JZhdmjtg": {
-        "hype_rank": 90,
-        "hype_index": 8.0,
-        "apple_rank": null,
-        "melon_rank": null,
-        "melon_genz_rank": null,
-        "ytmusic_rank": 24
-      },
-      "dYnU0DZ_iQc": {
-        "hype_rank": 91,
-        "hype_index": 7.59,
-        "apple_rank": null,
-        "melon_rank": null,
-        "melon_genz_rank": 56,
-        "ytmusic_rank": null
-      },
-      "dTVCk33AQEs": {
-        "hype_rank": 92,
-        "hype_index": 6.98,
-        "apple_rank": 59,
-        "melon_rank": null,
-        "melon_genz_rank": null,
-        "ytmusic_rank": null
-      },
-      "Qye9VHIv6qM": {
-        "hype_rank": 93,
-        "hype_index": 6.73,
-        "apple_rank": null,
-        "melon_rank": null,
-        "melon_genz_rank": null,
-        "ytmusic_rank": 32
-      },
-      "HaEYUJ2aRHs": {
-        "hype_rank": 94,
-        "hype_index": 6.59,
-        "apple_rank": null,
-        "melon_rank": 70,
-        "melon_genz_rank": null,
-        "ytmusic_rank": 33
-      },
-      "TZHoqQnUbas": {
-        "hype_rank": 95,
-        "hype_index": 6.58,
-        "apple_rank": 61,
-        "melon_rank": null,
-        "melon_genz_rank": null,
-        "ytmusic_rank": null
-      },
-      "OdFVPP_Rcos": {
-        "hype_rank": 96,
-        "hype_index": 6.58,
-        "apple_rank": null,
-        "melon_rank": 32,
-        "melon_genz_rank": 61,
-        "ytmusic_rank": null
-      },
-      "2Kff0U8w-aU": {
-        "hype_rank": 97,
-        "hype_index": 6.39,
-        "apple_rank": 62,
-        "melon_rank": null,
-        "melon_genz_rank": null,
-        "ytmusic_rank": null
-      },
-      "DiTd771WumE": {
-        "hype_rank": 98,
-        "hype_index": 6.31,
-        "apple_rank": null,
-        "melon_rank": 50,
-        "melon_genz_rank": null,
-        "ytmusic_rank": 35
-      },
-      "08h8u8Z9iJQ": {
-        "hype_rank": 99,
-        "hype_index": 6.19,
-        "apple_rank": null,
-        "melon_rank": null,
-        "melon_genz_rank": 63,
-        "ytmusic_rank": null
-      },
-      "UtYBunDqp30": {
-        "hype_rank": 100,
-        "hype_index": 6.03,
-        "apple_rank": null,
-        "melon_rank": null,
-        "melon_genz_rank": null,
-        "ytmusic_rank": 37
-      },
-      "tkzYyEp4zB4": {
-        "hype_rank": 101,
-        "hype_index": 6.0,
-        "apple_rank": 64,
-        "melon_rank": null,
-        "melon_genz_rank": null,
-        "ytmusic_rank": null
-      },
-      "LKMCTq3ZfFk": {
-        "hype_rank": 102,
-        "hype_index": 5.97,
-        "apple_rank": 67,
-        "melon_rank": 95,
-        "melon_genz_rank": 99,
-        "ytmusic_rank": null
-      },
-      "vOfyxPRunFM": {
-        "hype_rank": 103,
-        "hype_index": 5.9,
-        "apple_rank": null,
-        "melon_rank": null,
-        "melon_genz_rank": null,
-        "ytmusic_rank": 38
-      },
-      "UJn-F2kPCaQ": {
-        "hype_rank": 104,
-        "hype_index": 5.77,
-        "apple_rank": null,
-        "melon_rank": null,
-        "melon_genz_rank": null,
-        "ytmusic_rank": 39
-      },
-      "LVcbpFaGc_o": {
-        "hype_rank": 105,
-        "hype_index": 5.74,
-        "apple_rank": 94,
-        "melon_rank": null,
-        "melon_genz_rank": null,
-        "ytmusic_rank": 49
-      },
-      "QX2dqXr8mOU": {
-        "hype_rank": 106,
-        "hype_index": 5.71,
-        "apple_rank": 85,
-        "melon_rank": null,
-        "melon_genz_rank": 80,
-        "ytmusic_rank": null
-      },
-      "4Uh-Pf02qeQ": {
-        "hype_rank": 107,
-        "hype_index": 5.7,
-        "apple_rank": null,
-        "melon_rank": null,
-        "melon_genz_rank": 73,
-        "ytmusic_rank": 84
-      },
-      "cvQQEs4TDGM": {
-        "hype_rank": 108,
-        "hype_index": 5.64,
-        "apple_rank": null,
-        "melon_rank": null,
-        "melon_genz_rank": null,
-        "ytmusic_rank": 40
-      },
-      "7mjg-7ibaQA": {
-        "hype_rank": 109,
-        "hype_index": 5.63,
-        "apple_rank": 66,
-        "melon_rank": null,
-        "melon_genz_rank": null,
-        "ytmusic_rank": null
-      },
-      "N4N8nam2QbI": {
-        "hype_rank": 110,
-        "hype_index": 5.63,
-        "apple_rank": null,
-        "melon_rank": 77,
-        "melon_genz_rank": 66,
-        "ytmusic_rank": null
-      },
-      "zuO2fClon98": {
-        "hype_rank": 111,
-        "hype_index": 5.51,
-        "apple_rank": null,
-        "melon_rank": null,
-        "melon_genz_rank": null,
-        "ytmusic_rank": 41
-      },
-      "oZ61Le_JdVY": {
-        "hype_rank": 112,
-        "hype_index": 5.39,
-        "apple_rank": null,
-        "melon_rank": null,
-        "melon_genz_rank": null,
-        "ytmusic_rank": 42
-      },
-      "t8P-zdkoeJA": {
-        "hype_rank": 113,
-        "hype_index": 5.35,
-        "apple_rank": 97,
-        "melon_rank": 52,
-        "melon_genz_rank": 72,
-        "ytmusic_rank": null
-      },
-      "8yXGI3kcLsw": {
-        "hype_rank": 114,
-        "hype_index": 5.26,
-        "apple_rank": 68,
-        "melon_rank": null,
-        "melon_genz_rank": null,
-        "ytmusic_rank": null
-      },
-      "-9fC6oDFl5k": {
-        "hype_rank": 115,
-        "hype_index": 5.26,
-        "apple_rank": null,
-        "melon_rank": 23,
-        "melon_genz_rank": 68,
-        "ytmusic_rank": null
-      },
-      "yuH4OnvoADU": {
-        "hype_rank": 116,
-        "hype_index": 5.26,
-        "apple_rank": null,
-        "melon_rank": null,
-        "melon_genz_rank": 77,
-        "ytmusic_rank": 81
-      },
-      "sEA5NGU7KW4": {
-        "hype_rank": 117,
-        "hype_index": 5.02,
-        "apple_rank": null,
-        "melon_rank": null,
-        "melon_genz_rank": null,
-        "ytmusic_rank": 45
-      },
-      "jaTPb7JJUt8": {
-        "hype_rank": 118,
-        "hype_index": 4.91,
-        "apple_rank": 70,
-        "melon_rank": null,
-        "melon_genz_rank": null,
-        "ytmusic_rank": null
-      },
-      "QJa8TKXNavc": {
-        "hype_rank": 119,
-        "hype_index": 4.9,
-        "apple_rank": null,
-        "melon_rank": null,
-        "melon_genz_rank": null,
-        "ytmusic_rank": 46
-      },
-      "QmJbHPYx97M": {
-        "hype_rank": 120,
-        "hype_index": 4.78,
-        "apple_rank": null,
-        "melon_rank": null,
-        "melon_genz_rank": null,
-        "ytmusic_rank": 47
-      },
-      "5C-UzW1FLiA": {
-        "hype_rank": 121,
-        "hype_index": 4.73,
-        "apple_rank": 71,
-        "melon_rank": null,
-        "melon_genz_rank": null,
-        "ytmusic_rank": null
-      },
-      "e6-TxMisjh8": {
-        "hype_rank": 122,
-        "hype_index": 4.73,
-        "apple_rank": null,
-        "melon_rank": 96,
-        "melon_genz_rank": 71,
-        "ytmusic_rank": null
-      },
-      "12ELDQy3IUc": {
-        "hype_rank": 123,
-        "hype_index": 4.67,
-        "apple_rank": null,
-        "melon_rank": 73,
-        "melon_genz_rank": null,
-        "ytmusic_rank": 48
-      },
-      "oplra1FJxWI": {
-        "hype_rank": 124,
-        "hype_index": 4.62,
-        "apple_rank": 100,
-        "melon_rank": null,
-        "melon_genz_rank": null,
-        "ytmusic_rank": 52
-      },
-      "-BX7DpABCbE": {
-        "hype_rank": 125,
-        "hype_index": 4.56,
-        "apple_rank": 72,
-        "melon_rank": null,
-        "melon_genz_rank": null,
-        "ytmusic_rank": null
-      },
-      "DMcRIihAq9Q": {
-        "hype_rank": 126,
-        "hype_index": 4.44,
-        "apple_rank": null,
-        "melon_rank": null,
-        "melon_genz_rank": null,
-        "ytmusic_rank": 50
-      },
-      "3YSfRCtZ-AY": {
-        "hype_rank": 127,
-        "hype_index": 4.33,
-        "apple_rank": null,
-        "melon_rank": null,
-        "melon_genz_rank": null,
-        "ytmusic_rank": 51
-      },
-      "Krr2u8BUtLw": {
-        "hype_rank": 128,
-        "hype_index": 4.22,
-        "apple_rank": 74,
-        "melon_rank": null,
-        "melon_genz_rank": null,
-        "ytmusic_rank": null
-      },
-      "fsYE8vJRTj4": {
-        "hype_rank": 129,
-        "hype_index": 4.22,
-        "apple_rank": null,
-        "melon_rank": null,
-        "melon_genz_rank": 74,
-        "ytmusic_rank": null
-      },
-      "s5oSscNIyIs": {
-        "hype_rank": 130,
-        "hype_index": 4.05,
-        "apple_rank": 75,
-        "melon_rank": null,
-        "melon_genz_rank": null,
-        "ytmusic_rank": null
-      },
-      "29lj9jFfJvY": {
-        "hype_rank": 131,
-        "hype_index": 4.05,
-        "apple_rank": null,
-        "melon_rank": 29,
-        "melon_genz_rank": 75,
-        "ytmusic_rank": null
-      },
-      "VnJSlzKW-Is": {
-        "hype_rank": 132,
-        "hype_index": 4.0,
-        "apple_rank": null,
-        "melon_rank": null,
-        "melon_genz_rank": null,
-        "ytmusic_rank": 54
-      },
-      "H4mB3mxPTrQ": {
-        "hype_rank": 133,
-        "hype_index": 3.88,
-        "apple_rank": null,
-        "melon_rank": null,
-        "melon_genz_rank": 76,
-        "ytmusic_rank": null
-      },
-      "_QAsLRbNfuI": {
-        "hype_rank": 134,
-        "hype_index": 3.79,
-        "apple_rank": null,
-        "melon_rank": null,
-        "melon_genz_rank": null,
-        "ytmusic_rank": 56
-      },
-      "AFpImN9O4bY": {
-        "hype_rank": 135,
-        "hype_index": 3.69,
-        "apple_rank": null,
-        "melon_rank": null,
-        "melon_genz_rank": null,
-        "ytmusic_rank": 57
-      },
-      "5xJFMN1KQko": {
-        "hype_rank": 136,
-        "hype_index": 3.64,
-        "apple_rank": null,
-        "melon_rank": null,
-        "melon_genz_rank": 84,
-        "ytmusic_rank": 88
-      },
-      "gTG9evSpuWg": {
-        "hype_rank": 137,
-        "hype_index": 3.64,
-        "apple_rank": null,
-        "melon_rank": null,
-        "melon_genz_rank": 96,
-        "ytmusic_rank": 67
-      },
-      "k7D4i1ILCCk": {
-        "hype_rank": 138,
-        "hype_index": 3.59,
-        "apple_rank": null,
-        "melon_rank": null,
-        "melon_genz_rank": null,
-        "ytmusic_rank": 58
-      },
-      "XfEMj-z3TtA": {
-        "hype_rank": 139,
-        "hype_index": 3.56,
-        "apple_rank": null,
-        "melon_rank": null,
-        "melon_genz_rank": 78,
-        "ytmusic_rank": null
-      },
-      "QnqVpRDaQ90": {
-        "hype_rank": 140,
-        "hype_index": 3.49,
-        "apple_rank": null,
-        "melon_rank": null,
-        "melon_genz_rank": null,
-        "ytmusic_rank": 59
-      },
-      "VNLUaTxDs_4": {
-        "hype_rank": 141,
-        "hype_index": 3.4,
-        "apple_rank": 79,
-        "melon_rank": null,
-        "melon_genz_rank": null,
-        "ytmusic_rank": null
-      },
-      "l-H4QHLC-Uc": {
-        "hype_rank": 142,
-        "hype_index": 3.4,
-        "apple_rank": null,
-        "melon_rank": 33,
-        "melon_genz_rank": 79,
-        "ytmusic_rank": null
-      },
-      "Z5LPrVc1MtU": {
-        "hype_rank": 143,
-        "hype_index": 3.39,
-        "apple_rank": null,
-        "melon_rank": null,
-        "melon_genz_rank": null,
-        "ytmusic_rank": 60
-      },
-      "UkrtPom_3Q0": {
-        "hype_rank": 144,
-        "hype_index": 3.29,
-        "apple_rank": null,
-        "melon_rank": null,
-        "melon_genz_rank": null,
-        "ytmusic_rank": 61
-      },
-      "8QFM8Ews68c": {
-        "hype_rank": 145,
-        "hype_index": 3.24,
-        "apple_rank": 80,
-        "melon_rank": null,
-        "melon_genz_rank": null,
-        "ytmusic_rank": null
-      },
-      "sNAEQyGMt-A": {
-        "hype_rank": 146,
-        "hype_index": 3.19,
-        "apple_rank": null,
-        "melon_rank": null,
-        "melon_genz_rank": null,
-        "ytmusic_rank": 62
-      },
-      "cfhwSpSDA9c": {
-        "hype_rank": 147,
-        "hype_index": 3.1,
-        "apple_rank": null,
-        "melon_rank": null,
-        "melon_genz_rank": null,
-        "ytmusic_rank": 63
-      },
-      "RZMp2kQObCs": {
-        "hype_rank": 148,
-        "hype_index": 3.08,
-        "apple_rank": null,
-        "melon_rank": 28,
-        "melon_genz_rank": 81,
-        "ytmusic_rank": null
-      },
-      "BD3MbtUBuTM": {
-        "hype_rank": 149,
-        "hype_index": 3.0,
-        "apple_rank": null,
-        "melon_rank": null,
-        "melon_genz_rank": null,
-        "ytmusic_rank": 64
-      },
-      "0M4QMVQJRsw": {
-        "hype_rank": 150,
-        "hype_index": 2.93,
-        "apple_rank": 82,
-        "melon_rank": null,
-        "melon_genz_rank": null,
-        "ytmusic_rank": null
-      },
-      "O4ZZJ_ek2gs": {
-        "hype_rank": 151,
-        "hype_index": 2.93,
-        "apple_rank": null,
-        "melon_rank": null,
-        "melon_genz_rank": 82,
-        "ytmusic_rank": null
-      },
-      "ORqWQi3hm_k": {
-        "hype_rank": 152,
-        "hype_index": 2.91,
-        "apple_rank": null,
-        "melon_rank": null,
-        "melon_genz_rank": null,
-        "ytmusic_rank": 65
-      },
-      "4ZHxBEDHTFg": {
-        "hype_rank": 153,
-        "hype_index": 2.77,
-        "apple_rank": 83,
-        "melon_rank": null,
-        "melon_genz_rank": null,
-        "ytmusic_rank": null
-      },
-      "aGwmkWxALiw": {
-        "hype_rank": 154,
-        "hype_index": 2.63,
-        "apple_rank": null,
-        "melon_rank": null,
-        "melon_genz_rank": null,
-        "ytmusic_rank": 68
-      },
-      "QLopiRM51TA": {
-        "hype_rank": 155,
-        "hype_index": 2.54,
-        "apple_rank": null,
-        "melon_rank": null,
-        "melon_genz_rank": null,
-        "ytmusic_rank": 69
-      },
-      "ZcHRydIz0eM": {
-        "hype_rank": 156,
-        "hype_index": 2.47,
-        "apple_rank": null,
-        "melon_rank": 38,
-        "melon_genz_rank": 85,
-        "ytmusic_rank": null
-      },
-      "oQY1UeoEp-0": {
-        "hype_rank": 157,
-        "hype_index": 2.37,
-        "apple_rank": null,
-        "melon_rank": null,
-        "melon_genz_rank": null,
-        "ytmusic_rank": 71
-      },
-      "YNppT8Y7IKU": {
-        "hype_rank": 158,
-        "hype_index": 2.32,
-        "apple_rank": 86,
-        "melon_rank": null,
-        "melon_genz_rank": null,
-        "ytmusic_rank": null
-      },
-      "OjoLYGcbJcI": {
-        "hype_rank": 159,
-        "hype_index": 2.28,
-        "apple_rank": null,
-        "melon_rank": null,
-        "melon_genz_rank": null,
-        "ytmusic_rank": 72
-      },
-      "Zae9tJyV-J4": {
-        "hype_rank": 160,
-        "hype_index": 2.19,
-        "apple_rank": null,
-        "melon_rank": null,
-        "melon_genz_rank": null,
-        "ytmusic_rank": 73
-      },
-      "mLwfuskNDOo": {
-        "hype_rank": 161,
-        "hype_index": 2.18,
-        "apple_rank": null,
-        "melon_rank": null,
-        "melon_genz_rank": 87,
-        "ytmusic_rank": null
-      },
-      "ga-D8JKAs58": {
-        "hype_rank": 162,
-        "hype_index": 2.11,
-        "apple_rank": null,
-        "melon_rank": null,
-        "melon_genz_rank": null,
-        "ytmusic_rank": 74
-      },
-      "pzJjpzayczc": {
-        "hype_rank": 163,
-        "hype_index": 2.03,
-        "apple_rank": 88,
-        "melon_rank": null,
-        "melon_genz_rank": null,
-        "ytmusic_rank": null
-      },
-      "lPz47_lK574": {
-        "hype_rank": 164,
-        "hype_index": 2.03,
-        "apple_rank": null,
-        "melon_rank": null,
-        "melon_genz_rank": 88,
-        "ytmusic_rank": null
-      },
-      "g4pDuadNyzo": {
-        "hype_rank": 165,
-        "hype_index": 2.03,
-        "apple_rank": null,
-        "melon_rank": null,
-        "melon_genz_rank": null,
-        "ytmusic_rank": 75
-      },
-      "uPSZqQ0gpqc": {
-        "hype_rank": 166,
-        "hype_index": 1.94,
-        "apple_rank": null,
-        "melon_rank": null,
-        "melon_genz_rank": null,
-        "ytmusic_rank": 76
-      },
-      "AzS4LokpHmg": {
-        "hype_rank": 167,
-        "hype_index": 1.89,
-        "apple_rank": 89,
-        "melon_rank": null,
-        "melon_genz_rank": null,
-        "ytmusic_rank": null
-      },
-      "HMQlkbXjSTM": {
-        "hype_rank": 168,
-        "hype_index": 1.89,
-        "apple_rank": null,
-        "melon_rank": 44,
-        "melon_genz_rank": 89,
-        "ytmusic_rank": null
-      },
-      "kjNGAVT_ySg": {
-        "hype_rank": 169,
-        "hype_index": 1.7,
-        "apple_rank": null,
-        "melon_rank": null,
-        "melon_genz_rank": null,
-        "ytmusic_rank": 79
-      },
-      "XsUv4WoptVE": {
-        "hype_rank": 170,
-        "hype_index": 1.62,
-        "apple_rank": null,
-        "melon_rank": null,
-        "melon_genz_rank": null,
-        "ytmusic_rank": 80
-      },
-      "MR2ela9evnk": {
-        "hype_rank": 171,
-        "hype_index": 1.6,
-        "apple_rank": null,
-        "melon_rank": null,
-        "melon_genz_rank": 91,
-        "ytmusic_rank": null
-      },
-      "cgJAmkE_j7U": {
-        "hype_rank": 172,
-        "hype_index": 1.46,
-        "apple_rank": 92,
-        "melon_rank": null,
-        "melon_genz_rank": null,
-        "ytmusic_rank": null
-      },
-      "cZL7mpzVpgI": {
-        "hype_rank": 173,
-        "hype_index": 1.46,
-        "apple_rank": null,
-        "melon_rank": null,
-        "melon_genz_rank": 92,
-        "ytmusic_rank": null
-      },
-      "jZqTz1G8G04": {
-        "hype_rank": 174,
-        "hype_index": 1.39,
-        "apple_rank": null,
-        "melon_rank": null,
-        "melon_genz_rank": null,
-        "ytmusic_rank": 83
-      },
-      "PBp8c0qCKno": {
-        "hype_rank": 175,
-        "hype_index": 1.33,
-        "apple_rank": null,
-        "melon_rank": 43,
-        "melon_genz_rank": 93,
-        "ytmusic_rank": null
-      },
-      "ViDjwX-yfgc": {
-        "hype_rank": 176,
-        "hype_index": 1.19,
-        "apple_rank": null,
-        "melon_rank": 66,
-        "melon_genz_rank": 94,
-        "ytmusic_rank": null
-      },
-      "rE4ma9cef20": {
-        "hype_rank": 177,
-        "hype_index": 1.16,
-        "apple_rank": null,
-        "melon_rank": null,
-        "melon_genz_rank": null,
-        "ytmusic_rank": 86
-      },
-      "VX7w5fwdMkI": {
-        "hype_rank": 178,
-        "hype_index": 1.05,
-        "apple_rank": null,
-        "melon_rank": null,
-        "melon_genz_rank": 95,
-        "ytmusic_rank": null
-      },
-      "UCPwHlZ2EDI": {
-        "hype_rank": 179,
-        "hype_index": 0.94,
-        "apple_rank": null,
-        "melon_rank": null,
-        "melon_genz_rank": null,
-        "ytmusic_rank": 89
-      },
-      "QT60l6MSoz8": {
-        "hype_rank": 180,
-        "hype_index": 0.87,
-        "apple_rank": null,
-        "melon_rank": null,
-        "melon_genz_rank": null,
-        "ytmusic_rank": 90
-      },
-      "_oTaQXf_iX8": {
-        "hype_rank": 181,
-        "hype_index": 0.8,
-        "apple_rank": null,
-        "melon_rank": null,
-        "melon_genz_rank": null,
-        "ytmusic_rank": 91
-      },
-      "6d-ygS1tKuU": {
-        "hype_rank": 182,
-        "hype_index": 0.79,
-        "apple_rank": null,
-        "melon_rank": null,
-        "melon_genz_rank": 97,
-        "ytmusic_rank": null
-      },
-      "j1DnOm0DdQU": {
-        "hype_rank": 183,
-        "hype_index": 0.73,
-        "apple_rank": null,
-        "melon_rank": null,
-        "melon_genz_rank": null,
-        "ytmusic_rank": 92
-      },
-      "8QWtOgBJZNc": {
-        "hype_rank": 184,
-        "hype_index": 0.66,
-        "apple_rank": 98,
-        "melon_rank": null,
-        "melon_genz_rank": null,
-        "ytmusic_rank": null
-      },
-      "r6Eei81SuqE": {
-        "hype_rank": 185,
-        "hype_index": 0.66,
-        "apple_rank": null,
-        "melon_rank": 31,
-        "melon_genz_rank": 98,
-        "ytmusic_rank": null
-      },
-      "sJlGEc-kyrU": {
-        "hype_rank": 186,
-        "hype_index": 0.66,
-        "apple_rank": null,
-        "melon_rank": null,
-        "melon_genz_rank": null,
-        "ytmusic_rank": 93
-      },
-      "wt2qlecXbUc": {
-        "hype_rank": 187,
-        "hype_index": 0.59,
-        "apple_rank": null,
-        "melon_rank": null,
-        "melon_genz_rank": null,
-        "ytmusic_rank": 94
-      },
-      "c70TkZH7fr0": {
-        "hype_rank": 188,
-        "hype_index": 0.53,
-        "apple_rank": null,
-        "melon_rank": null,
-        "melon_genz_rank": null,
-        "ytmusic_rank": 95
-      },
-      "J3-oRJ606Jw": {
-        "hype_rank": 189,
-        "hype_index": 0.46,
-        "apple_rank": null,
-        "melon_rank": null,
-        "melon_genz_rank": null,
-        "ytmusic_rank": 96
-      },
-      "jcKUEQMCqYc": {
-        "hype_rank": 190,
-        "hype_index": 0.39,
-        "apple_rank": null,
-        "melon_rank": null,
-        "melon_genz_rank": null,
-        "ytmusic_rank": 97
-      },
-      "0Z9Li1g-oUc": {
-        "hype_rank": 191,
-        "hype_index": 0.33,
-        "apple_rank": null,
-        "melon_rank": null,
-        "melon_genz_rank": null,
-        "ytmusic_rank": 98
-      },
-      "qQ8BBgJFPWU": {
-        "hype_rank": 192,
-        "hype_index": 0.26,
-        "apple_rank": null,
-        "melon_rank": null,
-        "melon_genz_rank": null,
-        "ytmusic_rank": 99
-      },
-      "23U2t6ecnFQ": {
-        "hype_rank": 193,
         "hype_index": 0.2,
         "apple_rank": null,
         "melon_rank": null,
