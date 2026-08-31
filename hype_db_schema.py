@@ -165,7 +165,6 @@ def ensure_postgres_indexes(raw_conn: Any) -> None:
         "idx_match_attempts_video": ("match_attempts", "CREATE INDEX IF NOT EXISTS idx_match_attempts_video ON match_attempts(video_id)"),
         "idx_match_attempts_created_at": ("match_attempts", "CREATE INDEX IF NOT EXISTS idx_match_attempts_created_at ON match_attempts(created_at)"),
         "idx_match_candidates_created_at": ("match_candidates", "CREATE INDEX IF NOT EXISTS idx_match_candidates_created_at ON match_candidates(created_at)"),
-        "idx_playlist_update_items_run": ("playlist_update_items", "CREATE INDEX IF NOT EXISTS idx_playlist_update_items_run ON playlist_update_items(update_run_id)"),
     }
     with raw_conn.cursor() as cursor:
         cursor.execute(

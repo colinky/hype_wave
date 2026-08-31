@@ -4,6 +4,7 @@ import hashlib
 import logging
 import os
 import sqlite3
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any, Iterable
 
@@ -1672,10 +1673,25 @@ def record_playlist_update(
     existing = [v for v in existing_video_ids if v]
     job_name = require_job_name(job_name)
     now = utc_now_iso()
+    item_retention_cutoff = (
+        datetime.fromisoformat(now) - timedelta(days=31)
+    ).isoformat()
     run_id = hashlib.sha1(
         f"{playlist_id}|{service}|{job_name}|{now}|{len(requested)}".encode("utf-8")
     ).hexdigest()
     with connect(db_path) as conn:
+        if type(conn).__name__ == "PostgresConnectionWrapper":
+            conn.execute(
+                "DELETE FROM playlist_update_items "
+                "WHERE created_at::timestamptz < CAST(? AS timestamptz)",
+                (item_retention_cutoff,),
+            )
+        else:
+            conn.execute(
+                "DELETE FROM playlist_update_items "
+                "WHERE datetime(created_at) < datetime(?)",
+                (item_retention_cutoff,),
+            )
         conn.execute(
             """
             INSERT INTO playlist_update_runs(
