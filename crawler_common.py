@@ -49,6 +49,9 @@ def process_matching_pipeline(
     if raw_tracks is None:
         raw_tracks = all_tracks
 
+    def korean_track_for(track: SourceTrack) -> SourceTrack | None:
+        return tracks_ko_map.get(track.song_id) or tracks_ko_map.get(str(track.rank))
+
     LOG.info(
         "Matching settings: min_score=%.2f min_title_score=%.2f min_artist_score=%.2f search_limit=%d",
         min_score,
@@ -64,6 +67,15 @@ def process_matching_pipeline(
     with connect(db_path) as conn:
         if not dry_run:
             try:
+                localized_raw_tracks: list[SourceTrack | dict[str, Any]] = []
+                for track in raw_tracks:
+                    track_ko = korean_track_for(track)
+                    if not track_ko:
+                        localized_raw_tracks.append(track)
+                        continue
+                    row = vars(track).copy()
+                    row.update(localized_source_fields(track, track_ko))
+                    localized_raw_tracks.append(row)
                 persist_crawled_tracks(
                     db_path,
                     service=service,
@@ -71,7 +83,7 @@ def process_matching_pipeline(
                     source_variant=source_variant,
                     chart_date=update_date_str,
                     reference_period=reference_period or chart_period,
-                    tracks=raw_tracks,
+                    tracks=localized_raw_tracks,
                     conn=conn,
                     commit=False,
                 )
@@ -98,7 +110,7 @@ def process_matching_pipeline(
 
         for track in all_tracks:
             # Get Korean fallback track if available
-            track_ko = tracks_ko_map.get(track.song_id) or tracks_ko_map.get(str(track.rank))
+            track_ko = korean_track_for(track)
 
             # Check cache first
             match = None

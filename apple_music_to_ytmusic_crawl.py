@@ -57,6 +57,10 @@ OFFICIAL_KR_LIMITS = {"KR-Top-100": 100, "KR-Top-Songs": 200}
 LOG = logging.getLogger("apple_music_to_ytmusic_crawl")
 
 
+class AppleLocalizationError(RuntimeError):
+    pass
+
+
 def fetch_html(url: str) -> str:
     headers = {
         "User-Agent": (
@@ -169,6 +173,7 @@ def _fetch_song_resource_map(
     song_ids: list[str],
     locale: str,
     equivalents: bool = False,
+    strict: bool = False,
 ) -> dict[str, dict[str, Any]]:
     """Fetch song resources keyed by the input storefront ID."""
     resources: dict[str, dict[str, Any]] = {}
@@ -192,6 +197,8 @@ def _fetch_song_resource_map(
                 len(chunk),
                 exc,
             )
+            if strict:
+                raise
             continue
 
         returned = {
@@ -214,6 +221,51 @@ def _fetch_song_resource_map(
                 if equivalent_id in returned:
                     resources[source_id] = returned[equivalent_id]
                     break
+    return resources
+
+
+def _fetch_song_resources_by_isrc(
+    token: str,
+    *,
+    storefront: str,
+    isrcs: list[str],
+    locale: str,
+    strict: bool = False,
+) -> dict[str, dict[str, Any]]:
+    """Fetch catalog songs keyed by exact ISRC (Apple accepts at most 25 per request)."""
+    resources: dict[str, dict[str, Any]] = {}
+    normalized_isrcs = list(
+        dict.fromkeys(str(isrc or "").strip().upper() for isrc in isrcs if isrc)
+    )
+    for start in range(0, len(normalized_isrcs), 25):
+        chunk = normalized_isrcs[start : start + 25]
+        query = urlencode(
+            {"filter[isrc]": ",".join(chunk), "l": locale, "limit": "25"}
+        )
+        url = f"https://api.music.apple.com/v1/catalog/{storefront}/songs?{query}"
+        try:
+            response = http_session.get(
+                url,
+                headers=_apple_api_headers(token),
+                timeout=30,
+            )
+            response.raise_for_status()
+            payload = response.json()
+        except Exception as exc:
+            LOG.warning(
+                "Apple %s exact-ISRC enrichment failed for %d ISRCs: %s",
+                storefront,
+                len(chunk),
+                exc,
+            )
+            if strict:
+                raise
+            continue
+
+        for item in payload.get("data", []):
+            isrc = str((item.get("attributes") or {}).get("isrc") or "").strip().upper()
+            if isrc in chunk:
+                resources.setdefault(isrc, item)
     return resources
 
 
@@ -273,6 +325,7 @@ def _localized_tracks_from_items(
         storefront="kr",
         song_ids=song_ids,
         locale="ko-KR",
+        strict=True,
     )
     kr_attrs = {
         song_id: _merge_attributes(
@@ -282,25 +335,80 @@ def _localized_tracks_from_items(
         for song_id in song_ids
     }
 
-    en_resources = _fetch_song_resource_map(
-        token,
-        storefront="kr",
-        song_ids=song_ids,
-        locale="en-US",
-    )
-    missing_en_ids = [
-        song_id
-        for song_id in song_ids
-        if not str(
-            en_resources.get(song_id, {}).get("attributes", {}).get("name") or ""
-        ).strip()
-    ]
     equivalent_en = _fetch_song_resource_map(
         token,
         storefront="us",
-        song_ids=missing_en_ids,
+        song_ids=song_ids,
         locale="en-US",
         equivalents=True,
+        strict=True,
+    )
+
+    source_isrcs = {
+        song_id: str(kr_attrs.get(song_id, {}).get("isrc") or "").strip().upper()
+        for song_id in song_ids
+    }
+    exact_lookup_isrcs = [
+        source_isrc
+        for song_id, source_isrc in source_isrcs.items()
+        if source_isrc
+        and (
+            source_isrc
+            != str(
+                (equivalent_en.get(song_id, {}).get("attributes") or {}).get("isrc")
+                or ""
+            )
+            .strip()
+            .upper()
+            or not str(
+                (equivalent_en.get(song_id, {}).get("attributes") or {}).get("name")
+                or ""
+            ).strip()
+        )
+    ]
+    exact_en = (
+        _fetch_song_resources_by_isrc(
+            token,
+            storefront="us",
+            isrcs=exact_lookup_isrcs,
+            locale="en-US",
+            strict=True,
+        )
+        if exact_lookup_isrcs
+        else {}
+    )
+
+    english_by_id: dict[str, dict[str, Any]] = {}
+    english_source_by_id: dict[str, str] = {}
+    equivalent_count = 0
+    exact_isrc_count = 0
+    for song_id in song_ids:
+        source_isrc = source_isrcs.get(song_id, "")
+        equivalent = equivalent_en.get(song_id)
+        equivalent_isrc = str(
+            (equivalent or {}).get("attributes", {}).get("isrc") or ""
+        ).strip().upper()
+        equivalent_title = str(
+            (equivalent or {}).get("attributes", {}).get("name") or ""
+        ).strip()
+        exact = exact_en.get(source_isrc)
+        exact_title = str((exact or {}).get("attributes", {}).get("name") or "").strip()
+        if source_isrc and equivalent_isrc == source_isrc and equivalent_title:
+            english_by_id[song_id] = equivalent
+            english_source_by_id[song_id] = f"{source}_us_equivalent"
+            equivalent_count += 1
+        elif source_isrc and exact_title:
+            english_by_id[song_id] = exact
+            english_source_by_id[song_id] = f"{source}_us_isrc"
+            exact_isrc_count += 1
+
+    LOG.info(
+        "Apple localization: ko=%d/%d us_equivalent=%d exact_isrc=%d ko_fallback=%d",
+        sum(bool(str(attrs.get("name") or "").strip()) for attrs in kr_attrs.values()),
+        len(song_ids),
+        equivalent_count,
+        exact_isrc_count,
+        len(song_ids) - len(english_by_id),
     )
 
     tracks: list[SourceTrack] = []
@@ -314,7 +422,7 @@ def _localized_tracks_from_items(
 
         song_id = str(item.get("id") or "")
         korean = kr_attrs.get(song_id, item.get("attributes") or {})
-        english_resource = en_resources.get(song_id) or equivalent_en.get(song_id)
+        english_resource = english_by_id.get(song_id)
         english = english_resource.get("attributes", {}) if english_resource else {}
         use_english = bool(str(english.get("name") or "").strip())
         primary = english if use_english else korean
@@ -339,13 +447,7 @@ def _localized_tracks_from_items(
             service="apple",
             album=str(primary.get("albumName") or "").strip(),
             song_id=song_id,
-            source=(
-                f"{source}_en"
-                if song_id in en_resources and use_english
-                else f"{source}_us_equivalent"
-                if use_english
-                else f"{source}_kr_fallback"
-            ),
+            source=english_source_by_id.get(song_id, f"{source}_kr_fallback"),
             artwork_url=format_artwork_url(
                 (primary.get("artwork") or {}).get("url", ""), 100
             ),
@@ -605,12 +707,19 @@ def fetch_apple_tracks(
                 else:
                     tracks_url = None
 
-            tracks, tracks_ko_map = _localized_tracks_from_items(
-                api_tracks,
-                token=token,
-                source="apple_web_playlist_api",
-                authoritative_storefront=storefront,
-            )
+            try:
+                tracks, tracks_ko_map = _localized_tracks_from_items(
+                    api_tracks,
+                    token=token,
+                    source="apple_web_playlist_api",
+                    authoritative_storefront=storefront,
+                )
+            except Exception as exc:
+                if storefront.lower() == "kr":
+                    raise AppleLocalizationError(
+                        "Apple bilingual metadata enrichment failed"
+                    ) from exc
+                raise
             if tracks:
                 LOG.info(
                     "Successfully fetched %d tracks via Apple Music playlist API (source: apple_web_playlist_api)",
@@ -623,6 +732,8 @@ def fetch_apple_tracks(
                     "apple_web_playlist_api",
                     tracks_ko_map,
                 )
+        except AppleLocalizationError:
+            raise
         except Exception as exc:
             LOG.warning("Failed to fetch tracks via playlist API, falling back to page parsing: %s", exc)
 
