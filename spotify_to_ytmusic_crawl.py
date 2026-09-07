@@ -605,7 +605,7 @@ def main() -> int:
         args.use_musicbrainz if args.use_musicbrainz is not None else os.environ.get("USE_MUSICBRAINZ"),
         default=False,
     )
-    started_at = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    started_at = os.environ.get("HYPE_MATCH_STARTED_AT") or datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
 
     kst_now = datetime.now(timezone.utc).astimezone(timezone(timedelta(hours=9)))
     update_date_str = kst_now.strftime("%Y-%m-%d")

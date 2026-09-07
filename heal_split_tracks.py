@@ -22,11 +22,11 @@ from __future__ import annotations
 
 import argparse
 import logging
-from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
 from hype_db_common import clean_track_title, compact_metadata_key, metadata_key, strip_parens_from_title
+from hype_db_store import _merge_track_uids, _metadata_rows_equivalent, _track_metadata_rows
 
 logging.basicConfig(
     level=logging.INFO,
@@ -40,7 +40,25 @@ LOG = logging.getLogger("heal_split_tracks")
 # Core healing logic
 # ---------------------------------------------------------------------------
 
-def find_canonical_uid(conn: Any, title: str, artist: str) -> str | None:
+def _canonical_metadata_matches(
+    conn: Any,
+    track_uid: str,
+    title: str,
+    artist: str,
+    album: str = "",
+) -> bool:
+    incoming = {"title": title, "artist": artist, "album": album}
+    candidates = _track_metadata_rows(conn, track_uid)
+    track = conn.execute(
+        "SELECT yt_title AS title, yt_artist AS artist, yt_album AS album FROM tracks WHERE track_uid = ?",
+        (track_uid,),
+    ).fetchone()
+    if track:
+        candidates.append(dict(track))
+    return any(_metadata_rows_equivalent(incoming, candidate) for candidate in candidates)
+
+
+def find_canonical_uid(conn: Any, title: str, artist: str, album: str = "") -> str | None:
     """Search metadata_lookup_index for a canonical track using cleaned title."""
     cleaned = clean_track_title(title)
     # Try original then cleaned title
@@ -60,7 +78,7 @@ def find_canonical_uid(conn: Any, title: str, artist: str) -> str | None:
             "WHERE mi.lookup_key = ? AND t.canonical_yt_video_id IS NOT NULL AND t.canonical_yt_video_id != ''",
             (key,),
         ).fetchone()
-        if row:
+        if row and _canonical_metadata_matches(conn, row[0], title, artist, album):
             return row[0]
     # Fallback 3: strip parens from artist
     # e.g. 'LE SSERAFIM (르세라핌)' → 'LE SSERAFIM' → matches Apple's 'boompala|le sserafim'
@@ -73,7 +91,7 @@ def find_canonical_uid(conn: Any, title: str, artist: str) -> str | None:
                 "WHERE mi.lookup_key = ? AND t.canonical_yt_video_id IS NOT NULL AND t.canonical_yt_video_id != ''",
                 (compact_metadata_key(t, stripped_artist),),
             ).fetchone()
-            if row:
+            if row and _canonical_metadata_matches(conn, row[0], title, artist, album):
                 return row[0]
     return None
 
@@ -144,67 +162,18 @@ def _has_manual_split_intent(conn: Any, track_uids: list[str]) -> bool:
 
 
 def _merge_into(conn: Any, loser_uid: str, winner_uid: str, dry_run: bool, canonical_video: str | None = None) -> None:
-    """Rebind all loser's platform_song_ids to winner, migrate index, delete loser."""
-    if not dry_run:
-        canonical_video = canonical_video or conn.execute(
-            "SELECT canonical_yt_video_id FROM tracks WHERE track_uid = ?",
-            (winner_uid,),
-        ).fetchone()[0]
-        now = datetime.now(timezone.utc).replace(microsecond=0).isoformat()
-        conn.execute(
-            "UPDATE platform_song_ids SET track_uid = ? WHERE track_uid = ?",
-            (winner_uid, loser_uid),
-        )
-        conn.execute(
-            "UPDATE metadata_lookup_index SET track_uid = ? WHERE track_uid = ?",
-            (winner_uid, loser_uid),
-        )
-        conn.execute(
-            "UPDATE match_attempts SET track_uid = ? WHERE track_uid = ?",
-            (winner_uid, loser_uid),
-        )
-        conn.execute(
-            "UPDATE manual_overrides SET target_track_uid = ? WHERE target_track_uid = ?",
-            (winner_uid, loser_uid),
-        )
-        conn.execute(
-            "UPDATE review_conflicts SET existing_track_uid = ? WHERE existing_track_uid = ?",
-            (winner_uid, loser_uid),
-        )
-        conn.execute(
-            "UPDATE review_conflicts SET incoming_track_uid = ? WHERE incoming_track_uid = ?",
-            (winner_uid, loser_uid),
-        )
-        conn.execute(
-            "UPDATE yt_video_ids SET track_uid = ? WHERE track_uid = ?",
-            (winner_uid, loser_uid),
-        )
-        for video in _track_videos(conn, loser_uid) | _track_videos(conn, winner_uid):
-            conn.execute(
-                """
-                INSERT INTO yt_video_ids(video_id, track_uid, is_canonical)
-                VALUES (?, ?, 0)
-                ON CONFLICT(video_id) DO UPDATE SET track_uid = excluded.track_uid
-                """,
-                (video, winner_uid),
-            )
-        conn.execute(
-            "UPDATE yt_video_ids SET is_canonical = CASE WHEN video_id = ? THEN 1 ELSE 0 END WHERE track_uid = ?",
-            (canonical_video, winner_uid),
-        )
-        conn.execute(
-            """
-            INSERT INTO yt_video_ids(video_id, track_uid, is_canonical)
-            VALUES (?, ?, 1)
-            ON CONFLICT(video_id) DO UPDATE SET track_uid = excluded.track_uid, is_canonical = 1
-            """,
-            (canonical_video, winner_uid),
-        )
-        conn.execute(
-            "UPDATE tracks SET canonical_yt_video_id = ?, updated_at = ? WHERE track_uid = ?",
-            (canonical_video, now, winner_uid),
-        )
-        conn.execute("DELETE FROM tracks WHERE track_uid = ?", (loser_uid,))
+    """Merge through the shared lookup-rebuild path; raw audit rows stay untouched."""
+    canonical_video = canonical_video or conn.execute(
+        "SELECT canonical_yt_video_id FROM tracks WHERE track_uid = ?",
+        (winner_uid,),
+    ).fetchone()[0]
+    _merge_track_uids(
+        conn,
+        loser_uid=loser_uid,
+        winner_uid=winner_uid,
+        canonical_video=canonical_video,
+        dry_run=dry_run,
+    )
 
 
 def _status_rank(status: str | None) -> int:
@@ -257,7 +226,6 @@ def _canonical_video_for_same_yt_metadata(rows: list[Any]) -> str:
 
 
 def heal(db_path: Path, dry_run: bool) -> int:
-    import os
     import sys
     # Add project root to sys.path if not present
     project_root = Path(__file__).resolve().parent
@@ -266,9 +234,7 @@ def heal(db_path: Path, dry_run: bool) -> int:
     import hype_db
 
     # ── Pass 1: unbound YTMusic song_ids ────────────────────────────────────
-    with hype_db.connect(db_path) as conn:
-        if not os.environ.get("SUPABASE_DB_URL"):
-            conn.execute("PRAGMA journal_mode=WAL")
+    with hype_db.connect(db_path, read_only=dry_run) as conn:
 
         unbound = conn.execute(
             """
@@ -288,8 +254,15 @@ def heal(db_path: Path, dry_run: bool) -> int:
         skipped = 0
         for row in unbound:
             song_id = row[0]
+            override = conn.execute(
+                "SELECT action FROM manual_overrides WHERE service = 'ytmusic' AND song_id = ?",
+                (song_id,),
+            ).fetchone()
+            if override and str(override["action"] or "").lower() in {"split", "block", "manual_blocked"}:
+                skipped += 1
+                continue
             tl = conn.execute(
-                "SELECT title_ko, title_en, artist_ko, artist_en FROM track_list "
+                "SELECT title_ko, title_en, artist_ko, artist_en, album_ko, album_en FROM track_list "
                 "WHERE service = 'ytmusic' AND song_id = ?",
                 (song_id,),
             ).fetchone()
@@ -299,15 +272,18 @@ def heal(db_path: Path, dry_run: bool) -> int:
 
             title = tl["title_ko"] or tl["title_en"] or ""
             artist = tl["artist_ko"] or tl["artist_en"] or ""
+            album = tl["album_ko"] or tl["album_en"] or ""
 
             yt_vid_row = conn.execute(
                 "SELECT track_uid FROM yt_video_ids WHERE video_id = ?", (song_id,)
             ).fetchone()
-            if yt_vid_row:
+            if yt_vid_row and _canonical_metadata_matches(
+                conn, yt_vid_row[0], title, artist, album
+            ):
                 canonical_uid = yt_vid_row[0]
                 strategy = "video_id"
             else:
-                canonical_uid = find_canonical_uid(conn, title, artist)
+                canonical_uid = find_canonical_uid(conn, title, artist, album)
                 strategy = "metadata"
 
             if not canonical_uid:
@@ -363,6 +339,7 @@ def heal(db_path: Path, dry_run: bool) -> int:
             SELECT ps.service, ps.song_id, ps.track_uid,
                    COALESCE(tl.title_ko, tl.title_en, '') AS title,
                    COALESCE(tl.artist_ko, tl.artist_en, '') AS artist,
+                   COALESCE(tl.album_ko, tl.album_en, '') AS album,
                    COALESCE(mi_max.best_score, 0) AS current_score
             FROM platform_song_ids ps
             LEFT JOIN track_list tl ON tl.service = ps.service AND tl.song_id = ps.song_id
@@ -387,7 +364,7 @@ def heal(db_path: Path, dry_run: bool) -> int:
             if stripped_artist == artist:
                 continue  # No parens in artist — not this pattern
 
-            better_uid = find_canonical_uid(conn, title, stripped_artist)
+            better_uid = find_canonical_uid(conn, title, stripped_artist, row["album"])
             if not better_uid or better_uid == row["track_uid"]:
                 continue
 
@@ -396,6 +373,9 @@ def heal(db_path: Path, dry_run: bool) -> int:
             ).fetchone()[0] or 0
 
             if better_score <= row["current_score"]:
+                continue
+            if _has_manual_split_intent(conn, [row["track_uid"], better_uid]):
+                LOG.info("[P2] Skipping %s/%s due to manual split/block intent", row["service"], row["song_id"])
                 continue
 
             LOG.info(

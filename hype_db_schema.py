@@ -165,6 +165,17 @@ def ensure_postgres_indexes(raw_conn: Any) -> None:
         "idx_match_attempts_video": ("match_attempts", "CREATE INDEX IF NOT EXISTS idx_match_attempts_video ON match_attempts(video_id)"),
         "idx_match_attempts_created_at": ("match_attempts", "CREATE INDEX IF NOT EXISTS idx_match_attempts_created_at ON match_attempts(created_at)"),
         "idx_match_candidates_created_at": ("match_candidates", "CREATE INDEX IF NOT EXISTS idx_match_candidates_created_at ON match_candidates(created_at)"),
+        "idx_source_song_relations_related": (
+            "source_song_relations",
+            "CREATE INDEX IF NOT EXISTS idx_source_song_relations_related "
+            "ON source_song_relations(related_service, related_song_id)",
+        ),
+        "idx_playlist_update_one_active": (
+            "playlist_update_runs",
+            "CREATE UNIQUE INDEX IF NOT EXISTS idx_playlist_update_one_active "
+            "ON playlist_update_runs(playlist_id) "
+            "WHERE status IN ('running', 'mutation_failed', 'recovery_required')",
+        ),
     }
     with raw_conn.cursor() as cursor:
         cursor.execute(
@@ -254,11 +265,61 @@ def verify_postgres_schema(raw_conn: Any) -> None:
         missing = {"reference_period", "status", "completed_at"} - readiness_columns
         if missing:
             raise RuntimeError(f"PostgreSQL match_runs is missing readiness columns: {sorted(missing)}")
+
+        cursor.execute(
+            """
+            SELECT column_name
+            FROM information_schema.columns
+            WHERE table_schema = 'public'
+              AND table_name = 'source_song_relations'
+            """
+        )
+        relation_columns = {item[0] for item in cursor.fetchall()}
+        expected_relation_columns = {
+            "service",
+            "source_song_id",
+            "relation_type",
+            "related_service",
+            "related_song_id",
+            "evidence_source",
+            "first_seen_reference_period",
+            "last_seen_reference_period",
+            "updated_at",
+        }
+        missing = expected_relation_columns - relation_columns
+        if missing:
+            raise RuntimeError(
+                "PostgreSQL source_song_relations is missing columns: "
+                f"{sorted(missing)}. Apply the 20260907 source relation migration."
+            )
+
+        cursor.execute(
+            """
+            SELECT column_name
+            FROM information_schema.columns
+            WHERE table_schema = 'public'
+              AND table_name = 'playlist_update_runs'
+            """
+        )
+        update_columns = {item[0] for item in cursor.fetchall()}
+        expected_update_columns = {
+            "status",
+            "completed_at",
+            "error",
+            "differences_json",
+            "match_started_at",
+        }
+        missing = expected_update_columns - update_columns
+        if missing:
+            raise RuntimeError(
+                "PostgreSQL playlist_update_runs is missing audit columns: "
+                f"{sorted(missing)}. Apply the 20260907 source relation migration."
+            )
     _POSTGRES_SCHEMA_VERIFIED = True
 
 
 @contextmanager
-def connect(db_path: str | Path):
+def connect(db_path: str | Path, *, read_only: bool = False):
     """Database connection context manager supporting dual engines.
 
     Prioritizes Supabase PostgreSQL connection if `SUPABASE_DB_URL` environment
@@ -277,6 +338,8 @@ def connect(db_path: str | Path):
         for i in range(retries):
             try:
                 raw_conn = psycopg2.connect(pg_url, connect_timeout=connect_timeout)
+                if read_only:
+                    raw_conn.set_session(readonly=True)
                 with raw_conn.cursor() as cursor:
                     cursor.execute("SET search_path TO public")
                     cursor.execute("SET lock_timeout = '30s'")
@@ -285,7 +348,8 @@ def connect(db_path: str | Path):
                 raw_conn.commit()
                 verify_postgres_schema(raw_conn)
                 raw_conn.commit()
-                ensure_postgres_indexes(raw_conn)
+                if not read_only:
+                    ensure_postgres_indexes(raw_conn)
                 break
             except psycopg2.OperationalError as exc:
                 if raw_conn is not None:
@@ -313,10 +377,17 @@ def connect(db_path: str | Path):
         finally:
             conn.close()
     else:
-        conn = sqlite3.connect(str(db_path))
+        if read_only:
+            uri = f"file:{Path(db_path).resolve()}?mode=ro"
+            conn = sqlite3.connect(uri, uri=True)
+        else:
+            conn = sqlite3.connect(str(db_path))
         conn.row_factory = sqlite3.Row
         conn.execute("PRAGMA foreign_keys = ON")
-        conn.execute("PRAGMA journal_mode = WAL")
+        if read_only:
+            conn.execute("PRAGMA query_only = ON")
+        else:
+            conn.execute("PRAGMA journal_mode = WAL")
         try:
             yield conn
             conn.commit()
@@ -461,6 +532,19 @@ def init_schema(conn: Any) -> None:
             song_id TEXT NOT NULL,
             track_uid TEXT NOT NULL REFERENCES tracks(track_uid) ON DELETE CASCADE,
             PRIMARY KEY (service, song_id)
+        );
+
+        CREATE TABLE IF NOT EXISTS source_song_relations (
+            service TEXT NOT NULL,
+            source_song_id TEXT NOT NULL,
+            relation_type TEXT NOT NULL,
+            related_service TEXT NOT NULL,
+            related_song_id TEXT NOT NULL,
+            evidence_source TEXT NOT NULL,
+            first_seen_reference_period TEXT NOT NULL,
+            last_seen_reference_period TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            PRIMARY KEY (service, source_song_id, relation_type)
         );
 
         CREATE TABLE IF NOT EXISTS track_list (
@@ -629,6 +713,17 @@ def init_schema(conn: Any) -> None:
             dry_run INTEGER NOT NULL DEFAULT 0,
             requested_count INTEGER DEFAULT 0,
             existing_count INTEGER DEFAULT 0,
+            status TEXT NOT NULL DEFAULT 'unknown' CHECK (
+                status IN (
+                    'unknown', 'running', 'published', 'skipped_current',
+                    'verification_failed', 'mutation_failed', 'restored',
+                    'recovery_required'
+                )
+            ),
+            completed_at TEXT,
+            error TEXT,
+            differences_json TEXT NOT NULL DEFAULT '[]',
+            match_started_at TEXT NOT NULL DEFAULT '',
             created_at TEXT NOT NULL
         );
 
@@ -661,6 +756,12 @@ def init_schema(conn: Any) -> None:
         conn.execute("CREATE INDEX IF NOT EXISTS idx_match_attempts_video ON match_attempts(video_id)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_playlist_order_job_period ON playlist_order(job_name, reference_period)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_match_runs_readiness ON match_runs(service, job_name, source_variant, reference_period, status)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_source_song_relations_related ON source_song_relations(related_service, related_song_id)")
+        conn.execute(
+            "CREATE UNIQUE INDEX IF NOT EXISTS idx_playlist_update_one_active "
+            "ON playlist_update_runs(playlist_id) "
+            "WHERE status IN ('running', 'mutation_failed', 'recovery_required')"
+        )
         from hype_db_store import repair_failed_source_bindings
 
         repair_stats = repair_failed_source_bindings(conn)
@@ -1098,7 +1199,12 @@ def _rebuild_album_metadata(conn: sqlite3.Connection) -> None:
 
 
 def _rebuild_playlist_updates(conn: sqlite3.Connection) -> None:
-    if table_exists(conn, "playlist_update_runs") and table_columns(conn, "playlist_update_runs") != {"update_run_id", "playlist_id", "service", "job_name", "started_at", "dry_run", "requested_count", "existing_count", "created_at"}:
+    run_columns = {
+        "update_run_id", "playlist_id", "service", "job_name", "started_at",
+        "dry_run", "requested_count", "existing_count", "status", "completed_at",
+        "error", "differences_json", "match_started_at", "created_at",
+    }
+    if table_exists(conn, "playlist_update_runs") and table_columns(conn, "playlist_update_runs") != run_columns:
         rows = conn.execute("SELECT * FROM playlist_update_runs").fetchall()
         conn.execute("ALTER TABLE playlist_update_runs RENAME TO playlist_update_runs_old")
         conn.execute(
@@ -1112,6 +1218,17 @@ def _rebuild_playlist_updates(conn: sqlite3.Connection) -> None:
                 dry_run INTEGER NOT NULL DEFAULT 0,
                 requested_count INTEGER DEFAULT 0,
                 existing_count INTEGER DEFAULT 0,
+                status TEXT NOT NULL DEFAULT 'unknown' CHECK (
+                    status IN (
+                        'unknown', 'running', 'published', 'skipped_current',
+                        'verification_failed', 'mutation_failed', 'restored',
+                        'recovery_required'
+                    )
+                ),
+                completed_at TEXT,
+                error TEXT,
+                differences_json TEXT NOT NULL DEFAULT '[]',
+                match_started_at TEXT NOT NULL DEFAULT '',
                 created_at TEXT NOT NULL
             )
             """
@@ -1122,9 +1239,10 @@ def _rebuild_playlist_updates(conn: sqlite3.Connection) -> None:
                 """
                 INSERT OR REPLACE INTO playlist_update_runs(
                     update_run_id, playlist_id, service, job_name, started_at,
-                    dry_run, requested_count, existing_count, created_at
+                    dry_run, requested_count, existing_count, status, completed_at,
+                    error, differences_json, match_started_at, created_at
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     data.get("update_run_id"),
@@ -1135,6 +1253,11 @@ def _rebuild_playlist_updates(conn: sqlite3.Connection) -> None:
                     int(data.get("dry_run") or 0),
                     int(data.get("requested_count") or 0),
                     int(data.get("existing_count") or 0),
+                    data.get("status") or "unknown",
+                    data.get("completed_at"),
+                    data.get("error") or "",
+                    data.get("differences_json") or "[]",
+                    data.get("match_started_at") or "",
                     data.get("created_at") or utc_now_iso(),
                 ),
             )

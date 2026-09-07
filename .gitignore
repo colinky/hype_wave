@@ -4,7 +4,7 @@
 .secrets/
 __pycache__/
 .vscode/
-tests/
+tests/*
 utils/
 rules/
 scratch/
@@ -16,3 +16,5 @@ docs/api/*.backup_before_backfill
 .ruff_cache/
 backups/
 migrations/
+docs/
+db_migrations/

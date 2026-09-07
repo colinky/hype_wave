@@ -1,9 +1,12 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import logging
 import os
+import re
 import sqlite3
+import uuid
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any, Iterable
@@ -11,6 +14,7 @@ from typing import Any, Iterable
 from hype_db_common import (
     clean_track_title,
     compact_metadata_key,
+    feature_signature,
     has_feature_mismatch,
     has_version_mismatch,
     infer_album_id,
@@ -19,6 +23,7 @@ from hype_db_common import (
     metadata_key,
     normalize_song_id,
     normalize_source_variant,
+    normalize_text,
     normalized_service,
     reference_period_for_date,
     require_job_name,
@@ -51,9 +56,25 @@ __all__ = [
     "persist_crawled_tracks",
     "persist_crawl_run",
     "repair_failed_source_bindings",
+    "record_source_song_relation",
+    "consolidate_source_song_relation",
+    "repair_source_song_relations",
     "record_playlist_update",
+    "finish_playlist_update",
+    "get_pending_playlist_recovery",
     "get_bulk_cached_matches",
 ]
+
+YOUTUBE_ATV_RELATION = "youtube_charts_atv_external_video_id"
+PLAYLIST_UPDATE_STATUSES = {
+    "running",
+    "published",
+    "skipped_current",
+    "verification_failed",
+    "mutation_failed",
+    "restored",
+    "recovery_required",
+}
 
 def find_track_by_service_song(conn: sqlite3.Connection, service: str, song_id: str) -> str | None:
     if not service or not song_id:
@@ -323,16 +344,29 @@ def track_list_metadata_params(
     )
 
 
-def metadata_lookup_params(*, track_uid: str, row: dict[str, Any], source: str, score: float) -> list[tuple[Any, ...]]:
-    params: list[tuple[Any, ...]] = []
+def _metadata_variants(row: dict[str, Any]) -> list[tuple[str, str, str]]:
     candidates = [
         (row.get("title"), row.get("artist"), row.get("album")),
         (row.get("title_en"), row.get("artist_en"), row.get("album_en")),
         (row.get("title_ko"), row.get("artist_ko"), row.get("album_ko")),
     ]
+    variants: list[tuple[str, str, str]] = []
+    seen: set[tuple[str, str, str]] = set()
     for title, artist, album in candidates:
         if not title or not artist:
             continue
+        variant = (str(title).strip(), str(artist).strip(), str(album or "").strip())
+        normalized = tuple(normalize_text(value) for value in variant)
+        if normalized in seen:
+            continue
+        seen.add(normalized)
+        variants.append(variant)
+    return variants
+
+
+def _metadata_lookup_key_scores(row: dict[str, Any], score: float) -> list[tuple[str, float]]:
+    key_scores: dict[str, float] = {}
+    for title, artist, album in _metadata_variants(row):
         full_key = metadata_key(title, artist, album)
         compact_key = compact_metadata_key(title, artist)
         key_score_pairs = [(full_key, score)]
@@ -352,8 +386,15 @@ def metadata_lookup_params(*, track_uid: str, row: dict[str, Any], source: str, 
                 key_score_pairs.append((compact_metadata_key(stripped_title, stripped_artist), score * 0.6))
         for key, effective_score in key_score_pairs:
             if key.strip("|"):
-                params.append((key, track_uid, source, effective_score))
-    return params
+                key_scores[key] = max(key_scores.get(key, 0.0), effective_score)
+    return list(key_scores.items())
+
+
+def metadata_lookup_params(*, track_uid: str, row: dict[str, Any], source: str, score: float) -> list[tuple[Any, ...]]:
+    return [
+        (key, track_uid, source, effective_score)
+        for key, effective_score in _metadata_lookup_key_scores(row, score)
+    ]
 
 
 def upsert_metadata_lookup(conn: sqlite3.Connection, *, track_uid: str, row: dict[str, Any], source: str, score: float) -> None:
@@ -375,6 +416,872 @@ def upsert_metadata_lookup(conn: sqlite3.Connection, *, track_uid: str, row: dic
             """,
             params,
         )
+
+
+def record_source_song_relation(
+    conn: Any,
+    *,
+    service: str,
+    source_song_id: str,
+    relation_type: str,
+    related_service: str,
+    related_song_id: str,
+    evidence_source: str,
+    reference_period: str,
+    payload: dict[str, Any] | None = None,
+) -> str:
+    """Store compact source evidence without silently changing an existing target."""
+    service = normalized_service(service)
+    related_service = normalized_service(related_service)
+    source_song_id = str(source_song_id or "").strip()
+    related_song_id = str(related_song_id or "").strip()
+    relation_type = str(relation_type or "").strip()
+    evidence_source = str(evidence_source or "").strip()
+    reference_period = str(reference_period or "").strip()
+    if not all((service, source_song_id, relation_type, related_service, related_song_id, evidence_source, reference_period)):
+        raise ValueError("A source-song relation requires complete IDs, provenance, and reference period.")
+    if relation_type == YOUTUBE_ATV_RELATION:
+        video_id_pattern = r"[A-Za-z0-9_-]{11}"
+        if not re.fullmatch(video_id_pattern, source_song_id) or not re.fullmatch(video_id_pattern, related_song_id):
+            raise ValueError("YouTube Charts ATV relations require valid 11-character video IDs.")
+
+    existing = conn.execute(
+        """
+        SELECT * FROM source_song_relations
+        WHERE service = ? AND source_song_id = ? AND relation_type = ?
+        """,
+        (service, source_song_id, relation_type),
+    ).fetchone()
+    if existing and (
+        existing["related_service"] != related_service
+        or existing["related_song_id"] != related_song_id
+    ):
+        conflict_payload = dict(payload or {})
+        conflict_payload.setdefault("reference_period", reference_period)
+        conflict_payload.setdefault("query", evidence_source)
+        record_conflict(
+            conn,
+            service=service,
+            song_id=source_song_id,
+            existing_track_uid=find_track_by_service_song(conn, service, source_song_id),
+            incoming_track_uid=find_track_by_service_song(conn, related_service, related_song_id),
+            existing_video_id=str(existing["related_song_id"] or ""),
+            incoming_video_id=related_song_id,
+            reason="source_song_relation_target_changed",
+            payload=conflict_payload,
+        )
+        return "conflict"
+
+    now = utc_now_iso()
+    if existing:
+        first_seen = min(
+            value
+            for value in (str(existing["first_seen_reference_period"] or ""), reference_period)
+            if value
+        )
+        last_seen = max(
+            value
+            for value in (str(existing["last_seen_reference_period"] or ""), reference_period)
+            if value
+        )
+        if (
+            str(existing["evidence_source"] or "") != evidence_source
+            or str(existing["first_seen_reference_period"] or "") != first_seen
+            or str(existing["last_seen_reference_period"] or "") != last_seen
+        ):
+            conn.execute(
+                """
+                UPDATE source_song_relations
+                SET evidence_source = ?, first_seen_reference_period = ?,
+                    last_seen_reference_period = ?, updated_at = ?
+                WHERE service = ? AND source_song_id = ? AND relation_type = ?
+                """,
+                (
+                    evidence_source,
+                    first_seen,
+                    last_seen,
+                    now,
+                    service,
+                    source_song_id,
+                    relation_type,
+                ),
+            )
+        return "confirmed"
+
+    conn.execute(
+        """
+        INSERT INTO source_song_relations(
+            service, source_song_id, relation_type, related_service,
+            related_song_id, evidence_source, first_seen_reference_period,
+            last_seen_reference_period, updated_at
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            service,
+            source_song_id,
+            relation_type,
+            related_service,
+            related_song_id,
+            evidence_source,
+            reference_period,
+            reference_period,
+            now,
+        ),
+    )
+    return "inserted"
+
+
+def _track_metadata_rows(conn: Any, track_uid: str) -> list[dict[str, Any]]:
+    return [
+        dict(row)
+        for row in conn.execute(
+            """
+            SELECT tl.*
+            FROM platform_song_ids ps
+            JOIN track_list tl
+              ON tl.service = ps.service
+             AND tl.song_id = ps.song_id
+            WHERE ps.track_uid = ?
+            ORDER BY CASE tl.service WHEN 'apple' THEN 0 WHEN 'melon' THEN 1 ELSE 2 END,
+                     tl.song_id
+            """,
+            (track_uid,),
+        ).fetchall()
+    ]
+
+
+def _metadata_rows_equivalent(left: dict[str, Any], right: dict[str, Any]) -> bool:
+    """Require title, artist, and recording-version agreement across any locale pair."""
+    from ytmusic_playlist_sync import similarity
+
+    left_variants = _metadata_variants(left)
+    right_variants = _metadata_variants(right)
+    if not left_variants or not right_variants:
+        return False
+    for left_title, left_artist, left_album in left_variants:
+        for right_title, right_artist, right_album in right_variants:
+            if has_feature_mismatch(left_title, right_title):
+                continue
+            if has_version_mismatch(left_title, right_title):
+                continue
+            if left_album and right_album and has_version_mismatch(left_album, right_album):
+                continue
+            if similarity(left_title, right_title, is_title=True) < 0.55:
+                continue
+            if similarity(left_artist, right_artist) < 0.55:
+                continue
+            return True
+    return False
+
+
+def _relation_features_match(
+    source_title: str,
+    source_artist: str,
+    related_title: str,
+    related_artist: str,
+) -> bool:
+    """Accept a feature credit moved between title and artist for a proven relation."""
+    source_feature = feature_signature(source_title)
+    related_feature = feature_signature(related_title)
+    if source_feature == related_feature:
+        return True
+    if source_feature and related_feature:
+        return False
+
+    feature = source_feature or related_feature
+    artist = related_artist if source_feature else source_artist
+    return bool(feature) and f" {feature} " in f" {normalize_text(artist)} "
+
+
+def _relation_metadata_matches(
+    conn: Any,
+    source_uid: str | None,
+    related_uid: str | None,
+    source_row: dict[str, Any] | None,
+    related_row: dict[str, Any] | None = None,
+    *,
+    source_binding: tuple[str, str] | None = None,
+) -> bool:
+    from ytmusic_playlist_sync import similarity
+
+    source_rows = [source_row] if source_row else []
+    if source_uid:
+        source_rows.extend(_track_metadata_rows(conn, source_uid))
+    related_rows = [related_row] if related_row else []
+    if related_uid:
+        related_track = conn.execute(
+            "SELECT yt_title AS title, yt_artist AS artist, yt_album AS album FROM tracks WHERE track_uid = ?",
+            (related_uid,),
+        ).fetchone()
+        if related_track:
+            related_rows.append(dict(related_track))
+        for row in _track_metadata_rows(conn, related_uid):
+            if (
+                source_uid == related_uid
+                and source_binding
+                and normalized_service(row.get("service")) == source_binding[0]
+                and str(row.get("song_id") or "") == source_binding[1]
+            ):
+                continue
+            related_rows.append(row)
+    source_variants = [variant for row in source_rows for variant in _metadata_variants(row)]
+    related_variants = [variant for row in related_rows for variant in _metadata_variants(row)]
+    if not source_variants or not related_variants:
+        return False
+    for source_title, source_artist, source_album in source_variants:
+        for related_title, related_artist, related_album in related_variants:
+            if not _relation_features_match(
+                source_title,
+                source_artist,
+                related_title,
+                related_artist,
+            ):
+                continue
+            if has_version_mismatch(source_title, related_title):
+                continue
+            if source_album and related_album and has_version_mismatch(source_album, related_album):
+                continue
+            if similarity(source_title, related_title, is_title=True) < 0.55:
+                continue
+            if source_artist and related_artist and similarity(source_artist, related_artist) < 0.55:
+                continue
+            return True
+    return False
+
+
+def _relation_manual_status(
+    conn: Any,
+    *,
+    service: str,
+    source_song_id: str,
+    related_service: str,
+    related_song_id: str,
+    source_uid: str | None,
+    related_uid: str | None,
+) -> str:
+    overrides = [
+        row
+        for row in (
+            manual_override(conn, service, source_song_id),
+            manual_override(conn, related_service, related_song_id),
+        )
+        if row
+    ]
+    if source_uid or related_uid:
+        uids = [uid for uid in (source_uid, related_uid) if uid]
+        placeholders = ",".join("?" for _ in uids)
+        overrides.extend(
+            conn.execute(
+                f"SELECT * FROM manual_overrides WHERE target_track_uid IN ({placeholders})",
+                tuple(uids),
+            ).fetchall()
+        )
+    for override in overrides:
+        action = str(override["action"] or "").lower()
+        if action in {"block", "manual_blocked"}:
+            return "manual_blocked"
+        if action == "split":
+            return "manual_split"
+    for override in (
+        manual_override(conn, service, source_song_id),
+        manual_override(conn, related_service, related_song_id),
+    ):
+        if not override:
+            continue
+        override_video = str(override["canonical_yt_video_id"] or "")
+        override_uid = str(override["target_track_uid"] or "")
+        if override_video and override_video != related_song_id:
+            return "manual_override_conflict"
+        if override_uid and override_uid != str(related_uid or ""):
+            return "manual_override_conflict"
+    return ""
+
+
+def _rebuild_track_metadata_lookup(
+    conn: Any,
+    *,
+    winner_uid: str,
+    removed_uids: Iterable[str] = (),
+    anchor_rows: Iterable[dict[str, Any]] = (),
+) -> dict[str, int]:
+    affected_uids = list(dict.fromkeys([winner_uid, *[uid for uid in removed_uids if uid]]))
+    placeholders = ",".join("?" for _ in affected_uids)
+    conn.execute(
+        f"DELETE FROM metadata_lookup_index WHERE track_uid IN ({placeholders})",
+        tuple(affected_uids),
+    )
+
+    anchors = [row for row in anchor_rows if _metadata_variants(row)]
+    if not anchors:
+        winner_track = conn.execute(
+            "SELECT yt_title AS title, yt_artist AS artist, yt_album AS album FROM tracks WHERE track_uid = ?",
+            (winner_uid,),
+        ).fetchone()
+        if winner_track and _metadata_variants(dict(winner_track)):
+            anchors.append(dict(winner_track))
+    if not anchors:
+        anchors.extend(_track_metadata_rows(conn, winner_uid))
+
+    generated: dict[str, tuple[str, float, dict[str, Any]]] = {}
+    for row in _track_metadata_rows(conn, winner_uid):
+        if anchors and not any(
+            _metadata_rows_equivalent(row, anchor) for anchor in anchors
+        ):
+            record_conflict(
+                conn,
+                service=row.get("service") or "unknown",
+                song_id=row.get("song_id") or "",
+                existing_track_uid=winner_uid,
+                incoming_track_uid=winner_uid,
+                existing_video_id=None,
+                incoming_video_id=None,
+                reason="metadata_lookup_rebuild_row_mismatch",
+                payload=row,
+            )
+            continue
+        source = f"track_list:{normalized_service(row.get('service'))}"
+        for key, score in _metadata_lookup_key_scores(row, 1.0):
+            current = generated.get(key)
+            if not current or score > current[1]:
+                generated[key] = (source, score, row)
+
+    inserted = 0
+    conflicts = 0
+    for key, (source, score, row) in generated.items():
+        owner = conn.execute(
+            "SELECT track_uid FROM metadata_lookup_index WHERE lookup_key = ?",
+            (key,),
+        ).fetchone()
+        if owner and owner["track_uid"] != winner_uid:
+            record_conflict(
+                conn,
+                service=row.get("service") or "unknown",
+                song_id=row.get("song_id") or "",
+                existing_track_uid=owner["track_uid"],
+                incoming_track_uid=winner_uid,
+                existing_video_id=None,
+                incoming_video_id=None,
+                reason="metadata_lookup_key_owned_by_unrelated_track",
+                payload={
+                    **row,
+                    "query": key,
+                    "score": score,
+                },
+            )
+            conflicts += 1
+            continue
+        conn.execute(
+            """
+            INSERT INTO metadata_lookup_index(lookup_key, track_uid, source, score)
+            VALUES (?, ?, ?, ?)
+            ON CONFLICT(lookup_key) DO UPDATE SET
+                track_uid = excluded.track_uid,
+                source = excluded.source,
+                score = excluded.score
+            """,
+            (key, winner_uid, source, score),
+        )
+        inserted += 1
+    return {"lookup_keys": inserted, "lookup_conflicts": conflicts}
+
+
+def _merge_track_uids(
+    conn: Any,
+    *,
+    loser_uid: str,
+    winner_uid: str,
+    canonical_video: str,
+    dry_run: bool = False,
+    anchor_rows: Iterable[dict[str, Any]] = (),
+) -> dict[str, Any]:
+    if loser_uid == winner_uid:
+        return {"merged": 0, "winner_uid": winner_uid, "loser_uid": loser_uid}
+    if dry_run:
+        return {"merged": 1, "winner_uid": winner_uid, "loser_uid": loser_uid}
+
+    now = utc_now_iso()
+    conn.execute("UPDATE platform_song_ids SET track_uid = ? WHERE track_uid = ?", (winner_uid, loser_uid))
+    conn.execute("UPDATE match_attempts SET track_uid = ? WHERE track_uid = ?", (winner_uid, loser_uid))
+    conn.execute(
+        """
+        UPDATE manual_overrides
+        SET target_track_uid = ?
+        WHERE target_track_uid = ? AND action NOT IN ('block', 'split', 'manual_blocked')
+        """,
+        (winner_uid, loser_uid),
+    )
+    conn.execute("UPDATE yt_video_ids SET track_uid = ? WHERE track_uid = ?", (winner_uid, loser_uid))
+    conn.execute(
+        "UPDATE yt_video_ids SET is_canonical = CASE WHEN video_id = ? THEN 1 ELSE 0 END WHERE track_uid = ?",
+        (canonical_video, winner_uid),
+    )
+    conn.execute(
+        """
+        INSERT INTO yt_video_ids(video_id, track_uid, is_canonical)
+        VALUES (?, ?, 1)
+        ON CONFLICT(video_id) DO UPDATE SET track_uid = excluded.track_uid, is_canonical = 1
+        """,
+        (canonical_video, winner_uid),
+    )
+    conn.execute(
+        "UPDATE tracks SET canonical_yt_video_id = ?, updated_at = ? WHERE track_uid = ?",
+        (canonical_video, now, winner_uid),
+    )
+    lookup_stats = _rebuild_track_metadata_lookup(
+        conn,
+        winner_uid=winner_uid,
+        removed_uids=(loser_uid,),
+        anchor_rows=anchor_rows,
+    )
+    conn.execute("DELETE FROM tracks WHERE track_uid = ?", (loser_uid,))
+    return {
+        "merged": 1,
+        "winner_uid": winner_uid,
+        "loser_uid": loser_uid,
+        **lookup_stats,
+    }
+
+
+def _invalidate_ytmusic_song_translation(conn: Any, video_id: str) -> None:
+    """Drop only the source-video localization that a verified ATV link supersedes."""
+    if type(conn).__name__ == "PostgresConnectionWrapper":
+        exists = conn.execute(
+            """
+            SELECT 1
+            FROM information_schema.tables
+            WHERE table_schema = ANY (current_schemas(false))
+              AND table_name = 'ytmusic_song_translations'
+            LIMIT 1
+            """
+        ).fetchone()
+    else:
+        exists = conn.execute(
+            "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'ytmusic_song_translations'"
+        ).fetchone()
+    if exists:
+        conn.execute(
+            "DELETE FROM ytmusic_song_translations WHERE video_id = ?",
+            (video_id,),
+        )
+
+
+def _is_trusted_charts_relation_row(
+    row: dict[str, Any] | None,
+    source_song_id: str,
+    related_song_id: str,
+) -> bool:
+    if not row or str(row.get("source") or "") != "youtube_charts_weekly_browse_api":
+        return False
+    row_source_id = str(row.get("song_id") or row.get("original_video_id") or "")
+    return (
+        row_source_id == source_song_id
+        and str(row.get("atv_external_video_id") or "") == related_song_id
+    )
+
+
+def _refresh_trusted_chart_source_metadata(
+    conn: Any,
+    *,
+    service: str,
+    source_song_id: str,
+    source_uid: str | None,
+    source_row: dict[str, Any],
+) -> bool:
+    """Refresh one proven Charts source row, including an explicit empty album."""
+    columns = (
+        "album_id",
+        "title_ko",
+        "artist_ko",
+        "album_ko",
+        "title_en",
+        "artist_en",
+        "album_en",
+        "artwork_url",
+    )
+    incoming = track_list_metadata_params(
+        service=service,
+        song_id=source_song_id,
+        row=source_row,
+    )[2:]
+    current = conn.execute(
+        f"SELECT {', '.join(columns)} FROM track_list WHERE service = ? AND song_id = ?",
+        (service, source_song_id),
+    ).fetchone()
+    if not current:
+        upsert_track_list_metadata(
+            conn,
+            service=service,
+            song_id=source_song_id,
+            track_uid=source_uid or stable_uid(f"{service}:{source_song_id}"),
+            row=source_row,
+            bind_source_id=False,
+        )
+        return True
+
+    values = {
+        column: str(current[column] or "")
+        for column in columns
+    }
+    for column, value in zip(columns, incoming):
+        value = str(value or "")
+        if value:
+            values[column] = value
+    if not any(str(source_row.get(key) or "").strip() for key in ("album", "album_ko", "album_en")):
+        values["album_ko"] = ""
+        values["album_en"] = ""
+        if not str(source_row.get("album_id") or "").strip():
+            values["album_id"] = ""
+
+    if all(values[column] == str(current[column] or "") for column in columns):
+        return False
+    conn.execute(
+        f"UPDATE track_list SET {', '.join(f'{column} = ?' for column in columns)} "
+        "WHERE service = ? AND song_id = ?",
+        (*[values[column] for column in columns], service, source_song_id),
+    )
+    return True
+
+
+def consolidate_source_song_relation(
+    conn: Any,
+    *,
+    service: str,
+    source_song_id: str,
+    relation_type: str,
+    related_service: str,
+    related_song_id: str,
+    source_row: dict[str, Any] | None = None,
+    related_row: dict[str, Any] | None = None,
+    dry_run: bool = False,
+) -> dict[str, Any]:
+    service = normalized_service(service)
+    related_service = normalized_service(related_service)
+    source_song_id = str(source_song_id or "").strip()
+    related_song_id = str(related_song_id or "").strip()
+    if relation_type != YOUTUBE_ATV_RELATION or service != "ytmusic" or related_service != "ytmusic":
+        return {"status": "unsupported_relation"}
+    video_id_pattern = r"[A-Za-z0-9_-]{11}"
+    if not re.fullmatch(video_id_pattern, source_song_id) or not re.fullmatch(video_id_pattern, related_song_id):
+        return {"status": "unsupported_relation"}
+
+    evidence = conn.execute(
+        """
+        SELECT related_service, related_song_id, evidence_source
+        FROM source_song_relations
+        WHERE service = ? AND source_song_id = ? AND relation_type = ?
+        """,
+        (service, source_song_id, relation_type),
+    ).fetchone()
+    trusted_charts_source = _is_trusted_charts_relation_row(
+        source_row,
+        source_song_id,
+        related_song_id,
+    )
+    trusted_dry_run_evidence = dry_run and trusted_charts_source
+    if not trusted_dry_run_evidence and (
+        not evidence
+        or normalized_service(evidence["related_service"]) != related_service
+        or str(evidence["related_song_id"] or "") != related_song_id
+        or not str(evidence["evidence_source"] or "").strip()
+    ):
+        return {"status": "unsupported_relation"}
+
+    def reject(
+        status: str,
+        reason: str,
+        *,
+        existing_uid: str | None,
+        incoming_uid: str | None,
+        existing_video: str | None,
+    ) -> dict[str, Any]:
+        if not dry_run:
+            record_conflict(
+                conn,
+                service=service,
+                song_id=source_song_id,
+                existing_track_uid=existing_uid,
+                incoming_track_uid=incoming_uid,
+                existing_video_id=existing_video,
+                incoming_video_id=related_song_id,
+                reason=reason,
+                payload=source_row,
+            )
+        return {"status": status, "winner_uid": incoming_uid, "loser_uid": existing_uid}
+
+    source_uid = find_track_by_service_song(conn, service, source_song_id) or find_track_by_video(conn, source_song_id)
+    related_by_song = find_track_by_service_song(conn, related_service, related_song_id)
+    related_by_video = find_track_by_video(conn, related_song_id)
+    if related_by_song and related_by_video and related_by_song != related_by_video:
+        return reject(
+            "metadata_conflict",
+            "related_song_id_binding_conflict",
+            existing_uid=related_by_song,
+            incoming_uid=related_by_video,
+            existing_video=related_song_id,
+        )
+    related_uid = related_by_video or related_by_song
+
+    manual_status = _relation_manual_status(
+        conn,
+        service=service,
+        source_song_id=source_song_id,
+        related_service=related_service,
+        related_song_id=related_song_id,
+        source_uid=source_uid,
+        related_uid=related_uid,
+    )
+    if manual_status:
+        if manual_status == "manual_override_conflict":
+            source_track = (
+                conn.execute(
+                    "SELECT canonical_yt_video_id FROM tracks WHERE track_uid = ?",
+                    (source_uid,),
+                ).fetchone()
+                if source_uid else None
+            )
+            return reject(
+                manual_status,
+                "source_relation_conflicts_with_manual_override",
+                existing_uid=source_uid,
+                incoming_uid=related_uid,
+                existing_video=(source_track["canonical_yt_video_id"] if source_track else None),
+            )
+        return {"status": manual_status, "winner_uid": related_uid, "loser_uid": source_uid}
+
+    related_track = None
+    related_canonical = ""
+    if related_uid:
+        related_track = conn.execute(
+            "SELECT * FROM tracks WHERE track_uid = ?",
+            (related_uid,),
+        ).fetchone()
+        related_canonical = str(related_track["canonical_yt_video_id"] or "") if related_track else ""
+        if related_canonical and related_canonical != related_song_id and related_uid != source_uid:
+            return reject(
+                "metadata_conflict",
+                "source_relation_target_is_not_canonical",
+                existing_uid=related_uid,
+                incoming_uid=related_uid,
+                existing_video=related_canonical,
+            )
+
+    if not _relation_metadata_matches(
+        conn,
+        source_uid,
+        related_uid,
+        source_row,
+        related_row,
+        source_binding=(service, source_song_id),
+    ):
+        return reject(
+            "metadata_conflict",
+            "source_song_relation_metadata_mismatch",
+            existing_uid=source_uid,
+            incoming_uid=related_uid,
+            existing_video=source_song_id,
+        )
+
+    trusted_source_refresh = bool(
+        not dry_run
+        and trusted_charts_source
+        and source_row
+        and related_row
+        and _relation_metadata_matches(
+            conn,
+            None,
+            None,
+            source_row,
+            related_row,
+        )
+    )
+    source_metadata_changed = bool(
+        trusted_source_refresh
+        and _refresh_trusted_chart_source_metadata(
+            conn,
+            service=service,
+            source_song_id=source_song_id,
+            source_uid=source_uid,
+            source_row=source_row,
+        )
+    )
+
+    source_binding = find_track_by_service_song(conn, service, source_song_id)
+    related_binding = find_track_by_service_song(conn, related_service, related_song_id)
+    source_video = conn.execute(
+        "SELECT track_uid, is_canonical FROM yt_video_ids WHERE video_id = ?",
+        (source_song_id,),
+    ).fetchone()
+    related_video = conn.execute(
+        "SELECT track_uid, is_canonical FROM yt_video_ids WHERE video_id = ?",
+        (related_song_id,),
+    ).fetchone()
+    already_consistent = bool(
+        source_uid
+        and source_uid == related_uid
+        and source_binding == related_uid
+        and related_binding == related_uid
+        and source_video
+        and source_video["track_uid"] == related_uid
+        and int(source_video["is_canonical"] or 0) == (1 if source_song_id == related_song_id else 0)
+        and related_video
+        and related_video["track_uid"] == related_uid
+        and int(related_video["is_canonical"] or 0) == 1
+        and related_canonical == related_song_id
+    )
+    if already_consistent:
+        if source_metadata_changed:
+            _rebuild_track_metadata_lookup(
+                conn,
+                winner_uid=related_uid,
+                anchor_rows=(related_row, source_row),
+            )
+        return {"status": "already_linked", "winner_uid": related_uid, "loser_uid": source_uid, "merged": 0}
+
+    if dry_run:
+        return {
+            "status": "would_link",
+            "winner_uid": related_uid or stable_uid(f"yt:{related_song_id}"),
+            "loser_uid": source_uid,
+        }
+
+    if not related_uid:
+        if not related_row:
+            return {"status": "metadata_conflict", "winner_uid": None, "loser_uid": source_uid}
+        related_uid = stable_uid(f"yt:{related_song_id}")
+        metadata = related_row
+        ensure_track(
+            conn,
+            track_uid=related_uid,
+            video_id=related_song_id,
+            yt_title=str(metadata.get("title_en") or metadata.get("title") or metadata.get("title_ko") or ""),
+            yt_artist=str(metadata.get("artist_en") or metadata.get("artist") or metadata.get("artist_ko") or ""),
+            yt_album=str(metadata.get("album_en") or metadata.get("album") or metadata.get("album_ko") or ""),
+            status="matched",
+            score=1.0,
+        )
+        related_track = conn.execute(
+            "SELECT * FROM tracks WHERE track_uid = ?",
+            (related_uid,),
+        ).fetchone()
+
+    anchor_rows = [related_row] if related_row and _metadata_variants(related_row) else []
+    if trusted_source_refresh and source_row and _metadata_variants(source_row):
+        anchor_rows.append(source_row)
+    if not anchor_rows:
+        exact_target = conn.execute(
+            "SELECT * FROM track_list WHERE service = ? AND song_id = ?",
+            (related_service, related_song_id),
+        ).fetchone()
+        if exact_target and _metadata_variants(dict(exact_target)):
+            anchor_rows.append(dict(exact_target))
+    if not anchor_rows and related_track:
+        anchor_rows.append(
+            {
+                "title": related_track["yt_title"],
+                "artist": related_track["yt_artist"],
+                "album": related_track["yt_album"],
+            }
+        )
+    if source_uid and source_uid != related_uid:
+        merge_stats = _merge_track_uids(
+            conn,
+            loser_uid=source_uid,
+            winner_uid=related_uid,
+            canonical_video=related_song_id,
+            anchor_rows=anchor_rows,
+        )
+        status = "linked"
+    else:
+        merge_stats = {"merged": 0, "winner_uid": related_uid, "loser_uid": source_uid}
+        status = "already_linked" if source_uid else "linked"
+
+    conn.execute(
+        """
+        INSERT INTO platform_song_ids(service, song_id, track_uid)
+        VALUES (?, ?, ?)
+        ON CONFLICT(service, song_id) DO UPDATE SET track_uid = excluded.track_uid
+        """,
+        (related_service, related_song_id, related_uid),
+    )
+    conn.execute(
+        """
+        INSERT INTO platform_song_ids(service, song_id, track_uid)
+        VALUES (?, ?, ?)
+        ON CONFLICT(service, song_id) DO UPDATE SET track_uid = excluded.track_uid
+        """,
+        (service, source_song_id, related_uid),
+    )
+    conn.execute(
+        """
+        INSERT INTO yt_video_ids(video_id, track_uid, is_canonical)
+        VALUES (?, ?, 0)
+        ON CONFLICT(video_id) DO UPDATE SET track_uid = excluded.track_uid, is_canonical = 0
+        """,
+        (source_song_id, related_uid),
+    )
+    conn.execute(
+        """
+        INSERT INTO yt_video_ids(video_id, track_uid, is_canonical)
+        VALUES (?, ?, 1)
+        ON CONFLICT(video_id) DO UPDATE SET track_uid = excluded.track_uid, is_canonical = 1
+        """,
+        (related_song_id, related_uid),
+    )
+    current = conn.execute(
+        "SELECT canonical_yt_video_id FROM tracks WHERE track_uid = ?",
+        (related_uid,),
+    ).fetchone()
+    if not current or str(current["canonical_yt_video_id"] or "") != related_song_id:
+        conn.execute(
+            "UPDATE tracks SET canonical_yt_video_id = ?, updated_at = ? WHERE track_uid = ?",
+            (related_song_id, utc_now_iso(), related_uid),
+        )
+    if source_song_id != related_song_id:
+        _invalidate_ytmusic_song_translation(conn, source_song_id)
+    if source_metadata_changed and not (source_uid and source_uid != related_uid):
+        _rebuild_track_metadata_lookup(
+            conn,
+            winner_uid=related_uid,
+            anchor_rows=anchor_rows,
+        )
+    return {"status": status, **merge_stats}
+
+
+def repair_source_song_relations(
+    conn: Any,
+    *,
+    service: str = "",
+    source_song_id: str = "",
+    dry_run: bool = False,
+) -> dict[str, int]:
+    clauses: list[str] = []
+    params: list[str] = []
+    if service:
+        clauses.append("service = ?")
+        params.append(normalized_service(service))
+    if source_song_id:
+        clauses.append("source_song_id = ?")
+        params.append(source_song_id)
+    where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
+    relations = conn.execute(
+        f"SELECT * FROM source_song_relations {where} ORDER BY service, source_song_id, relation_type",
+        tuple(params),
+    ).fetchall()
+    stats: dict[str, int] = {"scanned": len(relations)}
+    for relation in relations:
+        result = consolidate_source_song_relation(
+            conn,
+            service=relation["service"],
+            source_song_id=relation["source_song_id"],
+            relation_type=relation["relation_type"],
+            related_service=relation["related_service"],
+            related_song_id=relation["related_song_id"],
+            dry_run=dry_run,
+        )
+        status = str(result.get("status") or "unknown")
+        stats[status] = stats.get(status, 0) + 1
+    return stats
 
 
 def _verify_metadata_merge(
@@ -442,8 +1349,10 @@ def resolve_track_uid(
 ) -> str:
     service = normalized_service(service)
     override = manual_override(conn, service, song_id)
-    if override and override["action"] == "block":
+    if override and str(override["action"] or "").lower() in {"block", "manual_blocked"}:
         return stable_uid(f"blocked:{service}:{song_id}")
+    if override and str(override["action"] or "").lower() == "split":
+        return find_track_by_service_song(conn, service, song_id) or stable_uid(f"{service}:{song_id}")
     if override and override["target_track_uid"]:
         return override["target_track_uid"]
     if override and override["canonical_yt_video_id"]:
@@ -508,6 +1417,63 @@ def upsert_track_match(
     video_id = merged.get("video_id") or merged.get("canonical_yt_video_id")
     status = str(merged.get("status") or ("matched" if video_id else "failed"))
     score = float(merged.get("score") or 0)
+    override = manual_override(conn, service, song_id)
+    override_action = str(override["action"] or "").lower() if override else ""
+    if override_action in {"block", "manual_blocked"} or status == "manual_blocked":
+        track_uid = stable_uid(f"blocked:{service}:{song_id}")
+        ensure_track(conn, track_uid=track_uid, status="manual_blocked", score=score)
+        conn.execute(
+            "UPDATE tracks SET canonical_yt_video_id = NULL, match_status = 'manual_blocked', updated_at = ? WHERE track_uid = ?",
+            (utc_now_iso(), track_uid),
+        )
+        conn.execute("DELETE FROM yt_video_ids WHERE track_uid = ?", (track_uid,))
+        if song_id:
+            conn.execute(
+                "DELETE FROM platform_song_ids WHERE service = ? AND song_id = ?",
+                (service, song_id),
+            )
+            upsert_track_list_metadata(
+                conn,
+                service=service,
+                song_id=song_id,
+                track_uid=track_uid,
+                row=merged,
+                bind_source_id=False,
+            )
+        return track_uid
+    if override_action == "split":
+        track_uid = stable_uid(f"split:{service}:{song_id}")
+        ensure_track(
+            conn,
+            track_uid=track_uid,
+            video_id=video_id,
+            yt_title=merged.get("yt_title", ""),
+            yt_artist=merged.get("yt_artist", ""),
+            yt_album=merged.get("yt_album", ""),
+            status=status,
+            score=score,
+        )
+        if song_id:
+            upsert_track_list_metadata(
+                conn,
+                service=service,
+                song_id=song_id,
+                track_uid=track_uid,
+                row=merged,
+            )
+        return track_uid
+    if override and override_action == "set_canonical" and override["canonical_yt_video_id"]:
+        video_id = override["canonical_yt_video_id"]
+        merged["video_id"] = video_id
+        merged["status"] = status = "manual_override"
+    elif override and override["target_track_uid"]:
+        target = conn.execute(
+            "SELECT canonical_yt_video_id FROM tracks WHERE track_uid = ?",
+            (override["target_track_uid"],),
+        ).fetchone()
+        video_id = (target["canonical_yt_video_id"] if target else None) or video_id
+        merged["video_id"] = video_id
+        merged["status"] = status = "manual_override"
     if status in {"failed", "duplicate_skipped"} or (service == "spotify" and str(song_id).startswith("fallback:")):
         track_uid = stable_uid(f"unmatched:{service}:{song_id or metadata_key(merged.get('title'), merged.get('artist'), merged.get('album'))}")
         
@@ -534,7 +1500,6 @@ def upsert_track_match(
 
     existing = conn.execute("SELECT canonical_yt_video_id FROM tracks WHERE track_uid = ?", (track_uid,)).fetchone()
     existing_video = existing["canonical_yt_video_id"] if existing else None
-    override = manual_override(conn, service, song_id)
     override_video = override["canonical_yt_video_id"] if override else None
     canonical_video = override_video or video_id
 
@@ -562,6 +1527,15 @@ def upsert_track_match(
         status=status,
         score=score,
     )
+    if override and override_action == "set_canonical" and override_video:
+        conn.execute(
+            "UPDATE tracks SET canonical_yt_video_id = ?, match_status = 'manual_override', updated_at = ? WHERE track_uid = ?",
+            (override_video, utc_now_iso(), track_uid),
+        )
+        conn.execute(
+            "UPDATE yt_video_ids SET is_canonical = CASE WHEN video_id = ? THEN 1 ELSE 0 END WHERE track_uid = ?",
+            (override_video, track_uid),
+        )
     if song_id:
         bound_uid = find_track_by_service_song(conn, service, song_id)
         if bound_uid and bound_uid != track_uid:
@@ -1199,6 +2173,9 @@ def _persist_crawl_run_bulk_impl(
     match_attempt_params: list[tuple[Any, ...]] = []
     match_candidate_params: list[tuple[Any, ...]] = []
     metadata_params: list[tuple[Any, ...]] = []
+    blocked_song_ids: list[str] = []
+    blocked_track_uids: list[str] = []
+    manual_canonical_updates: list[tuple[str, str]] = []
     matched_count = 0
     failed_count = 0
     cache_hits = 0
@@ -1217,19 +2194,30 @@ def _persist_crawl_run_bulk_impl(
         score = float(merged.get("score") or 0)
         override = overrides.get(song_id) if song_id else None
 
-        if status in failed_statuses or (service == "spotify" and str(song_id).startswith("fallback:")):
-            track_uid = stable_uid(f"unmatched:{service}:{song_id or metadata_key(merged.get('title'), merged.get('artist'), merged.get('album'))}")
-            canonical_video = song_id if (service == "ytmusic" and song_id and not str(song_id).startswith("fallback:")) else None
-        elif override and override.get("action") == "block":
+        override_action = str((override or {}).get("action") or "").lower()
+        if override_action in {"block", "manual_blocked"} or status == "manual_blocked":
             track_uid = stable_uid(f"blocked:{service}:{song_id}")
             canonical_video = None
             status = "manual_blocked"
-        elif override and override.get("target_track_uid"):
-            track_uid = override["target_track_uid"]
-            canonical_video = video_id
-        elif override and override.get("canonical_yt_video_id"):
+            if song_id:
+                blocked_song_ids.append(song_id)
+            blocked_track_uids.append(track_uid)
+        elif override_action == "split":
+            track_uid = stable_uid(f"split:{service}:{song_id}")
+            canonical_video = video_id or None
+        elif override and override_action == "set_canonical" and override.get("canonical_yt_video_id"):
             canonical_video = override["canonical_yt_video_id"]
             track_uid = video_to_uid.get(canonical_video) or stable_uid(f"yt:{canonical_video}")
+            status = "manual_override"
+            manual_canonical_updates.append((canonical_video, track_uid))
+        elif override and override.get("target_track_uid"):
+            track_uid = override["target_track_uid"]
+            target = tracks_by_uid.get(track_uid) or {}
+            canonical_video = target.get("canonical_yt_video_id") or video_id
+            status = "manual_override"
+        elif status in failed_statuses or (service == "spotify" and str(song_id).startswith("fallback:")):
+            track_uid = stable_uid(f"unmatched:{service}:{song_id or metadata_key(merged.get('title'), merged.get('artist'), merged.get('album'))}")
+            canonical_video = song_id if (service == "ytmusic" and song_id and not str(song_id).startswith("fallback:")) else None
         else:
             existing_by_song = song_to_uid.get(song_id)
             existing_by_video = video_to_uid.get(video_id)
@@ -1268,32 +2256,34 @@ def _persist_crawl_run_bulk_impl(
             yt_video_ids_params.append((canonical_video, track_uid))
         if (
             song_id
-            and canonical_video
-            and status not in failed_statuses
+            and (
+                override_action == "split"
+                or (canonical_video and status not in failed_statuses)
+            )
             and not (service == "spotify" and str(song_id).startswith("fallback:"))
         ):
             platform_song_ids_params.append((service, song_id, track_uid))
         if song_id and not (service == "spotify" and str(song_id).startswith("fallback:")):
             track_list_params.append(track_list_metadata_params(service=service, song_id=song_id, row=merged))
-        if canonical_video and status not in failed_statuses:
+        if canonical_video and status not in failed_statuses and override_action != "split":
             metadata_params.extend(metadata_lookup_params(track_uid=track_uid, row=merged, source=status, score=score))
         rank_order = int(match.get("rank") or source_row.get("rank") or 0)
         if song_id:
-            match_method, origin_method, _ = match_method_for_status(match.get("status"), match.get("query"))
+            match_method, origin_method, _ = match_method_for_status(status, merged.get("query"))
             match_attempt_params.append((
                 run_id,
                 service,
                 song_id,
                 track_uid,
                 rank_order,
-                match.get("video_id", ""),
+                canonical_video or "",
                 float(match.get("score") or 0),
                 float(match.get("title_score") or 0),
                 float(match.get("artist_score") or 0),
                 float(match.get("album_score") or 0),
                 match.get("yt_result_type", ""),
-                match.get("query", ""),
-                match.get("status", ""),
+                merged.get("query", ""),
+                status,
                 match.get("match_method", match_method),
                 match.get("origin_method", origin_method),
                 now,
@@ -1317,7 +2307,7 @@ def _persist_crawl_run_bulk_impl(
                     candidate.get("query", ""),
                     now,
                 ))
-        if match.get("video_id") and match.get("status") != "duplicate_skipped":
+        if canonical_video and status not in failed_statuses:
             matched_count += 1
         else:
             failed_count += 1
@@ -1355,6 +2345,26 @@ def _persist_crawl_run_bulk_impl(
             """,
             yt_video_ids_params,
         )
+    if blocked_track_uids:
+        placeholders = ",".join("?" for _ in blocked_track_uids)
+        conn.execute(
+            f"UPDATE tracks SET canonical_yt_video_id = NULL, match_status = 'manual_blocked', updated_at = ? "
+            f"WHERE track_uid IN ({placeholders})",
+            (now, *blocked_track_uids),
+        )
+        conn.execute(
+            f"DELETE FROM yt_video_ids WHERE track_uid IN ({placeholders})",
+            tuple(blocked_track_uids),
+        )
+    for canonical_video, track_uid in manual_canonical_updates:
+        conn.execute(
+            "UPDATE tracks SET canonical_yt_video_id = ?, match_status = 'manual_override', updated_at = ? WHERE track_uid = ?",
+            (canonical_video, now, track_uid),
+        )
+        conn.execute(
+            "UPDATE yt_video_ids SET is_canonical = CASE WHEN video_id = ? THEN 1 ELSE 0 END WHERE track_uid = ?",
+            (canonical_video, track_uid),
+        )
     if platform_song_ids_params:
         conn.executemany(
             """
@@ -1363,6 +2373,12 @@ def _persist_crawl_run_bulk_impl(
             ON CONFLICT(service, song_id) DO UPDATE SET track_uid = excluded.track_uid
             """,
             platform_song_ids_params,
+        )
+    if blocked_song_ids:
+        placeholders = ",".join("?" for _ in blocked_song_ids)
+        conn.execute(
+            f"DELETE FROM platform_song_ids WHERE service = ? AND song_id IN ({placeholders})",
+            (service, *blocked_song_ids),
         )
     if track_list_params:
         conn.executemany(
@@ -1536,8 +2552,39 @@ def repair_failed_source_bindings(conn: sqlite3.Connection) -> dict[str, int]:
     ).fetchall()
     for row in failed_bindings:
         override = manual_override(conn, row["service"], row["song_id"])
-        if override and override["action"] in {"block", "split"}:
+        if override and str(override["action"] or "").lower() in {"block", "split", "manual_blocked"}:
             continue
+        source_meta_row = conn.execute(
+            """
+            SELECT tl.service, tl.song_id, tl.title_ko, tl.artist_ko, tl.album_ko,
+                   tl.title_en, tl.artist_en, tl.album_en
+            FROM track_list tl
+            WHERE tl.service = ? AND tl.song_id = ?
+            """,
+            (row["service"], row["song_id"]),
+        ).fetchone()
+        source_meta = dict(source_meta_row) if source_meta_row else {}
+
+        def approved_target(target_uid: str) -> bool:
+            candidates = [
+                meta
+                for meta in _track_metadata_rows(conn, target_uid)
+                if not (
+                    normalized_service(meta.get("service")) == normalized_service(row["service"])
+                    and str(meta.get("song_id") or "") == str(row["song_id"])
+                )
+            ]
+            target = conn.execute(
+                "SELECT yt_title AS title, yt_artist AS artist, yt_album AS album FROM tracks WHERE track_uid = ?",
+                (target_uid,),
+            ).fetchone()
+            if target:
+                candidates.append(dict(target))
+            return bool(source_meta) and any(
+                _metadata_rows_equivalent(source_meta, candidate)
+                for candidate in candidates
+            )
+
         candidate = conn.execute(
             """
             SELECT video_id, track_uid, score, created_at
@@ -1552,22 +2599,14 @@ def repair_failed_source_bindings(conn: sqlite3.Connection) -> dict[str, int]:
             (row["service"], row["song_id"]),
         ).fetchone()
         if not candidate:
-            meta = conn.execute(
-                """
-                SELECT tl.title_ko, tl.artist_ko, tl.album_ko, tl.title_en, tl.artist_en, tl.album_en
-                FROM track_list tl
-                WHERE tl.service = ? AND tl.song_id = ?
-                """,
-                (row["service"], row["song_id"]),
-            ).fetchone()
-            if meta:
+            if source_meta:
                 target_uid = find_track_by_metadata(
                     conn,
-                    meta["title_ko"] or meta["title_en"] or "",
-                    meta["artist_ko"] or meta["artist_en"] or "",
-                    meta["album_ko"] or meta["album_en"] or "",
+                    source_meta.get("title_ko") or source_meta.get("title_en") or "",
+                    source_meta.get("artist_ko") or source_meta.get("artist_en") or "",
+                    source_meta.get("album_ko") or source_meta.get("album_en") or "",
                 )
-                if target_uid:
+                if target_uid and approved_target(target_uid):
                     target = conn.execute(
                         "SELECT canonical_yt_video_id FROM tracks WHERE track_uid = ?",
                         (target_uid,),
@@ -1581,10 +2620,7 @@ def repair_failed_source_bindings(conn: sqlite3.Connection) -> dict[str, int]:
             continue
 
         target_uid = find_track_by_video(conn, candidate["video_id"])
-        if not target_uid:
-            target_uid = candidate["track_uid"] or stable_uid(f"yt:{candidate['video_id']}")
-            ensure_track(conn, track_uid=target_uid, video_id=candidate["video_id"], status="matched", score=float(candidate["score"] or 1.0))
-        if target_uid and target_uid != row["track_uid"]:
+        if target_uid and target_uid != row["track_uid"] and approved_target(target_uid):
             conn.execute(
                 "UPDATE platform_song_ids SET track_uid = ? WHERE service = ? AND song_id = ?",
                 (target_uid, row["service"], row["song_id"]),
@@ -1634,6 +2670,25 @@ def repair_failed_source_bindings(conn: sqlite3.Connection) -> dict[str, int]:
         ).fetchall()
         if len(candidates) < 2:
             continue
+        candidate_uids = [candidate["track_uid"] for candidate in candidates]
+        uid_placeholders = ",".join("?" for _ in candidate_uids)
+        direct_manual = conn.execute(
+            f"""
+            SELECT 1
+            FROM manual_overrides mo
+            LEFT JOIN platform_song_ids ps
+              ON ps.service = mo.service AND ps.song_id = mo.song_id
+            WHERE mo.action IN ('split', 'block', 'manual_blocked')
+              AND (
+                    mo.target_track_uid IN ({uid_placeholders})
+                 OR ps.track_uid IN ({uid_placeholders})
+              )
+            LIMIT 1
+            """,
+            tuple(candidate_uids + candidate_uids),
+        ).fetchone()
+        if direct_manual:
+            continue
         target_uid = candidates[0]["track_uid"]
         conn.execute(
             """
@@ -1647,12 +2702,12 @@ def repair_failed_source_bindings(conn: sqlite3.Connection) -> dict[str, int]:
         )
         for candidate in candidates[1:]:
             old_uid = candidate["track_uid"]
-            conn.execute("UPDATE platform_song_ids SET track_uid = ? WHERE track_uid = ?", (target_uid, old_uid))
-            conn.execute("UPDATE metadata_lookup_index SET track_uid = ? WHERE track_uid = ?", (target_uid, old_uid))
-            conn.execute("UPDATE match_attempts SET track_uid = ? WHERE track_uid = ?", (target_uid, old_uid))
-            conn.execute("UPDATE yt_video_ids SET track_uid = ? WHERE track_uid = ?", (target_uid, old_uid))
-            conn.execute("UPDATE manual_overrides SET target_track_uid = ? WHERE target_track_uid = ?", (target_uid, old_uid))
-            conn.execute("DELETE FROM tracks WHERE track_uid = ?", (old_uid,))
+            _merge_track_uids(
+                conn,
+                loser_uid=old_uid,
+                winner_uid=target_uid,
+                canonical_video=video_id,
+            )
             merged_tracks += 1
 
     return {"updated_bindings": updated_bindings, "merged_tracks": merged_tracks}
@@ -1676,9 +2731,7 @@ def record_playlist_update(
     item_retention_cutoff = (
         datetime.fromisoformat(now) - timedelta(days=31)
     ).isoformat()
-    run_id = hashlib.sha1(
-        f"{playlist_id}|{service}|{job_name}|{now}|{len(requested)}".encode("utf-8")
-    ).hexdigest()
+    run_id = uuid.uuid4().hex
     with connect(db_path) as conn:
         if type(conn).__name__ == "PostgresConnectionWrapper":
             conn.execute(
@@ -1696,9 +2749,10 @@ def record_playlist_update(
             """
             INSERT INTO playlist_update_runs(
                 update_run_id, playlist_id, service, job_name, started_at,
-                dry_run, requested_count, existing_count, created_at
+                dry_run, requested_count, existing_count, status,
+                completed_at, error, differences_json, match_started_at, created_at
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'running', NULL, '', '[]', ?, ?)
             """,
             (
                 run_id,
@@ -1709,6 +2763,7 @@ def record_playlist_update(
                 1 if dry_run else 0,
                 len(requested),
                 len(existing),
+                os.environ.get("HYPE_MATCH_STARTED_AT", ""),
                 now,
             ),
         )
@@ -1738,6 +2793,113 @@ def record_playlist_update(
     return run_id
 
 
+def finish_playlist_update(
+    db_path: str | Path,
+    update_run_id: str,
+    *,
+    status: str,
+    actual_video_ids: Iterable[str] = (),
+    error: str = "",
+    differences: Iterable[Any] = (),
+) -> dict[str, Any]:
+    """Finish (or advance) a playlist mutation audit and record observed state."""
+    if status not in PLAYLIST_UPDATE_STATUSES:
+        raise ValueError(f"Unsupported playlist update status: {status}")
+    init_db(db_path)
+    actual = [video_id for video_id in actual_video_ids if video_id]
+    serialized_differences = json.dumps(
+        list(differences), ensure_ascii=False, separators=(",", ":"), default=str
+    )
+    now = utc_now_iso()
+    with connect(db_path) as conn:
+        run = conn.execute(
+            "SELECT update_run_id FROM playlist_update_runs WHERE update_run_id = ?",
+            (update_run_id,),
+        ).fetchone()
+        if not run:
+            raise ValueError(f"Unknown playlist update run: {update_run_id}")
+        conn.execute(
+            "DELETE FROM playlist_update_items WHERE update_run_id = ? AND action = 'actual'",
+            (update_run_id,),
+        )
+        conn.executemany(
+            """
+            INSERT INTO playlist_update_items(
+                update_run_id, action, video_id, item_order, created_at
+            ) VALUES (?, 'actual', ?, ?, ?)
+            """,
+            [
+                (update_run_id, video_id, index, now)
+                for index, video_id in enumerate(actual, 1)
+            ],
+        )
+        conn.execute(
+            """
+            UPDATE playlist_update_runs
+            SET status = ?, completed_at = ?, error = ?, differences_json = ?
+            WHERE update_run_id = ?
+            """,
+            (
+                status,
+                None if status == "running" else now,
+                str(error or ""),
+                serialized_differences,
+                update_run_id,
+            ),
+        )
+        result = conn.execute(
+            "SELECT * FROM playlist_update_runs WHERE update_run_id = ?",
+            (update_run_id,),
+        ).fetchone()
+        conn.commit()
+    return dict(result)
+
+
+def get_pending_playlist_recovery(
+    db_path: str | Path,
+    playlist_id: str,
+) -> dict[str, Any] | None:
+    """Return the latest audit that makes another destructive update unsafe."""
+    init_db(db_path)
+    with connect(db_path) as conn:
+        row = conn.execute(
+            """
+            SELECT *
+            FROM playlist_update_runs
+            WHERE playlist_id = ?
+              AND status IN ('running', 'mutation_failed', 'recovery_required')
+            ORDER BY started_at DESC, created_at DESC
+            LIMIT 1
+            """,
+            (playlist_id,),
+        ).fetchone()
+        if not row:
+            return None
+        result = dict(row)
+        items = conn.execute(
+            """
+            SELECT action, video_id, item_order
+            FROM playlist_update_items
+            WHERE update_run_id = ?
+            ORDER BY action, item_order
+            """,
+            (result["update_run_id"],),
+        ).fetchall()
+    grouped: dict[str, list[str]] = {
+        "requested": [],
+        "existing": [],
+        "actual": [],
+    }
+    for item in items:
+        grouped.setdefault(item["action"], []).append(item["video_id"])
+    result.update({f"{action}_video_ids": values for action, values in grouped.items()})
+    try:
+        result["differences"] = json.loads(result.get("differences_json") or "[]")
+    except (TypeError, ValueError):
+        result["differences"] = []
+    return result
+
+
 
 def get_bulk_cached_matches(conn: Any, service: str, tracks: Iterable[Any]) -> dict[str, dict[str, Any]]:
     """Bulk load cache matches for a list of tracks in 5-6 database queries.
@@ -1757,31 +2919,9 @@ def get_bulk_cached_matches(conn: Any, service: str, tracks: Iterable[Any]) -> d
             continue
         song_ids.append(sid)
         
-        # Precompute metadata keys for this track
-        title = str(t.get("title_ko") or t.get("title") or "").strip()
-        artist = str(t.get("artist_ko") or t.get("artist") or "").strip()
-        album = str(t.get("album_ko") or t.get("album") or "").strip()
-        
-        keys = [metadata_key(title, artist, album), compact_metadata_key(title, artist)]
-        cleaned = clean_track_title(title)
-        if cleaned != title:
-            keys.append(compact_metadata_key(cleaned, artist))
-            if album:
-                keys.append(metadata_key(cleaned, artist, album))
-        
-        stripped_title = strip_parens_from_title(title)
-        if stripped_title != title and stripped_title != cleaned:
-            keys.append(compact_metadata_key(stripped_title, artist))
-            if album:
-                keys.append(metadata_key(stripped_title, artist, album))
-                
-        stripped_artist = strip_parens_from_title(artist)
-        if stripped_artist != artist:
-            keys.append(compact_metadata_key(title, stripped_artist))
-            keys.append(compact_metadata_key(cleaned, stripped_artist))
-            if album:
-                keys.append(metadata_key(title, stripped_artist, album))
-                
+        keys = list(dict.fromkeys(
+            key for key, _score in _metadata_lookup_key_scores(t, 1.0)
+        ))
         track_keys[sid] = keys
         all_lookup_keys.extend(keys)
         
@@ -1810,20 +2950,28 @@ def get_bulk_cached_matches(conn: Any, service: str, tracks: Iterable[Any]) -> d
         song_to_uid[row["song_id"]] = row["track_uid"]
         
     # Query 3: Fetch metadata lookup indexes
-    lookup_to_uid = {}
+    lookup_to_entry: dict[str, dict[str, Any]] = {}
     if all_lookup_keys:
-        chunks = [all_lookup_keys[i:i + 500] for i in range(0, len(all_lookup_keys), 500)]
+        unique_lookup_keys = list(dict.fromkeys(all_lookup_keys))
+        chunks = [unique_lookup_keys[i:i + 500] for i in range(0, len(unique_lookup_keys), 500)]
         for chunk in chunks:
             chunk_placeholders = ",".join("?" for _ in chunk)
             rows_lookup = conn.execute(
-                f"SELECT lookup_key, track_uid FROM metadata_lookup_index WHERE lookup_key IN ({chunk_placeholders})",
+                f"SELECT lookup_key, track_uid, source, score FROM metadata_lookup_index WHERE lookup_key IN ({chunk_placeholders})",
                 chunk
             ).fetchall()
             for row in rows_lookup:
-                lookup_to_uid[row["lookup_key"]] = row["track_uid"]
+                lookup_to_entry[row["lookup_key"]] = dict(row)
                 
     # Collect all candidate track_uids
-    candidate_uids = set(song_to_uid.values()) | set(lookup_to_uid.values())
+    candidate_uids = set(song_to_uid.values()) | {
+        entry["track_uid"] for entry in lookup_to_entry.values()
+    }
+    candidate_uids.update(
+        override["target_track_uid"]
+        for override in overrides.values()
+        if override.get("target_track_uid")
+    )
     
     # Query 4: Fetch video IDs for manual overrides if set_canonical
     override_video_ids = [ov["canonical_yt_video_id"] for ov in overrides.values() if ov.get("action") == "set_canonical" and ov.get("canonical_yt_video_id")]
@@ -1838,9 +2986,6 @@ def get_bulk_cached_matches(conn: Any, service: str, tracks: Iterable[Any]) -> d
             video_to_uid[row["video_id"]] = row["track_uid"]
             candidate_uids.add(row["track_uid"])
             
-    if not candidate_uids:
-        return {}
-        
     # Query 5: Fetch tracks details
     tracks_dict = {}
     uid_list = list(candidate_uids)
@@ -1874,12 +3019,23 @@ def get_bulk_cached_matches(conn: Any, service: str, tracks: Iterable[Any]) -> d
             uid_to_metas.setdefault(uid, []).append(dict(row))
             
     # Helper to build cache row dict in-memory.
-    def make_cache_dict(track_uid, status):
+    def make_cache_dict(
+        track_uid: str,
+        status: str,
+        *,
+        cache_origin: str,
+        lookup_key: str = "",
+        manual_action: str = "",
+        incoming: dict[str, Any] | None = None,
+    ):
         track = tracks_dict.get(track_uid)
         if not track or not track.get("canonical_yt_video_id"):
             return None
         metas = uid_to_metas.get(track_uid) or []
-        meta = metas[0] if metas else None
+        meta = next(
+            (row for row in metas if incoming and _metadata_rows_equivalent(incoming, row)),
+            metas[0] if metas else None,
+        )
         
         out = {
             "video_id": track["canonical_yt_video_id"],
@@ -1891,8 +3047,12 @@ def get_bulk_cached_matches(conn: Any, service: str, tracks: Iterable[Any]) -> d
             "artist_score": 1.0,
             "album_score": 1.0,
             "yt_result_type": "song",
-            "query": "db_cache",
+            "query": f"db_cache:{cache_origin}",
             "status": status,
+            "cache_origin": cache_origin,
+            "track_uid": track_uid,
+            "lookup_key": lookup_key,
+            "manual_action": manual_action,
         }
         if meta:
             out.update({
@@ -1903,30 +3063,30 @@ def get_bulk_cached_matches(conn: Any, service: str, tracks: Iterable[Any]) -> d
             })
         return out
         
-    # Helper to verify cached title in-memory.
-    def verify_title_in_memory(track_uid, title, artist, threshold=0.4):
-        from ytmusic_playlist_sync import similarity
-        metas = uid_to_metas.get(track_uid) or []
-        if not metas:
-            return True
-        existing_titles = []
-        for m in metas:
-            if m.get("title_ko"):
-                existing_titles.append(m["title_ko"])
-            if m.get("title_en"):
-                existing_titles.append(m["title_en"])
-        existing_titles = list(set(existing_titles))
-        canonical_title = (tracks_dict.get(track_uid) or {}).get("yt_title") or ""
-        if canonical_title and has_version_mismatch(title, canonical_title):
-            return False
-        if not existing_titles:
-            return True
-        if all(has_feature_mismatch(title, existing) for existing in existing_titles):
-            return False
-        if all(has_version_mismatch(title, existing) for existing in existing_titles):
-            return False
-        best_sim = max(similarity(title, t, is_title=True) for t in existing_titles)
-        return best_sim >= threshold
+    def verify_cache_in_memory(
+        track_uid: str,
+        incoming: dict[str, Any],
+        *,
+        exclude_source_binding: bool = False,
+    ) -> bool:
+        candidates = []
+        for meta in uid_to_metas.get(track_uid) or []:
+            if (
+                exclude_source_binding
+                and normalized_service(meta.get("service")) == service
+                and str(meta.get("song_id") or "") == normalize_song_id(service, incoming)
+            ):
+                continue
+            candidates.append(meta)
+        track = tracks_dict.get(track_uid) or {}
+        canonical = {
+            "title": track.get("yt_title") or "",
+            "artist": track.get("yt_artist") or "",
+            "album": track.get("yt_album") or "",
+        }
+        if _metadata_variants(canonical):
+            candidates.append(canonical)
+        return any(_metadata_rows_equivalent(incoming, candidate) for candidate in candidates)
         
     # 2. Evaluate cache matches in-memory for each track
     results = {}
@@ -1935,24 +3095,57 @@ def get_bulk_cached_matches(conn: Any, service: str, tracks: Iterable[Any]) -> d
         if not sid:
             continue
             
-        title = str(t.get("title_ko") or t.get("title") or "").strip()
-        artist = str(t.get("artist_ko") or t.get("artist") or "").strip()
-        album = str(t.get("album_ko") or t.get("album") or "").strip()
-        
         # A. Manual override check
         override = overrides.get(sid)
+        manual_action = str((override or {}).get("action") or "").lower()
         if override:
-            if override.get("action") == "block":
-                results[sid] = {"status": "manual_blocked"}
+            if manual_action in {"block", "manual_blocked"}:
+                results[sid] = {
+                    "status": "manual_blocked",
+                    "cache_origin": "manual",
+                    "track_uid": str(override.get("target_track_uid") or ""),
+                    "lookup_key": "",
+                    "manual_action": manual_action,
+                }
                 continue
             video_id = override.get("canonical_yt_video_id")
             if video_id:
                 # Find track_uid for this video
                 track_uid = video_to_uid.get(video_id)
                 if track_uid:
-                    cached = make_cache_dict(track_uid, status="manual_override")
+                    cached = make_cache_dict(
+                        track_uid,
+                        status="manual_override",
+                        cache_origin="manual",
+                        manual_action=manual_action,
+                        incoming=t,
+                    )
+                    if cached:
+                        cached["video_id"] = video_id
+                        cached["query"] = "manual_override"
                 else:
-                    cached = {"video_id": video_id, "score": 1.0, "status": "manual_override", "query": "manual_override"}
+                    cached = {
+                        "video_id": video_id,
+                        "score": 1.0,
+                        "status": "manual_override",
+                        "query": "manual_override",
+                        "cache_origin": "manual",
+                        "track_uid": str(override.get("target_track_uid") or ""),
+                        "lookup_key": "",
+                        "manual_action": manual_action,
+                    }
+                if cached:
+                    results[sid] = cached
+                    continue
+            target_uid = str(override.get("target_track_uid") or "")
+            if target_uid:
+                cached = make_cache_dict(
+                    target_uid,
+                    status="manual_override",
+                    cache_origin="manual",
+                    manual_action=manual_action,
+                    incoming=t,
+                )
                 if cached:
                     results[sid] = cached
                     continue
@@ -1960,28 +3153,38 @@ def get_bulk_cached_matches(conn: Any, service: str, tracks: Iterable[Any]) -> d
         # B. Find by service and song_id
         track_uid = song_to_uid.get(sid)
         if track_uid:
-            cached = make_cache_dict(track_uid, status="cached_match")
+            cached = make_cache_dict(
+                track_uid,
+                status="cached_match",
+                cache_origin="service_song_id",
+                manual_action=manual_action,
+                incoming=t,
+            )
             if cached:
-                if title and not verify_title_in_memory(track_uid, title, artist):
-                    LOG.warning("Cache rejected for %s:%s — title mismatch with '%s'", service, sid, title)
+                if not verify_cache_in_memory(track_uid, t, exclude_source_binding=True):
+                    LOG.warning("Cache rejected for %s:%s due to metadata/version mismatch", service, sid)
                 else:
                     results[sid] = cached
                     continue
                     
         # C. Find by metadata lookup
         keys = track_keys.get(sid) or []
-        found_uid = None
         for key in keys:
-            found_uid = lookup_to_uid.get(key)
-            if found_uid:
-                break
-        if found_uid:
-            cached = make_cache_dict(found_uid, status="cached_match")
+            entry = lookup_to_entry.get(key)
+            if not entry:
+                continue
+            found_uid = entry["track_uid"]
+            cached = make_cache_dict(
+                found_uid,
+                status="cached_match",
+                cache_origin="metadata_lookup",
+                lookup_key=key,
+                manual_action=manual_action,
+                incoming=t,
+            )
             if cached:
-                if title and not verify_title_in_memory(found_uid, title, artist):
-                    pass
-                else:
+                if verify_cache_in_memory(found_uid, t, exclude_source_binding=True):
                     results[sid] = cached
-                    continue
+                    break
                     
     return results

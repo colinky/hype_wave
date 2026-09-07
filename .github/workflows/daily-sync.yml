@@ -42,6 +42,7 @@ jobs:
           chmod 600 .secrets/browser.json
 
       - name: Run Enabled Sync Tasks
+        id: sync
         shell: bash
         env:
           YTMUSIC_AUTH_FILE: .secrets/browser.json
@@ -51,7 +52,7 @@ jobs:
           python sync_all.py
 
       - name: Commit and Push Historical Web Data
-        if: success()
+        if: ${{ !cancelled() && steps.sync.outputs.history_ready == 'true' }}
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"

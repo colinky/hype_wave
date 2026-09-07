@@ -909,7 +909,7 @@ def main() -> int:
     min_title_score = float(os.environ.get("MATCH_MIN_TITLE_SCORE", args.min_title_score))
     min_artist_score = float(os.environ.get("MATCH_MIN_ARTIST_SCORE", args.min_artist_score))
     search_limit = int(os.environ.get("SEARCH_LIMIT", args.search_limit))
-    started_at = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    started_at = os.environ.get("HYPE_MATCH_STARTED_AT") or datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
 
     kst_now = datetime.now(timezone.utc).astimezone(timezone(timedelta(hours=9)))
     update_date_str = kst_now.strftime("%Y-%m-%d")

@@ -6,7 +6,7 @@ import os
 import re
 import shutil
 import sqlite3
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Iterable
 
@@ -277,6 +277,29 @@ def _daily_reference_cutoff_for_history_date(history_date: str) -> str:
         return history_date
 
 
+def _weekly_reference_cutoff_for_history_date(
+    history_date: str, input_config: dict[str, dict[str, Any]],
+) -> str:
+    """Use the last scheduled chart day, not a future week within the same ISO week.
+
+    This is a schedule-based reconstruction: legacy completion timestamps can
+    contain migration/backfill times and cannot reproduce actual publication delays.
+    """
+    for job_name, item in input_config.items():
+        if item.get("hype_group") != "ytmusic":
+            continue
+        chart_day = datetime.strptime(history_date, "%Y-%m-%d")
+        schedule = str(item.get("schedule") or "").strip().lower()
+        if schedule:
+            weekdays = ("monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday")
+            chart_day -= timedelta(days=(chart_day.weekday() - weekdays.index(schedule)) % 7)
+        # YouTube's weekly source period ends on Thursday. A Monday collection
+        # therefore belongs to the previous ISO week, not that Monday's week.
+        chart_day -= timedelta(days=(chart_day.weekday() - 3) % 7)
+        return reference_period_for_date(job_name, chart_day.strftime("%Y-%m-%d"))
+    return history_date
+
+
 def prune_history(
     history: dict[str, list[dict[str, Any]]],
     *,
@@ -340,12 +363,11 @@ def fetch_hype_rows_for_dates(conn: sqlite3.Connection, dates: list[str]) -> dic
     if not dates:
         return {}
     input_config = hype_inputs()
-    ytmusic_jobs = [name for name, item in input_config.items() if item.get("hype_group") == "ytmusic"]
     date_pairs = [
         (
             date,
             _daily_reference_cutoff_for_history_date(date),
-            reference_period_for_date(ytmusic_jobs[0], date) if ytmusic_jobs else date,
+            _weekly_reference_cutoff_for_history_date(date, input_config),
         )
         for date in dates
     ]
@@ -386,6 +408,7 @@ def fetch_hype_rows_for_dates(conn: sqlite3.Connection, dates: list[str]) -> dic
             p.service,
             p.job_name,
             p.source_variant,
+            p.reference_period,
             p.song_id,
             tl.album_id,
             p.rank_order,
@@ -412,6 +435,7 @@ def fetch_hype_rows_for_dates(conn: sqlite3.Connection, dates: list[str]) -> dic
            AND tl.song_id = p.song_id
         WHERE t.canonical_yt_video_id IS NOT NULL
           AND t.canonical_yt_video_id != ''
+        ORDER BY e.chart_date, p.service, p.job_name, p.source_variant, p.rank_order, p.song_id
         """,
         tuple(params),
     ).fetchall()
@@ -427,63 +451,7 @@ def hype_report_for_date(
     *,
     previous_apple_videos: set[str] | None = None,
 ) -> list[dict[str, Any]]:
-    previous_apple_videos = previous_apple_videos or set()
-    input_config = hype_inputs()
-    ytmusic_jobs = [name for name, item in input_config.items() if item.get("hype_group") == "ytmusic"]
-    daily_cutoff = _daily_reference_cutoff_for_history_date(chart_date)
-    # target_week: 주별 차트(ytmusic 등)의 carry-forward 기준 ISO 주 (예: '2026-W18')
-    target_week = reference_period_for_date(ytmusic_jobs[0], chart_date) if ytmusic_jobs else chart_date
-    rows = conn.execute(
-        f"""
-        WITH effective AS (
-            -- 각 (service, job_name, source_variant) 조합에 대해
-            -- history date의 직전 daily reference_period와 최신 weekly reference_period를 선택합니다.
-            --   주별 차트 (ytmusic): reference_period = ISO 주 형식 (예: '2026-W18')
-            --     → INSTR(reference_period, '-W') > 0 이므로 target_week 기준 비교
-            SELECT p.service, p.job_name, p.source_variant,
-                   MAX(p.reference_period) AS eff_period
-            FROM playlist_order p
-            WHERE (
-                    (p.reference_period NOT LIKE '%-W%' AND p.reference_period <= ?)
-                 OR (p.reference_period LIKE '%-W%' AND p.reference_period <= ?)
-                  )
-              AND {_COMPLETED_SNAPSHOT_SQL}
-            GROUP BY p.service, p.job_name, p.source_variant
-        )
-        SELECT
-            ps.track_uid,
-            p.service,
-            p.job_name,
-            p.source_variant,
-            p.song_id,
-            tl.album_id,
-            p.rank_order,
-            t.canonical_yt_video_id AS video_id,
-            t.yt_title,
-            t.yt_artist,
-            t.yt_album,
-            COALESCE(NULLIF(tl.title_ko, ''), tl.title_en) AS title,
-            COALESCE(NULLIF(tl.artist_ko, ''), tl.artist_en) AS artist,
-            COALESCE(NULLIF(tl.album_ko, ''), tl.album_en) AS album,
-            tl.artwork_url
-        FROM playlist_order p
-        JOIN effective e
-          ON e.service = p.service
-         AND e.job_name = p.job_name
-         AND e.source_variant = p.source_variant
-         AND p.reference_period = e.eff_period
-        JOIN platform_song_ids ps
-          ON ps.service = p.service
-         AND ps.song_id = p.song_id
-        JOIN tracks t ON t.track_uid = ps.track_uid
-        LEFT JOIN track_list tl
-            ON LOWER(tl.service) = LOWER(p.service)
-           AND tl.song_id = p.song_id
-        WHERE t.canonical_yt_video_id IS NOT NULL
-          AND t.canonical_yt_video_id != ''
-        """,
-        (daily_cutoff, target_week),
-    ).fetchall()
+    rows = fetch_hype_rows_for_dates(conn, [chart_date]).get(chart_date, [])
     return build_hype_report_from_rows(rows, previous_apple_videos=previous_apple_videos)
 
 

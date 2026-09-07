@@ -54,13 +54,14 @@ DEFAULT_ALBUM_CACHE_TTL = 31
 _ALBUM_NAME_CACHE: dict[str, dict[str, Any]] = {}
 
 
-def load_album_cache(db_path: Path, ttl_days: int = DEFAULT_ALBUM_CACHE_TTL) -> None:
+def load_album_cache(db_path: Path, ttl_days: int = DEFAULT_ALBUM_CACHE_TTL, *, read_only: bool = False) -> None:
     """앨범명 캐시를 DB에서 로드합니다."""
     if db_path and (db_path.exists() or os.environ.get("SUPABASE_DB_URL")):
         try:
             from hype_db import connect, init_db
-            init_db(db_path)
-            with connect(db_path) as conn:
+            if not read_only:
+                init_db(db_path)
+            with connect(db_path, read_only=read_only) as conn:
                 rows = conn.execute(
                     "SELECT album_id, album_name, created_at, last_checked FROM album_metadata WHERE service = 'melon'"
                 ).fetchall()
@@ -362,7 +363,7 @@ def run_tracks_pipeline(
     min_title_score = float(os.environ.get("MATCH_MIN_TITLE_SCORE", args.min_title_score))
     min_artist_score = float(os.environ.get("MATCH_MIN_ARTIST_SCORE", args.min_artist_score))
     search_limit = int(os.environ.get("SEARCH_LIMIT", args.search_limit))
-    started_at = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    started_at = os.environ.get("HYPE_MATCH_STARTED_AT") or datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
 
     kst_now = datetime.now(timezone.utc).astimezone(timezone(timedelta(hours=9)))
     update_date_str = kst_now.strftime("%Y-%m-%d")
@@ -471,7 +472,7 @@ def main() -> int:
     db_path = Path(args.db_path).expanduser()
     if not args.no_db_cache:
         os.environ["HYPE_DB_PATH"] = str(db_path)
-    load_album_cache(db_path, ttl_days=args.album_cache_ttl)
+    load_album_cache(db_path, ttl_days=args.album_cache_ttl, read_only=args.dry_run)
 
     all_tracks: list[SourceTrack] = []
     combined_desc_parts: list[str] = []
@@ -504,7 +505,8 @@ def main() -> int:
                 else:
                     time.sleep(2)
 
-    save_album_cache(db_path)
+    if not args.dry_run:
+        save_album_cache(db_path)
 
     # Resolve reference period (week or day) from the parsed chart date
     job_name = getattr(args, "job_name", None) or "melon"

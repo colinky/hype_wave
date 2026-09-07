@@ -46,20 +46,6 @@ def kst_now() -> datetime:
     return datetime.now(timezone.utc).astimezone(KST)
 
 
-def is_ytmusic_task(task: dict) -> bool:
-    return str(task.get("service") or task.get("type") or "").strip().lower() == "ytmusic"
-
-
-def is_ytmusic_weekly_chart_task(task: dict) -> bool:
-    return is_ytmusic_task(task) and str(task.get("job_name") or "").strip() == "Weekly-Hot-100"
-
-
-def schedule_retry_days_for_task(task: dict) -> int:
-    if is_ytmusic_weekly_chart_task(task):
-        return 2
-    return 0
-
-
 def schedule_window(task: dict, now: datetime | None = None) -> tuple[bool, str, datetime | None]:
     schedule = str(task.get("schedule") or "").strip()
     if not schedule:
@@ -69,9 +55,8 @@ def schedule_window(task: dict, now: datetime | None = None) -> tuple[bool, str,
     if schedule_wd is None:
         return False, f"Unknown schedule day '{schedule}'.", None
     days_since = (current.weekday() - schedule_wd) % 7
-    retry_days = schedule_retry_days_for_task(task)
     anchor = current - timedelta(days=days_since)
-    if days_since <= retry_days:
+    if days_since == 0:
         return True, "", anchor
     current_day = current.strftime("%A")
     return False, f"Task schedule '{schedule}' does not match current KST day '{current_day}'.", anchor
@@ -106,6 +91,85 @@ def failed_hype_inputs(tasks: list[dict], failed_tasks: list[str]) -> list[str]:
     return sorted(inputs.intersection(failed_tasks))
 
 
+def data_snapshot_ready(conn, *, service: str, job_name: str, started_at: str,
+                        source_variant: str = "default") -> bool:
+    """Verify this execution's committed source/match snapshot, not an older run.
+
+    Individual unmatched/blocked songs remain allowed, as in the crawler contract;
+    every effective source must nevertheless have a final, accounted-for result.
+    """
+    from hype_db_common import normalized_service
+    from hype_db_store import _validate_raw_tracks
+
+    service = normalized_service(service)
+    run = conn.execute(
+        """SELECT * FROM match_runs WHERE service = ? AND job_name = ?
+           AND source_variant = ? AND started_at = ?
+           ORDER BY created_at DESC LIMIT 1""",
+        (service, job_name, source_variant, started_at),
+    ).fetchone()
+    if not run or run["status"] != "completed" or not run["completed_at"]:
+        return False
+    raw = [dict(row) for row in conn.execute(
+        """SELECT song_id, rank_order AS rank FROM playlist_order
+           WHERE service = ? AND job_name = ? AND source_variant = ?
+             AND reference_period = ? ORDER BY rank_order""",
+        (service, job_name, source_variant, run["reference_period"]),
+    ).fetchall()]
+    try:
+        _validate_raw_tracks(service, job_name, raw)
+    except ValueError:
+        return False
+    effective = {}
+    for row in raw:
+        effective.setdefault(row["song_id"], row["rank"])
+    attempts = conn.execute(
+        """SELECT song_id, rank_order, status, video_id FROM match_attempts
+           WHERE run_id = ? AND service = ?""", (run["run_id"], service),
+    ).fetchall()
+    final_statuses = {"matched", "cached_match", "proxy_matched", "manual_override",
+                      "failed", "manual_blocked", "duplicate_skipped"}
+    if len(attempts) != len(effective) or any(a["status"] not in final_statuses for a in attempts):
+        return False
+    if {(a["song_id"], a["rank_order"]) for a in attempts} != set(effective.items()):
+        return False
+    matched = sum(bool(a["video_id"]) and a["status"] not in
+                  {"failed", "manual_blocked", "duplicate_skipped"} for a in attempts)
+    return (run["total_tracks"] == len(effective)
+            and run["matched_tracks"] == matched
+            and run["failed_tracks"] == len(effective) - matched)
+
+
+def classify_task_failure(conn, task: dict, started_at: str) -> str:
+    """Only a recorded publication failure with ready data is publish-only."""
+    job_name = task.get("job_name") or task.get("name") or ""
+    service = str(task.get("service") or task.get("type") or "")
+    audit = conn.execute(
+        """SELECT status FROM playlist_update_runs WHERE job_name = ?
+           AND playlist_id = ? AND match_started_at = ?
+           ORDER BY started_at DESC LIMIT 1""",
+        (job_name, task.get("target_id") or "", started_at),
+    ).fetchone()
+    if not audit or audit["status"] not in {
+        "verification_failed", "mutation_failed", "restored", "recovery_required",
+    }:
+        return "data"
+    if service == "hypex":
+        return "publish"
+    variant = "combined" if service == "melon_gen" else "default"
+    return "publish" if data_snapshot_ready(
+        conn, service=service, job_name=job_name, started_at=started_at,
+        source_variant=variant,
+    ) else "data"
+
+
+def mark_history_ready() -> None:
+    output_path = os.environ.get("GITHUB_OUTPUT")
+    if output_path:
+        with open(output_path, "a", encoding="utf-8") as stream:
+            stream.write("history_ready=true\n")
+
+
 def main():
     script_dir = Path(__file__).parent
     load_env_file(script_dir / ".env")
@@ -138,6 +202,7 @@ def main():
     success_count = 0
     skipped_count = 0
     failed_tasks = []
+    publish_failed_tasks = []
     task_env = os.environ.copy()
     task_env["HYPE_DEFER_HISTORY_EXPORT"] = "1"
     if os.environ.get("SUPABASE_DB_URL"):
@@ -236,50 +301,69 @@ def main():
         if task.get("shuffle"):
             cmd.append("--shuffle")
 
+        execution_started_at = datetime.now(timezone.utc).isoformat()
+        child_env = {**task_env, "HYPE_MATCH_STARTED_AT": execution_started_at}
+        data_ready = False
         try:
             LOG.debug(f"Running command: {' '.join(cmd)}")
-            subprocess.run(cmd, check=True, env=task_env)
+            subprocess.run(cmd, check=True, env=child_env)
             LOG.info(f"Successfully finished task: {job_name}")
 
             success_count += 1
-
-            # After each ytmusic crawl, heal any split track UIDs so that
-            # hype_moment aggregation sees all services correctly unified.
-            if task_type == "ytmusic":
-                heal_script = script_dir / "heal_split_tracks.py"
-                db_path = script_dir / "hype_wave_data.db"
-                if heal_script.exists() and (db_path.exists() or os.environ.get("SUPABASE_DB_URL")):
-                    try:
-                        heal_cmd = [sys.executable, str(heal_script), "--db-path", str(db_path)]
-                        LOG.info(f"Running heal_split_tracks after '{job_name}'...")
-                        subprocess.run(heal_cmd, check=True, env=task_env)
-                        LOG.info("heal_split_tracks completed.")
-                    except subprocess.CalledProcessError as he:
-                        LOG.warning(f"heal_split_tracks failed (non-fatal): exit code {he.returncode}")
-
+            data_ready = True
         except subprocess.CalledProcessError as e:
-            LOG.error(f"Task '{job_name}' failed with exit code {e.returncode}")
-            failed_tasks.append(job_name)
+            failure_phase = "data"
+            try:
+                from hype_db import connect
+                with connect(script_dir / "hype_wave_data.db") as conn:
+                    failure_phase = classify_task_failure(conn, task, execution_started_at)
+            except Exception as exc:
+                LOG.error("Could not verify failed task's committed snapshot: %s", exc)
+            if failure_phase == "publish":
+                publish_failed_tasks.append(job_name)
+                data_ready = True
+                LOG.error("Task '%s' publication failed; committed chart data is ready", job_name)
+            else:
+                failed_tasks.append(job_name)
+                LOG.error(f"Task '{job_name}' failed with exit code {e.returncode}")
+
+        # Identity maintenance consumes the committed snapshot, not publication.
+        if task_type == "ytmusic" and data_ready:
+            heal_script = script_dir / "heal_split_tracks.py"
+            db_path = script_dir / "hype_wave_data.db"
+            if heal_script.exists() and (db_path.exists() or os.environ.get("SUPABASE_DB_URL")):
+                try:
+                    heal_cmd = [sys.executable, str(heal_script), "--db-path", str(db_path)]
+                    LOG.info(f"Running heal_split_tracks after '{job_name}'...")
+                    subprocess.run(heal_cmd, check=True, env=child_env)
+                    LOG.info("heal_split_tracks completed.")
+                except subprocess.CalledProcessError as he:
+                    LOG.warning(f"heal_split_tracks failed (non-fatal): exit code {he.returncode}")
 
     LOG.info("=== Sync Summary ===")
     LOG.info(f"Total tasks: {len(tasks)}")
     LOG.info(f"Skipped: {skipped_count}")
     LOG.info(f"Successful: {success_count}")
-    if failed_tasks:
-        LOG.error(f"Failed tasks: {', '.join(failed_tasks)}")
-        sys.exit(1)
-
-    if success_count:
+    if (success_count or publish_failed_tasks) and not failed_hype_inputs(tasks, failed_tasks):
         try:
             from hype_db import export_frontend_history
 
             db_path = script_dir / "hype_wave_data.db"
             history_path = script_dir / "docs" / "api" / "history.json"
-            export_frontend_history(db_path, history_path)
+            payload = export_frontend_history(db_path, history_path)
+            if not payload or not payload.get("dates"):
+                raise RuntimeError("History export has no completed chart dates")
             LOG.info("Exported frontend history once after all sync tasks.")
+            mark_history_ready()
         except Exception as exc:
             LOG.error("Failed to export frontend history: %s", exc)
             sys.exit(1)
+    if failed_tasks:
+        LOG.error("Data/task failures: %s", ", ".join(failed_tasks))
+    if publish_failed_tasks:
+        LOG.error("Publication failures requiring retry: %s", ", ".join(publish_failed_tasks))
+    if failed_tasks or publish_failed_tasks:
+        sys.exit(1)
     
 if __name__ == "__main__":
     main()

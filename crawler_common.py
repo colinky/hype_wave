@@ -3,12 +3,14 @@ from __future__ import annotations
 import logging
 import os
 import time
+from contextlib import nullcontext
 from pathlib import Path
 from typing import Any
 
 from ytmusic_playlist_sync import (
     MatchResult,
     SourceTrack,
+    bilingual_cache_read_only,
     localized_source_fields,
     match_from_prev,
     search_youtube_music,
@@ -52,6 +54,11 @@ def process_matching_pipeline(
     def korean_track_for(track: SourceTrack) -> SourceTrack | None:
         return tracks_ko_map.get(track.song_id) or tracks_ko_map.get(str(track.rank))
 
+    def localized_row(track: SourceTrack) -> dict[str, Any]:
+        row = vars(track).copy()
+        row.update(localized_source_fields(track, korean_track_for(track)))
+        return row
+
     LOG.info(
         "Matching settings: min_score=%.2f min_title_score=%.2f min_artist_score=%.2f search_limit=%d",
         min_score,
@@ -64,18 +71,12 @@ def process_matching_pipeline(
     seen_video_ids: set[str] = set()
 
     # Open a single persistent connection context for the entire pipeline run
-    with connect(db_path) as conn:
+    with (
+        bilingual_cache_read_only() if dry_run else nullcontext(),
+        connect(db_path, read_only=dry_run) as conn,
+    ):
         if not dry_run:
             try:
-                localized_raw_tracks: list[SourceTrack | dict[str, Any]] = []
-                for track in raw_tracks:
-                    track_ko = korean_track_for(track)
-                    if not track_ko:
-                        localized_raw_tracks.append(track)
-                        continue
-                    row = vars(track).copy()
-                    row.update(localized_source_fields(track, track_ko))
-                    localized_raw_tracks.append(row)
                 persist_crawled_tracks(
                     db_path,
                     service=service,
@@ -83,7 +84,7 @@ def process_matching_pipeline(
                     source_variant=source_variant,
                     chart_date=update_date_str,
                     reference_period=reference_period or chart_period,
-                    tracks=localized_raw_tracks,
+                    tracks=[localized_row(track) for track in raw_tracks],
                     conn=conn,
                     commit=False,
                 )
@@ -95,18 +96,21 @@ def process_matching_pipeline(
 
         # Pre-populate cache in bulk
         bulk_cache = {}
-        if not no_db_cache:
-            try:
-                from hype_db import get_bulk_cached_matches
-                bulk_cache = get_bulk_cached_matches(
-                    conn,
-                    service=service,
-                    tracks=all_tracks,
-                )
-                conn.commit()
-            except Exception as exc:
-                conn.rollback()
-                LOG.warning("Failed to bulk pre-populate cache: %s", exc)
+        try:
+            from hype_db import get_bulk_cached_matches
+            bulk_cache = get_bulk_cached_matches(
+                conn,
+                service=service,
+                tracks=[localized_row(track) for track in all_tracks],
+            )
+            if no_db_cache:
+                # Disabling automatic cache reuse must not disable manual policy.
+                bulk_cache = {key: value for key, value in bulk_cache.items()
+                              if value.get("status") in {"manual_blocked", "manual_override"}}
+            conn.commit()
+        except Exception as exc:
+            conn.rollback()
+            raise RuntimeError("Unable to load matching cache/manual policy safely") from exc
 
         for track in all_tracks:
             # Get Korean fallback track if available
@@ -116,23 +120,22 @@ def process_matching_pipeline(
             match = None
             
             # 2a. DB cache check
-            if not no_db_cache:
-                cached = bulk_cache.get(track.song_id) if track.song_id else None
-                if cached:
-                    if cached.get("status") == "manual_blocked":
-                        localized = localized_source_fields(track, track_ko)
-                        match = MatchResult(
-                            rank=track.rank,
-                            title=track.title,
-                            artist=track.artist,
-                            album=track.album,
-                            service=service,
-                            song_id=track.song_id,
-                            status="manual_blocked",
-                            **localized,
-                        )
-                    elif cached.get("video_id"):
-                        match = match_from_prev(track, cached, track_ko=track_ko, status=cached.get("status", "cached_match"))
+            cached = bulk_cache.get(track.song_id) if track.song_id else None
+            if cached:
+                if cached.get("status") == "manual_blocked":
+                    localized = localized_source_fields(track, track_ko)
+                    match = MatchResult(
+                        rank=track.rank,
+                        title=track.title,
+                        artist=track.artist,
+                        album=track.album,
+                        service=service,
+                        song_id=track.song_id,
+                        status="manual_blocked",
+                        **localized,
+                    )
+                elif cached.get("video_id"):
+                    match = match_from_prev(track, cached, track_ko=track_ko, status=cached.get("status", "cached_match"))
 
             # 3. Active YouTube Music Search (if not cached)
             did_search = False

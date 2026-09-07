@@ -66,11 +66,11 @@ def main() -> int:
             init_db,
             previous_apple_videos_for_history,
         )
-        if not os.environ.get("SUPABASE_DB_URL"):
+        if not os.environ.get("SUPABASE_DB_URL") and not args.dry_run:
             init_db(db_path)
         hype_results = []
         history_date = args.history_date
-        with connect(db_path) as conn:
+        with connect(db_path, read_only=args.dry_run) as conn:
             apple_jobs = [
                 name for name, item in hype_inputs().items()
                 if item.get("hype_group") == "apple"
@@ -140,7 +140,7 @@ def main() -> int:
                 hype_results = [
                     (row["video_id"], {"metadata": row, "score": row.get("hype_index", 0), "ranks": {
                         "Apple-Hype-Input": row.get("apple_rank") or 101,
-                        "Melon-Gen-Z": row.get("melon_rank") or 101,
+                        "Melon-Gen-Z": row.get("melon_genz_rank") or 101,
                         "YTMusic-Weekly": row.get("ytmusic_rank") or 101,
                     }})
                     for row in report
@@ -180,6 +180,9 @@ def main() -> int:
     desc += f"\nLast updated: {update_date_str}\n- colinky.github.io/hype_wave"
 
     LOG.info(f"Aggregated {len(video_ids)} songs for Hypex playlist.")
+    if args.dry_run:
+        LOG.info("Dry run completed from DB; no playlist authentication or mutation.")
+        return 0
     
     # Sync to YTMusic
     ytmusic = make_ytmusic(args.yt_auth)

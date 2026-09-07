@@ -385,7 +385,7 @@ def main() -> int:
     db_path = Path(args.db_path).expanduser()
     if not args.no_db_cache:
         os.environ["HYPE_DB_PATH"] = str(db_path)
-    load_album_cache(db_path, ttl_days=args.album_cache_ttl)
+    load_album_cache(db_path, ttl_days=args.album_cache_ttl, read_only=args.dry_run)
 
     gen_tracks_map: dict[int, list[SourceTrack]] = {}
     gen_desc_map: dict[int, str] = {}
@@ -483,7 +483,8 @@ def main() -> int:
             combined_desc_parts.append(gen_desc_map.get(int(gen), ""))
 
     # 업데이트된 캐시 저장
-    save_album_cache(db_path)
+    if not args.dry_run:
+        save_album_cache(db_path)
 
     args.source_variant = "combined"
     args.job_name = args.job_name or "Gen-Z-Daily"

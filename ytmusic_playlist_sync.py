@@ -8,6 +8,7 @@ import re
 import sqlite3
 import time
 import unicodedata
+from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from difflib import SequenceMatcher
@@ -675,6 +676,7 @@ class BilingualCache:
     def __init__(self, db_path: Path):
         self.db_path = db_path
         self.backend: SQLiteBilingualCache | PostgresBilingualCache | None = None
+        self.read_only = False
 
     def _backend(self) -> SQLiteBilingualCache | PostgresBilingualCache:
         if self.backend is not None:
@@ -687,18 +689,40 @@ class BilingualCache:
         return self.backend
 
     def get_artist(self, artist_id: str) -> list[str] | None:
+        if self.read_only:
+            if (
+                isinstance(self.backend, PostgresBilingualCache)
+                and self.backend.loaded
+                and not self.backend.fallback_active
+            ):
+                return self.backend.artists.get(artist_id)
+            return None
         return self._backend().get_artist(artist_id)
 
     def set_artist(self, artist_id: str, names: list[str]):
+        if self.read_only:
+            return
         self._backend().set_artist(artist_id, names)
 
     def get_song(self, video_id: str) -> dict[str, str] | None:
+        if self.read_only:
+            if (
+                isinstance(self.backend, PostgresBilingualCache)
+                and self.backend.loaded
+                and not self.backend.fallback_active
+            ):
+                return self.backend.songs.get(video_id)
+            return None
         return self._backend().get_song(video_id)
 
     def set_song(self, video_id: str, details: dict[str, str]):
+        if self.read_only:
+            return
         self._backend().set_song(video_id, details)
 
     def flush(self):
+        if self.read_only:
+            return
         if self.backend is None:
             return
         flush = getattr(self.backend, "flush", None)
@@ -708,6 +732,17 @@ class BilingualCache:
 
 BILINGUAL_CACHE = BilingualCache(Path(__file__).parent / "ytmusic_cache.db")
 atexit.register(BILINGUAL_CACHE.flush)
+
+
+@contextmanager
+def bilingual_cache_read_only():
+    """Prevent a dry run from opening or writing the persistent bilingual cache."""
+    previous = BILINGUAL_CACHE.read_only
+    BILINGUAL_CACHE.read_only = True
+    try:
+        yield
+    finally:
+        BILINGUAL_CACHE.read_only = previous
 
 
 def resolve_bilingual_artist(yt_ko: YTMusic, artist_id: str) -> list[str]:
@@ -739,6 +774,29 @@ def resolve_bilingual_artist(yt_ko: YTMusic, artist_id: str) -> list[str]:
     return unique_names
 
 
+def _watch_playlist_for_metadata(client: YTMusic, video_id: str) -> dict[str, Any]:
+    try:
+        return client.get_watch_playlist(videoId=video_id)
+    except KeyError as exc:
+        if exc.args != ("endpoint",):
+            raise
+        # Some responses omit the optional related/lyrics tab endpoint. Reuse
+        # the installed track parser without requiring those unrelated tabs.
+        from ytmusicapi.parsers.watch import parse_watch_playlist
+
+        payload = client._send_request("next", {
+            "videoId": video_id, "playlistId": "RDAMVM" + video_id,
+            "enablePersistentPlaylistPanel": True, "isAudioOnly": True,
+            "tunerSettingValue": "AUTOMIX_SETTING_NORMAL",
+            "watchEndpointMusicSupportedConfigs": {"watchEndpointMusicConfig": {
+                "hasPersistentPlaylistPanel": True, "musicVideoType": "MUSIC_VIDEO_TYPE_ATV",
+            }},
+        })
+        tabs = payload["contents"]["singleColumnMusicWatchNextResultsRenderer"]["tabbedRenderer"]["watchNextTabbedResultsRenderer"]["tabs"]
+        queue = tabs[0]["tabRenderer"]["content"]["musicQueueRenderer"]["content"]["playlistPanelRenderer"]
+        return {"tracks": parse_watch_playlist(queue["contents"])}
+
+
 def resolve_bilingual_song(yt_ko: YTMusic, video_id: str) -> dict[str, str]:
     cached = BILINGUAL_CACHE.get_song(video_id)
     if cached is not None:
@@ -752,35 +810,50 @@ def resolve_bilingual_song(yt_ko: YTMusic, video_id: str) -> dict[str, str]:
         "album_ko": "",
         "album_en": ""
     }
+
+    def exact_watch_track(payload: Any) -> dict[str, Any] | None:
+        tracks = payload.get("tracks") if isinstance(payload, dict) else None
+        if not isinstance(tracks, list):
+            return None
+        return next(
+            (
+                track
+                for track in tracks
+                if isinstance(track, dict) and track.get("videoId") == video_id
+            ),
+            None,
+        )
     
     # 1. KO locale
     try:
-        playlist_ko = yt_ko.get_watch_playlist(videoId=video_id)
-        tracks_ko = playlist_ko.get("tracks", [])
-        if tracks_ko:
-            track = tracks_ko[0]
+        playlist_ko = _watch_playlist_for_metadata(yt_ko, video_id)
+        track = exact_watch_track(playlist_ko)
+        if track:
             details["title_ko"] = track.get("title", "")
             artists = track.get("artists", [])
             details["artist_ko"] = ", ".join(a.get("name", "") for a in artists if a.get("name") and a.get("id") is not None)
             album_obj = track.get("album")
             if album_obj:
                 details["album_ko"] = album_obj.get("name", "")
+        else:
+            LOG.debug("KO watch playlist did not contain requested video %s", video_id)
     except Exception as e:
         LOG.debug("Failed to get KO song details for %s: %s", video_id, e)
 
     # 2. EN locale
     try:
         yt_en = get_ytmusic_en(yt_ko)
-        playlist_en = yt_en.get_watch_playlist(videoId=video_id)
-        tracks_en = playlist_en.get("tracks", [])
-        if tracks_en:
-            track = tracks_en[0]
+        playlist_en = _watch_playlist_for_metadata(yt_en, video_id)
+        track = exact_watch_track(playlist_en)
+        if track:
             details["title_en"] = track.get("title", "")
             artists = track.get("artists", [])
             details["artist_en"] = ", ".join(a.get("name", "") for a in artists if a.get("name") and a.get("id") is not None)
             album_obj = track.get("album")
             if album_obj:
                 details["album_en"] = album_obj.get("name", "")
+        else:
+            LOG.debug("EN watch playlist did not contain requested video %s", video_id)
     except Exception as e:
         LOG.debug("Failed to get EN song details for %s: %s", video_id, e)
 
@@ -1628,69 +1701,74 @@ def search_ytmusic_songs(
     track_title_ko: str = "",
     track_artist_ko: str = "",
     track_album_ko: str = "",
+    min_score: float = 0.6,
+    min_title_score: float = 0.65,
+    min_artist_score: float = 0.55,
 ) -> list[dict[str, Any]]:
     # Build dummy source tracks to score candidates inside search_ytmusic_songs
     track_en = SourceTrack(rank=1, title=track_title, artist=track_artist, album=track_album)
     track_ko = SourceTrack(rank=1, title=track_title_ko, artist=track_artist_ko, album=track_album_ko) if (track_title_ko or track_artist_ko) else None
 
-    # Implement retry with exponential backoff on failure (JSONDecodeError/429)
+    # A failed API request is not evidence that no matching song exists.
     max_retries = 3
     delay = 3.0
     for attempt in range(max_retries):
         try:
-            filtered_results = []
-            seen_video_ids = set()
+            stage1_candidates: list[dict[str, Any]] = []
+            stage1_error: Exception | None = None
 
             # 1. Stage 1: Search with filter="songs"
             try:
                 stage1_results = ytmusic.search(query, filter="songs", limit=limit)
             except Exception as e:
                 LOG.warning("Stage 1 search failed for query '%s': %s", query, e)
+                stage1_error = e
                 stage1_results = []
 
-            for r in stage1_results:
+            for r in stage1_results[:limit]:
                 r_type = ytmusic_result_type(r.get("resultType"))
                 v_id = r.get("videoId")
                 if r_type == "song" and v_id:
-                    if v_id not in seen_video_ids:
-                        seen_video_ids.add(v_id)
-                        filtered_results.append(r)
+                    stage1_candidates.append(r)
 
             # Evaluate if Stage 1 results are satisfactory
             need_stage2 = True
-            if filtered_results:
-                best_raw_score = 0.0
-                for r in filtered_results[:3]:
+            if stage1_candidates:
+                for r in stage1_candidates[:3]:
                     try:
                         # Use force_resolve=False inside search_ytmusic_songs to prevent redundant API calls
-                        score, _, _, _ = score_result(
+                        score, title_score, artist_score, _ = score_result(
                             track_en, r, track_ko, ytmusic=ytmusic, force_resolve=False
                         )
-                        if score > best_raw_score:
-                            best_raw_score = score
+                        if passes_match_gates(
+                            track_en, score=score, title_score=title_score,
+                            artist_score=artist_score, min_score=max(0.75, min_score),
+                            min_title_score=min_title_score, min_artist_score=min_artist_score,
+                        ):
+                            need_stage2 = False
+                            break
                     except Exception as e:
                         LOG.debug("Error scoring in search_ytmusic_songs: %s", e)
 
-                if best_raw_score >= 0.75:
-                    need_stage2 = False
-
             # 2. Stage 2: Fallback to mixed search
+            stage2_candidates: list[dict[str, Any]] = []
             if need_stage2:
                 try:
                     stage2_results = ytmusic.search(query, limit=limit)
                 except Exception as e:
                     LOG.warning("Stage 2 search failed for query '%s': %s", query, e)
+                    if stage1_error is not None:
+                        raise RuntimeError("Both YouTube Music search stages failed") from e
                     stage2_results = []
 
-                resolved_album_songs = []
-                for r in stage2_results:
+                direct_stage2_results: list[dict[str, Any]] = []
+                resolved_album_songs: list[dict[str, Any]] = []
+                for r in stage2_results[:limit]:
                     r_type = ytmusic_result_type(r.get("resultType"))
                     v_id = r.get("videoId")
 
                     if r_type in ["song", "video"] and v_id:
-                        if v_id not in seen_video_ids:
-                            seen_video_ids.add(v_id)
-                            filtered_results.append(r)
+                        direct_stage2_results.append(r)
                     elif r_type == "album" and r.get("browseId"):
                         alb_title = r.get("title", "")
                         alb_artists = ""
@@ -1749,32 +1827,75 @@ def search_ytmusic_songs(
                                 except Exception as e:
                                     LOG.warning("Failed to resolve tracks from album %s: %s", r.get("browseId"), e)
 
-                prioritized_album_songs = []
-                prioritized_video_ids = set()
-                for song_res in resolved_album_songs:
-                    v_id = song_res.get("videoId")
-                    if v_id and v_id not in prioritized_video_ids:
-                        prioritized_video_ids.add(v_id)
-                        prioritized_album_songs.append(song_res)
+                stage2_candidates = resolved_album_songs + direct_stage2_results
 
-                filtered_results = prioritized_album_songs + [
-                    result
-                    for result in filtered_results
-                    if result.get("videoId") not in prioritized_video_ids
-                ]
+            # Stage 2 only runs when Stage 1 is weak, so reserve a full stage-sized
+            # slice for it instead of letting an oversized Stage 1 response erase it.
+            # Keep one complete record per ID; never splice fields from records
+            # whose titles/artists may disagree.
+            candidate_pool: dict[str, dict[str, Any]] = {}
+            candidate_order: list[str] = []
 
-            return filtered_results[:limit]
+            def add_candidates(candidates: list[dict[str, Any]], cap: int) -> None:
+                added = 0
+                for candidate in candidates:
+                    video_id = candidate.get("videoId")
+                    if not video_id:
+                        continue
+                    existing = candidate_pool.get(video_id)
+                    if existing is None:
+                        if added >= cap:
+                            continue
+                        candidate_pool[video_id] = dict(candidate)
+                        candidate_order.append(video_id)
+                        added += 1
+                        continue
+                    if _candidate_metadata_quality(candidate) > _candidate_metadata_quality(existing):
+                        candidate_pool[video_id] = dict(candidate)
+
+            if need_stage2:
+                add_candidates(stage2_candidates, limit)
+            add_candidates(stage1_candidates, limit)
+            return [candidate_pool[video_id] for video_id in candidate_order[: 2 * limit]]
 
         except Exception as exc:
-            if "429" in str(exc) or "Expecting value" in str(exc):
-                if attempt < max_retries - 1:
-                    LOG.warning("Search failed for query '%s' on attempt %d: %s. Retrying in %.1fs...", query, attempt + 1, exc, delay)
-                    time.sleep(delay)
-                    delay *= 2.0
-                    continue
+            if attempt < max_retries - 1:
+                LOG.warning("Search failed for query '%s' on attempt %d: %s. Retrying in %.1fs...", query, attempt + 1, exc, delay)
+                time.sleep(delay)
+                delay *= 2.0
+                continue
             LOG.error("All search attempts failed for query '%s': %s", query, exc)
-            return []
+            raise RuntimeError(f"YouTube Music search unavailable for {query!r}") from exc
     return []
+
+
+def _candidate_metadata_quality(result: dict[str, Any]) -> tuple[int, int, int, int, int]:
+    """Prefer complete records for the same video without merging conflicts."""
+    has_title = bool(result.get("title"))
+    has_artists = bool(result_artists(result))
+    has_album = bool(result_album(result))
+    has_duration = bool(result.get("duration") or result.get("duration_seconds"))
+    is_song = ytmusic_result_type(result.get("resultType")) == "song"
+    return (
+        sum((has_title, has_artists, has_album, has_duration)),
+        int(has_album),
+        int(has_artists),
+        int(is_song),
+        int(has_duration),
+    )
+
+
+def _candidate_metadata_signature(result: dict[str, Any]) -> tuple[str, ...]:
+    """Identify an exact metadata view while allowing localized views to be rescored."""
+    return (
+        str(result.get("videoId") or ""),
+        normalize_text(str(result.get("title") or "")),
+        normalize_text(result_artists(result)),
+        normalize_text(result_album(result)),
+        ytmusic_result_type(result.get("resultType")),
+        str(result.get("duration_seconds") or result.get("duration") or ""),
+    )
+
 
 def search_youtube_music(
     ytmusic: YTMusic,
@@ -1817,15 +1938,12 @@ def search_youtube_music(
         )
 
     # 2. Proceed with search if no override
-    best_result: dict[str, Any] | None = None
-    best_score = 0.0
-    best_title_score = 0.0
-    best_artist_score = 0.0
-    best_album_score = 0.0
-    best_query = ""
+    best_passing: dict[str, Any] | None = None
+    best_diagnostic: dict[str, Any] | None = None
+    last_search_error: Exception | None = None
     # `ignore_video_ids` is retained for caller compatibility, but source tracks must
     # independently select their best canonical match before playlist-level deduplication.
-    seen_video_ids: set[str] = set()
+    evaluated_candidates: dict[tuple[str, ...], dict[str, Any]] = {}
 
     for query in search_queries_for_track(track, track_ko):
         time.sleep(0.5)  # Add sleep to prevent rate limiting (429 Too Many Requests)
@@ -1840,17 +1958,25 @@ def search_youtube_music(
                 track_title_ko=track_ko.title if track_ko else "",
                 track_artist_ko=track_ko.artist if track_ko else "",
                 track_album_ko=track_ko.album if track_ko else "",
+                min_score=min_score,
+                min_title_score=min_title_score,
+                min_artist_score=min_artist_score,
             )
         except Exception as exc:
             LOG.warning("Search failed: %s (%s)", query, exc)
+            last_search_error = exc
             continue
 
         for index, result in enumerate(results):
             video_id = result.get("videoId")
-            if not is_song_result(result) or video_id in seen_video_ids:
+            if not is_song_result(result) or not video_id:
                 continue
-            seen_video_ids.add(video_id)
-            
+
+            signature = _candidate_metadata_signature(result)
+            if signature in evaluated_candidates:
+                continue
+            quality = _candidate_metadata_quality(result)
+
             # Force resolve for the top 3 search results of each query
             force_resolve = (index < 3)
             candidate_score, title_score, artist_score, album_score = score_result(
@@ -1860,34 +1986,43 @@ def search_youtube_music(
                 ytmusic=ytmusic,
                 force_resolve=force_resolve
             )
-            if candidate_score > best_score:
-                best_score = candidate_score
-                best_title_score = title_score
-                best_artist_score = artist_score
-                best_album_score = album_score
-                best_result = result
-                best_query = query
+            evaluated_candidates[signature] = {
+                "result": result,
+                "score": candidate_score,
+                "title_score": title_score,
+                "artist_score": artist_score,
+                "album_score": album_score,
+                "query": query,
+                "quality": quality,
+            }
 
-        if passes_match_gates(
-            track,
-            score=best_score,
-            title_score=best_title_score,
-            artist_score=best_artist_score,
-            min_score=min_score,
-            min_title_score=min_title_score,
-            min_artist_score=min_artist_score,
-        ):
+        if evaluated_candidates:
+            best_diagnostic = max(
+                evaluated_candidates.values(), key=lambda item: item["score"]
+            )
+            passing = [
+                item
+                for item in evaluated_candidates.values()
+                if passes_match_gates(
+                    track,
+                    score=item["score"],
+                    title_score=item["title_score"],
+                    artist_score=item["artist_score"],
+                    min_score=min_score,
+                    min_title_score=min_title_score,
+                    min_artist_score=min_artist_score,
+                )
+            ]
+            best_passing = max(passing, key=lambda item: item["score"], default=None)
+
+        if best_passing:
             break
 
-    if not best_result or not passes_match_gates(
-        track,
-        score=best_score,
-        title_score=best_title_score,
-        artist_score=best_artist_score,
-        min_score=min_score,
-        min_title_score=min_title_score,
-        min_artist_score=min_artist_score,
-    ):
+    if not best_passing:
+        if last_search_error is not None:
+            raise RuntimeError(f"YouTube Music search incomplete for {track.title!r}") from last_search_error
+        diagnostic = best_diagnostic or {}
+        diagnostic_result = diagnostic.get("result") or {}
         localized = localized_source_fields(track, track_ko)
         return MatchResult(
             rank=track.rank,
@@ -1899,17 +2034,18 @@ def search_youtube_music(
             song_id=track.song_id,
             album_id=track.album_id,
             video_id=None,
-            yt_title=best_result.get("title", "") if best_result else "",
-            yt_artist=result_artists(best_result) if best_result else "",
-            yt_album=result_album(best_result) if best_result else "",
-            score=round(best_score, 3),
-            title_score=round(best_title_score, 3),
-            artist_score=round(best_artist_score, 3),
-            album_score=round(best_album_score, 3),
-            yt_result_type=best_result.get("resultType", "") if best_result else "",
-            query=best_query,
+            yt_title=diagnostic_result.get("title", ""),
+            yt_artist=result_artists(diagnostic_result),
+            yt_album=result_album(diagnostic_result),
+            score=round(diagnostic.get("score", 0.0), 3),
+            title_score=round(diagnostic.get("title_score", 0.0), 3),
+            artist_score=round(diagnostic.get("artist_score", 0.0), 3),
+            album_score=round(diagnostic.get("album_score", 0.0), 3),
+            yt_result_type=diagnostic_result.get("resultType", ""),
+            query=diagnostic.get("query", ""),
         )
 
+    best_result = best_passing["result"]
     localized = localized_source_fields(track, track_ko)
     return MatchResult(
         rank=track.rank,
@@ -1925,12 +2061,12 @@ def search_youtube_music(
         yt_title=best_result.get("title", ""),
         yt_artist=result_artists(best_result),
         yt_album=result_album(best_result),
-        score=round(best_score, 3),
-        title_score=round(best_title_score, 3),
-        artist_score=round(best_artist_score, 3),
-        album_score=round(best_album_score, 3),
+        score=round(best_passing["score"], 3),
+        title_score=round(best_passing["title_score"], 3),
+        artist_score=round(best_passing["artist_score"], 3),
+        album_score=round(best_passing["album_score"], 3),
         yt_result_type=best_result.get("resultType", ""),
-        query=best_query,
+        query=best_passing["query"],
         status="matched",
     )
 
@@ -1949,8 +2085,23 @@ def get_existing_playlist_items(ytmusic: YTMusic, playlist_id: str) -> list[dict
             LOG.error(f"Failed to fetch playlist items for {playlist_id}: {exc}")
         raise RuntimeError(f"Failed to fetch YouTube Music playlist {playlist_id}") from exc
 
+    if not isinstance(playlist, dict) or not isinstance(playlist.get("tracks"), list):
+        raise RuntimeError(
+            f"Playlist {playlist_id} response is missing a tracks list"
+        )
+    tracks = playlist["tracks"]
+    reported_count = playlist.get("trackCount")
+    if (
+        isinstance(reported_count, int)
+        or isinstance(reported_count, str) and reported_count.isdigit()
+    ) and int(reported_count) != len(tracks):
+        raise RuntimeError(
+            f"Playlist {playlist_id} returned {len(tracks)} tracks but reports "
+            f"trackCount={reported_count}"
+        )
+
     items: list[dict[str, str]] = []
-    for index, track in enumerate(playlist.get("tracks", []), 1):
+    for index, track in enumerate(tracks, 1):
         video_id = track.get("videoId")
         set_video_id = track.get("setVideoId")
         if not video_id or not set_video_id:
@@ -1983,65 +2134,250 @@ def _normalize_substitution_title(value: str) -> str:
     return re.sub(r"\s+", " ", value).strip()
 
 
-def _playlist_video_ids_match(
+def _compare_playlist_video_ids(
     ytmusic: YTMusic,
     expected: list[str],
     actual: list[str],
-) -> bool:
-    """Accept exact order or YouTube's metadata-equivalent video-ID substitutions."""
-    if expected == actual:
-        return True
-    if len(expected) != len(actual):
-        return False
+    *,
+    metadata_cache: dict[str, dict[str, Any]] | None = None,
+) -> dict[str, Any]:
+    """Compare every position and retain evidence for each ID substitution."""
+    metadata_cache = metadata_cache if metadata_cache is not None else {}
+    differences: list[dict[str, Any]] = []
+    expected_positions = {video_id: index for index, video_id in enumerate(expected)}
+    actual_positions = {video_id: index for index, video_id in enumerate(actual)}
 
-    for expected_id, actual_id in zip(expected, actual):
+    def video_details(video_id: str) -> dict[str, Any]:
+        cached = metadata_cache.get(video_id)
+        if cached is not None:
+            return cached
+        try:
+            payload = ytmusic.get_song(video_id)
+            if not isinstance(payload, dict) or not isinstance(payload.get("videoDetails"), dict):
+                raise ValueError("response is missing videoDetails")
+            video = payload["videoDetails"]
+            if video.get("videoId") != video_id:
+                raise ValueError("videoDetails does not match the requested video ID")
+            raw_title = str(video.get("title") or "")
+            raw_author = str(video.get("author") or "")
+            length_seconds = int(video.get("lengthSeconds") or 0)
+            if not raw_title or not raw_author or length_seconds <= 0:
+                raise ValueError("videoDetails is missing title, author, or duration")
+            details = {
+                "video_id": video_id,
+                "title": raw_title,
+                "normalized_title": _normalize_substitution_title(raw_title),
+                "author": raw_author,
+                "normalized_author": normalize_text(raw_author),
+                "length_seconds": length_seconds,
+                "music_video_type": str(video.get("musicVideoType") or ""),
+                "error": "",
+            }
+        except Exception as exc:
+            details = {
+                "video_id": video_id,
+                "title": "",
+                "normalized_title": "",
+                "author": "",
+                "normalized_author": "",
+                "length_seconds": 0,
+                "music_video_type": "",
+                "error": f"{type(exc).__name__}: {exc}",
+            }
+        if not details["error"]:
+            metadata_cache[video_id] = details
+        return details
+
+    for index in range(max(len(expected), len(actual))):
+        expected_id = expected[index] if index < len(expected) else ""
+        actual_id = actual[index] if index < len(actual) else ""
         if expected_id == actual_id:
             continue
-        details = []
-        for video_id in (expected_id, actual_id):
-            try:
-                payload = ytmusic.get_song(video_id)
-                video = payload.get("videoDetails", {}) if isinstance(payload, dict) else {}
-                details.append(
-                    (
-                        _normalize_substitution_title(str(video.get("title") or "")),
-                        normalize_text(str(video.get("author") or "")),
-                        int(video.get("lengthSeconds") or 0),
-                    )
-                )
-            except Exception:
-                return False
-        (
-            expected_title,
-            expected_author,
-            expected_seconds,
-        ), (
-            actual_title,
-            actual_author,
-            actual_seconds,
-        ) = details
-        if not expected_title or expected_title != actual_title:
-            return False
-        if not expected_seconds or not actual_seconds:
-            return False
-        tolerance = max(10, round(max(expected_seconds, actual_seconds) * 0.05))
-        if abs(expected_seconds - actual_seconds) > tolerance:
-            return False
-        authors_match = expected_author and expected_author == actual_author
+
+        if not expected_id or not actual_id:
+            differences.append(
+                {
+                    "position": index + 1,
+                    "expected_id": expected_id,
+                    "actual_id": actual_id,
+                    "accepted": False,
+                    "reason": "missing_expected_id" if not expected_id else "missing_actual_id",
+                    "expected": None,
+                    "actual": None,
+                    "checks": {"title": False, "duration": False, "author": False},
+                }
+            )
+            continue
+
+        # A known ID at another slot is an ordering error, not a provider-side
+        # equivalent-ID substitution. It needs no metadata requests to reject.
+        if (
+            actual_positions.get(expected_id, index) != index
+            or expected_positions.get(actual_id, index) != index
+        ):
+            differences.append(
+                {
+                    "position": index + 1,
+                    "expected_id": expected_id,
+                    "actual_id": actual_id,
+                    "accepted": False,
+                    "reason": "order_mismatch",
+                    "expected": None,
+                    "actual": None,
+                    "checks": {
+                        "title": False,
+                        "duration": False,
+                        "author": False,
+                        "version": False,
+                    },
+                }
+            )
+            continue
+
+        expected_details = video_details(expected_id)
+        actual_details = video_details(actual_id)
+        expected_title = expected_details["normalized_title"]
+        actual_title = actual_details["normalized_title"]
+        expected_author = expected_details["normalized_author"]
+        actual_author = actual_details["normalized_author"]
+        expected_seconds = expected_details["length_seconds"]
+        actual_seconds = actual_details["length_seconds"]
+        metadata_ok = not expected_details["error"] and not actual_details["error"]
+        title_matches = bool(expected_title) and expected_title == actual_title
+        duration_known = bool(expected_seconds and actual_seconds)
+        tolerance = (
+            max(10, round(max(expected_seconds, actual_seconds) * 0.05))
+            if duration_known
+            else 0
+        )
+        duration_matches = duration_known and abs(expected_seconds - actual_seconds) <= tolerance
+        version_matches = not _has_recording_version_mismatch(
+            [expected_details["title"]], [actual_details["title"]]
+        )
+        authors_match = bool(expected_author) and expected_author == actual_author
         authors_in_title = (
             expected_author
             and actual_author
             and expected_author in expected_title
             and actual_author in expected_title
         )
-        if not (authors_match or authors_in_title):
-            return False
-        LOG.info(
-            "Accepted YouTube Music equivalent video substitution: %s -> %s",
-            expected_id,
-            actual_id,
+        author_matches = bool(authors_match or authors_in_title)
+        accepted = bool(
+            metadata_ok
+            and title_matches
+            and duration_matches
+            and author_matches
+            and version_matches
         )
-    return True
+        if not metadata_ok:
+            reason = "metadata_error"
+        elif not version_matches:
+            reason = "version_mismatch"
+        elif not title_matches:
+            reason = "title_mismatch"
+        elif not duration_matches:
+            reason = "duration_mismatch"
+        elif not author_matches:
+            reason = "author_mismatch"
+        else:
+            reason = "metadata_equivalent"
+
+        differences.append(
+            {
+                "position": index + 1,
+                "expected_id": expected_id,
+                "actual_id": actual_id,
+                "accepted": accepted,
+                "reason": reason,
+                "expected": expected_details,
+                "actual": actual_details,
+                "checks": {
+                    "title": title_matches,
+                    "duration": duration_matches,
+                    "duration_tolerance_seconds": tolerance,
+                    "author": author_matches,
+                    "version": version_matches,
+                },
+            }
+        )
+
+    return {
+        "matches": len(expected) == len(actual)
+        and all(difference["accepted"] for difference in differences),
+        "expected_count": len(expected),
+        "actual_count": len(actual),
+        "differences": differences,
+    }
+
+
+def _playlist_video_ids_match(
+    ytmusic: YTMusic,
+    expected: list[str],
+    actual: list[str],
+) -> bool:
+    """Compatibility wrapper for callers that only need the final boolean."""
+    comparison = _compare_playlist_video_ids(ytmusic, expected, actual)
+    for difference in comparison["differences"]:
+        if difference["accepted"]:
+            LOG.info(
+                "Accepted YouTube Music equivalent video substitution: %s -> %s",
+                difference["expected_id"],
+                difference["actual_id"],
+            )
+    return bool(comparison["matches"])
+
+
+def _replace_playlist_contents(
+    ytmusic: YTMusic,
+    playlist_id: str,
+    current_items: list[dict[str, str]],
+    target_video_ids: list[str],
+    *,
+    allow_duplicates: bool = False,
+) -> None:
+    for chunk in chunked(current_items, 50):
+        for attempt in range(3):
+            try:
+                result = ytmusic.remove_playlist_items(playlist_id, chunk)
+                _require_playlist_mutation_success(result, "removal")
+                LOG.info("Removed %d existing items", len(chunk))
+                break
+            except Exception as exc:
+                LOG.warning(
+                    "Failed to remove %d items (attempt %d): %s",
+                    len(chunk),
+                    attempt + 1,
+                    exc,
+                )
+                if attempt == 2:
+                    raise RuntimeError(
+                        f"Failed to remove {len(chunk)} playlist items after 3 attempts"
+                    ) from exc
+                time.sleep(2)
+        time.sleep(1.0)
+
+    for chunk in chunked(target_video_ids, 50):
+        for attempt in range(3):
+            try:
+                result = ytmusic.add_playlist_items(
+                    playlist_id, chunk, duplicates=allow_duplicates
+                )
+                _require_playlist_mutation_success(result, "addition")
+                LOG.info("Added %d matched items", len(chunk))
+                break
+            except Exception as exc:
+                LOG.warning(
+                    "Failed to add %d items (attempt %d): %s",
+                    len(chunk),
+                    attempt + 1,
+                    exc,
+                )
+                if attempt == 2:
+                    raise RuntimeError(
+                        f"Failed to add {len(chunk)} playlist items after 3 attempts"
+                    ) from exc
+                time.sleep(2)
+        time.sleep(1.0)
 
 
 def update_ytmusic_playlist(
@@ -2071,9 +2407,87 @@ def update_ytmusic_playlist(
     existing_items = get_existing_playlist_items(ytmusic, playlist_id)
     existing_video_ids = [item["videoId"] for item in existing_items]
     LOG.info("Current YouTube Music playlist item count: %d", len(existing_items))
-    already_current = _playlist_video_ids_match(ytmusic, video_ids, existing_video_ids)
+    metadata_cache: dict[str, dict[str, Any]] = {}
+    initial_comparison = _compare_playlist_video_ids(
+        ytmusic, video_ids, existing_video_ids, metadata_cache=metadata_cache
+    )
+    already_current = bool(initial_comparison["matches"])
 
-    if (description or playlist_name) and not dry_run:
+    if dry_run:
+        LOG.info("Dry run enabled. Skipping playlist metadata and item changes.")
+        return
+    preflight_metadata_error = any(
+        difference["reason"] == "metadata_error"
+        for difference in initial_comparison["differences"]
+    )
+
+    audit_run_id = ""
+    finish_playlist_update_fn = None
+    if db_path:
+        try:
+            from hype_db import (
+                finish_playlist_update,
+                get_pending_playlist_recovery,
+                record_playlist_update,
+            )
+
+            pending_recovery = get_pending_playlist_recovery(db_path, playlist_id)
+        except Exception as exc:
+            raise RuntimeError(
+                "Unable to verify playlist recovery state; refusing external mutation"
+            ) from exc
+        if pending_recovery:
+            raise RuntimeError(
+                f"Playlist {playlist_id} has pending recovery; refusing external mutation"
+            )
+        try:
+            audit_run_id = record_playlist_update(
+                db_path,
+                playlist_id=playlist_id,
+                service=service,
+                job_name=job_name,
+                requested_video_ids=video_ids,
+                existing_video_ids=existing_video_ids,
+                dry_run=False,
+            )
+        except Exception as exc:
+            raise RuntimeError(
+                "Unable to create playlist update audit; refusing external mutation"
+            ) from exc
+        if not audit_run_id:
+            raise RuntimeError(
+                "Playlist update audit did not return a run ID; refusing external mutation"
+            )
+        finish_playlist_update_fn = finish_playlist_update
+
+    def finish_audit(
+        status: str,
+        *,
+        actual_video_ids: list[str] | tuple[str, ...] = (),
+        error: str = "",
+        differences: list[dict[str, Any]] | tuple[Any, ...] = (),
+    ) -> None:
+        if audit_run_id and finish_playlist_update_fn:
+            finish_playlist_update_fn(
+                db_path,
+                audit_run_id,
+                status=status,
+                actual_video_ids=actual_video_ids,
+                error=error,
+                differences=differences,
+            )
+
+    if preflight_metadata_error:
+        message = "Unable to validate existing playlist substitutions; refusing external mutation"
+        finish_audit(
+            "verification_failed",
+            actual_video_ids=existing_video_ids,
+            error=message,
+            differences=initial_comparison["differences"],
+        )
+        raise RuntimeError(message)
+
+    if description or playlist_name:
         try:
             kwargs: dict[str, str] = {}
             if playlist_name:
@@ -2085,66 +2499,204 @@ def update_ytmusic_playlist(
         except Exception as exc:
             LOG.warning("Failed to update playlist metadata: %s", exc)
 
-    if db_path and not dry_run:
-        try:
-            from hype_db import record_playlist_update
-            record_playlist_update(
-                db_path,
-                playlist_id=playlist_id,
-                service=service,
-                job_name=job_name,
-                requested_video_ids=video_ids,
-                existing_video_ids=[item.get("videoId", "") for item in existing_items],
-                dry_run=dry_run,
-            )
-        except Exception as exc:
-            LOG.warning("Failed to record playlist update audit: %s", exc)
-
-    if dry_run:
-        LOG.info("Dry run enabled. Skipping playlist removal/addition.")
-        return
     if already_current:
+        finish_audit(
+            "skipped_current",
+            actual_video_ids=existing_video_ids,
+            differences=initial_comparison["differences"],
+        )
         LOG.info("Playlist already matches the requested order; skipping removal/addition.")
         return
 
-    for chunk in chunked(existing_items, 50):
-        for attempt in range(3):
-            try:
-                result = ytmusic.remove_playlist_items(playlist_id, chunk)
-                _require_playlist_mutation_success(result, "removal")
-                LOG.info("Removed %d existing items", len(chunk))
-                break
-            except Exception as exc:
-                LOG.warning("Failed to remove %d items (attempt %d): %s", len(chunk), attempt + 1, exc)
-                if attempt == 2:
-                    raise RuntimeError(
-                        f"Failed to remove {len(chunk)} playlist items after 3 attempts"
-                    ) from exc
-                time.sleep(2)
-        time.sleep(1.0)
+    # Detect an external change after the audit snapshot but before destructive work.
+    try:
+        pre_mutation_items = get_existing_playlist_items(ytmusic, playlist_id)
+    except Exception as exc:
+        message = f"Unable to re-read playlist before mutation: {type(exc).__name__}: {exc}"
+        finish_audit(
+            "verification_failed",
+            actual_video_ids=existing_video_ids,
+            error=message,
+            differences=initial_comparison["differences"],
+        )
+        raise RuntimeError(message) from exc
+    pre_mutation_video_ids = [item["videoId"] for item in pre_mutation_items]
+    if pre_mutation_video_ids != existing_video_ids:
+        concurrent_comparison = _compare_playlist_video_ids(
+            ytmusic,
+            existing_video_ids,
+            pre_mutation_video_ids,
+            metadata_cache=metadata_cache,
+        )
+        message = "Playlist changed after the audit snapshot; manual recovery is required"
+        finish_audit(
+            "recovery_required",
+            actual_video_ids=pre_mutation_video_ids,
+            error=message,
+            differences=concurrent_comparison["differences"],
+        )
+        raise RuntimeError(message)
 
-    for chunk in chunked(video_ids, 50):
-        for attempt in range(3):
+    def read_actual_against_requested() -> tuple[list[str], dict[str, Any]]:
+        current = get_existing_playlist_items(ytmusic, playlist_id)
+        current_ids = [item["videoId"] for item in current]
+        return current_ids, _compare_playlist_video_ids(
+            ytmusic, video_ids, current_ids, metadata_cache=metadata_cache
+        )
+
+    def observe_after_failed_restore():
+        try:
+            return [item["videoId"] for item in get_existing_playlist_items(ytmusic, playlist_id)], ""
+        except Exception as exc:
+            return [], f"; final playlist observation unavailable: {type(exc).__name__}: {exc}"
+
+    def restore_existing_snapshot() -> tuple[list[str], dict[str, Any]]:
+        current = get_existing_playlist_items(ytmusic, playlist_id)
+        current_ids = [item["videoId"] for item in current]
+        restored_comparison = _compare_playlist_video_ids(
+            ytmusic,
+            existing_video_ids,
+            current_ids,
+            metadata_cache=metadata_cache,
+        )
+        if not restored_comparison["matches"]:
+            known_ids = set(existing_video_ids) | set(video_ids)
+            unknown_ids = [video_id for video_id in current_ids if video_id not in known_ids]
+            if unknown_ids:
+                raise RuntimeError(
+                    "Playlist contains IDs outside the audited snapshot/request; "
+                    f"refusing destructive restore: {unknown_ids!r}"
+                )
+            def ordered_subset(values, original):
+                remaining = iter(original)
+                return all(any(item == value for item in remaining) for value in values)
+
+            if not (ordered_subset(current_ids, existing_video_ids)
+                    or ordered_subset(current_ids, video_ids)):
+                raise RuntimeError("Playlist was reordered outside the audited mutation; refusing restore")
+            _replace_playlist_contents(
+                ytmusic,
+                playlist_id,
+                current,
+                existing_video_ids,
+                allow_duplicates=True,
+            )
+            restored = get_existing_playlist_items(ytmusic, playlist_id)
+            current_ids = [item["videoId"] for item in restored]
+            restored_comparison = _compare_playlist_video_ids(
+                ytmusic,
+                existing_video_ids,
+                current_ids,
+                metadata_cache=metadata_cache,
+            )
+        if not restored_comparison["matches"]:
+            raise RuntimeError("Restored playlist does not match the pre-update snapshot")
+        return current_ids, restored_comparison
+
+    try:
+        _replace_playlist_contents(
+            ytmusic, playlist_id, pre_mutation_items, video_ids
+        )
+    except Exception as mutation_exc:
+        try:
+            failed_actual, failed_comparison = read_actual_against_requested()
+        except Exception as read_exc:
+            failed_actual = []
+            failed_comparison = {"differences": []}
+            LOG.warning("Unable to read playlist after mutation failure: %s", read_exc)
+        try:
+            finish_audit(
+                "mutation_failed",
+                actual_video_ids=failed_actual,
+                error=str(mutation_exc),
+                differences=failed_comparison["differences"],
+            )
+        except Exception as audit_exc:
+            LOG.error("Unable to record mutation failure: %s", audit_exc)
+        try:
+            restored_ids, _ = restore_existing_snapshot()
+        except Exception as restore_exc:
+            final_actual, observation_error = observe_after_failed_restore()
+            message = f"Playlist mutation and restore failed: {mutation_exc}; {restore_exc}{observation_error}"
             try:
-                result = ytmusic.add_playlist_items(playlist_id, chunk, duplicates=False)
-                _require_playlist_mutation_success(result, "addition")
-                LOG.info("Added %d matched items", len(chunk))
-                break
-            except Exception as exc:
-                LOG.warning("Failed to add %d items (attempt %d): %s", len(chunk), attempt + 1, exc)
-                if attempt == 2:
-                    raise RuntimeError(
-                        f"Failed to add {len(chunk)} playlist items after 3 attempts"
-                    ) from exc
-                time.sleep(2)
-        time.sleep(1.0)
+                finish_audit(
+                    "recovery_required",
+                    actual_video_ids=final_actual,
+                    error=message,
+                    differences=failed_comparison["differences"],
+                )
+            except Exception as audit_exc:
+                LOG.error("Unable to record recovery-required state: %s", audit_exc)
+            raise RuntimeError(message) from mutation_exc
+        finish_audit(
+            "restored",
+            actual_video_ids=restored_ids,
+            error=str(mutation_exc),
+            differences=failed_comparison["differences"],
+        )
+        raise RuntimeError("Playlist mutation failed; previous snapshot was restored") from mutation_exc
 
     actual_video_ids: list[str] = []
+    final_comparison: dict[str, Any] = {
+        "matches": False,
+        "differences": [],
+    }
+    verification_read_error = ""
     for attempt in range(3):
-        actual_video_ids = [
-            item["videoId"] for item in get_existing_playlist_items(ytmusic, playlist_id)
-        ]
-        if _playlist_video_ids_match(ytmusic, video_ids, actual_video_ids):
+        try:
+            actual_video_ids = [
+                item["videoId"]
+                for item in get_existing_playlist_items(ytmusic, playlist_id)
+            ]
+            verification_read_error = ""
+        except Exception as exc:
+            verification_read_error = f"{type(exc).__name__}: {exc}"
+            LOG.warning(
+                "Playlist verification read failed (attempt %d): %s",
+                attempt + 1,
+                exc,
+            )
+            if attempt < 2:
+                time.sleep(2)
+                continue
+            final_comparison = {
+                "matches": False,
+                "expected_count": len(video_ids),
+                "actual_count": 0,
+                "differences": [
+                    {
+                        "position": 0,
+                        "expected_id": "",
+                        "actual_id": "",
+                        "accepted": False,
+                        "reason": "playlist_read_error",
+                        "expected": None,
+                        "actual": None,
+                        "checks": {},
+                        "error": verification_read_error,
+                    }
+                ],
+            }
+            break
+        final_comparison = _compare_playlist_video_ids(
+            ytmusic,
+            video_ids,
+            actual_video_ids,
+            metadata_cache=metadata_cache,
+        )
+        if final_comparison["matches"]:
+            for difference in final_comparison["differences"]:
+                if difference["accepted"]:
+                    LOG.info(
+                        "Accepted YouTube Music equivalent video substitution: %s -> %s",
+                        difference["expected_id"],
+                        difference["actual_id"],
+                    )
+            finish_audit(
+                "published",
+                actual_video_ids=actual_video_ids,
+                differences=final_comparison["differences"],
+            )
             return
         if attempt < 2:
             LOG.warning(
@@ -2155,10 +2707,37 @@ def update_ytmusic_playlist(
             )
             time.sleep(2)
 
-    raise RuntimeError(
+    verification_error = (
         "YouTube Music playlist verification failed: "
-        f"expected {video_ids!r}, found {actual_video_ids!r}"
+        f"{json.dumps(final_comparison['differences'], ensure_ascii=False)}"
     )
+    if verification_read_error:
+        verification_error += f"; read error: {verification_read_error}"
+
+    # Keep the audit in its blocking `running` state while restore is in flight.
+    # If the process stops here, the next run must not replace an unknown state.
+    try:
+        restored_ids, _ = restore_existing_snapshot()
+    except Exception as restore_exc:
+        final_actual, observation_error = observe_after_failed_restore()
+        message = f"{verification_error}; restore failed: {restore_exc}{observation_error}"
+        try:
+            finish_audit(
+                "recovery_required",
+                actual_video_ids=final_actual,
+                error=message,
+                differences=final_comparison["differences"],
+            )
+        except Exception as audit_exc:
+            LOG.error("Unable to record recovery-required state: %s", audit_exc)
+        raise RuntimeError(message) from restore_exc
+    finish_audit(
+        "restored",
+        actual_video_ids=restored_ids,
+        error=verification_error,
+        differences=final_comparison["differences"],
+    )
+    raise RuntimeError(f"{verification_error}; previous snapshot was restored")
 
 
 def write_json(path: Path, data: Any) -> None:
