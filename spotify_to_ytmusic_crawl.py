@@ -496,8 +496,10 @@ def load_targeted_spotify_cache(
     try:
         from hype_db import connect, get_bulk_cached_matches
 
-        with connect(db_path) as conn:
-            return get_bulk_cached_matches(conn, service="spotify", tracks=tracks)
+        # Album enrichment is read-only; exact video refresh belongs to the
+        # shared matching pipeline once the YouTube client is available.
+        with connect(db_path, read_only=True) as conn:
+            return get_bulk_cached_matches(conn, service="spotify", tracks=tracks, read_only=True)
     except Exception as exc:
         LOG.warning("Failed to load targeted Spotify cache: %s", exc)
         return {}

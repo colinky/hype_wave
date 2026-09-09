@@ -17,4 +17,6 @@ docs/api/*.backup_before_backfill
 backups/
 migrations/
 docs/
-db_migrations/
+db_migrations/*
+.github/workflows/
+!.github/workflows/daily-sync.yml

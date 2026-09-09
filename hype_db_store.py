@@ -76,6 +76,15 @@ PLAYLIST_UPDATE_STATUSES = {
     "recovery_required",
 }
 
+
+def _yt_metadata_verified_key(video_id: str, title: str, artist: str, album: str) -> str:
+    payload = json.dumps(
+        [str(video_id or ""), str(title or ""), str(artist or ""), str(album or "")],
+        ensure_ascii=False,
+        separators=(",", ":"),
+    )
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+
 def find_track_by_service_song(conn: sqlite3.Connection, service: str, song_id: str) -> str | None:
     if not service or not song_id:
         return None
@@ -138,6 +147,133 @@ def manual_override(conn: sqlite3.Connection, service: str, song_id: str) -> sql
     ).fetchone()
 
 
+def _canonical_track_values(
+    existing: Any,
+    *,
+    video_id: str | None,
+    yt_title: str = "",
+    yt_artist: str = "",
+    yt_album: str = "",
+    allow_switch: bool = False,
+) -> tuple[str | None, str, str, str, bool]:
+    current = dict(existing) if existing else {}
+    current_video = str(current.get("canonical_yt_video_id") or "")
+    incoming_video = str(video_id or "")
+    unsupported_change = bool(
+        current_video and incoming_video and current_video != incoming_video and not allow_switch
+    )
+    if unsupported_change:
+        return (
+            current_video,
+            str(current.get("yt_title") or ""),
+            str(current.get("yt_artist") or ""),
+            str(current.get("yt_album") or ""),
+            False,
+        )
+
+    effective_video = incoming_video or current_video or None
+    switching = bool(current_video and incoming_video and current_video != incoming_video)
+    if switching:
+        return effective_video, str(yt_title or ""), str(yt_artist or ""), str(yt_album or ""), True
+    return (
+        effective_video,
+        str(yt_title or current.get("yt_title") or ""),
+        str(yt_artist or current.get("yt_artist") or ""),
+        str(yt_album or current.get("yt_album") or ""),
+        True,
+    )
+
+
+def _sync_canonical_video_flags(conn: Any, track_uids: Iterable[str]) -> None:
+    """Make each touched UID's video flags match its persisted canonical ID."""
+    uids = list(dict.fromkeys(str(uid) for uid in track_uids if uid))
+    if not uids:
+        return
+
+    canonical_by_uid: dict[str, str] = {}
+    for start in range(0, len(uids), 500):
+        chunk = uids[start:start + 500]
+        placeholders = ",".join("?" for _ in chunk)
+        rows = conn.execute(
+            f"SELECT track_uid, canonical_yt_video_id FROM tracks "
+            f"WHERE track_uid IN ({placeholders})",
+            chunk,
+        ).fetchall()
+        canonical_by_uid.update({
+            str(row["track_uid"]): str(row["canonical_yt_video_id"] or "")
+            for row in rows
+        })
+
+    claimed_by_uid: dict[str, str] = {}
+    for uid, video_id in canonical_by_uid.items():
+        if not video_id:
+            continue
+        other_uid = claimed_by_uid.setdefault(video_id, uid)
+        if other_uid != uid:
+            raise ValueError(
+                f"Canonical video {video_id} is claimed by multiple tracks"
+            )
+
+    video_ids = list(claimed_by_uid)
+    existing_owners: dict[str, str] = {}
+    for start in range(0, len(video_ids), 500):
+        chunk = video_ids[start:start + 500]
+        placeholders = ",".join("?" for _ in chunk)
+        rows = conn.execute(
+            f"SELECT video_id, track_uid FROM yt_video_ids "
+            f"WHERE video_id IN ({placeholders})",
+            chunk,
+        ).fetchall()
+        existing_owners.update({
+            str(row["video_id"]): str(row["track_uid"])
+            for row in rows
+        })
+    for video_id, uid in claimed_by_uid.items():
+        owner = existing_owners.get(video_id)
+        if owner and owner != uid:
+            raise ValueError(
+                f"Canonical video {video_id} is already owned by another track"
+            )
+
+    if video_ids:
+        conn.executemany(
+            """
+            INSERT INTO yt_video_ids(video_id, track_uid, is_canonical)
+            VALUES (?, ?, 1)
+            ON CONFLICT(video_id) DO UPDATE SET
+                is_canonical = CASE
+                    WHEN yt_video_ids.track_uid = excluded.track_uid THEN 1
+                    ELSE yt_video_ids.is_canonical
+                END
+            """,
+            [(video_id, uid) for video_id, uid in claimed_by_uid.items()],
+        )
+        # A concurrent insert can win between the owner check and this upsert.
+        for start in range(0, len(video_ids), 500):
+            chunk = video_ids[start:start + 500]
+            placeholders = ",".join("?" for _ in chunk)
+            rows = conn.execute(
+                f"SELECT video_id, track_uid FROM yt_video_ids "
+                f"WHERE video_id IN ({placeholders})",
+                chunk,
+            ).fetchall()
+            for row in rows:
+                video_id = str(row["video_id"])
+                if str(row["track_uid"]) != claimed_by_uid[video_id]:
+                    raise ValueError(
+                        f"Canonical video {video_id} is already owned by another track"
+                    )
+
+    for uid in uids:
+        video_id = canonical_by_uid.get(uid, "")
+        conn.execute(
+            "UPDATE yt_video_ids "
+            "SET is_canonical = CASE WHEN video_id = ? THEN 1 ELSE 0 END "
+            "WHERE track_uid = ?",
+            (video_id, uid),
+        )
+
+
 def ensure_track(
     conn: sqlite3.Connection,
     *,
@@ -150,6 +286,26 @@ def ensure_track(
     score: float = 0.0,
 ) -> str:
     now = utc_now_iso()
+    existing = conn.execute(
+        """
+        SELECT canonical_yt_video_id, yt_title, yt_artist, yt_album,
+               match_status, best_score
+        FROM tracks WHERE track_uid = ?
+        """,
+        (track_uid,),
+    ).fetchone()
+    effective_video, yt_title, yt_artist, yt_album, identity_supported = _canonical_track_values(
+        existing,
+        video_id=video_id,
+        yt_title=yt_title,
+        yt_artist=yt_artist,
+        yt_album=yt_album,
+    )
+    persisted_status = status
+    persisted_score = score
+    if existing and not identity_supported:
+        persisted_status = str(existing["match_status"] or status)
+        persisted_score = float(existing["best_score"] or 0)
     conn.execute(
         """
         INSERT INTO tracks (
@@ -159,28 +315,50 @@ def ensure_track(
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(track_uid) DO UPDATE SET
             canonical_yt_video_id = COALESCE(tracks.canonical_yt_video_id, excluded.canonical_yt_video_id),
-            yt_title = COALESCE(NULLIF(excluded.yt_title, ''), tracks.yt_title),
-            yt_artist = COALESCE(NULLIF(excluded.yt_artist, ''), tracks.yt_artist),
-            yt_album = COALESCE(NULLIF(excluded.yt_album, ''), tracks.yt_album),
+            yt_title = CASE
+                WHEN tracks.canonical_yt_video_id IS NULL
+                  OR tracks.canonical_yt_video_id = excluded.canonical_yt_video_id
+                THEN COALESCE(NULLIF(excluded.yt_title, ''), tracks.yt_title)
+                ELSE tracks.yt_title
+            END,
+            yt_artist = CASE
+                WHEN tracks.canonical_yt_video_id IS NULL
+                  OR tracks.canonical_yt_video_id = excluded.canonical_yt_video_id
+                THEN COALESCE(NULLIF(excluded.yt_artist, ''), tracks.yt_artist)
+                ELSE tracks.yt_artist
+            END,
+            yt_album = CASE
+                WHEN tracks.canonical_yt_video_id IS NULL
+                  OR tracks.canonical_yt_video_id = excluded.canonical_yt_video_id
+                THEN COALESCE(NULLIF(excluded.yt_album, ''), tracks.yt_album)
+                ELSE tracks.yt_album
+            END,
             match_status = CASE
-                WHEN excluded.match_status != 'failed' THEN excluded.match_status
+                WHEN (tracks.canonical_yt_video_id IS NULL
+                      OR tracks.canonical_yt_video_id = excluded.canonical_yt_video_id)
+                 AND excluded.match_status != 'failed' THEN excluded.match_status
                 ELSE tracks.match_status
             END,
-            best_score = CASE WHEN COALESCE(excluded.best_score, 0) >= COALESCE(tracks.best_score, 0) THEN COALESCE(excluded.best_score, 0) ELSE COALESCE(tracks.best_score, 0) END,
-            updated_at = excluded.updated_at
+            best_score = CASE
+                WHEN (tracks.canonical_yt_video_id IS NULL
+                      OR tracks.canonical_yt_video_id = excluded.canonical_yt_video_id)
+                 AND COALESCE(excluded.best_score, 0) >= COALESCE(tracks.best_score, 0)
+                THEN COALESCE(excluded.best_score, 0)
+                ELSE COALESCE(tracks.best_score, 0)
+            END,
+            updated_at = CASE
+                WHEN tracks.canonical_yt_video_id IS NULL
+                  OR tracks.canonical_yt_video_id = excluded.canonical_yt_video_id
+                THEN excluded.updated_at
+                ELSE tracks.updated_at
+            END
         """,
-        (track_uid, video_id, yt_title, yt_artist, yt_album, status, score, now, now),
+        (
+            track_uid, effective_video, yt_title, yt_artist, yt_album,
+            persisted_status, persisted_score, now, now,
+        ),
     )
-    if video_id:
-        conn.execute(
-            """
-            INSERT INTO yt_video_ids(video_id, track_uid, is_canonical)
-            VALUES (?, ?, 1)
-            ON CONFLICT(video_id) DO UPDATE SET
-                is_canonical = CASE WHEN excluded.is_canonical > yt_video_ids.is_canonical THEN excluded.is_canonical ELSE yt_video_ids.is_canonical END
-            """,
-            (video_id, track_uid),
-        )
+    _sync_canonical_video_flags(conn, [track_uid])
     return track_uid
 
 
@@ -1415,6 +1593,7 @@ def upsert_track_match(
         merged.update({k: v for k, v in match_row.items() if v not in (None, "")})
     song_id = normalize_song_id(service, merged)
     video_id = merged.get("video_id") or merged.get("canonical_yt_video_id")
+    observed_video_id = video_id
     status = str(merged.get("status") or ("matched" if video_id else "failed"))
     score = float(merged.get("score") or 0)
     override = manual_override(conn, service, song_id)
@@ -1503,7 +1682,10 @@ def upsert_track_match(
     override_video = override["canonical_yt_video_id"] if override else None
     canonical_video = override_video or video_id
 
-    if existing_video and video_id and existing_video != video_id and not override_video:
+    identity_conflict = bool(
+        existing_video and video_id and existing_video != video_id and not override_video
+    )
+    if identity_conflict:
         record_conflict(
             conn,
             service=service,
@@ -1520,22 +1702,77 @@ def upsert_track_match(
     ensure_track(
         conn,
         track_uid=track_uid,
-        video_id=canonical_video,
-        yt_title=merged.get("yt_title", ""),
-        yt_artist=merged.get("yt_artist", ""),
-        yt_album=merged.get("yt_album", ""),
+        video_id=override_video or video_id,
+        yt_title=(
+            merged.get("yt_title", "")
+            if not override_video or str(observed_video_id or "") == str(override_video)
+            else ""
+        ),
+        yt_artist=(
+            merged.get("yt_artist", "")
+            if not override_video or str(observed_video_id or "") == str(override_video)
+            else ""
+        ),
+        yt_album=(
+            merged.get("yt_album", "")
+            if not override_video or str(observed_video_id or "") == str(override_video)
+            else ""
+        ),
         status=status,
         score=score,
     )
     if override and override_action == "set_canonical" and override_video:
+        owner = find_track_by_video(conn, override_video)
+        if owner and owner != track_uid:
+            raise ValueError(
+                f"Manual canonical video {override_video} is already owned by another track"
+            )
         conn.execute(
-            "UPDATE tracks SET canonical_yt_video_id = ?, match_status = 'manual_override', updated_at = ? WHERE track_uid = ?",
-            (override_video, utc_now_iso(), track_uid),
-        )
-        conn.execute(
-            "UPDATE yt_video_ids SET is_canonical = CASE WHEN video_id = ? THEN 1 ELSE 0 END WHERE track_uid = ?",
+            """
+            INSERT INTO yt_video_ids(video_id, track_uid, is_canonical)
+            VALUES (?, ?, 1)
+            ON CONFLICT(video_id) DO UPDATE SET is_canonical = 1
+            """,
             (override_video, track_uid),
         )
+        current = conn.execute(
+            """
+            SELECT canonical_yt_video_id, yt_title, yt_artist, yt_album
+            FROM tracks WHERE track_uid = ?
+            """,
+            (track_uid,),
+        ).fetchone()
+        current = dict(current) if current else {}
+        switching_video = bool(
+            current.get("canonical_yt_video_id")
+            and str(current["canonical_yt_video_id"]) != str(override_video)
+        )
+        metadata_matches_override = (
+            str(observed_video_id or "") == str(override_video)
+        )
+        manual_metadata = []
+        for key in ("yt_title", "yt_artist", "yt_album"):
+            incoming_value = str(merged.get(key) or "")
+            current_value = str(current.get(key) or "")
+            if metadata_matches_override:
+                manual_metadata.append(incoming_value or ("" if switching_video else current_value))
+            else:
+                manual_metadata.append("" if switching_video else current_value)
+        conn.execute(
+            """
+            UPDATE tracks
+            SET canonical_yt_video_id = ?,
+                yt_title = ?, yt_artist = ?, yt_album = ?,
+                match_status = 'manual_override', updated_at = ?
+            WHERE track_uid = ?
+            """,
+            (
+                override_video,
+                *manual_metadata,
+                utc_now_iso(), track_uid,
+            ),
+        )
+        _sync_canonical_video_flags(conn, [track_uid])
     if song_id:
         bound_uid = find_track_by_service_song(conn, service, song_id)
         if bound_uid and bound_uid != track_uid:
@@ -1546,7 +1783,8 @@ def upsert_track_match(
             bound_canonical = bound_video["canonical_yt_video_id"] if bound_video else None
             bound_status = bound_video["match_status"] if bound_video else ""
             can_rebind = (
-                not bound_canonical
+                override_action == "set_canonical"
+                or not bound_canonical
                 or bound_canonical == canonical_video
                 or bound_status in {"failed", "duplicate_skipped", "manual_blocked", "unmatched"}
             )
@@ -1569,7 +1807,13 @@ def upsert_track_match(
             "UPDATE tracks SET canonical_yt_video_id = COALESCE(canonical_yt_video_id, ?) WHERE track_uid = ?",
             (canonical_video, track_uid),
         )
-    upsert_metadata_lookup(conn, track_uid=track_uid, row=merged, source=status, score=score)
+    upsert_metadata_lookup(
+        conn,
+        track_uid=track_uid,
+        row=source_row if identity_conflict else merged,
+        source=status,
+        score=score,
+    )
     return track_uid
 
 
@@ -1964,9 +2208,6 @@ def _persist_crawled_tracks_impl(
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(track_uid) DO UPDATE SET
                 canonical_yt_video_id = COALESCE(tracks.canonical_yt_video_id, excluded.canonical_yt_video_id),
-                yt_title = COALESCE(NULLIF(excluded.yt_title, ''), tracks.yt_title),
-                yt_artist = COALESCE(NULLIF(excluded.yt_artist, ''), tracks.yt_artist),
-                yt_album = COALESCE(NULLIF(excluded.yt_album, ''), tracks.yt_album),
                 updated_at = excluded.updated_at
             """,
             tracks_params
@@ -2160,14 +2401,13 @@ def _persist_crawl_run_bulk_impl(
         row["track_uid"]: dict(row)
         for row in _rows_by_in(
             conn,
-            "SELECT track_uid, canonical_yt_video_id, match_status FROM tracks WHERE track_uid IN",
+            "SELECT track_uid, canonical_yt_video_id, yt_title, yt_artist, yt_album, match_status, best_score FROM tracks WHERE track_uid IN",
             [uid for uid in known_uids if uid],
         )
     }
 
     now = utc_now_iso()
     tracks_params: list[tuple[Any, ...]] = []
-    yt_video_ids_params: list[tuple[Any, ...]] = []
     platform_song_ids_params: list[tuple[Any, ...]] = []
     track_list_params: list[tuple[Any, ...]] = []
     match_attempt_params: list[tuple[Any, ...]] = []
@@ -2175,7 +2415,7 @@ def _persist_crawl_run_bulk_impl(
     metadata_params: list[tuple[Any, ...]] = []
     blocked_song_ids: list[str] = []
     blocked_track_uids: list[str] = []
-    manual_canonical_updates: list[tuple[str, str]] = []
+    manual_canonical_updates: list[tuple[str, str, str, str, str]] = []
     matched_count = 0
     failed_count = 0
     cache_hits = 0
@@ -2190,6 +2430,7 @@ def _persist_crawl_run_bulk_impl(
         merged = dict(source_row)
         merged.update({k: v for k, v in match.items() if v not in (None, "")})
         video_id = str(merged.get("video_id") or merged.get("canonical_yt_video_id") or "").strip()
+        observed_video_id = video_id
         status = str(merged.get("status") or ("matched" if video_id else "failed"))
         score = float(merged.get("score") or 0)
         override = overrides.get(song_id) if song_id else None
@@ -2209,7 +2450,6 @@ def _persist_crawl_run_bulk_impl(
             canonical_video = override["canonical_yt_video_id"]
             track_uid = video_to_uid.get(canonical_video) or stable_uid(f"yt:{canonical_video}")
             status = "manual_override"
-            manual_canonical_updates.append((canonical_video, track_uid))
         elif override and override.get("target_track_uid"):
             track_uid = override["target_track_uid"]
             target = tracks_by_uid.get(track_uid) or {}
@@ -2241,19 +2481,66 @@ def _persist_crawl_run_bulk_impl(
                 track_uid = stable_uid(metadata_key(merged.get("title"), merged.get("artist"), merged.get("album")))
             canonical_video = video_id
 
+        current_track = tracks_by_uid.get(track_uid) or {}
+        metadata_matches_canonical = not observed_video_id or observed_video_id == canonical_video
+        canonical_video, canonical_title, canonical_artist, canonical_album, identity_supported = (
+            _canonical_track_values(
+                current_track,
+                video_id=canonical_video,
+                yt_title=merged.get("yt_title", "") if metadata_matches_canonical else "",
+                yt_artist=merged.get("yt_artist", "") if metadata_matches_canonical else "",
+                yt_album=merged.get("yt_album", "") if metadata_matches_canonical else "",
+                allow_switch=override_action in {"set_canonical", "split"},
+            )
+        )
+        identity_conflict = bool(observed_video_id and not identity_supported)
+        if identity_conflict:
+            record_conflict(
+                conn,
+                service=service,
+                song_id=song_id,
+                existing_track_uid=track_uid,
+                incoming_track_uid=video_to_uid.get(observed_video_id),
+                existing_video_id=current_track.get("canonical_yt_video_id"),
+                incoming_video_id=observed_video_id,
+                reason="same_track_uid_different_video",
+                payload=merged,
+            )
+        persisted_status = status
+        persisted_score = score
+        if identity_conflict:
+            persisted_status = str(current_track.get("match_status") or status)
+            persisted_score = float(current_track.get("best_score") or 0)
+        tracks_by_uid[track_uid] = {
+            **current_track,
+            "track_uid": track_uid,
+            "canonical_yt_video_id": canonical_video,
+            "yt_title": canonical_title,
+            "yt_artist": canonical_artist,
+            "yt_album": canonical_album,
+            "match_status": persisted_status,
+            "best_score": persisted_score,
+        }
+
         tracks_params.append((
             track_uid,
             canonical_video,
-            merged.get("yt_title", ""),
-            merged.get("yt_artist", ""),
-            merged.get("yt_album", ""),
-            status,
-            score,
+            canonical_title,
+            canonical_artist,
+            canonical_album,
+            persisted_status,
+            persisted_score,
             now,
             now,
         ))
-        if canonical_video:
-            yt_video_ids_params.append((canonical_video, track_uid))
+        if override_action == "set_canonical" and canonical_video:
+            manual_canonical_updates.append((
+                canonical_video,
+                track_uid,
+                canonical_title,
+                canonical_artist,
+                canonical_album,
+            ))
         if (
             song_id
             and (
@@ -2266,7 +2553,12 @@ def _persist_crawl_run_bulk_impl(
         if song_id and not (service == "spotify" and str(song_id).startswith("fallback:")):
             track_list_params.append(track_list_metadata_params(service=service, song_id=song_id, row=merged))
         if canonical_video and status not in failed_statuses and override_action != "split":
-            metadata_params.extend(metadata_lookup_params(track_uid=track_uid, row=merged, source=status, score=score))
+            metadata_params.extend(metadata_lookup_params(
+                track_uid=track_uid,
+                row=source_row if identity_conflict else merged,
+                source=status,
+                score=score,
+            ))
         rank_order = int(match.get("rank") or source_row.get("rank") or 0)
         if song_id:
             match_method, origin_method, _ = match_method_for_status(status, merged.get("query"))
@@ -2276,7 +2568,7 @@ def _persist_crawl_run_bulk_impl(
                 song_id,
                 track_uid,
                 rank_order,
-                canonical_video or "",
+                observed_video_id or canonical_video or "",
                 float(match.get("score") or 0),
                 float(match.get("title_score") or 0),
                 float(match.get("artist_score") or 0),
@@ -2307,7 +2599,7 @@ def _persist_crawl_run_bulk_impl(
                     candidate.get("query", ""),
                     now,
                 ))
-        if canonical_video and status not in failed_statuses:
+        if (observed_video_id or canonical_video) and status not in failed_statuses:
             matched_count += 1
         else:
             failed_count += 1
@@ -2326,24 +2618,46 @@ def _persist_crawl_run_bulk_impl(
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(track_uid) DO UPDATE SET
                 canonical_yt_video_id = COALESCE(tracks.canonical_yt_video_id, excluded.canonical_yt_video_id),
-                yt_title = COALESCE(NULLIF(excluded.yt_title, ''), tracks.yt_title),
-                yt_artist = COALESCE(NULLIF(excluded.yt_artist, ''), tracks.yt_artist),
-                yt_album = COALESCE(NULLIF(excluded.yt_album, ''), tracks.yt_album),
-                match_status = CASE WHEN excluded.match_status != 'failed' THEN excluded.match_status ELSE tracks.match_status END,
-                best_score = CASE WHEN COALESCE(excluded.best_score, 0) >= COALESCE(tracks.best_score, 0) THEN COALESCE(excluded.best_score, 0) ELSE COALESCE(tracks.best_score, 0) END,
-                updated_at = excluded.updated_at
+                yt_title = CASE
+                    WHEN tracks.canonical_yt_video_id IS NULL
+                      OR tracks.canonical_yt_video_id = excluded.canonical_yt_video_id
+                    THEN COALESCE(NULLIF(excluded.yt_title, ''), tracks.yt_title)
+                    ELSE tracks.yt_title
+                END,
+                yt_artist = CASE
+                    WHEN tracks.canonical_yt_video_id IS NULL
+                      OR tracks.canonical_yt_video_id = excluded.canonical_yt_video_id
+                    THEN COALESCE(NULLIF(excluded.yt_artist, ''), tracks.yt_artist)
+                    ELSE tracks.yt_artist
+                END,
+                yt_album = CASE
+                    WHEN tracks.canonical_yt_video_id IS NULL
+                      OR tracks.canonical_yt_video_id = excluded.canonical_yt_video_id
+                    THEN COALESCE(NULLIF(excluded.yt_album, ''), tracks.yt_album)
+                    ELSE tracks.yt_album
+                END,
+                match_status = CASE
+                    WHEN (tracks.canonical_yt_video_id IS NULL
+                          OR tracks.canonical_yt_video_id = excluded.canonical_yt_video_id)
+                     AND excluded.match_status != 'failed'
+                    THEN excluded.match_status
+                    ELSE tracks.match_status
+                END,
+                best_score = CASE
+                    WHEN (tracks.canonical_yt_video_id IS NULL
+                          OR tracks.canonical_yt_video_id = excluded.canonical_yt_video_id)
+                     AND COALESCE(excluded.best_score, 0) >= COALESCE(tracks.best_score, 0)
+                    THEN COALESCE(excluded.best_score, 0)
+                    ELSE COALESCE(tracks.best_score, 0)
+                END,
+                updated_at = CASE
+                    WHEN tracks.canonical_yt_video_id IS NULL
+                      OR tracks.canonical_yt_video_id = excluded.canonical_yt_video_id
+                    THEN excluded.updated_at
+                    ELSE tracks.updated_at
+                END
             """,
             tracks_params,
-        )
-    if yt_video_ids_params:
-        conn.executemany(
-            """
-            INSERT INTO yt_video_ids(video_id, track_uid, is_canonical)
-            VALUES (?, ?, 1)
-            ON CONFLICT(video_id) DO UPDATE SET
-                is_canonical = CASE WHEN excluded.is_canonical > yt_video_ids.is_canonical THEN excluded.is_canonical ELSE yt_video_ids.is_canonical END
-            """,
-            yt_video_ids_params,
         )
     if blocked_track_uids:
         placeholders = ",".join("?" for _ in blocked_track_uids)
@@ -2356,15 +2670,25 @@ def _persist_crawl_run_bulk_impl(
             f"DELETE FROM yt_video_ids WHERE track_uid IN ({placeholders})",
             tuple(blocked_track_uids),
         )
-    for canonical_video, track_uid in manual_canonical_updates:
+    for canonical_video, track_uid, yt_title, yt_artist, yt_album in manual_canonical_updates:
+        owner = find_track_by_video(conn, canonical_video)
+        if owner and owner != track_uid:
+            raise ValueError(
+                f"Manual canonical video {canonical_video} is already owned by another track"
+            )
         conn.execute(
-            "UPDATE tracks SET canonical_yt_video_id = ?, match_status = 'manual_override', updated_at = ? WHERE track_uid = ?",
-            (canonical_video, now, track_uid),
+            """
+            UPDATE tracks
+            SET canonical_yt_video_id = ?, yt_title = ?, yt_artist = ?, yt_album = ?,
+                match_status = 'manual_override', updated_at = ?
+            WHERE track_uid = ?
+            """,
+            (canonical_video, yt_title, yt_artist, yt_album, now, track_uid),
         )
-        conn.execute(
-            "UPDATE yt_video_ids SET is_canonical = CASE WHEN video_id = ? THEN 1 ELSE 0 END WHERE track_uid = ?",
-            (canonical_video, track_uid),
-        )
+    _sync_canonical_video_flags(
+        conn,
+        [params[0] for params in tracks_params],
+    )
     if platform_song_ids_params:
         conn.executemany(
             """
@@ -2901,7 +3225,14 @@ def get_pending_playlist_recovery(
 
 
 
-def get_bulk_cached_matches(conn: Any, service: str, tracks: Iterable[Any]) -> dict[str, dict[str, Any]]:
+def get_bulk_cached_matches(
+    conn: Any,
+    service: str,
+    tracks: Iterable[Any],
+    *,
+    metadata_resolver: Any = None,
+    read_only: bool = False,
+) -> dict[str, dict[str, Any]]:
     """Bulk load cache matches for a list of tracks in 5-6 database queries.
     Returns a dictionary mapping: song_id -> cached_dict
     """
@@ -3063,12 +3394,81 @@ def get_bulk_cached_matches(conn: Any, service: str, tracks: Iterable[Any]) -> d
             })
         return out
         
+    resolver_memo: dict[str, dict[str, str] | None] = {}
+
+    def resolved_video_metadata(video_id: str) -> dict[str, str] | None:
+        if not metadata_resolver:
+            return None
+        if video_id in resolver_memo:
+            return resolver_memo[video_id]
+        raw = metadata_resolver(video_id)
+        if not isinstance(raw, dict) or str(raw.get("video_id") or "").strip() != video_id:
+            resolver_memo[video_id] = None
+            return None
+        keys = (
+            "video_id", "title", "artist", "album",
+            "title_ko", "title_en", "artist_ko", "artist_en", "album_ko", "album_en",
+        )
+        resolved = {
+            key: (str(raw.get(key) or "").strip() if isinstance(raw.get(key), str) else "")
+            for key in keys
+        }
+        if not _metadata_variants(resolved):
+            resolver_memo[video_id] = None
+            return None
+        resolver_memo[video_id] = resolved
+        return resolved
+
+    def refresh_resolved_canonical_metadata(
+        track_uid: str,
+        video_id: str,
+        resolved: dict[str, str],
+        incoming: dict[str, Any],
+    ) -> None:
+        track = tracks_dict.get(track_uid)
+        if not track or str(track.get("canonical_yt_video_id") or "") != video_id:
+            return
+        resolved_rows = [
+            {"title": resolved.get("title"), "artist": resolved.get("artist"), "album": resolved.get("album")},
+            {"title": resolved.get("title_en"), "artist": resolved.get("artist_en"), "album": resolved.get("album_en")},
+            {"title": resolved.get("title_ko"), "artist": resolved.get("artist_ko"), "album": resolved.get("album_ko")},
+        ]
+        chosen = next(
+            (row for row in resolved_rows if _metadata_rows_equivalent(incoming, row)),
+            resolved_rows[0],
+        )
+        title = str(chosen.get("title") or "")
+        artist = str(chosen.get("artist") or "")
+        album = str(chosen.get("album") or "")
+        values = (title, artist, album)
+        current = tuple(str(track.get(key) or "") for key in ("yt_title", "yt_artist", "yt_album"))
+        verified_key = _yt_metadata_verified_key(video_id, title, artist, album)
+        marker_matches = str(track.get("yt_metadata_verified_key") or "") == verified_key
+        if values == current and marker_matches:
+            return
+        if not read_only:
+            conn.execute(
+                """
+                UPDATE tracks
+                SET yt_title = ?, yt_artist = ?, yt_album = ?,
+                    yt_metadata_verified_key = ?, updated_at = ?
+                WHERE track_uid = ? AND canonical_yt_video_id = ?
+                """,
+                (*values, verified_key, utc_now_iso(), track_uid, video_id),
+            )
+        track.update({
+            "yt_title": title,
+            "yt_artist": artist,
+            "yt_album": album,
+            "yt_metadata_verified_key": verified_key,
+        })
+
     def verify_cache_in_memory(
         track_uid: str,
         incoming: dict[str, Any],
         *,
         exclude_source_binding: bool = False,
-    ) -> bool:
+    ) -> tuple[str, dict[str, str] | None]:
         candidates = []
         for meta in uid_to_metas.get(track_uid) or []:
             if (
@@ -3078,15 +3478,57 @@ def get_bulk_cached_matches(conn: Any, service: str, tracks: Iterable[Any]) -> d
             ):
                 continue
             candidates.append(meta)
+        if any(_metadata_rows_equivalent(incoming, candidate) for candidate in candidates):
+            return "valid", None
+        if candidates:
+            return "conflict", None
+
         track = tracks_dict.get(track_uid) or {}
+        video_id = str(track.get("canonical_yt_video_id") or "")
         canonical = {
             "title": track.get("yt_title") or "",
             "artist": track.get("yt_artist") or "",
             "album": track.get("yt_album") or "",
         }
-        if _metadata_variants(canonical):
-            candidates.append(canonical)
-        return any(_metadata_rows_equivalent(incoming, candidate) for candidate in candidates)
+        verified_key = _yt_metadata_verified_key(
+            video_id,
+            str(track.get("yt_title") or ""),
+            str(track.get("yt_artist") or ""),
+            str(track.get("yt_album") or ""),
+        )
+        if str(track.get("yt_metadata_verified_key") or "") == verified_key and _metadata_variants(canonical):
+            return (
+                ("valid", None)
+                if _metadata_rows_equivalent(incoming, canonical)
+                else ("conflict", None)
+            )
+        resolved = resolved_video_metadata(video_id) if video_id else None
+        if not resolved:
+            return "unknown", None
+        if not _metadata_rows_equivalent(incoming, resolved):
+            return "conflict", resolved
+        refresh_resolved_canonical_metadata(track_uid, video_id, resolved, incoming)
+        return "valid", resolved
+
+    logged_rejections: set[tuple[str, str, str]] = set()
+
+    def log_cache_rejection(song_id: str, track_uid: str, state: str) -> None:
+        key = (song_id, track_uid, state)
+        if key in logged_rejections:
+            return
+        logged_rejections.add(key)
+        if state == "conflict":
+            LOG.warning(
+                "Cache rejected for %s:%s due to metadata/version mismatch",
+                service,
+                song_id,
+            )
+        else:
+            LOG.warning(
+                "Cache unavailable for %s:%s because canonical metadata verification is incomplete",
+                service,
+                song_id,
+            )
         
     # 2. Evaluate cache matches in-memory for each track
     results = {}
@@ -3121,6 +3563,8 @@ def get_bulk_cached_matches(conn: Any, service: str, tracks: Iterable[Any]) -> d
                         incoming=t,
                     )
                     if cached:
+                        if str(cached.get("video_id") or "") != str(video_id):
+                            cached.update({"yt_title": "", "yt_artist": "", "yt_album": ""})
                         cached["video_id"] = video_id
                         cached["query"] = "manual_override"
                 else:
@@ -3161,9 +3605,19 @@ def get_bulk_cached_matches(conn: Any, service: str, tracks: Iterable[Any]) -> d
                 incoming=t,
             )
             if cached:
-                if not verify_cache_in_memory(track_uid, t, exclude_source_binding=True):
-                    LOG.warning("Cache rejected for %s:%s due to metadata/version mismatch", service, sid)
+                cache_state, resolved = verify_cache_in_memory(
+                    track_uid, t, exclude_source_binding=True,
+                )
+                if cache_state != "valid":
+                    log_cache_rejection(sid, track_uid, cache_state)
                 else:
+                    if resolved:
+                        verified_track = tracks_dict[track_uid]
+                        cached.update({
+                            "yt_title": verified_track.get("yt_title") or "",
+                            "yt_artist": verified_track.get("yt_artist") or "",
+                            "yt_album": verified_track.get("yt_album") or "",
+                        })
                     results[sid] = cached
                     continue
                     
@@ -3183,8 +3637,19 @@ def get_bulk_cached_matches(conn: Any, service: str, tracks: Iterable[Any]) -> d
                 incoming=t,
             )
             if cached:
-                if verify_cache_in_memory(found_uid, t, exclude_source_binding=True):
+                cache_state, resolved = verify_cache_in_memory(
+                    found_uid, t, exclude_source_binding=True,
+                )
+                if cache_state == "valid":
+                    if resolved:
+                        verified_track = tracks_dict[found_uid]
+                        cached.update({
+                            "yt_title": verified_track.get("yt_title") or "",
+                            "yt_artist": verified_track.get("yt_artist") or "",
+                            "yt_album": verified_track.get("yt_album") or "",
+                        })
                     results[sid] = cached
                     break
+                log_cache_rejection(sid, found_uid, cache_state)
                     
     return results

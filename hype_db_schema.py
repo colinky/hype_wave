@@ -315,6 +315,16 @@ def verify_postgres_schema(raw_conn: Any) -> None:
                 "PostgreSQL playlist_update_runs is missing audit columns: "
                 f"{sorted(missing)}. Apply the 20260907 source relation migration."
             )
+        cursor.execute(
+            "SELECT 1 FROM information_schema.columns "
+            "WHERE table_schema='public' AND table_name='tracks' "
+            "AND column_name='yt_metadata_verified_key'"
+        )
+        if cursor.fetchone() is None:
+            raise RuntimeError(
+                "PostgreSQL tracks is missing verified metadata provenance. "
+                "Apply db_migrations/20260909_verified_video_metadata.sql before syncing."
+            )
     _POSTGRES_SCHEMA_VERIFIED = True
 
 
@@ -515,6 +525,7 @@ def init_schema(conn: Any) -> None:
             yt_title TEXT,
             yt_artist TEXT,
             yt_album TEXT,
+            yt_metadata_verified_key TEXT,
             match_status TEXT DEFAULT 'unmatched',
             best_score REAL DEFAULT 0,
             created_at TEXT NOT NULL,
@@ -748,6 +759,8 @@ def init_schema(conn: Any) -> None:
     seed_migration_snapshots = migration_marker_missing or readiness_upgrade_needed
     conn.execute("BEGIN IMMEDIATE")
     try:
+        if "yt_metadata_verified_key" not in table_columns(conn, "tracks"):
+            conn.execute("ALTER TABLE tracks ADD COLUMN yt_metadata_verified_key TEXT")
         for view in ("frontend_history_source", "latest_failed_matches", "latest_match_attempts"):
             conn.execute(f"DROP VIEW IF EXISTS {view}")
         _rebuild_lean_schema(conn, seed_migration_snapshots=seed_migration_snapshots)

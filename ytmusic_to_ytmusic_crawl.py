@@ -43,6 +43,7 @@ from ytmusic_playlist_sync import (
     ytmusic_url,
 )
 from hype_db_common import dedupe_source_tracks
+from crawler_common import load_verified_matching_cache
 
 LOG = logging.getLogger("ytmusic_to_ytmusic_crawl")
 DEFAULT_PLAYLIST_URL = "https://music.youtube.com/playlist?list=PL4fGSI1pDJn6jXS_Tv_N9B8Z0HTRVJE0m"
@@ -920,7 +921,7 @@ def main() -> int:
             LOG.info("Wrote YouTube Charts source report: %s", report_path)
 
     fetched_chart_period_start, fetched_chart_period_end = fetched_period_from_entries(chart_entries)
-    from hype_db import connect, get_bulk_cached_matches, persist_crawled_tracks, persist_crawl_run, export_frontend_history, reference_period_for_date
+    from hype_db import connect, persist_crawled_tracks, persist_crawl_run, export_frontend_history, reference_period_for_date
 
     fetched_reference_period = (
         reference_period_for_date(args.job_name, fetched_chart_period_end)
@@ -1099,8 +1100,18 @@ def main() -> int:
             conn, effective_entries, ytmusic if not args.no_resolve else None,
             reference_period, dry_run=args.dry_run,
         )
-        bulk_cache = get_bulk_cached_matches(conn, service="ytmusic", tracks=effective_entries)
-        bulk_cache.update(relation_cache)
+        conn.commit()
+        bulk_cache = load_verified_matching_cache(
+            conn, service="ytmusic", tracks=effective_entries,
+            ytmusic=None if args.no_resolve else ytmusic,
+            read_only=args.dry_run,
+        )
+        # A manual decision may have changed while metadata was fetched.
+        bulk_cache.update({
+            song_id: cached for song_id, cached in relation_cache.items()
+            if bulk_cache.get(song_id, {}).get("status") not in {"manual_blocked", "manual_override"}
+            and not bulk_cache.get(song_id, {}).get("manual_action")
+        })
         conn.commit()
 
         resolved_rows: list[dict[str, Any]] = []

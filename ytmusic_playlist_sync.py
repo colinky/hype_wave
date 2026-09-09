@@ -2134,6 +2134,166 @@ def _normalize_substitution_title(value: str) -> str:
     return re.sub(r"\s+", " ", value).strip()
 
 
+def _playlist_video_details(
+    ytmusic: YTMusic, video_id: str, metadata_cache: dict[str, dict[str, Any]]
+) -> dict[str, Any]:
+    cached = metadata_cache.get(video_id)
+    if cached is not None:
+        return cached
+    response_received = False
+    try:
+        payload = ytmusic.get_song(video_id)
+        response_received = True
+        if not isinstance(payload, dict) or not isinstance(payload.get("videoDetails"), dict):
+            raise ValueError("response is missing videoDetails")
+        video = payload["videoDetails"]
+        if video.get("videoId") != video_id:
+            raise ValueError("videoDetails does not match the requested video ID")
+        raw_title = video.get("title")
+        raw_author = video.get("author")
+        length_seconds = int(video.get("lengthSeconds") or 0)
+        if (
+            not isinstance(raw_title, str) or not raw_title.strip()
+            or not isinstance(raw_author, str) or not raw_author.strip()
+            or length_seconds <= 0
+        ):
+            raise ValueError("videoDetails is missing title, author, or duration")
+        details = {
+            "video_id": video_id,
+            "title": raw_title,
+            "normalized_title": _normalize_substitution_title(raw_title),
+            "author": raw_author,
+            "normalized_author": _normalize_substitution_title(raw_author),
+            "length_seconds": length_seconds,
+            "music_video_type": str(video.get("musicVideoType") or ""),
+            "error": "",
+        }
+    except Exception as exc:
+        details = {
+            "video_id": video_id,
+            "title": "", "normalized_title": "", "author": "", "normalized_author": "",
+            "length_seconds": 0, "music_video_type": "",
+            "error": f"{type(exc).__name__}: {exc}",
+            "metadata_missing": response_received and isinstance(exc, (ValueError, TypeError)),
+        }
+    if not details["error"]:
+        metadata_cache[video_id] = details
+    return details
+
+
+def get_verified_video_metadata(
+    ytmusic: YTMusic,
+    video_id: str,
+    *,
+    metadata_cache: dict[str, dict[str, Any]] | None = None,
+) -> dict[str, Any] | None:
+    """Read current, exact-video bilingual metadata without persistent cache writes.
+
+    Missing identity is inconclusive (None); API errors propagate so callers
+    cannot turn an outage into a cache rejection and an unrelated fresh match.
+    The supplied cache belongs to one execution, never to the persistent alias DB.
+    """
+    cache = metadata_cache if metadata_cache is not None else {}
+    cache_key = f"verified:{video_id}"
+    if cache_key in cache:
+        return cache[cache_key]["metadata"]
+    base = _playlist_video_details(ytmusic, video_id, cache)
+    if base["error"]:
+        if not base.get("metadata_missing"):
+            raise RuntimeError(f"Unable to verify video {video_id}: {base['error']}")
+        return None
+
+    details = {
+        "video_id": video_id,
+        "title": base["title"], "artist": base["author"], "album": "",
+        "length_seconds": base["length_seconds"],
+        "music_video_type": base["music_video_type"],
+    }
+    artist_ids: set[str] | None = None
+    names_by_id: dict[str, list[str]] = {}
+    try:
+        for language in ("ko", "en"):
+            client_key = f"verified_client:{language}"
+            if client_key not in cache:
+                cache[client_key] = {"client": make_ytmusic(None, language=language)}
+            client = cache[client_key]["client"]
+            payload = _watch_playlist_for_metadata(client, video_id)
+            tracks = payload.get("tracks") if isinstance(payload, dict) else None
+            exact_tracks = [
+                row for row in tracks if isinstance(row, dict) and row.get("videoId") == video_id
+            ] if isinstance(tracks, list) else []
+            if len(exact_tracks) != 1:
+                return None
+            track = exact_tracks[0]
+            artists = track.get("artists")
+            title = track.get("title")
+            if isinstance(artists, list):
+                # The watch parser includes unlinked view/like/year labels in
+                # artists. Ignore only these numeric display tokens; an actual
+                # artist name without an ID remains inconclusive.
+                artists = [
+                    artist for artist in artists
+                    if not (
+                        isinstance(artist, dict) and artist.get("id") is None
+                        and isinstance(artist.get("name"), str)
+                        and re.fullmatch(
+                            r"(?:(?:조회수|좋아요)\s*\d[\d.,]*\s*[천만억]?\s*[회개]"
+                            r"|(?:19|20)\d{2}년?"
+                            r"|\d[\d.,]*\s*[KMB]?\s*(?:views?|likes?))",
+                            artist["name"].strip(), re.IGNORECASE,
+                        )
+                    )
+                ]
+            if (
+                not isinstance(title, str) or not title.strip()
+                or not isinstance(artists, list) or not artists
+                or any(
+                    not isinstance(artist, dict)
+                    or not isinstance(artist.get("id"), str) or not artist["id"].strip()
+                    or not isinstance(artist.get("name"), str) or not artist["name"].strip()
+                    for artist in artists
+                )
+            ):
+                return None
+            ids = {artist["id"] for artist in artists}
+            if artist_ids is not None and ids != artist_ids:
+                return None
+            artist_ids = ids
+            localized_names = []
+            for artist in artists:
+                artist_key = f"verified_artist:{language}:{artist['id']}"
+                if artist_key not in cache:
+                    artist_payload = client.get_artist(artist["id"])
+                    name = artist_payload.get("name") if isinstance(artist_payload, dict) else None
+                    if not isinstance(name, str) or not name.strip():
+                        return None
+                    cache[artist_key] = {"name": name}
+                name = cache[artist_key].get("name")
+                localized_names.append(name)
+                names_by_id.setdefault(artist["id"], []).extend([artist["name"], name])
+            album = track.get("album")
+            album_name = album.get("name") if isinstance(album, dict) else ""
+            details[f"title_{language}"] = title
+            details[f"artist_{language}"] = ", ".join(localized_names)
+            details[f"album_{language}"] = album_name if isinstance(album_name, str) else ""
+    except Exception as exc:
+        raise RuntimeError(f"Unable to retrieve verified metadata for {video_id}: {exc}") from exc
+
+    details["artist_ids"] = sorted(artist_ids or ())
+    details["artist_names_by_id"] = {
+        artist_id: unique_values(names) for artist_id, names in names_by_id.items()
+    }
+    # Preserve the caller's locale when repairing canonical metadata, while
+    # using the verified performer rather than get_song's uploader/author.
+    language = getattr(ytmusic, "language", "ko")
+    language = language if language in ("ko", "en") else "ko"
+    details["title"] = details[f"title_{language}"]
+    details["artist"] = details[f"artist_{language}"]
+    details["album"] = details[f"album_{language}"] or details["album_ko"] or details["album_en"]
+    cache[cache_key] = {"metadata": details}
+    return details
+
+
 def _compare_playlist_video_ids(
     ytmusic: YTMusic,
     expected: list[str],
@@ -2146,47 +2306,6 @@ def _compare_playlist_video_ids(
     differences: list[dict[str, Any]] = []
     expected_positions = {video_id: index for index, video_id in enumerate(expected)}
     actual_positions = {video_id: index for index, video_id in enumerate(actual)}
-
-    def video_details(video_id: str) -> dict[str, Any]:
-        cached = metadata_cache.get(video_id)
-        if cached is not None:
-            return cached
-        try:
-            payload = ytmusic.get_song(video_id)
-            if not isinstance(payload, dict) or not isinstance(payload.get("videoDetails"), dict):
-                raise ValueError("response is missing videoDetails")
-            video = payload["videoDetails"]
-            if video.get("videoId") != video_id:
-                raise ValueError("videoDetails does not match the requested video ID")
-            raw_title = str(video.get("title") or "")
-            raw_author = str(video.get("author") or "")
-            length_seconds = int(video.get("lengthSeconds") or 0)
-            if not raw_title or not raw_author or length_seconds <= 0:
-                raise ValueError("videoDetails is missing title, author, or duration")
-            details = {
-                "video_id": video_id,
-                "title": raw_title,
-                "normalized_title": _normalize_substitution_title(raw_title),
-                "author": raw_author,
-                "normalized_author": normalize_text(raw_author),
-                "length_seconds": length_seconds,
-                "music_video_type": str(video.get("musicVideoType") or ""),
-                "error": "",
-            }
-        except Exception as exc:
-            details = {
-                "video_id": video_id,
-                "title": "",
-                "normalized_title": "",
-                "author": "",
-                "normalized_author": "",
-                "length_seconds": 0,
-                "music_video_type": "",
-                "error": f"{type(exc).__name__}: {exc}",
-            }
-        if not details["error"]:
-            metadata_cache[video_id] = details
-        return details
 
     for index in range(max(len(expected), len(actual))):
         expected_id = expected[index] if index < len(expected) else ""
@@ -2234,12 +2353,10 @@ def _compare_playlist_video_ids(
             )
             continue
 
-        expected_details = video_details(expected_id)
-        actual_details = video_details(actual_id)
+        expected_details = _playlist_video_details(ytmusic, expected_id, metadata_cache)
+        actual_details = _playlist_video_details(ytmusic, actual_id, metadata_cache)
         expected_title = expected_details["normalized_title"]
         actual_title = actual_details["normalized_title"]
-        expected_author = expected_details["normalized_author"]
-        actual_author = actual_details["normalized_author"]
         expected_seconds = expected_details["length_seconds"]
         actual_seconds = actual_details["length_seconds"]
         metadata_ok = not expected_details["error"] and not actual_details["error"]
@@ -2254,14 +2371,33 @@ def _compare_playlist_video_ids(
         version_matches = not _has_recording_version_mismatch(
             [expected_details["title"]], [actual_details["title"]]
         )
-        authors_match = bool(expected_author) and expected_author == actual_author
-        authors_in_title = (
-            expected_author
-            and actual_author
-            and expected_author in expected_title
-            and actual_author in expected_title
-        )
-        author_matches = bool(authors_match or authors_in_title)
+        # A get_song author can be an uploader shared by several artists.
+        # Every different-ID substitution needs complete watch artist identity.
+        author_matches = False
+        artist_identity = None
+        if metadata_ok and title_matches and duration_matches and version_matches:
+            try:
+                expected_identity = get_verified_video_metadata(
+                    ytmusic, expected_id, metadata_cache=metadata_cache
+                )
+                actual_identity = get_verified_video_metadata(
+                    ytmusic, actual_id, metadata_cache=metadata_cache
+                )
+                artist_identity = {
+                    "expected": expected_identity,
+                    "actual": actual_identity,
+                }
+                if not expected_identity or not actual_identity:
+                    metadata_ok = False
+                    artist_identity["error"] = "artist_identity_missing"
+                author_matches = bool(
+                    expected_identity and actual_identity
+                    and expected_identity["artist_ids"]
+                    and expected_identity["artist_ids"] == actual_identity["artist_ids"]
+                )
+            except RuntimeError as exc:
+                metadata_ok = False
+                artist_identity = {"error": str(exc)}
         accepted = bool(
             metadata_ok
             and title_matches
@@ -2291,6 +2427,7 @@ def _compare_playlist_video_ids(
                 "reason": reason,
                 "expected": expected_details,
                 "actual": actual_details,
+                "artist_identity": artist_identity,
                 "checks": {
                     "title": title_matches,
                     "duration": duration_matches,
@@ -2745,7 +2882,7 @@ def write_json(path: Path, data: Any) -> None:
     path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
-def make_ytmusic(auth_file: str, client_id: str = "", client_secret: str = "", language: str = "en") -> YTMusic:
+def make_ytmusic(auth_file: str | None, client_id: str = "", client_secret: str = "", language: str = "en") -> YTMusic:
     yt = None
     if client_id or client_secret:
         if not client_id or not client_secret:

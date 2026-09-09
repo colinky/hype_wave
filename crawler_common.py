@@ -11,12 +11,53 @@ from ytmusic_playlist_sync import (
     MatchResult,
     SourceTrack,
     bilingual_cache_read_only,
+    get_verified_video_metadata,
     localized_source_fields,
     match_from_prev,
     search_youtube_music,
 )
 
 LOG = logging.getLogger("crawler_common")
+
+
+def load_verified_matching_cache(
+    conn: Any,
+    *,
+    service: str,
+    tracks: list[dict[str, Any]],
+    ytmusic: Any = None,
+    read_only: bool = False,
+) -> dict[str, dict[str, Any]]:
+    """Load cache without holding a database transaction during network calls.
+
+    Callers must commit their preceding writes before entering this read phase.
+    Re-read after network I/O so changed bindings and manual policy are checked.
+    """
+    from hype_db import get_bulk_cached_matches
+
+    pending: dict[str, None] = {}
+
+    def collect_video(video_id: str) -> None:
+        pending[video_id] = None
+
+    cached = get_bulk_cached_matches(
+        conn, service=service, tracks=tracks,
+        metadata_resolver=collect_video if ytmusic is not None else None,
+        read_only=True,
+    )
+    conn.commit()
+    if not pending:
+        return cached
+
+    metadata_cache: dict[str, Any] = {}
+    resolved = {
+        video_id: get_verified_video_metadata(ytmusic, video_id, metadata_cache=metadata_cache)
+        for video_id in pending
+    }
+    return get_bulk_cached_matches(
+        conn, service=service, tracks=tracks,
+        metadata_resolver=resolved.get, read_only=read_only,
+    )
 
 
 def process_matching_pipeline(
@@ -97,11 +138,12 @@ def process_matching_pipeline(
         # Pre-populate cache in bulk
         bulk_cache = {}
         try:
-            from hype_db import get_bulk_cached_matches
-            bulk_cache = get_bulk_cached_matches(
+            bulk_cache = load_verified_matching_cache(
                 conn,
                 service=service,
                 tracks=[localized_row(track) for track in all_tracks],
+                ytmusic=None if no_db_cache else ytmusic,
+                read_only=dry_run,
             )
             if no_db_cache:
                 # Disabling automatic cache reuse must not disable manual policy.
