@@ -2,10 +2,12 @@ from __future__ import annotations
 
 import json
 import logging
+import math
 import os
 import re
 import shutil
 import sqlite3
+import tempfile
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Iterable
@@ -25,6 +27,8 @@ from hype_db_schema import connect, init_db
 LOG = logging.getLogger("hype_db")
 __all__ = [
     "export_frontend_history",
+    "latest_hype_history_date",
+    "validate_frontend_history",
     "inflate_frontend_history",
     "compact_frontend_history",
     "prune_history",
@@ -197,16 +201,73 @@ def _apple_history_anchor_jobs() -> list[str]:
     ] or ["KR-Top-100"]
 
 
+def latest_hype_history_date(conn) -> str | None:
+    """Resolve the latest completed Apple anchor, never the wall-clock date."""
+    jobs = _apple_history_anchor_jobs()
+    placeholders = ",".join("?" for _ in jobs)
+    rows = conn.execute(
+        f"""SELECT p.job_name, MAX(p.reference_period) AS reference_period FROM playlist_order p
+            WHERE p.job_name IN ({placeholders})
+              AND p.reference_period LIKE '____-__-__'
+              AND {_COMPLETED_SNAPSHOT_SQL}
+            GROUP BY p.job_name""", jobs,
+    ).fetchall()
+    if not rows:
+        return None
+    periods = {row["reference_period"] for row in rows}
+    if {row["job_name"] for row in rows} != set(jobs) or len(periods) != 1:
+        raise RuntimeError("Completed Apple anchor jobs have missing or inconsistent reference periods")
+    return _history_date_from_hype_anchor_reference(next(iter(periods)))
+
+
+def validate_frontend_history(payload: Any, expected_date: str, *, days: int = 31) -> None:
+    """Reject an empty, stale or malformed intended chart before publication."""
+    if not _is_history_v2(payload) or payload.get("days") != days:
+        raise ValueError("History has an invalid schema or retention policy")
+    dates = payload.get("dates")
+    if (not isinstance(dates, list) or not dates or len(dates) > days
+            or any(not isinstance(day, str) or not _looks_like_history_date(day) for day in dates)
+            or dates != sorted(set(dates), reverse=True)
+            or set(dates) != set(payload["rankings"]) or expected_date not in dates):
+        raise ValueError(f"History does not contain the intended chart date {expected_date}")
+    newest = datetime.strptime(dates[0], "%Y-%m-%d")
+    cutoff = newest - timedelta(days=days - 1)
+    if any(not cutoff <= datetime.strptime(day, "%Y-%m-%d") <= newest for day in dates):
+        raise ValueError("History exceeds its retention window")
+    daily = payload["rankings"][expected_date]
+    if not isinstance(daily, dict) or not daily:
+        raise ValueError(f"History chart {expected_date} is empty")
+    ranks = []
+    for video_id, ranking in daily.items():
+        track = payload["tracks"].get(video_id)
+        if (not isinstance(video_id, str) or not video_id.strip()
+                or not isinstance(track, dict) or track.get("video_id") != video_id
+                or any(not isinstance(track.get(key), str) or not track[key].strip()
+                       for key in ("title", "artist"))
+                or not isinstance(ranking, dict)):
+            raise ValueError(f"History chart {expected_date} has invalid track metadata")
+        rank, score = ranking.get("hype_rank"), ranking.get("hype_index")
+        if (type(rank) is not int or rank <= 0
+                or type(score) not in (int, float) or not math.isfinite(score) or score < 0
+                or any(value is not None and (type(value) is not int or value <= 0)
+                       for value in (ranking.get(key) for key in DAILY_RANKING_FIELDS[2:]))):
+            raise ValueError(f"History chart {expected_date} has invalid scores or ranks")
+        ranks.append(rank)
+    if sorted(ranks) != list(range(1, len(ranks) + 1)):
+        raise ValueError(f"History chart {expected_date} has duplicate or missing ranks")
+
+
 def export_frontend_history(
     db_path: str | Path,
     output_path: str | Path,
     *,
     days: int = 31,
     full_rebuild: bool = False,
+    expected_date: str | None = None,
 ) -> dict[str, Any]:
     path = Path(db_path)
     if not path.exists() and not os.environ.get("SUPABASE_DB_URL"):
-        return {}
+        raise RuntimeError(f"History database not found: {path}")
     if not os.environ.get("SUPABASE_DB_URL"):
         init_db(path)
     out = Path(output_path)
@@ -238,11 +299,10 @@ def export_frontend_history(
         else:
             history = inflate_frontend_history(existing_payload)
         if not dates:
-            payload = compact_frontend_history(history, days=days)
-            out.parent.mkdir(parents=True, exist_ok=True)
-            _backup_legacy_history_file(out, existing_payload)
-            out.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
-            return payload
+            raise RuntimeError("History export has no completed Apple anchor dates")
+        intended_date = expected_date or max(dates)
+        if intended_date not in dates:
+            raise RuntimeError(f"History export did not rebuild intended chart date {intended_date}")
         rows_by_date = fetch_hype_rows_for_dates(conn, dates)
         for date in sorted(dates):
             previous_apple_videos = previous_apple_videos_for_history(conn, history, date)
@@ -250,12 +310,30 @@ def export_frontend_history(
                 rows_by_date.get(date, []),
                 previous_apple_videos=previous_apple_videos,
             )
+            validate_frontend_history(compact_frontend_history({date: report}, days=days), date, days=days)
             history[date] = report
         history = prune_history(history, reference_date=max(dates), days=days)
         payload = compact_frontend_history(history, days=days)
+    validate_frontend_history(payload, intended_date, days=days)
     out.parent.mkdir(parents=True, exist_ok=True)
-    _backup_legacy_history_file(out, existing_payload)
-    out.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+    temporary_path = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            mode="w", encoding="utf-8", dir=out.parent,
+            prefix=f".{out.name}.", suffix=".tmp", delete=False,
+        ) as stream:
+            temporary_path = Path(stream.name)
+            json.dump(payload, stream, ensure_ascii=False, indent=2, allow_nan=False)
+            stream.flush()
+            os.fsync(stream.fileno())
+        validate_frontend_history(
+            json.loads(temporary_path.read_text(encoding="utf-8")), intended_date, days=days,
+        )
+        _backup_legacy_history_file(out, existing_payload)
+        os.replace(temporary_path, out)
+    finally:
+        if temporary_path is not None:
+            temporary_path.unlink(missing_ok=True)
     return payload
 
 

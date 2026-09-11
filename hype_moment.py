@@ -23,6 +23,11 @@ logging.basicConfig(
     datefmt="%Y-%m-%d %H:%M:%S",
 )
 LOG = logging.getLogger("hypex_aggregator")
+# Parent orchestration must not infer calculation success from a publish audit:
+# authentication and a pending-run guard can fail before that audit exists.
+EXIT_CALCULATION_FAILED = 2
+EXIT_HISTORY_EXPORT_FAILED = 3
+EXIT_PUBLICATION_FAILED = 4
 
 
 def parse_history_date(value: str) -> str:
@@ -56,16 +61,21 @@ def main() -> int:
     # DB source of truth만 사용합니다.
     if not os.environ.get("SUPABASE_DB_URL") and not db_path.exists():
         LOG.error("DB not found: %s", db_path)
-        return 1
+        return EXIT_CALCULATION_FAILED
     try:
         from hype_db import (
             connect,
+            compact_frontend_history,
             export_frontend_history,
             hype_inputs,
             hype_report_for_date,
             init_db,
+            latest_hype_history_date,
             previous_apple_videos_for_history,
+            validate_frontend_history,
         )
+        if args.limit <= 0:
+            raise ValueError("Hype playlist limit must be positive")
         if not os.environ.get("SUPABASE_DB_URL") and not args.dry_run:
             init_db(db_path)
         hype_results = []
@@ -108,35 +118,11 @@ def main() -> int:
                         f"snapshot {anchor_period}; missing: {', '.join(missing_jobs)}"
                     )
             if history_date is None:
-                latest = conn.execute(
-                    f"""
-                    SELECT p.reference_period AS chart_date
-                    FROM playlist_order p
-                    WHERE p.job_name IN ({placeholders})
-                      AND p.reference_period GLOB '????-??-??'
-                      AND EXISTS (
-                          SELECT 1
-                          FROM match_runs mr
-                          WHERE mr.service = p.service
-                            AND mr.job_name = p.job_name
-                            AND mr.source_variant = p.source_variant
-                            AND mr.reference_period = p.reference_period
-                            AND mr.status = 'completed'
-                            AND mr.completed_at IS NOT NULL
-                      )
-                    ORDER BY p.reference_period DESC
-                    LIMIT 1
-                    """,
-                    apple_jobs,
-                ).fetchone()
-                if latest:
-                    history_date = (
-                        datetime.strptime(latest["chart_date"], "%Y-%m-%d")
-                        + timedelta(days=1)
-                    ).strftime("%Y-%m-%d")
+                history_date = latest_hype_history_date(conn)
             if history_date:
                 previous_apple_videos = previous_apple_videos_for_history(conn, {}, history_date)
                 report = hype_report_for_date(conn, history_date, previous_apple_videos=previous_apple_videos)
+                validate_frontend_history(compact_frontend_history({history_date: report}), history_date)
                 hype_results = [
                     (row["video_id"], {"metadata": row, "score": row.get("hype_index", 0), "ranks": {
                         "Apple-Hype-Input": row.get("apple_rank") or 101,
@@ -145,23 +131,11 @@ def main() -> int:
                     }})
                     for row in report
                 ]
-        if (
-            hype_results
-            and not args.dry_run
-            and os.environ.get("HYPE_DEFER_HISTORY_EXPORT") not in {"1", "true", "TRUE"}
-        ):
-            export_frontend_history(
-                db_path,
-                args.history_json,
-                full_rebuild=bool(args.history_date),
-            )
+        if not hype_results:
+            raise RuntimeError("No songs found to aggregate")
     except Exception as exc:
         LOG.error("DB hype calculation failed: %s", exc)
-        return 1
-        
-    if not hype_results:
-        LOG.error("No songs found to aggregate.")
-        return 1
+        return EXIT_CALCULATION_FAILED
 
     top_songs = hype_results[:args.limit]
     video_ids = [vid for vid, stats in top_songs]
@@ -183,20 +157,34 @@ def main() -> int:
     if args.dry_run:
         LOG.info("Dry run completed from DB; no playlist authentication or mutation.")
         return 0
+
+    if os.environ.get("HYPE_DEFER_HISTORY_EXPORT") not in {"1", "true", "TRUE"}:
+        try:
+            export_frontend_history(
+                db_path, args.history_json, full_rebuild=bool(args.history_date),
+                expected_date=history_date,
+            )
+        except Exception as exc:
+            LOG.error("Hype history export failed: %s", exc)
+            return EXIT_HISTORY_EXPORT_FAILED
     
     # Sync to YTMusic
-    ytmusic = make_ytmusic(args.yt_auth)
-    update_ytmusic_playlist(
-        ytmusic,
-        args.yt_playlist_id,
-        video_ids,
-        description=desc,
-        dry_run=args.dry_run,
-        db_path=db_path if (db_path.exists() or os.environ.get("SUPABASE_DB_URL")) else None,
-        service="hypex",
-        job_name=args.job_name,
-        playlist_name=args.playlist_name,
-    )
+    try:
+        ytmusic = make_ytmusic(args.yt_auth)
+        update_ytmusic_playlist(
+            ytmusic,
+            args.yt_playlist_id,
+            video_ids,
+            description=desc,
+            dry_run=args.dry_run,
+            db_path=db_path if (db_path.exists() or os.environ.get("SUPABASE_DB_URL")) else None,
+            service="hypex",
+            job_name=args.job_name,
+            playlist_name=args.playlist_name,
+        )
+    except Exception as exc:
+        LOG.error("Hype playlist publication failed after calculation completed: %s", exc)
+        return EXIT_PUBLICATION_FAILED
     
     LOG.info("Hype Moment sync completed.")
     return 0

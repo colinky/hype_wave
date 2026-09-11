@@ -9,7 +9,7 @@ import sqlite3
 import uuid
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any, Iterable, Mapping
 
 from hype_db_common import (
     clean_track_title,
@@ -60,7 +60,10 @@ __all__ = [
     "consolidate_source_song_relation",
     "repair_source_song_relations",
     "record_playlist_update",
+    "append_playlist_update_evidence",
+    "claim_playlist_update_recovery",
     "finish_playlist_update",
+    "get_playlist_update_run",
     "get_pending_playlist_recovery",
     "get_bulk_cached_matches",
 ]
@@ -75,6 +78,14 @@ PLAYLIST_UPDATE_STATUSES = {
     "restored",
     "recovery_required",
 }
+ACTIVE_PLAYLIST_UPDATE_STATUSES = {
+    "running",
+    "mutation_failed",
+    "recovery_required",
+}
+PLAYLIST_EVIDENCE_PHASES = {"publish", "restore", "reconcile", "reconcile_tail"}
+PLAYLIST_EVIDENCE_OPERATIONS = {"remove", "add", "observe", "finalize"}
+PLAYLIST_EVIDENCE_STATES = {"intent", "ack", "ambiguous", "verified"}
 
 
 def _yt_metadata_verified_key(video_id: str, title: str, artist: str, album: str) -> str:
@@ -3037,6 +3048,498 @@ def repair_failed_source_bindings(conn: sqlite3.Connection) -> dict[str, int]:
     return {"updated_bindings": updated_bindings, "merged_tracks": merged_tracks}
 
 
+def _normalize_playlist_items(
+    items: Iterable[Any],
+    *,
+    require_set_video_id: bool,
+    require_contiguous: bool = True,
+) -> list[dict[str, Any]]:
+    normalized: list[dict[str, Any]] = []
+    seen_set_ids: set[str] = set()
+    for fallback_position, item in enumerate(items, 1):
+        if isinstance(item, str):
+            video_id = item.strip()
+            set_video_id = ""
+            position = fallback_position
+        elif isinstance(item, Mapping):
+            video_id = str(
+                item.get("videoId")
+                or item.get("video_id")
+                or item.get("requestedVideoId")
+                or ""
+            ).strip()
+            set_video_id = str(item.get("setVideoId") or item.get("set_video_id") or "").strip()
+            try:
+                position = int(item.get("position") or fallback_position)
+            except (TypeError, ValueError) as exc:
+                raise ValueError("Playlist item position must be an integer") from exc
+        else:
+            raise ValueError("Playlist evidence items must be strings or mappings")
+        if not video_id or position < 1:
+            raise ValueError("Playlist evidence items need a video ID and positive position")
+        if require_set_video_id and not set_video_id:
+            raise ValueError(f"Playlist item {position} is missing setVideoId")
+        if set_video_id:
+            if set_video_id in seen_set_ids:
+                raise ValueError(f"Duplicate setVideoId in playlist evidence: {set_video_id}")
+            seen_set_ids.add(set_video_id)
+        normalized.append(
+            {"position": position, "video_id": video_id, "set_video_id": set_video_id}
+        )
+    if require_contiguous and [item["position"] for item in normalized] != list(
+        range(1, len(normalized) + 1)
+    ):
+        raise ValueError("Playlist snapshot positions must be contiguous and ordered")
+    return normalized
+
+
+def _decode_recovery_payload(value: Any) -> dict[str, Any]:
+    try:
+        payload = json.loads(value or "{}") if not isinstance(value, dict) else dict(value)
+    except (TypeError, ValueError):
+        return {}
+    return payload if isinstance(payload, dict) else {}
+
+
+def _serialize_recovery_payload(payload: Mapping[str, Any]) -> str:
+    return json.dumps(payload, ensure_ascii=False, separators=(",", ":"), default=str)
+
+
+def _playlist_update_state_fingerprint(run: Mapping[str, Any]) -> str:
+    value = json.dumps(
+        [
+            run.get("update_run_id"),
+            run.get("playlist_id"),
+            run.get("status"),
+            run.get("completed_at"),
+            run.get("error") or "",
+            run.get("differences_json") or "[]",
+            int(run.get("evidence_version") or 0),
+            run.get("recovery_payload_json") or "{}",
+        ],
+        ensure_ascii=False,
+        separators=(",", ":"),
+        default=str,
+    )
+    return hashlib.sha256(value.encode("utf-8")).hexdigest()
+
+
+def _next_evidence_seq(payload: Mapping[str, Any]) -> int:
+    values = [
+        int(entry.get("seq") or 0)
+        for name in ("events", "outcomes")
+        for entry in payload.get(name, [])
+        if isinstance(entry, Mapping)
+    ]
+    return max([int(payload.get("next_seq") or 1) - 1, *values], default=0) + 1
+
+
+def _begin_playlist_update_write(conn: Any) -> bool:
+    postgres = type(conn).__name__ == "PostgresConnectionWrapper"
+    if not postgres:
+        conn.execute("BEGIN IMMEDIATE")
+    return postgres
+
+
+def _locked_playlist_update_run(conn: Any, update_run_id: str, postgres: bool) -> Any:
+    suffix = " FOR UPDATE" if postgres else ""
+    row = conn.execute(
+        "SELECT * FROM playlist_update_runs WHERE update_run_id = ?" + suffix,
+        (update_run_id,),
+    ).fetchone()
+    if not row:
+        raise ValueError(f"Unknown playlist update run: {update_run_id}")
+    return row
+
+
+def _require_playlist_claim(payload: Mapping[str, Any], claim_token: str) -> None:
+    expected = str((payload.get("claim") or {}).get("token") or "")
+    if not expected or not claim_token or claim_token != expected:
+        raise RuntimeError("Playlist update claim token is missing or stale")
+
+
+def _playlist_payload_is_complete(run: Mapping[str, Any], payload: Mapping[str, Any]) -> bool:
+    if int(run.get("evidence_version") or 0) != 1 or int(payload.get("version") or 0) != 1:
+        return False
+    snapshot = payload.get("snapshot")
+    if not isinstance(snapshot, Mapping) or snapshot.get("complete") is not True:
+        return False
+    requested = snapshot.get("requested_video_ids")
+    existing = snapshot.get("existing_items")
+    if not isinstance(requested, list) or not isinstance(existing, list):
+        return False
+    if len(requested) != int(run.get("requested_count") or 0):
+        return False
+    if len(existing) != int(run.get("existing_count") or 0):
+        return False
+    for item in requested:
+        if not isinstance(item, str) or not item:
+            return False
+    set_ids: list[str] = []
+    for position, item in enumerate(existing, 1):
+        if (
+            not isinstance(item, Mapping)
+            or item.get("position") != position
+            or not item.get("video_id")
+            or not item.get("set_video_id")
+        ):
+            return False
+        set_ids.append(str(item["set_video_id"]))
+    claim = payload.get("claim")
+    return len(set_ids) == len(set(set_ids)) and isinstance(claim, Mapping) and bool(claim.get("token"))
+
+
+def _append_payload_entry(
+    payload: dict[str, Any],
+    collection: str,
+    entry: Mapping[str, Any],
+    now: str,
+) -> dict[str, Any]:
+    stored = dict(entry)
+    stored["seq"] = _next_evidence_seq(payload)
+    stored["at"] = now
+    payload.setdefault(collection, []).append(stored)
+    payload["next_seq"] = stored["seq"] + 1
+    return stored
+
+
+def _normalize_playlist_evidence_event(event: Mapping[str, Any]) -> dict[str, Any]:
+    phase = str(event.get("phase") or "")
+    operation = str(event.get("operation") or "")
+    state = str(event.get("state") or "")
+    if phase not in PLAYLIST_EVIDENCE_PHASES:
+        raise ValueError(f"Unsupported playlist evidence phase: {phase}")
+    if operation not in PLAYLIST_EVIDENCE_OPERATIONS:
+        raise ValueError(f"Unsupported playlist evidence operation: {operation}")
+    if state not in PLAYLIST_EVIDENCE_STATES:
+        raise ValueError(f"Unsupported playlist evidence state: {state}")
+    try:
+        chunk_order = int(event.get("chunk_order") or 0)
+        attempt = int(event.get("attempt") or 1)
+        intent_seq = int(event.get("intent_seq") or 0)
+    except (TypeError, ValueError) as exc:
+        raise ValueError("Playlist evidence sequence fields must be integers") from exc
+    if chunk_order < 0 or attempt < 1:
+        raise ValueError("Playlist evidence chunk and attempt must be non-negative")
+    items = _normalize_playlist_items(
+        event.get("items") or (),
+        require_set_video_id=(operation == "remove" and state == "intent")
+        or (operation == "add" and state == "ack")
+        or (
+            operation == "observe"
+            and state == "verified"
+            and event.get("observation_complete") is True
+        ),
+        require_contiguous=False,
+    )
+    normalized: dict[str, Any] = {
+        "phase": phase,
+        "operation": operation,
+        "state": state,
+        "chunk_order": chunk_order,
+        "attempt": attempt,
+        "items": items,
+    }
+    for key in ("before_items", "after_items"):
+        if key in event:
+            normalized[key] = _normalize_playlist_items(
+                event.get(key) or (),
+                require_set_video_id=True,
+                require_contiguous=True,
+            )
+    if state in {"ack", "ambiguous"}:
+        if intent_seq < 1:
+            raise ValueError("Playlist evidence receipt needs intent_seq")
+        normalized["intent_seq"] = intent_seq
+    for key in ("provider_status", "error", "attestation"):
+        if event.get(key):
+            normalized[key] = str(event[key])
+    if event.get("reconciliation_action"):
+        normalized["reconciliation_action"] = str(event["reconciliation_action"])
+    if "review_checks" in event:
+        if not isinstance(event["review_checks"], list):
+            raise ValueError("Playlist evidence review_checks must be a list")
+        normalized["review_checks"] = json.loads(
+            json.dumps(event["review_checks"], ensure_ascii=False, default=str)
+        )
+    for key in (
+        "observation_complete",
+        "verification_matches",
+        "restore_verified",
+        "identity_review_required",
+    ):
+        if key in event:
+            normalized[key] = bool(event[key])
+    if "differences" in event:
+        if not isinstance(event["differences"], list):
+            raise ValueError("Playlist evidence differences must be a list")
+        normalized["differences"] = json.loads(
+            json.dumps(event["differences"], ensure_ascii=False, default=str)
+        )
+    if "publication_mode" in event:
+        if event["publication_mode"] != "partial" or phase not in {"publish", "reconcile"} or (
+            operation, state
+        ) != ("observe", "verified"):
+            raise ValueError("Partial publication policy requires a publish/reconcile observation")
+        effective = event.get("effective_video_ids")
+        excluded = event.get("excluded_items")
+        if not isinstance(effective, list) or not effective or any(
+            not isinstance(video_id, str) or not video_id.strip() for video_id in effective
+        ):
+            raise ValueError("Partial publication needs a non-empty effective video list")
+        if not isinstance(excluded, list) or not excluded:
+            raise ValueError("Partial publication needs explicit excluded items")
+        exclusions = []
+        for item in excluded:
+            if not isinstance(item, Mapping) or type(item.get("position")) is not int or item["position"] < 1:
+                raise ValueError("Excluded playlist positions must be positive integers")
+            if any(
+                not isinstance(item.get(key), str) or not item[key].strip()
+                for key in ("requested_video_id", "actual_video_id", "reason")
+            ):
+                raise ValueError("Excluded playlist items need requested/actual IDs and a reason")
+            exclusions.append({
+                "position": item["position"],
+                **{key: item[key] for key in ("requested_video_id", "actual_video_id", "reason")},
+            })
+        normalized.update(
+            publication_mode="partial",
+            effective_video_ids=list(effective),
+            excluded_items=exclusions,
+        )
+    return normalized
+
+
+def _latest_partial_publication(payload: Mapping[str, Any]) -> Mapping[str, Any] | None:
+    return next(
+        (
+            event for event in reversed(payload.get("events", []))
+            if isinstance(event, Mapping) and event.get("publication_mode") == "partial"
+        ),
+        None,
+    )
+
+
+def _assert_partial_publication_request(payload: Mapping[str, Any], event: Mapping[str, Any]) -> None:
+    if event.get("publication_mode") != "partial":
+        return
+    requested = (payload.get("snapshot") or {}).get("requested_video_ids")
+    if not isinstance(requested, list):
+        raise ValueError("Partial publication requires the complete original request")
+    excluded = event["excluded_items"]
+    positions = [item["position"] for item in excluded]
+    if positions != sorted(set(positions)) or any(position > len(requested) for position in positions):
+        raise ValueError("Excluded playlist positions must be unique, ordered original slots")
+    if any(requested[item["position"] - 1] != item["requested_video_id"] for item in excluded):
+        raise ValueError("Excluded playlist item does not match the original request")
+    if event["effective_video_ids"] != [
+        video_id for position, video_id in enumerate(requested, 1) if position not in positions
+    ]:
+        raise ValueError("Effective playlist must preserve all non-excluded requested slots in order")
+
+
+def _assert_receipt_matches_intent(payload: Mapping[str, Any], event: Mapping[str, Any]) -> None:
+    if event.get("state") not in {"ack", "ambiguous"}:
+        return
+    intent_seq = int(event["intent_seq"])
+    intent = next(
+        (
+            item
+            for item in payload.get("events", [])
+            if isinstance(item, Mapping) and int(item.get("seq") or 0) == intent_seq
+        ),
+        None,
+    )
+    if not intent or intent.get("state") != "intent" or any(
+        intent.get(key) != event.get(key)
+        for key in ("phase", "operation", "chunk_order", "attempt")
+    ):
+        raise ValueError("Playlist evidence receipt does not match its intent")
+    if any(
+        isinstance(item, Mapping)
+        and item.get("state") in {"ack", "ambiguous"}
+        and int(item.get("intent_seq") or 0) == intent_seq
+        for item in payload.get("events", [])
+    ):
+        raise ValueError("Playlist evidence intent already has a receipt")
+    if event.get("operation") == "add" and event.get("state") == "ack":
+        if len(event.get("items", [])) != len(intent.get("items", [])):
+            raise ValueError("Add receipt item count does not match its intent")
+        used_set_ids = {
+            str(item.get("set_video_id") or "")
+            for item in (payload.get("snapshot") or {}).get("existing_items", [])
+            if isinstance(item, Mapping) and item.get("set_video_id")
+        }
+        used_set_ids.update(
+            str(item.get("set_video_id") or "")
+            for prior in payload.get("events", [])
+            if isinstance(prior, Mapping)
+            and prior.get("operation") == "add"
+            and prior.get("state") == "ack"
+            for item in prior.get("items", [])
+            if isinstance(item, Mapping) and item.get("set_video_id")
+        )
+        used_set_ids.update(
+            str(item.get("set_video_id") or "")
+            for prior in payload.get("events", [])
+            if isinstance(prior, Mapping)
+            for field in ("before_items", "after_items")
+            for item in prior.get(field, [])
+            if isinstance(item, Mapping) and item.get("set_video_id")
+        )
+        acknowledged = {
+            str(item.get("set_video_id") or "")
+            for item in event.get("items", [])
+            if isinstance(item, Mapping) and item.get("set_video_id")
+        }
+        if acknowledged & used_set_ids:
+            raise ValueError("Add receipt reuses a previously observed setVideoId")
+
+
+def _assert_legacy_tail_event(payload: Mapping[str, Any], event: Mapping[str, Any]) -> None:
+    claim = payload.get("claim") or {}
+    tail = payload.get("tail_recovery") or {}
+    if claim.get("capability") != "append_missing_last" or not isinstance(tail, Mapping):
+        raise RuntimeError("Legacy tail append was not explicitly claimed")
+    requested = tail.get("requested_video_ids")
+    if not isinstance(requested, list) or not requested or any(
+        not isinstance(video_id, str) or not video_id for video_id in requested
+    ):
+        raise RuntimeError("Legacy tail append request evidence is incomplete")
+    if event.get("phase") != "reconcile_tail":
+        return
+    operation = event.get("operation")
+    state = event.get("state")
+    if operation == "add" and state == "intent":
+        prior_adds = [
+            prior
+            for prior in payload.get("events", [])
+            if isinstance(prior, Mapping)
+            and prior.get("phase") == "reconcile_tail"
+            and prior.get("operation") == "add"
+        ]
+        if prior_adds:
+            raise RuntimeError("Legacy tail append already has a mutation attempt")
+        before = event.get("before_items")
+        if not isinstance(before, list) or len(before) != len(requested) - 1:
+            raise ValueError("Legacy tail append needs the complete prefix item snapshot")
+        if event.get("verification_matches") is not True:
+            raise ValueError("Legacy tail prefix needs a verified strict comparison")
+        items = event.get("items") or []
+        if len(items) != 1 or items[0].get("video_id") != requested[-1]:
+            raise ValueError("Legacy tail append may add only the requested final video")
+        return
+    if operation == "add" and state in {"ack", "ambiguous"}:
+        intent_seq = int(event.get("intent_seq") or 0)
+        intent = next(
+            (
+                prior
+                for prior in payload.get("events", [])
+                if isinstance(prior, Mapping)
+                and int(prior.get("seq") or 0) == intent_seq
+            ),
+            None,
+        )
+        if state == "ack":
+            before = (intent or {}).get("before_items") or []
+            after = event.get("after_items") or []
+            acknowledged = event.get("items") or []
+            if len(after) != len(requested):
+                raise ValueError("Legacy tail receipt needs the complete post-append snapshot")
+            expected_set_ids = {
+                item.get("set_video_id") for item in [*before, *acknowledged]
+            }
+            if {item.get("set_video_id") for item in after} != expected_set_ids:
+                raise ValueError("Legacy tail receipt changed a pre-existing playlist slot")
+        return
+    if operation == "observe" and state == "verified":
+        prior_intents = [
+            prior
+            for prior in payload.get("events", [])
+            if isinstance(prior, Mapping)
+            and prior.get("phase") == "reconcile_tail"
+            and prior.get("operation") == "add"
+            and prior.get("state") == "intent"
+        ]
+        if len(prior_intents) != 1:
+            raise RuntimeError("Legacy tail observation has no unique append intent")
+        if event.get("observation_complete") is not True or not isinstance(
+            event.get("verification_matches"), bool
+        ):
+            raise ValueError("Legacy tail completion needs a full comparison result")
+        if event.get("verification_matches") is False and event.get("identity_review_required") is not True:
+            raise ValueError("A rejected legacy tail identity needs explicit review evidence")
+        observed = event.get("items") or []
+        if len(observed) != len(requested):
+            raise ValueError("Legacy tail completion count does not match the request")
+        before_set_ids = {
+            item.get("set_video_id") for item in prior_intents[0].get("before_items", [])
+        }
+        observed_set_ids = {item.get("set_video_id") for item in observed}
+        if not before_set_ids <= observed_set_ids or len(observed_set_ids - before_set_ids) != 1:
+            raise ValueError("Legacy tail completion is not an append-only slot change")
+        return
+    raise RuntimeError("Legacy tail claim only permits one add and its verified observation")
+
+
+def _compact_old_playlist_recovery_payloads(
+    conn: Any,
+    cutoff: str,
+    *,
+    postgres: bool,
+) -> None:
+    compact_v1 = _serialize_recovery_payload({"version": 1, "pruned": True})
+    compact_v0 = _serialize_recovery_payload(
+        {"version": 0, "manual_only": True, "pruned": True}
+    )
+    if postgres:
+        conn.execute(
+            """
+            UPDATE playlist_update_runs
+            SET recovery_payload_json = ?
+            WHERE evidence_version = 1
+              AND status NOT IN ('running', 'mutation_failed', 'recovery_required')
+              AND COALESCE(completed_at, created_at)::timestamptz < CAST(? AS timestamptz)
+              AND recovery_payload_json <> ?
+            """,
+            (compact_v1, cutoff, compact_v1),
+        )
+        conn.execute(
+            """
+            UPDATE playlist_update_runs
+            SET recovery_payload_json = ?
+            WHERE evidence_version = 0
+              AND status NOT IN ('running', 'mutation_failed', 'recovery_required')
+              AND COALESCE(completed_at, created_at)::timestamptz < CAST(? AS timestamptz)
+              AND recovery_payload_json NOT IN ('{}', ?)
+            """,
+            (compact_v0, cutoff, compact_v0),
+        )
+    else:
+        conn.execute(
+            """
+            UPDATE playlist_update_runs
+            SET recovery_payload_json = ?
+            WHERE evidence_version = 1
+              AND status NOT IN ('running', 'mutation_failed', 'recovery_required')
+              AND datetime(COALESCE(completed_at, created_at)) < datetime(?)
+              AND recovery_payload_json <> ?
+            """,
+            (compact_v1, cutoff, compact_v1),
+        )
+        conn.execute(
+            """
+            UPDATE playlist_update_runs
+            SET recovery_payload_json = ?
+            WHERE evidence_version = 0
+              AND status NOT IN ('running', 'mutation_failed', 'recovery_required')
+              AND datetime(COALESCE(completed_at, created_at)) < datetime(?)
+              AND recovery_payload_json NOT IN ('{}', ?)
+            """,
+            (compact_v0, cutoff, compact_v0),
+        )
+
+
 def record_playlist_update(
     db_path: str | Path,
     *,
@@ -3045,19 +3548,55 @@ def record_playlist_update(
     job_name: str = "",
     requested_video_ids: Iterable[str] = (),
     existing_video_ids: Iterable[str] = (),
+    existing_items: Iterable[Mapping[str, Any]] | None = None,
+    claim_token: str = "",
     dry_run: bool = False,
 ) -> str:
-    init_db(db_path)
-    requested = [v for v in requested_video_ids if v]
-    existing = [v for v in existing_video_ids if v]
+    init_db(db_path, repair_source_bindings=False)
+    requested = [
+        str(value).strip() for value in requested_video_ids if value and str(value).strip()
+    ]
+    legacy_existing = [
+        str(value).strip() for value in existing_video_ids if value and str(value).strip()
+    ]
+    exact_existing = (
+        _normalize_playlist_items(existing_items, require_set_video_id=True)
+        if existing_items is not None
+        else None
+    )
+    if exact_existing is not None and legacy_existing and legacy_existing != [
+        item["video_id"] for item in exact_existing
+    ]:
+        raise ValueError("existing_items and existing_video_ids describe different snapshots")
+    existing = exact_existing or _normalize_playlist_items(
+        legacy_existing, require_set_video_id=False
+    )
     job_name = require_job_name(job_name)
     now = utc_now_iso()
-    item_retention_cutoff = (
-        datetime.fromisoformat(now) - timedelta(days=31)
-    ).isoformat()
+    item_retention_cutoff = (datetime.fromisoformat(now) - timedelta(days=31)).isoformat()
     run_id = uuid.uuid4().hex
+    evidence_version = 1 if exact_existing is not None else 0
+    payload: dict[str, Any] = {}
+    if evidence_version:
+        payload = {
+            "version": 1,
+            "snapshot": {
+                "complete": True,
+                "existing_items": existing,
+                "requested_video_ids": requested,
+            },
+            "claim": {
+                "token": claim_token or uuid.uuid4().hex,
+                "role": "publisher",
+                "claimed_at": now,
+            },
+            "events": [],
+            "outcomes": [],
+            "next_seq": 1,
+        }
     with connect(db_path) as conn:
-        if type(conn).__name__ == "PostgresConnectionWrapper":
+        postgres = type(conn).__name__ == "PostgresConnectionWrapper"
+        if postgres:
             conn.execute(
                 "DELETE FROM playlist_update_items "
                 "WHERE created_at::timestamptz < CAST(? AS timestamptz)",
@@ -3069,14 +3608,18 @@ def record_playlist_update(
                 "WHERE datetime(created_at) < datetime(?)",
                 (item_retention_cutoff,),
             )
+        _compact_old_playlist_recovery_payloads(
+            conn, item_retention_cutoff, postgres=postgres
+        )
         conn.execute(
             """
             INSERT INTO playlist_update_runs(
                 update_run_id, playlist_id, service, job_name, started_at,
                 dry_run, requested_count, existing_count, status,
-                completed_at, error, differences_json, match_started_at, created_at
+                completed_at, error, differences_json, match_started_at,
+                evidence_version, recovery_payload_json, created_at
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'running', NULL, '', '[]', ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'running', NULL, '', '[]', ?, ?, ?, ?)
             """,
             (
                 run_id,
@@ -3088,33 +3631,217 @@ def record_playlist_update(
                 len(requested),
                 len(existing),
                 os.environ.get("HYPE_MATCH_STARTED_AT", ""),
+                evidence_version,
+                _serialize_recovery_payload(payload),
                 now,
             ),
         )
         item_sql = """
             INSERT INTO playlist_update_items(
-                update_run_id, action, video_id, item_order, created_at
+                update_run_id, action, video_id, set_video_id, item_order, created_at
             )
-            VALUES (?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?)
             ON CONFLICT (update_run_id, action, video_id, item_order) DO UPDATE SET
+                set_video_id = EXCLUDED.set_video_id,
                 created_at = EXCLUDED.created_at
             """
         conn.executemany(
             item_sql,
             [
-                (run_id, "existing", video_id, index, now)
-                for index, video_id in enumerate(existing, 1)
+                (
+                    run_id,
+                    "existing",
+                    item["video_id"],
+                    item["set_video_id"],
+                    item["position"],
+                    now,
+                )
+                for item in existing
             ],
         )
         conn.executemany(
             item_sql,
             [
-                (run_id, "requested", video_id, index, now)
+                (run_id, "requested", video_id, "", index, now)
                 for index, video_id in enumerate(requested, 1)
             ],
         )
         conn.commit()
     return run_id
+
+
+def append_playlist_update_evidence(
+    db_path: str | Path,
+    update_run_id: str,
+    event: Mapping[str, Any],
+    *,
+    claim_token: str,
+    expected_state_fingerprint: str = "",
+) -> dict[str, Any]:
+    """Commit one intent/receipt before the publisher advances to its next side effect."""
+    normalized = _normalize_playlist_evidence_event(event)
+    init_db(db_path, repair_source_bindings=False)
+    now = utc_now_iso()
+    with connect(db_path) as conn:
+        postgres = _begin_playlist_update_write(conn)
+        run = _locked_playlist_update_run(conn, update_run_id, postgres)
+        if run["status"] not in ACTIVE_PLAYLIST_UPDATE_STATUSES:
+            raise RuntimeError(f"Playlist update run is no longer active: {run['status']}")
+        current_fingerprint = _playlist_update_state_fingerprint(dict(run))
+        if expected_state_fingerprint and expected_state_fingerprint != current_fingerprint:
+            raise RuntimeError("Playlist update evidence changed before append")
+        payload = _decode_recovery_payload(run["recovery_payload_json"])
+        complete = _playlist_payload_is_complete(dict(run), payload)
+        if not complete:
+            claim = payload.get("claim") or {}
+            legacy_observation = (
+                normalized["phase"] == "reconcile"
+                and normalized["operation"] in {"observe", "finalize"}
+            )
+            legacy_tail = (
+                claim.get("capability") == "append_missing_last"
+                and normalized["phase"] == "reconcile_tail"
+            )
+            if (
+                int(run["evidence_version"] or 0) != 0
+                or claim.get("role") != "reconcile"
+                or not (legacy_observation or legacy_tail)
+            ):
+                raise RuntimeError("Playlist update has no complete recovery evidence")
+            if not expected_state_fingerprint:
+                raise RuntimeError("Legacy evidence append requires the exact state fingerprint")
+        _require_playlist_claim(payload, claim_token)
+        _assert_partial_publication_request(payload, normalized)
+        _assert_receipt_matches_intent(payload, normalized)
+        if not complete and normalized["phase"] == "reconcile_tail":
+            _assert_legacy_tail_event(payload, normalized)
+        stored = _append_payload_entry(payload, "events", normalized, now)
+        serialized_payload = _serialize_recovery_payload(payload)
+        conn.execute(
+            "UPDATE playlist_update_runs SET recovery_payload_json = ? WHERE update_run_id = ? AND status = ?",
+            (serialized_payload, update_run_id, run["status"]),
+        )
+        conn.commit()
+    updated_run = dict(run)
+    updated_run["recovery_payload_json"] = serialized_payload
+    return {**stored, "state_fingerprint": _playlist_update_state_fingerprint(updated_run)}
+
+
+def claim_playlist_update_recovery(
+    db_path: str | Path,
+    update_run_id: str,
+    *,
+    expected_claim_token: str,
+    workers_quiescent: bool,
+    attestation: str,
+    expected_state_fingerprint: str = "",
+    expected_statuses: Iterable[str] = ACTIVE_PLAYLIST_UPDATE_STATUSES,
+    allow_reclaim: bool = False,
+    append_missing_last: bool = False,
+) -> dict[str, Any]:
+    """Fence the old DB writer after an operator has stopped all publisher workers."""
+    if not workers_quiescent or not str(attestation or "").strip():
+        raise ValueError("Recovery claim requires an explicit worker-quiescence attestation")
+    expected = set(expected_statuses)
+    if not expected or not expected <= ACTIVE_PLAYLIST_UPDATE_STATUSES:
+        raise ValueError("Recovery claim expected statuses must be active statuses")
+    init_db(db_path, repair_source_bindings=False)
+    now = utc_now_iso()
+    with connect(db_path) as conn:
+        postgres = _begin_playlist_update_write(conn)
+        run = _locked_playlist_update_run(conn, update_run_id, postgres)
+        if run["status"] not in expected:
+            raise RuntimeError(f"Playlist update status changed: {run['status']}")
+        payload = _decode_recovery_payload(run["recovery_payload_json"])
+        complete = _playlist_payload_is_complete(dict(run), payload)
+        current_claim = payload.get("claim") or {}
+        if expected_state_fingerprint and expected_state_fingerprint != _playlist_update_state_fingerprint(dict(run)):
+            raise RuntimeError("Playlist update evidence changed before recovery claim")
+        if complete:
+            if append_missing_last:
+                raise ValueError("Tail append is only available for explicitly reviewed legacy audits")
+            _require_playlist_claim(payload, expected_claim_token)
+        else:
+            if int(run["evidence_version"] or 0) != 0:
+                raise RuntimeError("Malformed recovery evidence cannot be claimed")
+            if not expected_state_fingerprint or expected_state_fingerprint != _playlist_update_state_fingerprint(dict(run)):
+                raise RuntimeError("Legacy recovery claim requires the exact observed state fingerprint")
+            if current_claim:
+                _require_playlist_claim(payload, expected_claim_token)
+            elif expected_claim_token:
+                raise RuntimeError("Legacy recovery claim token does not match the unclaimed state")
+            payload.setdefault("version", 0)
+            payload.setdefault("manual_only", True)
+            payload.setdefault("events", [])
+            payload.setdefault("outcomes", [])
+            payload.setdefault("next_seq", 1)
+        if current_claim.get("role") == "reconcile" and not allow_reclaim:
+            raise RuntimeError("A recovery worker already owns this playlist update")
+        if append_missing_last:
+            requested_rows = conn.execute(
+                """
+                SELECT video_id, item_order
+                FROM playlist_update_items
+                WHERE update_run_id = ? AND action = 'requested'
+                ORDER BY item_order
+                """,
+                (update_run_id,),
+            ).fetchall()
+            requested = [str(item["video_id"] or "") for item in requested_rows]
+            positions = [int(item["item_order"] or 0) for item in requested_rows]
+            if (
+                not requested
+                or len(requested) != int(run["requested_count"] or 0)
+                or positions != list(range(1, len(requested) + 1))
+                or any(not video_id for video_id in requested)
+            ):
+                raise RuntimeError("Legacy tail append requires the complete ordered request")
+            existing_tail = payload.get("tail_recovery")
+            if existing_tail and existing_tail.get("requested_video_ids") != requested:
+                raise RuntimeError("Legacy tail append request evidence changed")
+            payload["tail_recovery"] = {
+                "capability": "append_missing_last",
+                "requested_video_ids": requested,
+                "requested_count": len(requested),
+            }
+        tail_capability = append_missing_last or current_claim.get("capability") == "append_missing_last"
+        new_token = uuid.uuid4().hex
+        payload["claim"] = {
+            "token": new_token,
+            "role": "reconcile",
+            "claimed_at": now,
+            "attestation": str(attestation).strip(),
+        }
+        if tail_capability:
+            payload["claim"]["capability"] = "append_missing_last"
+        event = _append_payload_entry(
+            payload,
+            "events",
+            {
+                "phase": "reconcile",
+                "operation": "observe",
+                "state": "intent",
+                "chunk_order": 0,
+                "attempt": 1,
+                "items": [],
+                "attestation": str(attestation).strip(),
+            },
+            now,
+        )
+        serialized_payload = _serialize_recovery_payload(payload)
+        conn.execute(
+            "UPDATE playlist_update_runs SET recovery_payload_json = ? WHERE update_run_id = ? AND status = ?",
+            (serialized_payload, update_run_id, run["status"]),
+        )
+        conn.commit()
+    updated_run = dict(run)
+    updated_run["recovery_payload_json"] = serialized_payload
+    return {
+        "update_run_id": update_run_id,
+        "claim_token": new_token,
+        "event": event,
+        "state_fingerprint": _playlist_update_state_fingerprint(updated_run),
+    }
 
 
 def finish_playlist_update(
@@ -3123,25 +3850,151 @@ def finish_playlist_update(
     *,
     status: str,
     actual_video_ids: Iterable[str] = (),
+    actual_items: Iterable[Mapping[str, Any]] | None = None,
+    observation_complete: bool | None = None,
     error: str = "",
     differences: Iterable[Any] = (),
+    claim_token: str = "",
+    expected_statuses: Iterable[str] = ACTIVE_PLAYLIST_UPDATE_STATUSES,
+    expected_state_fingerprint: str = "",
+    restore_verified: bool | None = None,
+    identity_review_required: bool | None = None,
 ) -> dict[str, Any]:
-    """Finish (or advance) a playlist mutation audit and record observed state."""
+    """Advance an audit while preserving every observed outcome in recovery evidence."""
     if status not in PLAYLIST_UPDATE_STATUSES:
         raise ValueError(f"Unsupported playlist update status: {status}")
-    init_db(db_path)
-    actual = [video_id for video_id in actual_video_ids if video_id]
+    if identity_review_required is True and status != "recovery_required":
+        raise ValueError("Identity review must remain in recovery_required status")
+    expected = set(expected_statuses)
+    if not expected:
+        raise ValueError("finish_playlist_update requires expected statuses")
+    init_db(db_path, repair_source_bindings=False)
+    legacy_actual = [
+        str(value).strip() for value in actual_video_ids if value and str(value).strip()
+    ]
+    exact_actual = (
+        _normalize_playlist_items(
+            actual_items,
+            require_set_video_id=bool(observation_complete is not False),
+        )
+        if actual_items is not None
+        else None
+    )
+    if exact_actual is not None and legacy_actual and legacy_actual != [
+        item["video_id"] for item in exact_actual
+    ]:
+        raise ValueError("actual_items and actual_video_ids describe different observations")
+    actual = exact_actual or _normalize_playlist_items(
+        legacy_actual, require_set_video_id=False
+    )
+    complete = bool(exact_actual is not None) if observation_complete is None else bool(observation_complete)
+    if complete and exact_actual is None:
+        raise ValueError("A complete observation requires actual_items with setVideoIds")
+    difference_values = list(differences)
     serialized_differences = json.dumps(
-        list(differences), ensure_ascii=False, separators=(",", ":"), default=str
+        difference_values, ensure_ascii=False, separators=(",", ":"), default=str
     )
     now = utc_now_iso()
     with connect(db_path) as conn:
-        run = conn.execute(
-            "SELECT update_run_id FROM playlist_update_runs WHERE update_run_id = ?",
-            (update_run_id,),
-        ).fetchone()
-        if not run:
-            raise ValueError(f"Unknown playlist update run: {update_run_id}")
+        postgres = _begin_playlist_update_write(conn)
+        run = _locked_playlist_update_run(conn, update_run_id, postgres)
+        current_status = str(run["status"])
+        if current_status not in expected:
+            raise RuntimeError(
+                f"Playlist update status changed: expected {sorted(expected)}, found {current_status}"
+            )
+        current_fingerprint = _playlist_update_state_fingerprint(dict(run))
+        if expected_state_fingerprint and expected_state_fingerprint != current_fingerprint:
+            raise RuntimeError("Playlist update evidence changed before finish")
+        payload = _decode_recovery_payload(run["recovery_payload_json"])
+        if int(run["evidence_version"] or 0) == 1:
+            if not _playlist_payload_is_complete(dict(run), payload):
+                raise RuntimeError("Playlist update recovery evidence is incomplete")
+            _require_playlist_claim(payload, claim_token)
+            partial = _latest_partial_publication(payload)
+            if partial and status in {"published", "skipped_current"}:
+                if (
+                    not complete
+                    or partial.get("observation_complete") is not True
+                    or partial.get("verification_matches") is not True
+                    or partial.get("items") != actual
+                    or len(actual) != len(partial.get("effective_video_ids") or [])
+                ):
+                    raise RuntimeError("Partial publication needs a complete verified effective playlist observation")
+            outcome = {
+                "status": status,
+                "error": str(error or ""),
+                "differences": difference_values,
+                "actual": actual,
+                "observation_complete": complete,
+            }
+            if restore_verified is not None:
+                outcome["restore_verified"] = bool(restore_verified)
+            if identity_review_required is not None:
+                outcome["identity_review_required"] = bool(identity_review_required)
+            _append_payload_entry(payload, "outcomes", outcome, now)
+        else:
+            if (current_status != "running" or payload.get("claim")) and not expected_state_fingerprint:
+                raise RuntimeError(
+                    "Legacy recovery finalization requires the exact observed state fingerprint"
+                )
+            if payload.get("claim"):
+                _require_playlist_claim(payload, claim_token)
+            tail_claim = (payload.get("claim") or {}).get("capability") == "append_missing_last"
+            if tail_claim and status not in {"published", "recovery_required"}:
+                raise RuntimeError("Legacy tail recovery may only publish or remain pending")
+            if tail_claim and status == "published":
+                successful_observations = [
+                    event
+                    for event in payload.get("events", [])
+                    if isinstance(event, Mapping)
+                    and event.get("phase") == "reconcile_tail"
+                    and event.get("operation") == "observe"
+                    and event.get("state") == "verified"
+                    and event.get("observation_complete") is True
+                    and event.get("verification_matches") is True
+                ]
+                if not successful_observations or not complete:
+                    raise RuntimeError("Legacy tail publish needs a fresh complete verified observation")
+                if successful_observations[-1].get("items") != actual:
+                    raise RuntimeError("Legacy tail finish does not match its verified observation")
+            payload.setdefault("version", 0)
+            payload.setdefault("manual_only", True)
+            outcomes = payload.setdefault("outcomes", [])
+            if not outcomes and (
+                current_status in {"mutation_failed", "recovery_required"}
+                or run["error"]
+                or (run["differences_json"] or "[]") != "[]"
+            ):
+                try:
+                    previous_differences = json.loads(run["differences_json"] or "[]")
+                except (TypeError, ValueError):
+                    previous_differences = []
+                _append_payload_entry(
+                    payload,
+                    "outcomes",
+                    {
+                        "status": current_status,
+                        "error": str(run["error"] or ""),
+                        "differences": previous_differences,
+                        "actual": [],
+                        "observation_complete": False,
+                        "preserved_legacy_state": True,
+                    },
+                    str(run["completed_at"] or run["created_at"] or now),
+                )
+            outcome = {
+                "status": status,
+                "error": str(error or ""),
+                "differences": difference_values,
+                "actual": actual,
+                "observation_complete": complete,
+            }
+            if restore_verified is not None:
+                outcome["restore_verified"] = bool(restore_verified)
+            if identity_review_required is not None:
+                outcome["identity_review_required"] = bool(identity_review_required)
+            _append_payload_entry(payload, "outcomes", outcome, now)
         conn.execute(
             "DELETE FROM playlist_update_items WHERE update_run_id = ? AND action = 'actual'",
             (update_run_id,),
@@ -3149,42 +4002,175 @@ def finish_playlist_update(
         conn.executemany(
             """
             INSERT INTO playlist_update_items(
-                update_run_id, action, video_id, item_order, created_at
-            ) VALUES (?, 'actual', ?, ?, ?)
+                update_run_id, action, video_id, set_video_id, item_order, created_at
+            ) VALUES (?, 'actual', ?, ?, ?, ?)
             """,
             [
-                (update_run_id, video_id, index, now)
-                for index, video_id in enumerate(actual, 1)
+                (
+                    update_run_id,
+                    item["video_id"],
+                    item["set_video_id"],
+                    item["position"],
+                    now,
+                )
+                for item in actual
             ],
         )
         conn.execute(
             """
             UPDATE playlist_update_runs
-            SET status = ?, completed_at = ?, error = ?, differences_json = ?
-            WHERE update_run_id = ?
+            SET status = ?, completed_at = ?, error = ?, differences_json = ?,
+                recovery_payload_json = ?
+            WHERE update_run_id = ? AND status = ?
             """,
             (
                 status,
                 None if status == "running" else now,
                 str(error or ""),
                 serialized_differences,
+                _serialize_recovery_payload(payload),
                 update_run_id,
+                current_status,
             ),
         )
         result = conn.execute(
             "SELECT * FROM playlist_update_runs WHERE update_run_id = ?",
             (update_run_id,),
         ).fetchone()
+        if not result or result["status"] != status:
+            raise RuntimeError("Playlist update status changed during finish")
         conn.commit()
     return dict(result)
+
+
+def _hydrate_playlist_update_result(
+    row: Mapping[str, Any],
+    item_rows: Iterable[Mapping[str, Any]],
+) -> dict[str, Any]:
+    result = dict(row)
+    payload = _decode_recovery_payload(result.get("recovery_payload_json"))
+    complete = _playlist_payload_is_complete(result, payload)
+    grouped: dict[str, list[dict[str, Any]]] = {
+        "requested": [],
+        "existing": [],
+        "actual": [],
+    }
+    for raw_item in item_rows:
+        item = dict(raw_item)
+        grouped.setdefault(str(item["action"]), []).append(
+            {
+                "position": int(item["item_order"]),
+                "video_id": item["video_id"],
+                "set_video_id": item.get("set_video_id") or "",
+            }
+        )
+    if complete:
+        snapshot = payload["snapshot"]
+        grouped["requested"] = [
+            {"position": index, "video_id": video_id, "set_video_id": ""}
+            for index, video_id in enumerate(snapshot["requested_video_ids"], 1)
+        ]
+        grouped["existing"] = list(snapshot["existing_items"])
+        outcomes = payload.get("outcomes") or []
+        if outcomes and isinstance(outcomes[-1], Mapping):
+            grouped["actual"] = list(outcomes[-1].get("actual") or [])
+    for action, values in grouped.items():
+        result[f"{action}_items"] = values
+        result[f"{action}_video_ids"] = [item["video_id"] for item in values]
+    result["recovery_payload"] = payload
+    partial = _latest_partial_publication(payload)
+    result["publication_mode"] = "partial" if partial else "full"
+    result["effective_video_ids"] = list(partial["effective_video_ids"]) if partial else list(result["requested_video_ids"])
+    result["excluded_items"] = list(partial["excluded_items"]) if partial else []
+    result["partial_verified"] = bool(
+        partial
+        and result["status"] == "published"
+        and partial.get("observation_complete") is True
+        and partial.get("verification_matches") is True
+        and partial.get("items") == grouped["actual"]
+        and len(grouped["actual"]) == len(result["effective_video_ids"])
+    )
+    result["evidence_complete"] = complete
+    result["recovery_capability"] = "exact" if complete else "manual_only"
+    result["claim_token"] = str((payload.get("claim") or {}).get("token") or "")
+    result["state_fingerprint"] = _playlist_update_state_fingerprint(result)
+    evidence_issues: list[str] = []
+    if not complete:
+        if int(result.get("evidence_version") or 0) != 1:
+            evidence_issues.append("legacy_evidence_version")
+        for action, expected_count in (
+            ("requested", int(result.get("requested_count") or 0)),
+            ("existing", int(result.get("existing_count") or 0)),
+        ):
+            values = grouped[action]
+            if len(values) != expected_count:
+                evidence_issues.append(f"{action}_count_mismatch")
+            elif [item["position"] for item in values] != list(range(1, len(values) + 1)):
+                evidence_issues.append(f"{action}_positions_incomplete")
+        if grouped["existing"] and any(not item["set_video_id"] for item in grouped["existing"]):
+            evidence_issues.append("existing_set_video_ids_missing")
+    result["evidence_issues"] = evidence_issues
+    review_entries = sorted(
+        [
+            entry
+            for name in ("events", "outcomes")
+            for entry in payload.get(name, [])
+            if isinstance(entry, Mapping) and "identity_review_required" in entry
+        ],
+        key=lambda entry: int(entry.get("seq") or 0),
+    )
+    result["identity_review_required"] = (
+        bool(review_entries[-1]["identity_review_required"]) if review_entries else False
+    )
+    result["restore_verified"] = any(
+        bool(entry.get("restore_verified"))
+        for entry in payload.get("outcomes", [])
+        if isinstance(entry, Mapping)
+    ) or any(
+        bool(entry.get("restore_verified"))
+        for entry in payload.get("events", [])
+        if isinstance(entry, Mapping)
+    )
+    try:
+        result["differences"] = json.loads(result.get("differences_json") or "[]")
+    except (TypeError, ValueError):
+        result["differences"] = []
+    return result
+
+
+def get_playlist_update_run(
+    db_path: str | Path,
+    update_run_id: str,
+    *,
+    read_only: bool = True,
+) -> dict[str, Any] | None:
+    if not read_only:
+        init_db(db_path, repair_source_bindings=False)
+    with connect(db_path, read_only=read_only) as conn:
+        row = conn.execute(
+            "SELECT * FROM playlist_update_runs WHERE update_run_id = ?",
+            (update_run_id,),
+        ).fetchone()
+        if not row:
+            return None
+        items = conn.execute(
+            """
+            SELECT action, video_id, set_video_id, item_order
+            FROM playlist_update_items
+            WHERE update_run_id = ?
+            ORDER BY action, item_order
+            """,
+            (update_run_id,),
+        ).fetchall()
+    return _hydrate_playlist_update_result(dict(row), [dict(item) for item in items])
 
 
 def get_pending_playlist_recovery(
     db_path: str | Path,
     playlist_id: str,
 ) -> dict[str, Any] | None:
-    """Return the latest audit that makes another destructive update unsafe."""
-    init_db(db_path)
+    """Return the active claim; incomplete legacy evidence is explicitly manual-only."""
+    init_db(db_path, repair_source_bindings=False)
     with connect(db_path) as conn:
         row = conn.execute(
             """
@@ -3202,26 +4188,14 @@ def get_pending_playlist_recovery(
         result = dict(row)
         items = conn.execute(
             """
-            SELECT action, video_id, item_order
+            SELECT action, video_id, set_video_id, item_order
             FROM playlist_update_items
             WHERE update_run_id = ?
             ORDER BY action, item_order
             """,
             (result["update_run_id"],),
         ).fetchall()
-    grouped: dict[str, list[str]] = {
-        "requested": [],
-        "existing": [],
-        "actual": [],
-    }
-    for item in items:
-        grouped.setdefault(item["action"], []).append(item["video_id"])
-    result.update({f"{action}_video_ids": values for action, values in grouped.items()})
-    try:
-        result["differences"] = json.loads(result.get("differences_json") or "[]")
-    except (TypeError, ValueError):
-        result["differences"] = []
-    return result
+    return _hydrate_playlist_update_result(result, [dict(item) for item in items])
 
 
 

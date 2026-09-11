@@ -140,10 +140,19 @@ def data_snapshot_ready(conn, *, service: str, job_name: str, started_at: str,
             and run["failed_tracks"] == len(effective) - matched)
 
 
-def classify_task_failure(conn, task: dict, started_at: str) -> str:
-    """Only a recorded publication failure with ready data is publish-only."""
+def classify_task_failure(conn, task: dict, started_at: str, *, returncode: int | None = None) -> str:
+    """Identify the failure phase independently of source data eligibility."""
     job_name = task.get("job_name") or task.get("name") or ""
     service = str(task.get("service") or task.get("type") or "")
+    if service == "hypex":
+        from hype_moment import (
+            EXIT_CALCULATION_FAILED, EXIT_HISTORY_EXPORT_FAILED, EXIT_PUBLICATION_FAILED,
+        )
+        return {
+            EXIT_CALCULATION_FAILED: "calculation",
+            EXIT_HISTORY_EXPORT_FAILED: "export",
+            EXIT_PUBLICATION_FAILED: "publish",
+        }.get(returncode, "task_or_unknown")
     audit = conn.execute(
         """SELECT status FROM playlist_update_runs WHERE job_name = ?
            AND playlist_id = ? AND match_started_at = ?
@@ -153,14 +162,8 @@ def classify_task_failure(conn, task: dict, started_at: str) -> str:
     if not audit or audit["status"] not in {
         "verification_failed", "mutation_failed", "restored", "recovery_required",
     }:
-        return "data"
-    if service == "hypex":
-        return "publish"
-    variant = "combined" if service == "melon_gen" else "default"
-    return "publish" if data_snapshot_ready(
-        conn, service=service, job_name=job_name, started_at=started_at,
-        source_variant=variant,
-    ) else "data"
+        return "task_or_unknown"
+    return "publish"
 
 
 def mark_history_ready() -> None:
@@ -203,6 +206,11 @@ def main():
     skipped_count = 0
     failed_tasks = []
     publish_failed_tasks = []
+    data_unready_tasks = []
+    ready_task_count = 0
+    history_blocked = False
+    anchor_dates = {}
+    expected_history_date = None
     task_env = os.environ.copy()
     task_env["HYPE_DEFER_HISTORY_EXPORT"] = "1"
     if os.environ.get("SUPABASE_DB_URL"):
@@ -239,13 +247,29 @@ def main():
             continue
 
         if task_type == "hypex":
-            blocked_by = failed_hype_inputs(tasks, failed_tasks)
+            blocked_by = failed_hype_inputs(tasks, data_unready_tasks)
             if blocked_by:
                 LOG.error(
-                    "Skipping Hype sync because upstream Hype input tasks failed: %s",
+                    "Skipping Hype sync because upstream chart data is not ready: %s",
                     ", ".join(blocked_by),
                 )
                 skipped_count += 1
+                continue
+            try:
+                from hype_db import connect, latest_hype_history_date
+
+                if len(set(anchor_dates.values())) > 1:
+                    raise RuntimeError(f"This execution's Apple anchor dates disagree: {anchor_dates}")
+                expected_history_date = next(iter(anchor_dates.values()), None)
+                if expected_history_date is None:
+                    with connect(script_dir / "hype_wave_data.db", read_only=True) as conn:
+                        expected_history_date = latest_hype_history_date(conn)
+                if expected_history_date is None:
+                    raise RuntimeError("No completed Apple anchor date for Hype calculation")
+            except Exception as exc:
+                LOG.error("Cannot determine intended Hype chart date: %s", exc)
+                failed_tasks.append(job_name)
+                history_blocked = True
                 continue
 
         LOG.info(f"=== Starting Task: {job_name} ({task_type}) ===")
@@ -287,10 +311,13 @@ def main():
                 cmd.extend(["--track-limit", str(entity_limit)])
         elif task_type == "hypex":
             cmd.append(str(script_dir / "hype_moment.py"))
+            cmd.extend(["--history-date", expected_history_date])
             if entity_limit:
                 cmd.extend(["--limit", str(entity_limit)])
         else:
             LOG.error(f"Unknown task type: {task_type}")
+            failed_tasks.append(job_name)
+            data_unready_tasks.append(job_name)
             continue
 
         cmd.extend(["--yt-auth", yt_auth])
@@ -304,31 +331,68 @@ def main():
         execution_started_at = datetime.now(timezone.utc).isoformat()
         child_env = {**task_env, "HYPE_MATCH_STARTED_AT": execution_started_at}
         data_ready = False
+        failure_phase = ""
+        returncode = 0
         try:
             LOG.debug(f"Running command: {' '.join(cmd)}")
             subprocess.run(cmd, check=True, env=child_env)
-            LOG.info(f"Successfully finished task: {job_name}")
+        except (subprocess.CalledProcessError, OSError) as exc:
+            returncode = getattr(exc, "returncode", None)
+            failure_phase = "task_or_unknown"
+            LOG.error("Task '%s' failed with exit code %s: %s", job_name, returncode, exc)
 
-            success_count += 1
-            data_ready = True
-        except subprocess.CalledProcessError as e:
-            failure_phase = "data"
+        if task_type == "hypex":
+            if failure_phase:
+                failure_phase = classify_task_failure(None, task, execution_started_at, returncode=returncode)
+            data_ready = not failure_phase or failure_phase in {"publish", "export"}
+            if failure_phase and failure_phase != "publish":
+                history_blocked = True
+        else:
             try:
                 from hype_db import connect
-                with connect(script_dir / "hype_wave_data.db") as conn:
-                    failure_phase = classify_task_failure(conn, task, execution_started_at)
-            except Exception as exc:
-                LOG.error("Could not verify failed task's committed snapshot: %s", exc)
-            if failure_phase == "publish":
-                publish_failed_tasks.append(job_name)
-                data_ready = True
-                LOG.error("Task '%s' publication failed; committed chart data is ready", job_name)
-            else:
-                failed_tasks.append(job_name)
-                LOG.error(f"Task '{job_name}' failed with exit code {e.returncode}")
+                from hype_db_common import normalized_service
 
-        # Identity maintenance consumes the committed snapshot, not publication.
-        if task_type == "ytmusic" and data_ready:
+                with connect(script_dir / "hype_wave_data.db", read_only=True) as conn:
+                    variant = "combined" if task_type == "melon_gen" else "default"
+                    data_ready = data_snapshot_ready(
+                        conn, service=task_type, job_name=job_name,
+                        started_at=execution_started_at, source_variant=variant,
+                    )
+                    if data_ready and task.get("include_in_hype") and task.get("hype_group") == "apple":
+                        anchor = conn.execute(
+                            """SELECT reference_period FROM match_runs
+                               WHERE service = ? AND job_name = ? AND source_variant = ? AND started_at = ?
+                               ORDER BY created_at DESC LIMIT 1""",
+                            (normalized_service(task_type), job_name, variant, execution_started_at),
+                        ).fetchone()
+                        anchor_dates[job_name] = (
+                            datetime.strptime(anchor["reference_period"], "%Y-%m-%d") + timedelta(days=1)
+                        ).strftime("%Y-%m-%d")
+                    if failure_phase:
+                        try:
+                            failure_phase = classify_task_failure(conn, task, execution_started_at)
+                        except Exception as exc:
+                            LOG.error("Could not determine task failure phase: %s", exc)
+            except Exception as exc:
+                data_ready = False
+                LOG.error("Could not verify task's committed snapshot: %s", exc)
+        if not data_ready:
+            data_unready_tasks.append(job_name)
+            failure_phase = failure_phase or "data_validation"
+        else:
+            ready_task_count += 1
+        if not failure_phase:
+            success_count += 1
+            LOG.info("Successfully finished task: %s (data_ready=true)", job_name)
+        elif failure_phase == "publish" and data_ready:
+            publish_failed_tasks.append(job_name)
+            LOG.error("Task '%s' publication failed; committed chart data is ready", job_name)
+        else:
+            failed_tasks.append(job_name)
+            LOG.error("Task '%s': failure_phase=%s data_ready=%s", job_name, failure_phase, data_ready)
+
+        # Do not extend global identity maintenance to unexplained task failures.
+        if task_type == "ytmusic" and data_ready and failure_phase in {"", "publish"}:
             heal_script = script_dir / "heal_split_tracks.py"
             db_path = script_dir / "hype_wave_data.db"
             if heal_script.exists() and (db_path.exists() or os.environ.get("SUPABASE_DB_URL")):
@@ -344,15 +408,27 @@ def main():
     LOG.info(f"Total tasks: {len(tasks)}")
     LOG.info(f"Skipped: {skipped_count}")
     LOG.info(f"Successful: {success_count}")
-    if (success_count or publish_failed_tasks) and not failed_hype_inputs(tasks, failed_tasks):
+    if ready_task_count and not history_blocked and not failed_hype_inputs(tasks, data_unready_tasks):
         try:
-            from hype_db import export_frontend_history
+            from hype_db import connect, export_frontend_history, latest_hype_history_date, validate_frontend_history
 
             db_path = script_dir / "hype_wave_data.db"
             history_path = script_dir / "docs" / "api" / "history.json"
-            payload = export_frontend_history(db_path, history_path)
-            if not payload or not payload.get("dates"):
-                raise RuntimeError("History export has no completed chart dates")
+            if len(set(anchor_dates.values())) > 1:
+                raise RuntimeError(f"This execution's Apple anchor dates disagree: {anchor_dates}")
+            if expected_history_date is None:
+                expected_history_date = next(iter(anchor_dates.values()), None)
+            if expected_history_date is None:
+                with connect(db_path, read_only=True) as conn:
+                    expected_history_date = latest_hype_history_date(conn)
+            if expected_history_date is None:
+                raise RuntimeError("History export has no completed Apple anchor date")
+            payload = export_frontend_history(db_path, history_path, expected_date=expected_history_date)
+            validate_frontend_history(payload, expected_history_date)
+            written_payload = json.loads(history_path.read_text(encoding="utf-8"))
+            validate_frontend_history(written_payload, expected_history_date)
+            if written_payload != payload:
+                raise RuntimeError("Written history differs from the validated export")
             LOG.info("Exported frontend history once after all sync tasks.")
             mark_history_ready()
         except Exception as exc:

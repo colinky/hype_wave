@@ -25,6 +25,10 @@ from hype_db_common import (
 LOG = logging.getLogger("hype_db")
 _POSTGRES_INDEXES_CHECKED = False
 _POSTGRES_SCHEMA_VERIFIED = False
+_POSTGRES_ACTIVE_CLAIM_PREDICATE = (
+    "(status = any (array['running'::text, 'mutation_failed'::text, "
+    "'recovery_required'::text]))"
+)
 PLAYLIST_ORDER_PK = ("service", "job_name", "source_variant", "reference_period", "rank_order")
 LEGACY_PLAYLIST_ORDER_PK = ("service", "job_name", "source_variant", "reference_period", "song_id")
 __all__ = [
@@ -308,12 +312,74 @@ def verify_postgres_schema(raw_conn: Any) -> None:
             "error",
             "differences_json",
             "match_started_at",
+            "evidence_version",
+            "recovery_payload_json",
         }
         missing = expected_update_columns - update_columns
         if missing:
             raise RuntimeError(
                 "PostgreSQL playlist_update_runs is missing audit columns: "
-                f"{sorted(missing)}. Apply the 20260907 source relation migration."
+                f"{sorted(missing)}. Apply the 20260911 playlist recovery evidence migration."
+            )
+        cursor.execute(
+            """
+            SELECT column_name
+            FROM information_schema.columns
+            WHERE table_schema = 'public'
+              AND table_name = 'playlist_update_items'
+            """
+        )
+        item_columns = {item[0] for item in cursor.fetchall()}
+        if "set_video_id" not in item_columns:
+            raise RuntimeError(
+                "PostgreSQL playlist_update_items is missing set_video_id. "
+                "Apply the 20260911 playlist recovery evidence migration."
+            )
+        cursor.execute(
+            """
+            SELECT
+                i.indisunique,
+                i.indisvalid,
+                i.indisready,
+                i.indnkeyatts,
+                i.indnatts,
+                i.indexprs IS NULL,
+                ARRAY(
+                    SELECT a.attname
+                    FROM unnest(i.indkey::smallint[]) WITH ORDINALITY
+                         AS key_column(attnum, ordinality)
+                    JOIN pg_attribute a
+                      ON a.attrelid = i.indrelid
+                     AND a.attnum = key_column.attnum
+                    WHERE key_column.ordinality <= i.indnkeyatts
+                    ORDER BY key_column.ordinality
+                ),
+                pg_get_expr(i.indpred, i.indrelid)
+            FROM pg_index i
+            JOIN pg_class index_table ON index_table.oid = i.indexrelid
+            JOIN pg_class source_table ON source_table.oid = i.indrelid
+            JOIN pg_namespace n ON n.oid = source_table.relnamespace
+            WHERE n.nspname = 'public'
+              AND source_table.relname = 'playlist_update_runs'
+              AND index_table.relname = 'idx_playlist_update_one_active'
+            """
+        )
+        active_index = cursor.fetchone()
+        predicate = re.sub(r"\s+", " ", str(active_index[7] or "").lower()) if active_index else ""
+        if (
+            not active_index
+            or not bool(active_index[0])
+            or not bool(active_index[1])
+            or not bool(active_index[2])
+            or int(active_index[3] or 0) != 1
+            or int(active_index[4] or 0) != 1
+            or not bool(active_index[5])
+            or tuple(active_index[6] or ()) != ("playlist_id",)
+            or predicate != _POSTGRES_ACTIVE_CLAIM_PREDICATE
+        ):
+            raise RuntimeError(
+                "PostgreSQL playlist update active-claim index is missing or has the wrong predicate. "
+                "Apply the 20260911 playlist recovery evidence migration."
             )
         cursor.execute(
             "SELECT 1 FROM information_schema.columns "
@@ -408,13 +474,17 @@ def connect(db_path: str | Path, *, read_only: bool = False):
             conn.close()
 
 
-def init_db(db_path: str | Path) -> None:
+def init_db(
+    db_path: str | Path,
+    *,
+    repair_source_bindings: bool = True,
+) -> None:
     if os.environ.get("SUPABASE_DB_URL"):
         return
     path = Path(db_path)
     path.parent.mkdir(parents=True, exist_ok=True)
     with connect(path) as conn:
-        init_schema(conn)
+        init_schema(conn, repair_source_bindings=repair_source_bindings)
 
 def run_schema_migrations(conn: sqlite3.Connection) -> None:
     # 1. Rename column in playlist_order
@@ -506,7 +576,7 @@ def run_schema_migrations(conn: sqlite3.Connection) -> None:
         raise RuntimeError("Failed to run Spotify weekly date recovery migration") from exc
 
 
-def init_schema(conn: Any) -> None:
+def init_schema(conn: Any, *, repair_source_bindings: bool = True) -> None:
     if type(conn).__name__ == "PostgresConnectionWrapper":
         return
     run_schema_migrations(conn)
@@ -735,6 +805,8 @@ def init_schema(conn: Any) -> None:
             error TEXT,
             differences_json TEXT NOT NULL DEFAULT '[]',
             match_started_at TEXT NOT NULL DEFAULT '',
+            evidence_version INTEGER NOT NULL DEFAULT 0,
+            recovery_payload_json TEXT NOT NULL DEFAULT '{}',
             created_at TEXT NOT NULL
         );
 
@@ -742,6 +814,7 @@ def init_schema(conn: Any) -> None:
             update_run_id TEXT NOT NULL REFERENCES playlist_update_runs(update_run_id) ON DELETE CASCADE,
             action TEXT NOT NULL,
             video_id TEXT NOT NULL,
+            set_video_id TEXT NOT NULL DEFAULT '',
             item_order INTEGER NOT NULL DEFAULT 0,
             created_at TEXT NOT NULL,
             PRIMARY KEY (update_run_id, action, video_id, item_order)
@@ -775,24 +848,25 @@ def init_schema(conn: Any) -> None:
             "ON playlist_update_runs(playlist_id) "
             "WHERE status IN ('running', 'mutation_failed', 'recovery_required')"
         )
-        from hype_db_store import repair_failed_source_bindings
+        if repair_source_bindings:
+            from hype_db_store import repair_failed_source_bindings
 
-        repair_stats = repair_failed_source_bindings(conn)
-        if repair_stats.get("updated_bindings") or repair_stats.get("merged_tracks"):
-            conn.execute(
-                """
-                INSERT OR REPLACE INTO migration_reports(
-                    report_id, source, rows_read, tracks_seen, conflicts_seen, created_at, payload_json
+            repair_stats = repair_failed_source_bindings(conn)
+            if repair_stats.get("updated_bindings") or repair_stats.get("merged_tracks"):
+                conn.execute(
+                    """
+                    INSERT OR REPLACE INTO migration_reports(
+                        report_id, source, rows_read, tracks_seen, conflicts_seen, created_at, payload_json
+                    )
+                    VALUES (?, 'db_repair', 0, ?, 0, ?, ?)
+                    """,
+                    (
+                        hashlib.sha1(json.dumps(repair_stats, sort_keys=True).encode("utf-8")).hexdigest(),
+                        int(repair_stats.get("updated_bindings", 0)) + int(repair_stats.get("merged_tracks", 0)),
+                        utc_now_iso(),
+                        json.dumps(repair_stats, ensure_ascii=False, sort_keys=True),
+                    ),
                 )
-                VALUES (?, 'db_repair', 0, ?, 0, ?, ?)
-                """,
-                (
-                    hashlib.sha1(json.dumps(repair_stats, sort_keys=True).encode("utf-8")).hexdigest(),
-                    int(repair_stats.get("updated_bindings", 0)) + int(repair_stats.get("merged_tracks", 0)),
-                    utc_now_iso(),
-                    json.dumps(repair_stats, ensure_ascii=False, sort_keys=True),
-                ),
-            )
         _create_views(conn)
         conn.execute(
             """
@@ -1215,7 +1289,8 @@ def _rebuild_playlist_updates(conn: sqlite3.Connection) -> None:
     run_columns = {
         "update_run_id", "playlist_id", "service", "job_name", "started_at",
         "dry_run", "requested_count", "existing_count", "status", "completed_at",
-        "error", "differences_json", "match_started_at", "created_at",
+        "error", "differences_json", "match_started_at", "evidence_version",
+        "recovery_payload_json", "created_at",
     }
     if table_exists(conn, "playlist_update_runs") and table_columns(conn, "playlist_update_runs") != run_columns:
         rows = conn.execute("SELECT * FROM playlist_update_runs").fetchall()
@@ -1242,6 +1317,8 @@ def _rebuild_playlist_updates(conn: sqlite3.Connection) -> None:
                 error TEXT,
                 differences_json TEXT NOT NULL DEFAULT '[]',
                 match_started_at TEXT NOT NULL DEFAULT '',
+                evidence_version INTEGER NOT NULL DEFAULT 0,
+                recovery_payload_json TEXT NOT NULL DEFAULT '{}',
                 created_at TEXT NOT NULL
             )
             """
@@ -1253,9 +1330,10 @@ def _rebuild_playlist_updates(conn: sqlite3.Connection) -> None:
                 INSERT OR REPLACE INTO playlist_update_runs(
                     update_run_id, playlist_id, service, job_name, started_at,
                     dry_run, requested_count, existing_count, status, completed_at,
-                    error, differences_json, match_started_at, created_at
+                    error, differences_json, match_started_at, evidence_version,
+                    recovery_payload_json, created_at
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     data.get("update_run_id"),
@@ -1271,14 +1349,31 @@ def _rebuild_playlist_updates(conn: sqlite3.Connection) -> None:
                     data.get("error") or "",
                     data.get("differences_json") or "[]",
                     data.get("match_started_at") or "",
+                    int(data.get("evidence_version") or 0),
+                    data.get("recovery_payload_json") or "{}",
                     data.get("created_at") or utc_now_iso(),
                 ),
             )
         conn.execute("DROP TABLE playlist_update_runs_old")
-    if table_exists(conn, "playlist_update_items") and table_columns(conn, "playlist_update_items") != {"update_run_id", "action", "video_id", "item_order", "created_at"}:
+    item_columns = {"update_run_id", "action", "video_id", "set_video_id", "item_order", "created_at"}
+    if table_exists(conn, "playlist_update_items") and table_columns(conn, "playlist_update_items") != item_columns:
+        rows = conn.execute("SELECT * FROM playlist_update_items").fetchall()
         conn.execute("ALTER TABLE playlist_update_items RENAME TO playlist_update_items_old")
-        conn.execute("CREATE TABLE playlist_update_items(update_run_id TEXT NOT NULL REFERENCES playlist_update_runs(update_run_id) ON DELETE CASCADE, action TEXT NOT NULL, video_id TEXT NOT NULL, item_order INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL, PRIMARY KEY(update_run_id, action, video_id, item_order))")
-        conn.execute("INSERT OR REPLACE INTO playlist_update_items(update_run_id, action, video_id, item_order, created_at) SELECT update_run_id, action, video_id, item_order, created_at FROM playlist_update_items_old")
+        conn.execute("CREATE TABLE playlist_update_items(update_run_id TEXT NOT NULL REFERENCES playlist_update_runs(update_run_id) ON DELETE CASCADE, action TEXT NOT NULL, video_id TEXT NOT NULL, set_video_id TEXT NOT NULL DEFAULT '', item_order INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL, PRIMARY KEY(update_run_id, action, video_id, item_order))")
+        conn.executemany(
+            "INSERT OR REPLACE INTO playlist_update_items(update_run_id, action, video_id, set_video_id, item_order, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+            [
+                (
+                    dict(row).get("update_run_id"),
+                    dict(row).get("action") or "",
+                    dict(row).get("video_id") or "",
+                    dict(row).get("set_video_id") or "",
+                    int(dict(row).get("item_order") or 0),
+                    dict(row).get("created_at") or utc_now_iso(),
+                )
+                for row in rows
+            ],
+        )
         conn.execute("DROP TABLE playlist_update_items_old")
 
 def _create_views(conn: sqlite3.Connection) -> None:
