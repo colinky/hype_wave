@@ -177,7 +177,7 @@ class PlaylistPlayabilitySafetyTests(unittest.TestCase):
         def failed_read(*args, **kwargs):
             nonlocal calls
             calls += 1
-            if calls == 1:
+            if calls == 2:
                 raise RuntimeError("Acknowledged removal readback failed")
             return observe(*args, **kwargs)
         with patch.object(sync, "_observe_playlist_transition", side_effect=failed_read):
@@ -211,24 +211,31 @@ class PlaylistPlayabilitySafetyTests(unittest.TestCase):
     def test_unavailable_original_is_not_reinstated_after_wrong_provider_substitution(self):
         client = MovingPlaylist(["old"], requested_values=["new"], substitute_requested=["alias"])
         self.verifier.states["old"] = "unavailable"
-        with self.assertRaises(sync_validation.PlaybackBlocked):
+        before = deepcopy(client._items)
+        with self.assertRaises(sync.PlaylistMutationUncertain):
             self.publish(client, ["new"])
-        self.assertEqual(client.video_ids, ["alias"])
+        self.assertEqual(client._items[:len(before)], before)
+        self.assertEqual(client.video_ids, ["old", "alias"])
+        self.assertEqual(client.remove_calls, 0)
         self.assertEqual(client.add_calls, [["new"]])
         run = self.run_record()
         self.assertEqual(run["status"], "recovery_required")
         self.assertFalse(run["restore_verified"])
 
-    def test_wrong_provider_alias_does_not_publish_a_subset_and_safe_restore_is_exact(self):
+    def test_wrong_provider_alias_holds_original_and_new_tail_without_automatic_restore(self):
         client = MovingPlaylist(["old"], requested_values=["new", "keep"], substitute_requested=["alias", "keep"])
         with self.assertRaisesRegex(RuntimeError, "identity review"):
             self.publish(client, ["new", "keep"])
-        self.assertEqual(client.video_ids, ["old"])
-        self.assertEqual(client.add_calls, [["new", "keep"], ["old"]])
+        self.assertEqual(client.video_ids, ["old", "alias", "keep"])
+        self.assertEqual(client.remove_calls, 0)
+        self.assertEqual(client.add_calls, [["new", "keep"]])
         run = self.run_record()
         self.assertEqual(run["status"], "recovery_required")
         self.assertNotEqual(run["publication_mode"], "partial")
-        self.assertEqual(run["differences"][0]["reason"], "unexpected_video_id")
+        rejection = run["recovery_payload"]["events"][-1]
+        self.assertEqual(rejection["differences"][0]["reason"], "unexpected_video_id")
+        self.assertTrue(run["identity_review_required"])
+        self.assertFalse(run["restore_verified"])
 
     def test_unknown_after_add_holds_new_state_without_unsafe_rollback(self):
         verifier = self.verifier
@@ -240,7 +247,8 @@ class PlaylistPlayabilitySafetyTests(unittest.TestCase):
         client = UncertainAfterAdd(["old"])
         with self.assertRaises(sync_validation.PlaybackBlocked):
             self.publish(client, ["new"])
-        self.assertEqual(client.video_ids, ["new"])
+        self.assertEqual(client.video_ids, ["old", "new"])
+        self.assertEqual(client.remove_calls, 0)
         self.assertEqual(client.add_calls, [["new"]])
         self.assertEqual(self.run_record()["status"], "recovery_required")
 

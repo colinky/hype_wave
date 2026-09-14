@@ -91,7 +91,7 @@ class PlaylistTransitionVisibilityTests(unittest.TestCase):
         self.assertEqual([item["videoId"] for item in actual], target)
         self.assertEqual(actual[1:], before[1:])
         self.assertEqual((client.remove_calls, client.add_calls, len(client.moves)), (1, [["replacement"]], 1))
-        self.assertEqual(guard.call_count, 3)  # Remove, add and one move only.
+        self.assertEqual(guard.call_count, 3)  # Add, remove and one move only.
 
     def test_missing_tail_needs_no_move_and_reverse_needs_four_moves(self):
         client = LaggingPlaylist(["a", "b", "c", "d"], lag=0)
@@ -239,8 +239,8 @@ class PlaylistTransitionVisibilityTests(unittest.TestCase):
                 client = LaggingPlaylist(["old"], operation=operation, lag=5)
                 with self.assertRaises(sync.PlaylistMutationUncertain):
                     self.preserve(client, ["new"])
-                self.assertEqual(client.remove_calls, 1)
-                self.assertEqual(client.add_calls, [["new"]] if operation == "add" else [])
+                self.assertEqual(client.remove_calls, 0 if operation == "add" else 1)
+                self.assertEqual(client.add_calls, [["new"]])
                 self.assertEqual(self.events[-1]["state"], "ack")
                 self.assertFalse(any(row["state"] == "ambiguous" for row in self.events))
 

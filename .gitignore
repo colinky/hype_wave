@@ -28,6 +28,7 @@ db_migrations/*
 !.github/workflows/playability-diagnostic.yml
 !.github/workflows/recording-stability-tests.yml
 !tests/test_playlist_playability_safety.py
+!tests/test_playlist_add_before_remove.py
 !tests/test_reconcile_playability.py
 !tests/test_release_adversarial.py
 !tests/rehearse_chart_repair_postgres.py

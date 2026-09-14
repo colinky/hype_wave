@@ -93,6 +93,117 @@ class ReconcilePlayabilityTests(unittest.TestCase):
     def assert_no_mutations(self, client):
         self.assertEqual((client.remove_calls, client.add_calls), (0, []))
 
+    def owned_append(self, observed="JJx_WQXOeK0"):
+        old, new = "JJx_WQXOeK0", "GxChUrrY4bc"
+        self.run = self.audit([new], [old])
+        client = StatefulPlaylist([old], requested_values=[new], substitute_requested=[observed])
+        before = deepcopy(client._items)
+        response = client.add_playlist_items("fixture", [new])
+        acknowledged = response["playlistEditResults"]
+        self.run.update(evidence_version=1, recovery_payload={
+            "snapshot": {"existing_items": before},
+            "events": [
+                {"seq": 1, "phase": "publish", "operation": "add", "state": "intent",
+                 "items": [{"videoId": new}], "before_items": before},
+                {"seq": 2, "phase": "publish", "operation": "add", "state": "ack",
+                 "intent_seq": 1, "items": acknowledged, "after_items": before + acknowledged},
+            ],
+        })
+        client.add_calls.clear()
+        return client, before
+
+    def test_rejected_append_cannot_repeat_original_request_even_after_crash_before_rejection_event(self):
+        for recorded_rejection in (False, True):
+            with self.subTest(recorded_rejection=recorded_rejection):
+                client, before = self.owned_append()
+                self.run["identity_review_required"] = recorded_rejection
+                snapshot = deepcopy(client._items)
+                report = self.reconcile(client, apply=False, complete_requested=True)
+                self.assertEqual(report["action"], "blocked")
+                self.assertTrue(report["identity_review_required"])
+                with self.assertRaisesRegex(RuntimeError, "identity review"):
+                    self.reconcile(client, complete_requested=True)
+                self.assertEqual(client._items, snapshot)
+                self.assertEqual(client._items[:1], before)
+                self.assert_no_mutations(client)
+                self.claim.assert_not_called()
+                self.finish.assert_not_called()
+
+    def test_rejected_append_restore_removes_only_acknowledged_duplicate_slot_and_keeps_rejection(self):
+        client, before = self.owned_append()
+        report = self.reconcile(client)
+        self.assertEqual(report["action"], "restore_owned_items")
+        self.assertEqual(report["status"], "recovery_required")
+        self.assertTrue(report["identity_review_required"])
+        self.assertEqual(client._items, before)
+        self.assertEqual((client.remove_calls, client.add_calls), (1, []))
+        rejection = next(event for event in self.events if event.get("verification_matches") is False)
+        self.assertEqual(rejection["differences"], [{
+            "position": 2, "expected_id": "GxChUrrY4bc", "actual_id": "JJx_WQXOeK0",
+            "accepted": False, "reason": "unexpected_video_id",
+        }])
+
+    def test_lost_add_ack_cannot_finalize_even_when_current_ids_equal_complete_target(self):
+        for explicit_completion in (False, True):
+            with self.subTest(explicit_completion=explicit_completion):
+                client, _ = self.owned_append(observed="GxChUrrY4bc")
+                self.run.update(requested_video_ids=client.video_ids, requested_count=2)
+                self.run["recovery_payload"]["events"].pop()  # The request remains unresolved.
+                snapshot = deepcopy(client._items)
+                report = self.reconcile(client, apply=False, complete_requested=explicit_completion)
+                self.assertEqual(report["action"], "blocked")
+                with self.assertRaisesRegex(RuntimeError, "unresolved mutation"):
+                    self.reconcile(client, complete_requested=explicit_completion)
+                self.assertEqual(client._items, snapshot)
+                self.assert_no_mutations(client)
+                self.claim.assert_not_called()
+                self.finish.assert_not_called()
+
+    def test_fresh_exact_acknowledged_target_resolves_old_rejection_without_mutation(self):
+        client, _ = self.owned_append(observed="GxChUrrY4bc")
+        self.run.update(requested_video_ids=client.video_ids, requested_count=2,
+                        identity_review_required=True)
+        snapshot = deepcopy(client._items)
+        report = self.reconcile(client, complete_requested=True)
+        self.assertEqual(report["action"], "finalize_requested")
+        self.assertEqual(report["status"], "published")
+        self.assertFalse(report["identity_review_required"])
+        self.assertEqual(client._items, snapshot)
+        self.assert_no_mutations(client)
+
+    def test_restore_add_substitution_cannot_be_retried_after_crash_before_rejection(self):
+        client = StatefulPlaylist(["before"])
+        self.run = self.audit(["new"], ["before"])
+        before = deepcopy(client._items)
+        client.remove_playlist_items("fixture", before)
+        response = client.add_playlist_items("fixture", ["before"])
+        acknowledged = response["playlistEditResults"]
+        client._items[-1]["videoId"] = "wrong-version"
+        self.run.update(evidence_version=1, recovery_payload={
+            "snapshot": {"existing_items": before},
+            "events": [
+                {"seq": 1, "phase": "publish", "operation": "remove", "state": "intent",
+                 "items": before, "before_items": before},
+                {"seq": 2, "phase": "publish", "operation": "remove", "state": "ack",
+                 "intent_seq": 1, "items": before, "after_items": []},
+                {"seq": 3, "phase": "restore", "operation": "add", "state": "intent",
+                 "items": [{"videoId": "before"}], "before_items": []},
+                {"seq": 4, "phase": "restore", "operation": "add", "state": "ack",
+                 "intent_seq": 3, "items": acknowledged, "after_items": acknowledged},
+            ],
+        })
+        client.remove_calls, client.add_calls = 0, []
+        snapshot = deepcopy(client._items)
+        report = self.reconcile(client, apply=False)
+        self.assertEqual(report["action"], "blocked")
+        self.assertTrue(report["identity_review_required"])
+        with self.assertRaisesRegex(RuntimeError, "repeat a rejected addition"):
+            self.reconcile(client)
+        self.assertEqual(client._items, snapshot)
+        self.assert_no_mutations(client)
+        self.claim.assert_not_called()
+        self.finish.assert_not_called()
+
     def test_exact_healthy_request_finalizes_without_mutation_and_keeps_claim_guards(self):
         client = StatefulPlaylist(["new"])
         report = self.reconcile(client)

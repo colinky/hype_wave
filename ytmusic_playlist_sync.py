@@ -2864,7 +2864,7 @@ def _replace_playlist_contents(
 
 def _preserve_playlist_slots(ytmusic, playlist_id, current, requested, *, evidence,
                              before_mutation=None, phase="publish", playability_verifier=None):
-    """Keep existing requested items, add only missing IDs, then reorder owned slots."""
+    """Verify every added chunk before removing or moving any existing slot."""
     if len(requested) != len(set(requested)):
         raise RuntimeError("Cannot preserve a target with duplicate recording IDs")
     verifier = _search_verifier(ytmusic, playability_verifier)
@@ -2875,9 +2875,49 @@ def _preserve_playlist_slots(ytmusic, playlist_id, current, requested, *, eviden
         else:
             removals.append(item)
     missing = [video_id for video_id in requested if video_id not in retained]
+    expected = list(current)
+    for chunk in chunked(missing, 50):
+        acknowledged_after = None
+
+        def addition_evidence(event):
+            nonlocal acknowledged_after
+            committed = evidence(event)
+            if event["operation"] == "add" and event["state"] == "ack":
+                acknowledged_after = event["after_items"]
+            return committed
+
+        try:
+            actual = _replace_playlist_contents(
+                ytmusic, playlist_id, expected, chunk, evidence=addition_evidence, phase=phase,
+                remove_items=[], require_exact_items=True, before_mutation=before_mutation,
+                playability_verifier=verifier, playability_video_ids=requested,
+            )
+            if acknowledged_after is None:
+                raise PlaylistMutationUncertain("Addition has no committed acknowledgement to verify")
+            if _playlist_item_keys(actual) != _playlist_item_keys(acknowledged_after):
+                comparison = _compare_exact_playlist_video_ids(
+                    [item["videoId"] for item in acknowledged_after],
+                    [item["videoId"] for item in actual],
+                )
+                evidence({
+                    "phase": phase, "operation": "observe", "state": "verified",
+                    "chunk_order": 0, "attempt": 1, "items": actual,
+                    "verification_matches": False, "identity_review_required": True,
+                    "differences": comparison["differences"],
+                })
+                raise PlaylistMutationUncertain("Added playlist items differ from their exact acknowledgement; identity review required")
+            if verifier is not None:
+                require_playable(verifier, requested, items=actual)
+        except (PlaylistMutationUncertain, PlaybackBlocked):
+            raise
+        except Exception as exc:
+            # An acknowledged tail may exist, but the original slots must not
+            # be removed by a later chunk, move, or automatic restoration.
+            raise PlaylistMutationUncertain("Added playlist items are not completely verified") from exc
+        expected = actual
     expected = _replace_playlist_contents(
-        ytmusic, playlist_id, current, missing, evidence=evidence, phase=phase,
-        remove_items=removals, before_mutation=before_mutation,
+        ytmusic, playlist_id, expected, [], evidence=evidence, phase=phase,
+        remove_items=removals, require_exact_items=True, before_mutation=before_mutation,
         playability_verifier=verifier, playability_video_ids=requested,
     )
     actual_ids = [item["videoId"] for item in expected]

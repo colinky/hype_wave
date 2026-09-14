@@ -126,12 +126,15 @@ def reconcile_playlist_update(
                          if event.get("operation") in {"add", "remove", "move"}]
             last = mutations[-1] if mutations else {}
             owned_ids = [item["videoId"] for item in owned]
+            owned_comparison = _compare_exact_playlist_video_ids(owned_ids, actual_ids)
             newly_observed_rejection = bool(
-                owned_ids and owned_ids == requested[:len(owned_ids)]
-                and last.get("phase") == "publish" and last.get("operation") == "add"
+                owned_ids
+                and last.get("phase") in {"publish", "restore"} and last.get("operation") == "add"
                 and last.get("state") == "ack"
-                and _identity_review_required(requested_comparison["differences"])
+                and _identity_review_required(owned_comparison["differences"])
             )
+            if newly_observed_rejection:
+                differences = owned_comparison["differences"]
             review_required = review_required or newly_observed_rejection
     except (ValueError, KeyError, RuntimeError) as exc:
         ownership_error = str(exc)
@@ -146,6 +149,7 @@ def reconcile_playlist_update(
         try:
             tail_after = _audit_playlist_items(tail_acks[-1].get("after_items"))
             if len(tail_after) == len(requested) and _same_owned_slots(current, tail_after):
+                differences = requested_comparison["differences"]
                 newly_observed_rejection = newly_observed_rejection or _identity_review_required(
                     requested_comparison["differences"]
                 )
@@ -155,15 +159,17 @@ def reconcile_playlist_update(
 
     action, reason = "blocked", ownership_error
     prefix_comparison = None
-    if complete_requested and (unresolved_mutation or owned is None):
-        reason = "Completing the original request requires complete owned slots and no unresolved mutation"
+    if unresolved_mutation:
+        reason = "An unresolved mutation may still take effect; complete owned slots and resolved acknowledgements are required before continuing"
+    elif complete_requested and owned is None:
+        reason = "Completing the original request requires complete owned slots"
     elif requested_comparison["matches"]:
         action, reason = "finalize_requested", "Current playlist verifies against the original request"
         review_required = False  # Fresh requested-state proof resolves the old rejection, not its history.
+    elif complete_requested and review_required:
+        reason = "Rejected playlist substitution requires identity review; repeating the original request is forbidden"
     elif complete_requested:
         action, reason = "complete_requested", "Complete owned slots permit finishing the immutable original request"
-    elif unresolved_mutation and existing_comparison["matches"]:
-        reason = "An unresolved mutation may still take effect; matching the old snapshot cannot finalize recovery"
     elif append_missing_last:
         if run.get("evidence_version") != 0:
             reason = "Append-last recovery is limited to an explicitly scoped legacy audit"
@@ -184,6 +190,10 @@ def reconcile_playlist_update(
     elif owned is not None:
         action, reason = "restore_owned_items", "Complete durable receipts cover the current slots"
     target = requested if action in {"finalize_requested", "append_missing_last", "complete_requested"} else existing
+    if action == "restore_owned_items" and review_required and any(
+            row.get("expected_id") in target and row.get("expected_id") not in actual_ids
+            for row in differences if _identity_review_required([row])):
+        action, reason = "blocked", "Restoration would repeat a rejected addition; identity review is required"
     if action == "restore_owned_items" and len(set(target)) != len(target):
         action, reason = "blocked", "Restoring duplicate original IDs requires separate reviewed slot ownership; no mutation is permitted"
     if action != "blocked":
@@ -273,7 +283,7 @@ def reconcile_playlist_update(
                 "phase": "reconcile", "operation": "observe", "state": "verified",
                 "chunk_order": 0, "attempt": 1, "items": fresh,
                 "verification_matches": False, "identity_review_required": True,
-                "differences": requested_comparison["differences"],
+                "differences": differences,
             })
         if action == "complete_requested":
             expected = _preserve_playlist_slots(

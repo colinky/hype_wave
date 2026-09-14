@@ -252,7 +252,7 @@ class DurableRecoveryTests(unittest.TestCase):
         self.assertEqual(run["status"], "published")
         events = run["recovery_payload"]["events"]
         self.assertEqual([(row["operation"], row["state"]) for row in events],
-                         [("remove", "intent"), ("remove", "ack"), ("add", "intent"), ("add", "ack")])
+                         [("add", "intent"), ("add", "ack"), ("remove", "intent"), ("remove", "ack")])
         self.assertEqual(sync._recoverable_playlist_items(run), client.get_playlist("fixture")["tracks"])
         before = client.get_playlist("fixture")
         counts = client.remove_calls, list(client.add_calls)
@@ -274,12 +274,13 @@ class DurableRecoveryTests(unittest.TestCase):
         client.get_song = metadata
         with self.assertRaisesRegex(RuntimeError, "identity review"):
             self.publish(client, [requested])
-        self.assertEqual(client.video_ids, ["old"])
+        self.assertEqual(client.video_ids, ["old", substitute])
+        self.assertEqual(client.remove_calls, 0)
         run = self.run_record()
         self.assertEqual(run["status"], "recovery_required")
         self.assertTrue(run["identity_review_required"])
-        self.assertTrue(run["restore_verified"])
-        self.assertEqual(run["differences"][0]["reason"], "unexpected_video_id")
+        self.assertFalse(run["restore_verified"])
+        self.assertEqual(run["recovery_payload"]["events"][-1]["differences"][0]["reason"], "unexpected_video_id")
         with hype_db.connect(self.db, read_only=True) as conn:
             self.assertEqual(conn.execute("SELECT COUNT(*) FROM tracks").fetchone()[0], 0)
             self.assertEqual(conn.execute("SELECT COUNT(*) FROM yt_video_ids").fetchone()[0], 0)
@@ -289,9 +290,13 @@ class DurableRecoveryTests(unittest.TestCase):
             self.publish(client, [requested])
         self.assertEqual((client.remove_calls, client.add_calls), calls)
         client.get_playlist = lambda *args, **kwargs: {"tracks": list(client._items)}
+        self.assertEqual(self.reconcile(client)["action"], "restore_owned_items")
+        original = deepcopy(client._items[0])
+        result = self.reconcile(client, apply=True, workers_quiescent=True)
+        self.assertEqual(client._items, [original])
+        self.assertEqual(result["status"], "recovery_required")
+        self.assertTrue(self.run_record()["identity_review_required"])
         self.assertEqual(self.reconcile(client)["action"], "blocked")
-        with self.assertRaisesRegex(RuntimeError, "identity review"):
-            self.reconcile(client, apply=True, workers_quiescent=True)
 
     def test_lost_response_never_retries_or_automatically_restores(self):
         class LostResponse(StatefulPlaylist):
@@ -301,7 +306,8 @@ class DurableRecoveryTests(unittest.TestCase):
         client = LostResponse(["old"])
         with self.assertRaises(sync.PlaylistMutationUncertain):
             self.publish(client)
-        self.assertEqual(client.video_ids, ["new"])
+        self.assertEqual(client.video_ids, ["old", "new"])
+        self.assertEqual(client.remove_calls, 0)
         self.assertEqual(client.add_calls, [["new"]])
         run = self.run_record()
         self.assertEqual(run["status"], "recovery_required")
@@ -328,11 +334,11 @@ class DurableRecoveryTests(unittest.TestCase):
             return original(*args, **kwargs)
         with patch.object(hype_db, "append_playlist_update_evidence", side_effect=append), self.assertRaises(sync.PlaylistMutationUncertain):
             self.publish(client)
-        self.assertEqual(client.remove_calls, 1)
-        self.assertEqual(client.add_calls, [])
+        self.assertEqual(client.remove_calls, 0)
+        self.assertEqual(client.add_calls, [["new"]])
         self.assertEqual(self.run_record()["status"], "recovery_required")
 
-    def test_crash_after_committed_ack_can_only_be_explicitly_finalized(self):
+    def test_crash_after_add_ack_preserves_original_until_explicit_forward_completion(self):
         class CrashAfterAdd(StatefulPlaylist):
             crash = True
             def get_playlist(self, *args, **kwargs):
@@ -346,13 +352,13 @@ class DurableRecoveryTests(unittest.TestCase):
         run = self.run_record()
         self.assertEqual(run["status"], "running")
         before = self.db.read_bytes()
-        self.assertEqual(self.reconcile(client)["action"], "finalize_requested")
+        self.assertEqual(self.reconcile(client)["action"], "restore_owned_items")
         self.assertEqual(self.db.read_bytes(), before)
         calls = client.remove_calls, list(client.add_calls)
-        result = self.reconcile(client, apply=True, workers_quiescent=True)
+        result = self.reconcile(client, apply=True, workers_quiescent=True, complete_requested=True)
         self.assertTrue(result["applied"])
-        self.assertEqual(result["item_mutations"], 0)
-        self.assertEqual((client.remove_calls, client.add_calls), calls)
+        self.assertEqual(result["item_mutations"], 1)
+        self.assertEqual((client.remove_calls, client.add_calls), (calls[0] + 1, calls[1]))
         self.assertEqual(self.run_record()["status"], "published")
 
     def test_crash_after_intent_without_receipt_stays_manual(self):
@@ -365,7 +371,8 @@ class DurableRecoveryTests(unittest.TestCase):
         run = self.run_record()
         self.assertEqual(run["status"], "running")
         self.assertEqual(self.reconcile(client)["action"], "blocked")
-        self.assertEqual(client.video_ids, [])
+        self.assertEqual(client.video_ids, ["old"])
+        self.assertEqual(client.remove_calls, 0)
 
     def test_external_same_video_id_with_new_slot_is_not_deleted(self):
         class ExternalReplacement(StatefulPlaylist):
@@ -374,10 +381,10 @@ class DurableRecoveryTests(unittest.TestCase):
                 self.video_ids = list(self.video_ids)
                 return response
         client = ExternalReplacement(["old"])
-        with self.assertRaisesRegex(RuntimeError, "ownership"):
+        with self.assertRaises(sync.PlaylistMutationUncertain):
             self.publish(client)
-        self.assertEqual(client.video_ids, ["new"])
-        self.assertEqual(client.remove_calls, 1)
+        self.assertEqual(client.video_ids, ["old", "new"])
+        self.assertEqual(client.remove_calls, 0)
         self.assertEqual(self.run_record()["status"], "recovery_required")
 
     def test_legacy_exact_observation_can_finalize_without_fabricating_receipts(self):

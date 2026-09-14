@@ -548,19 +548,9 @@ class PlaylistUpdateTests(unittest.TestCase):
         ytmusic.edit_playlist.assert_not_called()
 
     def test_ambiguous_remove_is_not_retried(self):
-        ytmusic = Mock()
-        ytmusic.get_playlist.return_value = {
-            "tracks": [{"videoId": "old", "setVideoId": "set-old"}]
-        }
-        ytmusic.get_song.side_effect = lambda video_id: {
-            "videoDetails": {
-                "videoId": video_id,
-                "title": video_id,
-                "author": "Artist",
-                "lengthSeconds": "200",
-            }
-        }
-        ytmusic.remove_playlist_items.side_effect = RuntimeError("remove failed")
+        from test_playlist_verification import StatefulPlaylist
+        ytmusic = StatefulPlaylist(["old"])
+        ytmusic.remove_playlist_items = Mock(side_effect=RuntimeError("remove failed"))
         with patch("ytmusic_playlist_sync.time.sleep"), self.assertRaises(RuntimeError):
             self.update(
                 ytmusic,
@@ -569,6 +559,8 @@ class PlaylistUpdateTests(unittest.TestCase):
                 dry_run=False,
             )
         self.assertEqual(ytmusic.remove_playlist_items.call_count, 1)
+        self.assertEqual(ytmusic.add_calls, [["new"]])
+        self.assertEqual(ytmusic.video_ids, ["old", "new"])
 
     def test_ambiguous_add_is_not_retried(self):
         ytmusic = Mock()

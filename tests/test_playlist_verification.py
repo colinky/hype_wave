@@ -375,19 +375,19 @@ class PlaylistPublicationSafetyTests(unittest.TestCase):
             ):
                 self.run_update(ytmusic, Path(directory) / "restore.db", ["new"])
 
-        self.assertEqual(ytmusic.video_ids, [])
+        self.assertEqual(ytmusic.video_ids, ["old"])
+        self.assertEqual(ytmusic.remove_calls, 0)
         self.assertEqual(ytmusic.add_calls, [["new"]])
         self.assertEqual(
             [call.kwargs["status"] for call in finish.call_args_list],
             ["recovery_required"],
         )
 
-    def test_verification_failure_restores_the_previous_order(self) -> None:
+    def test_verification_failure_holds_the_previous_order_and_unverified_tail(self) -> None:
         ytmusic = StatefulPlaylist(
             ["old"],
             requested_values=["new-a", "new-b"],
-            # Unknown song IDs in acknowledged, owned slots can be removed
-            # without approving the substituted songs' identity.
+            # Rejected owned additions require explicit recovery.
             substitute_requested=["different-a", "different-b"],
         )
         finish = Mock()
@@ -404,7 +404,8 @@ class PlaylistPublicationSafetyTests(unittest.TestCase):
                     ytmusic, Path(directory) / "verify.db", ["new-a", "new-b"]
                 )
 
-        self.assertEqual(ytmusic.video_ids, ["old"])
+        self.assertEqual(ytmusic.video_ids, ["old", "different-a", "different-b"])
+        self.assertEqual(ytmusic.remove_calls, 0)
         self.assertEqual(
             [call.kwargs["status"] for call in finish.call_args_list],
             ["recovery_required"],
@@ -430,7 +431,7 @@ class PlaylistPublicationSafetyTests(unittest.TestCase):
                 self.run_update(ytmusic, Path(directory) / "external.db", ["new"])
 
         self.assertEqual(ytmusic.video_ids, ["external-item"])
-        self.assertEqual(ytmusic.remove_calls, 1)
+        self.assertEqual(ytmusic.remove_calls, 0)
         self.assertEqual(
             [call.kwargs["status"] for call in finish.call_args_list],
             ["recovery_required"],
@@ -481,7 +482,7 @@ class PlaylistPublicationSafetyTests(unittest.TestCase):
             ["recovery_required"],
         )
 
-    def test_restore_failure_audit_rereads_the_latest_playlist_state(self) -> None:
+    def test_add_rejection_never_enters_automatic_restore_and_audits_latest_state(self) -> None:
         class PartialRestoreFailure(StatefulPlaylist):
             def add_playlist_items(
                 self,
@@ -513,13 +514,15 @@ class PlaylistPublicationSafetyTests(unittest.TestCase):
                     ytmusic, Path(directory) / "partial-restore.db", ["new"]
                 )
 
-        self.assertEqual(ytmusic.video_ids, ["partial-state"])
+        self.assertEqual(ytmusic.video_ids, ["old", "unverified-new"])
+        self.assertEqual(ytmusic.add_calls, [["new"]])
+        self.assertEqual(ytmusic.remove_calls, 0)
         self.assertEqual(
             [call.kwargs["status"] for call in finish.call_args_list],
             ["recovery_required"],
         )
         self.assertEqual(
-            finish.call_args.kwargs["actual_video_ids"], ["partial-state"]
+            finish.call_args.kwargs["actual_video_ids"], ["old", "unverified-new"]
         )
 
 

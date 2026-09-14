@@ -28,16 +28,22 @@ class RecoveryAdversarialVerifierTests(unittest.TestCase):
 
         def crash_after_restore_ack(db, run_id, event, **kwargs):
             result = append(db, run_id, event, **kwargs)
-            if event["phase"] == "restore" and event["operation"] == "add" and event["state"] == "ack":
+            if event["phase"] == "restore" and event["operation"] == "remove" and event["state"] == "ack":
                 raise SystemExit("simulated process death after durable restore acknowledgement")
             return result
 
         with patch.object(hype_db, "append_playlist_update_evidence", side_effect=crash_after_restore_ack):
-            with self.assertRaises(SystemExit):
+            with self.assertRaises(publisher.PlaylistMutationUncertain):
                 publisher.update_ytmusic_playlist(
                     client, "playlist", ["new"], description="", dry_run=False,
                     db_path=self.db, service="apple", job_name="Fixture-Daily",
                 )
+            pending = hype_db.get_pending_playlist_recovery(self.db, "playlist")
+            self.assertEqual(client.video_ids, ["old", "unverified-new"])
+            self.assertEqual(client.remove_calls, 0)
+            with self.assertRaises(SystemExit):
+                reconcile_playlist_update(client, self.db, pending["update_run_id"], "playlist",
+                    apply=True, workers_quiescent=True)
         self.assertEqual(client.video_ids, ["old"])
         pending = hype_db.get_pending_playlist_recovery(self.db, "playlist")
         report = reconcile_playlist_update(client, self.db, pending["update_run_id"], "playlist")
@@ -59,7 +65,8 @@ class RecoveryAdversarialVerifierTests(unittest.TestCase):
                     client, "playlist", ["new"], description="", dry_run=False,
                     db_path=self.db, service="apple", job_name="Fixture-Daily",
                 )
-        self.assertEqual(client.video_ids, ["unverified-new"])
+        self.assertEqual(client.video_ids, ["old", "unverified-new"])
+        self.assertEqual(client.remove_calls, 0)
         pending = hype_db.get_pending_playlist_recovery(self.db, "playlist")
         report = reconcile_playlist_update(
             client, self.db, pending["update_run_id"], "playlist",
@@ -113,7 +120,9 @@ class RecoveryAdversarialVerifierTests(unittest.TestCase):
         pending = hype_db.get_pending_playlist_recovery(self.db, "playlist")
         report = reconcile_playlist_update(client, self.db, pending["update_run_id"], "playlist")
         self.assertTrue(report["identity_review_required"], report)
-        self.assertEqual(report["action"], "blocked", report)
+        self.assertEqual(report["action"], "restore_owned_items", report)
+        self.assertEqual(client.video_ids, ["old", "old"])
+        self.assertNotEqual(client._items[0]["setVideoId"], client._items[1]["setVideoId"])
 
     def test_resolved_legacy_payload_is_compacted_after_31_days(self):
         run_id = hype_db.record_playlist_update(

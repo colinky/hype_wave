@@ -98,7 +98,7 @@ class LegacyTailAdversarialTests(unittest.TestCase):
                 self.reconcile(client, apply=True, workers_quiescent=True)
         self.assertEqual((client.remove_calls, client.add_calls), (0, []))
 
-    def test_lost_response_after_application_can_only_finalize_without_second_append(self):
+    def test_lost_response_after_application_blocks_finalization_and_second_append(self):
         class LostResponse(StatefulPlaylist):
             def add_playlist_items(self, *args, **kwargs):
                 super().add_playlist_items(*args, **kwargs)
@@ -108,8 +108,10 @@ class LegacyTailAdversarialTests(unittest.TestCase):
         with self.assertRaises(RuntimeError):
             self.reconcile(client, apply=True, workers_quiescent=True)
         self.assertEqual(client.video_ids, ["a", "b", "tail"])
-        result = self.reconcile(client, apply=True, workers_quiescent=True, reclaim_recovery=True)
-        self.assertEqual(result["status"], "published")
+        before = self.db.read_bytes()
+        with self.assertRaisesRegex(RuntimeError, "unresolved mutation"):
+            self.reconcile(client, apply=True, workers_quiescent=True, reclaim_recovery=True)
+        self.assertEqual(self.db.read_bytes(), before)
         self.assertEqual((client.remove_calls, client.add_calls), (0, [["tail"]]))
 
     def test_unresolved_attempt_never_reappends_even_if_tail_is_still_missing(self):
@@ -139,8 +141,10 @@ class LegacyTailAdversarialTests(unittest.TestCase):
             with self.assertRaises(RuntimeError):
                 self.reconcile(client, apply=True, workers_quiescent=True)
         self.assertEqual(client.video_ids, ["a", "b", "tail"])
-        result = self.reconcile(client, apply=True, workers_quiescent=True, reclaim_recovery=True)
-        self.assertEqual(result["status"], "published")
+        before = self.db.read_bytes()
+        with self.assertRaisesRegex(RuntimeError, "unresolved mutation"):
+            self.reconcile(client, apply=True, workers_quiescent=True, reclaim_recovery=True)
+        self.assertEqual(self.db.read_bytes(), before)
         self.assertEqual((client.remove_calls, client.add_calls), (0, [["tail"]]))
 
     def test_wrong_provider_tail_keeps_fresh_identity_rejection_evidence(self):
