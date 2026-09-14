@@ -1,6 +1,71 @@
 {
-  "artists": [],
+  "artists": [
+    [
+      "태양",
+      "TAEYANG"
+    ],
+    [
+      "대성",
+      "DAESUNG"
+    ],
+    [
+      "융진",
+      "Yoong Jin",
+      "YoongJin",
+      "융진 of Casker",
+      "Yoong Jin of Casker",
+      "YoongJin of Casker"
+    ]
+  ],
   "titles": [],
   "albums": [],
-  "overrides": {}
+  "overrides": {},
+  "source_identity_evidence": {
+    "spotify:7hlEhmg5h9XuFtaGfgvqjF": {
+      "kind": "official_cross_service_credit",
+      "observed_at": "2026-09-14T15:10:44.130689+00:00",
+      "source_variants": [
+        [
+          "Love Love Love",
+          "Epik High",
+          "Remapping the Human Soul"
+        ],
+        [
+          "Love Love Love",
+          "에픽하이",
+          "Remapping the Human Soul"
+        ]
+      ],
+      "recording": {
+        "title": "Love Love Love (feat. 융진)",
+        "artist": "Epik High",
+        "album": "Remapping the Human Soul",
+        "title_ko": "Love Love Love (feat. 융진)",
+        "artist_ko": "에픽하이",
+        "album_ko": "Remapping the Human Soul",
+        "title_en": "Love Love Love (feat. 융진)",
+        "artist_en": "Epik High",
+        "album_en": "Remapping the Human Soul",
+        "length_seconds": 231.093
+      },
+      "references": [
+        {
+          "url": "https://open.spotify.com/track/7hlEhmg5h9XuFtaGfgvqjF",
+          "title": "Love Love Love",
+          "artist": "Epik High",
+          "album": "Remapping the Human Soul",
+          "duration_ms": 231093
+        },
+        {
+          "url": "https://music.apple.com/kr/song/1610108181?l=en-GB",
+          "title": "Love Love Love (feat. 융진)",
+          "artist": "Epik High",
+          "album": "Remapping the Human Soul",
+          "duration_ms": 231093,
+          "featured_performer": "YoongJin"
+        }
+      ],
+      "limit": "Official album, lead artist, performer credit and exact millisecond duration corroborate this source omission; ISRC and decoded-audio identity were not provided."
+    }
+  }
 }

@@ -81,11 +81,16 @@ def process_matching_pipeline(
     history_json: str = "docs/api/history.json",
     reference_period: str | None = None,
     chart_period: str | None = None,
+    extra_raw_snapshots: list[dict[str, Any]] | None = None,
 ) -> list[str]:
     """
     공통 매칭 파이프라인: 캐시 조회, 검색, 중복 체크, DB 저장 및 플레이리스트 업데이트용 비디오 ID 목록 반환.
     """
     from hype_db import connect, persist_crawled_tracks, persist_crawl_run, export_frontend_history
+    from sync_validation import verifier_for, playable_cache, validate_matches
+
+    verifier = verifier_for(ytmusic)
+    verifier.check_health()
 
     if tracks_ko_map is None:
         tracks_ko_map = {}
@@ -116,25 +121,6 @@ def process_matching_pipeline(
         bilingual_cache_read_only() if dry_run else nullcontext(),
         connect(db_path, read_only=dry_run) as conn,
     ):
-        if not dry_run:
-            try:
-                persist_crawled_tracks(
-                    db_path,
-                    service=service,
-                    job_name=job_name,
-                    source_variant=source_variant,
-                    chart_date=update_date_str,
-                    reference_period=reference_period or chart_period,
-                    tracks=[localized_row(track) for track in raw_tracks],
-                    conn=conn,
-                    commit=False,
-                )
-                conn.commit()
-                LOG.info("Persisted raw chart order for %s to playlist_order table.", job_name)
-            except Exception as exc:
-                LOG.error("Failed to persist raw chart order to DB: %s", exc)
-                raise exc
-
         # Pre-populate cache in bulk
         bulk_cache = {}
         try:
@@ -143,13 +129,14 @@ def process_matching_pipeline(
                 service=service,
                 tracks=[localized_row(track) for track in all_tracks],
                 ytmusic=None if no_db_cache else ytmusic,
-                read_only=dry_run,
+                read_only=True,
             )
             if no_db_cache:
                 # Disabling automatic cache reuse must not disable manual policy.
                 bulk_cache = {key: value for key, value in bulk_cache.items()
                               if value.get("status") in {"manual_blocked", "manual_override"}}
             conn.commit()
+            bulk_cache = playable_cache(bulk_cache, verifier)
         except Exception as exc:
             conn.rollback()
             raise RuntimeError("Unable to load matching cache/manual policy safely") from exc
@@ -190,6 +177,8 @@ def process_matching_pipeline(
                     min_title_score=min_title_score,
                     min_artist_score=min_artist_score,
                     limit=search_limit,
+                    excluded_video_ids=set((cached or {}).get("excluded_video_ids", [])),
+                    playability_verifier=verifier,
                 )
                 did_search = True
 
@@ -219,10 +208,10 @@ def process_matching_pipeline(
             if did_search:
                 time.sleep(0.2)
 
-        matched_video_ids = list(
-            dict.fromkeys(match.video_id for match in matches if match.video_id)
-        )
-        failed = [match for match in matches if not match.video_id]
+        matches = validate_matches(conn, service=service, sources=[localized_row(track) for track in all_tracks],
+                                   matches=matches, client=ytmusic, verifier=verifier)
+        matched_video_ids = list(dict.fromkeys(match["video_id"] for match in matches if match.get("video_id")))
+        failed = [match for match in matches if not match.get("video_id")]
         LOG.info(
             "Matched %d/%d source tracks. Failed %d; unique playlist items %d.",
             len(matches) - len(failed),
@@ -234,6 +223,18 @@ def process_matching_pipeline(
         # 6. Database Persistence & Exporter
         if not dry_run:
             try:
+                for snapshot in extra_raw_snapshots or ():
+                    persist_crawled_tracks(
+                        db_path, service=service, job_name=job_name,
+                        source_variant=snapshot["source_variant"], chart_date=snapshot["chart_date"],
+                        reference_period=snapshot["reference_period"], tracks=snapshot["tracks"],
+                        conn=conn, commit=False,
+                    )
+                persist_crawled_tracks(
+                    db_path, service=service, job_name=job_name, source_variant=source_variant,
+                    chart_date=update_date_str, reference_period=reference_period or chart_period,
+                    tracks=[localized_row(track) for track in raw_tracks], conn=conn, commit=False,
+                )
                 persist_crawl_run(
                     db_path,
                     service=service,
@@ -246,7 +247,9 @@ def process_matching_pipeline(
                     matches=matches,
                     conn=conn,
                     skip_playlist_order=True,
+                    commit=False,
                 )
+                conn.commit()
                 if os.environ.get("HYPE_DEFER_HISTORY_EXPORT") not in {"1", "true", "TRUE"}:
                     export_frontend_history(db_path, history_json)
             except Exception as exc:

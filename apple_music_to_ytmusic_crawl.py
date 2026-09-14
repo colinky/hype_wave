@@ -851,6 +851,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--reference-period", type=parse_reference_period)
     parser.add_argument(
         "--skip-playlist-update",
+        "--defer-publish",
         action="store_true",
         help="Persist crawling and matching results without mutating the target playlist",
     )
@@ -1037,8 +1038,9 @@ def main() -> int:
 
 
 if __name__ == "__main__":
+    from sync_validation import run_locked_cli
     try:
-        raise SystemExit(main())
+        raise SystemExit(run_locked_cli(main))
     except KeyboardInterrupt:
         print("Interrupted", file=sys.stderr)
         raise SystemExit(130)

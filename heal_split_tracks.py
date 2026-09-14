@@ -26,7 +26,7 @@ from pathlib import Path
 from typing import Any
 
 from hype_db_common import clean_track_title, compact_metadata_key, metadata_key, strip_parens_from_title
-from hype_db_store import _merge_track_uids, _metadata_rows_equivalent, _track_metadata_rows
+from hype_db_store import CanonicalDecisionError, _merge_track_uids, _metadata_rows_equivalent, _track_metadata_rows
 
 logging.basicConfig(
     level=logging.INFO,
@@ -161,19 +161,21 @@ def _has_manual_split_intent(conn: Any, track_uids: list[str]) -> bool:
     )
 
 
-def _merge_into(conn: Any, loser_uid: str, winner_uid: str, dry_run: bool, canonical_video: str | None = None) -> None:
+def _merge_into(conn: Any, loser_uid: str, winner_uid: str, dry_run: bool, canonical_video: str | None = None) -> bool:
     """Merge through the shared lookup-rebuild path; raw audit rows stay untouched."""
     canonical_video = canonical_video or conn.execute(
         "SELECT canonical_yt_video_id FROM tracks WHERE track_uid = ?",
         (winner_uid,),
     ).fetchone()[0]
-    _merge_track_uids(
-        conn,
-        loser_uid=loser_uid,
-        winner_uid=winner_uid,
-        canonical_video=canonical_video,
-        dry_run=dry_run,
-    )
+    try:
+        _merge_track_uids(
+            conn, loser_uid=loser_uid, winner_uid=winner_uid,
+            canonical_video=canonical_video, dry_run=dry_run,
+        )
+    except CanonicalDecisionError as exc:
+        LOG.info("Holding merge %s → %s: %s", loser_uid, winner_uid, exc)
+        return False
+    return True
 
 
 def _status_rank(status: str | None) -> int:
@@ -222,10 +224,19 @@ def _winner_for_same_yt_metadata(rows: list[Any]) -> Any:
 
 
 def _canonical_video_for_same_yt_metadata(rows: list[Any]) -> str:
-    return sorted(rows, key=lambda row: str(row["updated_at"] or ""), reverse=True)[0]["canonical_yt_video_id"]
+    # A metadata refresh is not evidence that a newer recording is preferable.
+    return _winner_for_same_yt_metadata(rows)["canonical_yt_video_id"]
 
 
 def heal(db_path: Path, dry_run: bool) -> int:
+    from contextlib import nullcontext
+    from sync_validation import sync_run_lock
+
+    with nullcontext() if dry_run else sync_run_lock(db_path):
+        return _heal(db_path, dry_run)
+
+
+def _heal(db_path: Path, dry_run: bool) -> int:
     import sys
     # Add project root to sys.path if not present
     project_root = Path(__file__).resolve().parent
@@ -235,6 +246,9 @@ def heal(db_path: Path, dry_run: bool) -> int:
 
     # ── Pass 1: unbound YTMusic song_ids ────────────────────────────────────
     with hype_db.connect(db_path, read_only=dry_run) as conn:
+        if not dry_run:
+            from sync_validation import assert_no_active_repair
+            assert_no_active_repair(conn)
 
         unbound = conn.execute(
             """
@@ -386,10 +400,8 @@ def heal(db_path: Path, dry_run: bool) -> int:
                 row["current_score"], better_score,
             )
 
-            if not dry_run:
-                _merge_into(conn, row["track_uid"], better_uid, dry_run=False)
-
-            merged += 1
+            if _merge_into(conn, row["track_uid"], better_uid, dry_run=dry_run):
+                merged += 1
 
         if not dry_run:
             conn.commit()
@@ -416,9 +428,8 @@ def heal(db_path: Path, dry_run: bool) -> int:
             )
 
             for loser in losers:
-                if not dry_run:
-                    _merge_into(conn, loser["track_uid"], winner_uid, dry_run=False, canonical_video=canonical_video)
-                same_yt_merged += 1
+                if _merge_into(conn, loser["track_uid"], winner_uid, dry_run=dry_run, canonical_video=canonical_video):
+                    same_yt_merged += 1
 
         if not dry_run:
             conn.commit()

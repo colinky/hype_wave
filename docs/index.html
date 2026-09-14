@@ -674,21 +674,65 @@
         let currentChartType = 'hype';
         let highlightedDatasetIndex = null;
 
+        function historyIdentity(song) {
+            return typeof song.identity_key === 'string' && song.identity_key.trim()
+                ? song.identity_key : song.video_id;
+        }
+
         function hydrateHistory(rawHistory) {
             if (!rawHistory || typeof rawHistory !== 'object') return {};
 
             const isDateKey = (key) => /^\d{4}-\d{2}-\d{2}$/.test(key);
+            const exclusions = rawHistory.identity_exclusions === undefined ? [] : rawHistory.identity_exclusions;
+            const nonemptyText = value => typeof value === 'string' && value.trim().length > 0;
+            if (!Array.isArray(exclusions) || exclusions.some(entry =>
+                !entry || typeof entry !== 'object' || Array.isArray(entry)
+                || Object.keys(entry).some(key => !['video_ids', 'reason', 'evidence_ref'].includes(key))
+                || !Array.isArray(entry.video_ids) || entry.video_ids.length < 2
+                || !entry.video_ids.every(value => nonemptyText(value) && value === value.trim())
+                || new Set(entry.video_ids).size !== entry.video_ids.length
+                || !nonemptyText(entry.reason) || !nonemptyText(entry.evidence_ref))) {
+                throw new Error('History contains invalid identity exclusions');
+            }
+            const validateExclusions = history => {
+                const evidenceByGroup = new Map();
+                for (const entry of exclusions) {
+                    const group = JSON.stringify([...entry.video_ids].sort());
+                    const evidence = JSON.stringify([entry.video_ids, entry.reason, entry.evidence_ref]);
+                    if (evidenceByGroup.has(group) && evidenceByGroup.get(group) !== evidence) {
+                        throw new Error('History contains conflicting identity exclusions');
+                    }
+                    evidenceByGroup.set(group, evidence);
+                    const videoIds = new Set(entry.video_ids);
+                    const identities = new Map(entry.video_ids.map(videoId => [videoId, videoId]));
+                    for (const rows of Object.values(history)) {
+                        for (const song of rows) {
+                            if (!videoIds.has(song?.video_id)) continue;
+                            const identity = historyIdentity(song);
+                            if (identities.has(identity) && identities.get(identity) !== song.video_id) {
+                                throw new Error('History joins recordings with an identity exclusion');
+                            }
+                            identities.set(identity, song.video_id);
+                        }
+                    }
+                }
+                return history;
+            };
 
             if (rawHistory.schema_version !== 2 || !rawHistory.tracks || !rawHistory.rankings) {
-                return Object.fromEntries(
+                return validateExclusions(Object.fromEntries(
                     Object.entries(rawHistory)
                         .filter(([date, rows]) => isDateKey(date) && Array.isArray(rows))
                         .map(([date, rows]) => [date, rows])
-                );
+                ));
             }
 
             const tracks = rawHistory.tracks || {};
             const rankings = rawHistory.rankings || {};
+            const metadataFields = ['title', 'artist', 'album', 'yt_title', 'yt_artist', 'yt_album',
+                'artwork_url', 'apple_url', 'melon_url', 'spotify_url'];
+            const rankingFields = new Set([...metadataFields, 'hype_rank', 'hype_index',
+                'apple_rank', 'melon_rank', 'melon_genz_rank', 'ytmusic_rank', 'identity_key']);
             const dates = Array.isArray(rawHistory.dates)
                 ? rawHistory.dates
                 : Object.keys(rankings).sort((a, b) => b.localeCompare(a));
@@ -699,12 +743,18 @@
                 if (!isDateKey(date) || !daily || typeof daily !== 'object') return;
                 history[date] = Object.entries(daily)
                     .map(([videoId, ranking]) => {
+                        if (!ranking || typeof ranking !== 'object' || Array.isArray(ranking)
+                            || Object.keys(ranking).some(field => !rankingFields.has(field))
+                            || metadataFields.some(field => field in ranking && typeof ranking[field] !== 'string')
+                            || ('identity_key' in ranking && (typeof ranking.identity_key !== 'string' || !ranking.identity_key.trim()))) {
+                            throw new Error('History contains invalid ranking overrides');
+                        }
                         const metadata = tracks[videoId] || {};
                         return {
-                            video_id: metadata.video_id || videoId,
-                            title: metadata.title || metadata.yt_title || '',
-                            artist: metadata.artist || metadata.yt_artist || '',
-                            album: metadata.album || metadata.yt_album || '',
+                            video_id: videoId,
+                            title: metadata.title ?? metadata.yt_title ?? '',
+                            artist: metadata.artist ?? metadata.yt_artist ?? '',
+                            album: metadata.album ?? metadata.yt_album ?? '',
                             yt_title: metadata.yt_title || '',
                             yt_artist: metadata.yt_artist || '',
                             yt_album: metadata.yt_album || '',
@@ -717,7 +767,7 @@
                     })
                     .sort((a, b) => (a.hype_rank || 9999) - (b.hype_rank || 9999));
             });
-            return history;
+            return validateExclusions(history);
         }
 
         async function loadChart() {
@@ -857,7 +907,7 @@
                 return {
                     label: song.title,
                     data: displayDates.map(date => {
-                        const songOnDate = globalHistory[date]?.find(s => s.video_id === song.video_id);
+                        const songOnDate = globalHistory[date]?.find(s => historyIdentity(s) === historyIdentity(song));
                         return songOnDate ? songOnDate.hype_index : null;
                     }),
                     borderColor: colors[i] + '44', 
@@ -1054,19 +1104,19 @@
                 let currentRankValue, prevRankValue;
                 if (currentChartType === 'apple') {
                     currentRankValue = song.apple_rank;
-                    const prevSong = yesterdayData.find(s => s.video_id === song.video_id);
+                    const prevSong = yesterdayData.find(s => historyIdentity(s) === historyIdentity(song));
                     prevRankValue = prevSong ? prevSong.apple_rank : null;
                 } else if (currentChartType === 'melon') {
                     currentRankValue = song.melon_rank;
-                    const prevSong = yesterdayData.find(s => s.video_id === song.video_id);
+                    const prevSong = yesterdayData.find(s => historyIdentity(s) === historyIdentity(song));
                     prevRankValue = prevSong ? prevSong.melon_rank : null;
                 } else if (currentChartType === 'ytmusic') {
                     currentRankValue = song.ytmusic_rank;
-                    const prevSong = yesterdayData.find(s => s.video_id === song.video_id);
+                    const prevSong = yesterdayData.find(s => historyIdentity(s) === historyIdentity(song));
                     prevRankValue = prevSong ? prevSong.ytmusic_rank : null;
                 } else {
                     currentRankValue = index + 1;
-                    const prevIdx = yesterdayData.findIndex(s => s.video_id === song.video_id);
+                    const prevIdx = yesterdayData.findIndex(s => historyIdentity(s) === historyIdentity(song));
                     prevRankValue = prevIdx !== -1 ? prevIdx + 1 : null;
                 }
 

@@ -1,0 +1,431 @@
+{
+  "description": "Public exact-ID metadata observed 2026-09-14; no account, playback URLs, database identifiers or live approval. Playback health/times are synthetic in tests.",
+  "cases": [
+    {
+      "title": "Dirty Work",
+      "video_id": "clsPwXUeZFk",
+      "player": {
+        "video_id": "clsPwXUeZFk",
+        "title": "Dirty Work",
+        "artist": "aespa",
+        "music_video_type": "MUSIC_VIDEO_TYPE_ATV"
+      },
+      "metadata": {
+        "video_id": "clsPwXUeZFk",
+        "title": "Dirty Work (feat. Flo Milli)",
+        "artist": "에스파",
+        "album": "Dirty Work",
+        "title_ko": "Dirty Work (feat. Flo Milli)",
+        "artist_ko": "에스파",
+        "album_ko": "Dirty Work",
+        "title_en": "Dirty Work (feat. Flo Milli)",
+        "artist_en": "aespa",
+        "album_en": "Dirty Work",
+        "length_seconds": 180,
+        "music_video_type": "MUSIC_VIDEO_TYPE_ATV"
+      },
+      "old_metadata": {
+        "video_id": "DxVbg_RbczA",
+        "title": "Dirty Work",
+        "artist": "에스파",
+        "album": "Dirty Work",
+        "title_ko": "Dirty Work",
+        "artist_ko": "에스파",
+        "album_ko": "Dirty Work",
+        "title_en": "Dirty Work",
+        "artist_en": "aespa",
+        "album_en": "Dirty Work",
+        "length_seconds": 180,
+        "music_video_type": "MUSIC_VIDEO_TYPE_ATV"
+      },
+      "sources": [
+        {
+          "service": "apple",
+          "song_id": "1818322339",
+          "title_ko": "Dirty Work",
+          "artist_ko": "aespa",
+          "album_ko": "Dirty Work (Apple Music Edition) - EP",
+          "title_en": "Dirty Work",
+          "artist_en": "aespa",
+          "album_en": "Dirty Work (Apple Music Edition) - EP"
+        }
+      ],
+      "other_recordings": []
+    },
+    {
+      "title": "Beauty And A Beat (feat. Nicki Minaj)",
+      "video_id": "aWkPBCF8rFU",
+      "player": {
+        "video_id": "aWkPBCF8rFU",
+        "title": "Beauty and a Beat",
+        "artist": "Justin Bieber",
+        "music_video_type": "MUSIC_VIDEO_TYPE_ATV"
+      },
+      "metadata": {
+        "video_id": "aWkPBCF8rFU",
+        "title": "Beauty and a Beat (feat. Nicki Minaj)",
+        "artist": "Justin Bieber",
+        "album": "Believe",
+        "title_ko": "Beauty and a Beat (feat. Nicki Minaj)",
+        "artist_ko": "Justin Bieber",
+        "album_ko": "Believe",
+        "title_en": "Beauty And A Beat (feat. Nicki Minaj)",
+        "artist_en": "Justin Bieber",
+        "album_en": "Believe",
+        "length_seconds": 228,
+        "music_video_type": "MUSIC_VIDEO_TYPE_ATV"
+      },
+      "old_metadata": {
+        "video_id": "GmOLVcXnGxI",
+        "title": "Beauty and a Beat (Bisbetic Radio Mix) (feat. Nicki Minaj)",
+        "artist": "Justin Bieber",
+        "album": "Beauty and a Beat (Remixes)",
+        "title_ko": "Beauty and a Beat (Bisbetic Radio Mix) (feat. Nicki Minaj)",
+        "artist_ko": "Justin Bieber",
+        "album_ko": "Beauty and a Beat (Remixes)",
+        "title_en": "Beauty And A Beat (Bisbetic Radio Mix) (feat. Nicki Minaj)",
+        "artist_en": "Justin Bieber",
+        "album_en": "Beauty and a Beat (Remixes)",
+        "length_seconds": 207,
+        "music_video_type": "MUSIC_VIDEO_TYPE_ATV"
+      },
+      "sources": [
+        {
+          "service": "apple",
+          "song_id": "1440650961",
+          "title_ko": "Beauty and a Beat (feat. Nicki Minaj)",
+          "artist_ko": "Justin Bieber",
+          "album_ko": "Believe (Deluxe Edition)",
+          "title_en": "Beauty and a Beat (feat. Nicki Minaj)",
+          "artist_en": "Justin Bieber",
+          "album_en": "Believe (Deluxe Edition)"
+        },
+        {
+          "service": "melon",
+          "song_id": "3827571",
+          "title_ko": "Beauty And A Beat (Feat. Nicki Minaj)",
+          "artist_ko": "Justin Bieber",
+          "album_ko": "Believe (Deluxe Edition)",
+          "title_en": "",
+          "artist_en": "",
+          "album_en": ""
+        },
+        {
+          "service": "spotify",
+          "song_id": "190jyVPHYjAqEaOGmMzdyk",
+          "title_ko": "Beauty And A Beat",
+          "artist_ko": "Justin Bieber, Nicki Minaj",
+          "album_ko": "Believe (Deluxe Edition)",
+          "title_en": "Beauty And A Beat",
+          "artist_en": "Justin Bieber, Nicki Minaj",
+          "album_en": "Believe (Deluxe Edition)"
+        },
+        {
+          "service": "ytmusic",
+          "song_id": "Ys7-6_t7OEQ",
+          "title_ko": "Beauty And A Beat (feat. Nicki Minaj)",
+          "artist_ko": "Justin Bieber",
+          "album_ko": "Believe",
+          "title_en": "Beauty And A Beat (feat. Nicki Minaj)",
+          "artist_en": "Justin Bieber",
+          "album_en": "Believe"
+        }
+      ],
+      "other_recordings": [
+        {
+          "video_id": "Ys7-6_t7OEQ",
+          "title": "Beauty And A Beat (feat. Nicki Minaj)",
+          "artist": "Justin Bieber",
+          "album": "",
+          "title_ko": "Beauty And A Beat (feat. Nicki Minaj)",
+          "artist_ko": "Justin Bieber",
+          "album_ko": "",
+          "title_en": "Beauty And A Beat (feat. Nicki Minaj)",
+          "artist_en": "Justin Bieber",
+          "album_en": "",
+          "length_seconds": 293,
+          "music_video_type": "MUSIC_VIDEO_TYPE_OMV"
+        }
+      ]
+    },
+    {
+      "title": "Seven - Summer Mix (feat. Latto)",
+      "video_id": "5McUFZz2s-w",
+      "player": {
+        "video_id": "5McUFZz2s-w",
+        "title": "Seven - Explicit Ver.",
+        "artist": "정국 (Jung Kook)",
+        "music_video_type": "MUSIC_VIDEO_TYPE_ATV"
+      },
+      "metadata": {
+        "video_id": "5McUFZz2s-w",
+        "title": "Seven - Explicit Ver. (feat. Latto)",
+        "artist": "정국",
+        "album": "Seven",
+        "title_ko": "Seven - Explicit Ver. (feat. Latto)",
+        "artist_ko": "정국",
+        "album_ko": "Seven",
+        "title_en": "Seven - Explicit Ver. (feat. Latto)",
+        "artist_en": "Jung Kook",
+        "album_en": "Seven",
+        "length_seconds": 184,
+        "music_video_type": "MUSIC_VIDEO_TYPE_ATV"
+      },
+      "old_metadata": {
+        "video_id": "Vs64cZbeY88",
+        "title": "Seven (feat. Latto)",
+        "artist": "정국",
+        "album": "Seven",
+        "title_ko": "Seven (feat. Latto)",
+        "artist_ko": "정국",
+        "album_ko": "Seven",
+        "title_en": "Seven (feat. Latto)",
+        "artist_en": "Jung Kook",
+        "album_en": "Seven",
+        "length_seconds": 184,
+        "music_video_type": "MUSIC_VIDEO_TYPE_ATV"
+      },
+      "sources": [
+        {
+          "service": "spotify",
+          "song_id": "2HRgqmZQC0MC7GeNuDIXHN",
+          "title_ko": "Seven (feat. Latto) (Explicit Ver.)",
+          "artist_ko": "정국, Latto",
+          "album_ko": "Seven (Weekday Ver.)",
+          "title_en": "Seven (feat. Latto) (Explicit Ver.)",
+          "artist_en": "Jung Kook, Latto",
+          "album_en": "Seven (Weekday Ver.)"
+        }
+      ],
+      "other_recordings": [
+        {
+          "video_id": "uWCI0NqgHSc",
+          "title": "Seven - Summer Mix (feat. Latto)",
+          "artist": "정국",
+          "album": "Seven (Weekday Ver.)",
+          "title_ko": "Seven - Summer Mix (feat. Latto)",
+          "artist_ko": "정국",
+          "album_ko": "Seven (Weekday Ver.)",
+          "title_en": "Seven - Summer Mix (feat. Latto)",
+          "artist_en": "Jung Kook",
+          "album_en": "Seven (Weekday Ver.)",
+          "length_seconds": 202,
+          "music_video_type": "MUSIC_VIDEO_TYPE_ATV"
+        }
+      ]
+    },
+    {
+      "title": "Love Love Love (feat. 융진 of Casker)",
+      "video_id": "JwC6KUpBAAU",
+      "player": {
+        "video_id": "JwC6KUpBAAU",
+        "title": "Love Love Love",
+        "artist": "에픽하이 (Epik High)",
+        "music_video_type": "MUSIC_VIDEO_TYPE_ATV"
+      },
+      "metadata": {
+        "video_id": "JwC6KUpBAAU",
+        "title": "Love Love Love (feat. 융진 of Casker)",
+        "artist": "에픽하이(EPIK HIGH)",
+        "album": "Remapping the Human Soul",
+        "title_ko": "Love Love Love (feat. 융진 of Casker)",
+        "artist_ko": "에픽하이(EPIK HIGH)",
+        "album_ko": "Remapping the Human Soul",
+        "title_en": "Love Love Love (feat. 융진 of Casker)",
+        "artist_en": "Epik High",
+        "album_en": "Remapping the Human Soul",
+        "length_seconds": 231,
+        "music_video_type": "MUSIC_VIDEO_TYPE_ATV"
+      },
+      "old_metadata": {
+        "video_id": "eS6xgoToL-o",
+        "title": "Love Love Love (Allegro in Three Hearts No. 3 in C♯ minor)",
+        "artist": "에픽하이(EPIK HIGH)",
+        "album": "EPIKASE OST",
+        "title_ko": "Love Love Love (Allegro in Three Hearts No. 3 in C♯ minor)",
+        "artist_ko": "에픽하이(EPIK HIGH)",
+        "album_ko": "EPIKASE OST",
+        "title_en": "Love Love Love (Allegro in Three Hearts No. 3 in C♯ minor)",
+        "artist_en": "Epik High",
+        "album_en": "EPIKASE (Original Soundtrack)",
+        "length_seconds": 77,
+        "music_video_type": "MUSIC_VIDEO_TYPE_ATV"
+      },
+      "sources": [
+        {
+          "service": "apple",
+          "song_id": "1610108181",
+          "title_ko": "Love Love Love (feat. 융진)",
+          "artist_ko": "에픽하이",
+          "album_ko": "Remapping the Human Soul",
+          "title_en": "Love Love Love (feat. 융진)",
+          "artist_en": "Epik High",
+          "album_en": "Remapping the Human Soul"
+        },
+        {
+          "service": "melon",
+          "song_id": "1556553",
+          "title_ko": "Love Love Love (Feat. Yoong Jin Of Casker)",
+          "artist_ko": "에픽하이 (EPIK HIGH)",
+          "album_ko": "Remapping The Human Soul",
+          "title_en": "",
+          "artist_en": "",
+          "album_en": ""
+        },
+        {
+          "service": "spotify",
+          "song_id": "7hlEhmg5h9XuFtaGfgvqjF",
+          "title_ko": "Love Love Love",
+          "artist_ko": "에픽하이",
+          "album_ko": "Remapping the Human Soul",
+          "title_en": "Love Love Love",
+          "artist_en": "Epik High",
+          "album_en": "Remapping the Human Soul"
+        },
+        {
+          "service": "ytmusic",
+          "song_id": "qdr0fZbuffY",
+          "title_ko": "Love Love Love (feat. 융진)",
+          "artist_ko": "에픽하이(EPIK HIGH)",
+          "album_ko": "Remixing The Human Soul",
+          "title_en": "Love Love Love (feat. YoongJin)",
+          "artist_en": "Epik High",
+          "album_en": "Remixing The Human Soul"
+        }
+      ],
+      "other_recordings": [
+        {
+          "video_id": "qAe0v0PnhGs",
+          "title": "Love Love Loveless (feat. Yoong Jin of Casker)",
+          "artist": "에픽하이(EPIK HIGH), 플래닛 쉬버",
+          "album": "Remixing The Human Soul",
+          "title_ko": "Love Love Loveless (feat. Yoong Jin of Casker)",
+          "artist_ko": "에픽하이(EPIK HIGH), 플래닛 쉬버",
+          "album_ko": "Remixing The Human Soul",
+          "title_en": "Love Love Loveless (feat. Yoong Jin of Casker)",
+          "artist_en": "Epik High, Planet Shiver",
+          "album_en": "Remixing the Human Soul (Remixed By Planet Shiver)",
+          "length_seconds": 245,
+          "music_video_type": "MUSIC_VIDEO_TYPE_ATV"
+        }
+      ]
+    },
+    {
+      "title": "HOME SWEET HOME (feat. TAEYANG, DAESUNG)",
+      "video_id": "K6X38sM_WSo",
+      "player": {
+        "video_id": "K6X38sM_WSo",
+        "title": "HOME SWEET HOME",
+        "artist": "G-DRAGON",
+        "music_video_type": "MUSIC_VIDEO_TYPE_ATV"
+      },
+      "metadata": {
+        "video_id": "K6X38sM_WSo",
+        "title": "HOME SWEET HOME (feat. TAEYANG, DAESUNG)",
+        "artist": "G-DRAGON",
+        "album": "Übermensch",
+        "title_ko": "HOME SWEET HOME (feat. TAEYANG, DAESUNG)",
+        "artist_ko": "G-DRAGON",
+        "album_ko": "Übermensch",
+        "title_en": "HOME SWEET HOME (feat. TAEYANG & DAESUNG)",
+        "artist_en": "G-DRAGON",
+        "album_en": "Übermensch",
+        "length_seconds": 211,
+        "music_video_type": "MUSIC_VIDEO_TYPE_ATV"
+      },
+      "old_metadata": {
+        "video_id": "kyYyXncI3jw",
+        "title": "HOME SWEET HOME (feat. TAEYANG, DAESUNG)",
+        "artist": "G-DRAGON",
+        "album": "HOME SWEET HOME",
+        "title_ko": "HOME SWEET HOME (feat. TAEYANG, DAESUNG)",
+        "artist_ko": "G-DRAGON",
+        "album_ko": "HOME SWEET HOME",
+        "title_en": "HOME SWEET HOME (feat. TAEYANG & DAESUNG)",
+        "artist_en": "G-DRAGON",
+        "album_en": "HOME SWEET HOME",
+        "length_seconds": 211,
+        "music_video_type": "MUSIC_VIDEO_TYPE_ATV"
+      },
+      "sources": [
+        {
+          "service": "melon",
+          "song_id": "38242510",
+          "title_ko": "HOME SWEET HOME (feat. 태양, 대성)",
+          "artist_ko": "G-DRAGON",
+          "album_ko": "HOME SWEET HOME (feat. 태양, 대성)",
+          "title_en": "",
+          "artist_en": "",
+          "album_en": ""
+        }
+      ],
+      "other_recordings": [
+        {
+          "video_id": "fLi0EJfi_vg",
+          "title": "HOME SWEET HOME (feat. 태양, 대성)",
+          "artist": "G-DRAGON",
+          "album": "",
+          "title_ko": "HOME SWEET HOME (feat. 태양, 대성)",
+          "artist_ko": "G-DRAGON",
+          "album_ko": "",
+          "title_en": "HOME SWEET HOME (feat. TAEYANG & DAESUNG)",
+          "artist_en": "G-DRAGON",
+          "album_en": "",
+          "length_seconds": 211,
+          "music_video_type": "MUSIC_VIDEO_TYPE_OMV"
+        }
+      ]
+    },
+    {
+      "title": "모든 날, 모든 순간 Every day, Every Moment",
+      "video_id": "A8-ENEqhQjg",
+      "player": {
+        "video_id": "A8-ENEqhQjg",
+        "title": "모든 날, 모든 순간 (From \"키스 먼저 할까요?, Part 3\")",
+        "artist": "폴킴(Paul Kim)",
+        "music_video_type": "MUSIC_VIDEO_TYPE_ATV"
+      },
+      "metadata": {
+        "video_id": "A8-ENEqhQjg",
+        "title": "모든 날, 모든 순간 (From \"키스 먼저 할까요?, Part 3\")",
+        "artist": "폴킴(Paul Kim)",
+        "album": "모든 날, 모든 순간 (From \"키스 먼저 할까요?, Part 3\")",
+        "title_ko": "모든 날, 모든 순간 (From \"키스 먼저 할까요?, Part 3\")",
+        "artist_ko": "폴킴(Paul Kim)",
+        "album_ko": "모든 날, 모든 순간 (From \"키스 먼저 할까요?, Part 3\")",
+        "title_en": "Every Day, Every Moment (From \"Should We Kiss First?, Part 3\")",
+        "artist_en": "Paul Kim",
+        "album_en": "Every Day, Every Moment (From \"Should We Kiss First?, Part 3\")",
+        "length_seconds": 210,
+        "music_video_type": "MUSIC_VIDEO_TYPE_ATV"
+      },
+      "old_metadata": {
+        "video_id": "64uidOIH2vY",
+        "title": "모든 날, 모든 순간 Every day, Every Moment",
+        "artist": "폴킴(Paul Kim)",
+        "album": "키스 먼저 할까요? Should We Kiss First? (Original Television Soundtrack)",
+        "title_ko": "모든 날, 모든 순간 Every day, Every Moment",
+        "artist_ko": "폴킴(Paul Kim)",
+        "album_ko": "키스 먼저 할까요? Should We Kiss First? (Original Television Soundtrack)",
+        "title_en": "모든 날, 모든 순간 Every day, Every Moment",
+        "artist_en": "Paul Kim",
+        "album_en": "키스 먼저 할까요? Should We Kiss First? (Original Television Soundtrack)",
+        "length_seconds": 210,
+        "music_video_type": "MUSIC_VIDEO_TYPE_ATV"
+      },
+      "sources": [
+        {
+          "service": "melon",
+          "song_id": "30962526",
+          "title_ko": "모든 날, 모든 순간 (Every day, Every Moment)",
+          "artist_ko": "폴킴",
+          "album_ko": "'키스 먼저 할까요?' OST Part.3",
+          "title_en": "",
+          "artist_en": "",
+          "album_en": ""
+        }
+      ],
+      "other_recordings": []
+    }
+  ]
+}

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import hashlib
 import logging
 import math
 import os
@@ -31,6 +32,9 @@ __all__ = [
     "validate_frontend_history",
     "inflate_frontend_history",
     "compact_frontend_history",
+    "repair_frontend_history",
+    "carry_history_identity",
+    "write_frontend_history",
     "prune_history",
     "previous_apple_videos_for_history",
     "fetch_hype_rows_for_dates",
@@ -60,6 +64,8 @@ DAILY_RANKING_FIELDS = (
     "melon_genz_rank",
     "ytmusic_rank",
 )
+HISTORY_METADATA_OVERRIDES = tuple(field for field in TRACK_METADATA_FIELDS if field != "video_id")
+HISTORY_SOURCE_FIELDS = ("apple_url", "melon_url", "spotify_url")
 
 _COMPLETED_SNAPSHOT_SQL = """
 EXISTS (
@@ -86,6 +92,49 @@ def _is_history_v2(payload: Any) -> bool:
 
 def _looks_like_history_date(value: str) -> bool:
     return bool(re.fullmatch(r"\d{4}-\d{2}-\d{2}", str(value or "")))
+
+
+def _history_identity_exclusions(payload: Any = None, additions: Iterable[dict[str, Any]] = ()) -> list[dict[str, Any]]:
+    existing = payload.get("identity_exclusions", []) if _is_history_v2(payload) else []
+    if not isinstance(existing, list):
+        raise ValueError("History identity exclusions must be a list")
+    result, seen = [], {}
+    for entry in [*existing, *additions]:
+        if not isinstance(entry, dict) or set(entry) != {"video_ids", "reason", "evidence_ref"}:
+            raise ValueError("History identity exclusion requires video IDs, reason and evidence reference")
+        videos = entry["video_ids"]
+        if (not isinstance(videos, list) or len(videos) < 2
+                or any(not isinstance(v, str) or not v.strip() or v != v.strip() for v in videos)
+                or len(set(videos)) != len(videos)
+                or any(not isinstance(entry[k], str) or not entry[k].strip() for k in ("reason", "evidence_ref"))):
+            raise ValueError("History identity exclusion is malformed")
+        key = tuple(sorted(videos))
+        value = {"video_ids": list(videos), "reason": entry["reason"], "evidence_ref": entry["evidence_ref"]}
+        if key in seen and seen[key] != value:
+            raise ValueError("Conflicting history identity exclusion evidence")
+        if key not in seen:
+            result.append(value)
+            seen[key] = value
+    return result
+
+
+def _validate_excluded_identities(history: dict[str, list[dict[str, Any]]], exclusions: list[dict[str, Any]]) -> None:
+    if not exclusions:
+        return
+    protected = {vid for exclusion in exclusions for vid in exclusion["video_ids"]}
+    keys = {vid: {vid} for vid in protected}
+    for rows in history.values():
+        for row in rows:
+            if row.get("video_id") in protected:
+                identity = row.get("identity_key", row["video_id"])
+                if not isinstance(identity, str) or not identity.strip():
+                    raise ValueError("Excluded recording has an invalid history identity")
+                keys[row["video_id"]].add(identity)
+    for exclusion in exclusions:
+        videos = exclusion["video_ids"]
+        for index, video in enumerate(videos):
+            if any(keys[video] & keys[other] for other in videos[index + 1:]):
+                raise ValueError("Excluded recordings cannot share a history identity")
 
 
 def inflate_frontend_history(payload: Any) -> dict[str, list[dict[str, Any]]]:
@@ -117,10 +166,12 @@ def inflate_frontend_history(payload: Any) -> dict[str, list[dict[str, Any]]]:
         for video_id, ranking in daily.items():
             if not isinstance(ranking, dict):
                 continue
+            if "video_id" in ranking:
+                raise ValueError("A history ranking cannot override its video ID")
             metadata = tracks.get(video_id) if isinstance(tracks.get(video_id), dict) else {}
             row = dict(metadata)
             row.update(ranking)
-            row["video_id"] = row.get("video_id") or video_id
+            row["video_id"] = video_id
             rows.append(row)
         rows.sort(key=lambda row: (row.get("hype_rank") or 9999, row.get("title") or "", row.get("video_id") or ""))
         history[date] = rows
@@ -132,8 +183,13 @@ def compact_frontend_history(
     *,
     days: int = 31,
     generated_at: str | None = None,
+    identity_exclusions: Iterable[dict[str, Any]] = (),
 ) -> dict[str, Any]:
     """Normalize date-keyed complete rows into shared track metadata plus daily rankings."""
+    exclusions = _history_identity_exclusions(history, identity_exclusions)
+    if _is_history_v2(history):
+        history = inflate_frontend_history(history)
+    _validate_excluded_identities(history, exclusions)
     dates = sorted(
         [date for date, rows in history.items() if _looks_like_history_date(date) and isinstance(rows, list)],
         reverse=True,
@@ -150,16 +206,20 @@ def compact_frontend_history(
             if not video_id:
                 continue
 
-            track = tracks.setdefault(video_id, {"video_id": video_id})
-            for field in TRACK_METADATA_FIELDS:
-                value = row.get(field)
-                if value not in (None, "") and track.get(field) in (None, ""):
-                    track[field] = value
-            for field in TRACK_METADATA_FIELDS:
-                track.setdefault(field, "")
-            track["video_id"] = video_id
-
+            if video_id in daily:
+                raise ValueError(f"History chart {date} repeats video ID {video_id}")
+            metadata = {field: row.get(field, "") for field in HISTORY_METADATA_OVERRIDES}
+            if any(not isinstance(value, str) for value in metadata.values()):
+                raise ValueError(f"History chart {date} has non-text metadata")
+            track = tracks.setdefault(video_id, {"video_id": video_id, **metadata})
             daily[video_id] = {field: row.get(field) for field in DAILY_RANKING_FIELDS}
+            # Empty strings are meaningful overrides; missing overrides inherit.
+            daily[video_id].update({field: value for field, value in metadata.items() if value != track[field]})
+            if "identity_key" in row:
+                key = row["identity_key"]
+                if not isinstance(key, str) or not key.strip():
+                    raise ValueError("History identity keys must be nonempty strings")
+                daily[video_id]["identity_key"] = key
         rankings[date] = daily
 
     referenced_video_ids = {
@@ -175,12 +235,154 @@ def compact_frontend_history(
 
     return {
         "schema_version": 2,
+        **({"identity_exclusions": exclusions} if exclusions else {}),
         "generated_at": generated_at or datetime.now(timezone.utc).replace(microsecond=0).isoformat(),
         "days": days,
         "dates": dates,
         "tracks": tracks,
         "rankings": rankings,
     }
+
+
+def carry_history_identity(
+    report: Iterable[dict[str, Any]],
+    history: Any,
+    *,
+    identity_links: Iterable[dict[str, str]] = (),
+    identity_exclusions: Iterable[dict[str, Any]] = (),
+) -> list[dict[str, Any]]:
+    """Carry identity through exact source IDs or caller-verified replacement receipts.
+
+    Links must reference retained verification evidence. This pure function does
+    not verify recordings or infer equivalence from names, albums or current UIDs.
+    The caller retains each evidence_ref in its repair manifest.
+    """
+    exclusions = _history_identity_exclusions(history, identity_exclusions)
+    predecessors: dict[str, str] = {}
+    for link in identity_links:
+        old, new, evidence = (link.get(field) for field in ("old_video_id", "new_video_id", "evidence_ref"))
+        if any(not isinstance(value, str) or not value.strip() for value in (old, new, evidence)) or old == new:
+            raise ValueError("A history identity link requires distinct video IDs and an evidence reference")
+        if new in predecessors and predecessors[new] != old:
+            raise ValueError(f"Conflicting history identity links for {new}")
+        predecessors[new] = old
+
+    def origin(video_id: str) -> str:
+        seen = set()
+        while video_id in predecessors:
+            if video_id in seen:
+                raise ValueError("Cyclic history identity links")
+            seen.add(video_id)
+            video_id = predecessors[video_id]
+        return video_id
+
+    for video_id in predecessors:
+        origin(video_id)
+    for exclusion in exclusions:
+        if len({origin(vid) for vid in exclusion["video_ids"]}) != len(exclusion["video_ids"]):
+            raise ValueError("An explicit identity link joins excluded recordings")
+    protected = {origin(vid) for exclusion in exclusions for vid in exclusion["video_ids"]}
+    previous = inflate_frontend_history(history)
+    _validate_excluded_identities(previous, exclusions)
+    prior_rows = [row for date in sorted(previous) for row in previous[date]]
+    parents: dict[tuple[str, str], tuple[str, str]] = {}
+
+    def component(node: tuple[str, str]) -> tuple[str, str]:
+        parents.setdefault(node, node)
+        root = node
+        while parents[root] != root:
+            root = parents[root]
+        while parents[node] != node:
+            next_node = parents[node]
+            parents[node] = root
+            node = next_node
+        return root
+
+    def nodes(row: dict[str, Any]) -> list[tuple[str, str]]:
+        video = origin(row["video_id"])
+        # Shared source URLs cannot prove that two held recording versions are
+        # equivalent. Explicit verified links may still identify aliases of one.
+        source_scope = video if video in protected else ""
+        return [("video", origin(row["video_id"]))] + [
+            (field + ":" + source_scope, row[field]) for field in HISTORY_SOURCE_FIELDS if row.get(field)
+        ]
+
+    # Only prior verified rows and explicit receipts connect source identities.
+    # An incoming row that would merge two existing components is ambiguous.
+    for row in prior_rows:
+        keys = nodes(row)
+        for key in keys:
+            parents[component(key)] = component(keys[0])
+    prior_by_component: dict[tuple[str, str], list[dict[str, Any]]] = {}
+    for row in prior_rows:
+        prior_by_component.setdefault(component(nodes(row)[0]), []).append(row)
+
+    carried = []
+    for source in report:
+        row = dict(source)
+        video_id = str(row.get("video_id") or "")
+        matches = {component(key) for key in nodes(row) if key in parents}
+        if len(matches) > 1:
+            raise ValueError(f"History source bindings disagree for {video_id}")
+        candidates = prior_by_component.get(next(iter(matches), None), [])
+        explicit = {item["identity_key"] for item in candidates if item.get("identity_key")}
+        if row.get("identity_key"):
+            explicit.add(row["identity_key"])
+        if len(explicit) > 1:
+            raise ValueError(f"Conflicting verified history identities for {video_id}")
+        key = next(iter(explicit), None)
+        if key is None:
+            key = origin(candidates[0]["video_id"]) if candidates else origin(video_id)
+        if key != video_id or explicit:
+            row["identity_key"] = key
+        carried.append(row)
+    _validate_excluded_identities({**previous, "incoming": carried}, exclusions)
+    return carried
+
+
+def repair_frontend_history(
+    existing_payload: Any,
+    reports_by_date: dict[str, list[dict[str, Any]]],
+    *,
+    identity_links: Iterable[dict[str, str]] = (),
+    identity_exclusions: Iterable[dict[str, Any]] = (),
+    generated_at: str | None = None,
+) -> dict[str, Any]:
+    """Replace only explicit dates using frozen reports; never read a DB or prune.
+
+    Build reports with build_hype_report_from_rows using captured raw rows joined
+    to the manifest's chosen mapping. No live canonical lookup occurs here.
+    """
+    if not _is_history_v2(existing_payload) or not reports_by_date:
+        raise ValueError("Scoped history repair requires existing schema 2 history and explicit dates")
+    days = existing_payload.get("days", 31)
+    for date in existing_payload.get("dates", []):
+        validate_frontend_history(existing_payload, date, days=days)
+    history = inflate_frontend_history(existing_payload)
+    links = tuple(identity_links)
+    exclusions = _history_identity_exclusions(existing_payload, identity_exclusions)
+    for date in sorted(reports_by_date):
+        if not _looks_like_history_date(date):
+            raise ValueError(f"Invalid history repair date: {date}")
+        previous_rows = {row["video_id"]: row for row in history.get(date, [])}
+        incoming = [dict(row) for row in reports_by_date[date]]
+        changed = [index for index, row in enumerate(incoming) if row != previous_rows.get(row["video_id"])]
+        # A newer identity receipt must not rewrite untouched rows on an older
+        # date. Identity-only repairs explicitly include the intended key.
+        carried = carry_history_identity([incoming[index] for index in changed], history,
+                                         identity_links=links, identity_exclusions=exclusions)
+        for index, row in zip(changed, carried):
+            incoming[index] = row
+        history[date] = incoming
+    payload = compact_frontend_history(history, days=days, generated_at=generated_at,
+                                       identity_exclusions=exclusions)
+    for date in payload["dates"]:
+        validate_frontend_history(payload, date, days=days)
+    unchanged = set(history) - set(reports_by_date)
+    before, after = inflate_frontend_history(existing_payload), inflate_frontend_history(payload)
+    if any(before[date] != after[date] for date in unchanged):
+        raise ValueError("Scoped history repair changed an undeclared date")
+    return payload
 
 
 def _backup_legacy_history_file(path: Path, payload: Any) -> None:
@@ -224,6 +426,9 @@ def validate_frontend_history(payload: Any, expected_date: str, *, days: int = 3
     """Reject an empty, stale or malformed intended chart before publication."""
     if not _is_history_v2(payload) or payload.get("days") != days:
         raise ValueError("History has an invalid schema or retention policy")
+    exclusions = _history_identity_exclusions(payload)
+    if exclusions:
+        _validate_excluded_identities(inflate_frontend_history(payload), exclusions)
     dates = payload.get("dates")
     if (not isinstance(dates, list) or not dates or len(dates) > days
             or any(not isinstance(day, str) or not _looks_like_history_date(day) for day in dates)
@@ -238,14 +443,24 @@ def validate_frontend_history(payload: Any, expected_date: str, *, days: int = 3
     if not isinstance(daily, dict) or not daily:
         raise ValueError(f"History chart {expected_date} is empty")
     ranks = []
+    identities = set()
     for video_id, ranking in daily.items():
         track = payload["tracks"].get(video_id)
         if (not isinstance(video_id, str) or not video_id.strip()
                 or not isinstance(track, dict) or track.get("video_id") != video_id
-                or any(not isinstance(track.get(key), str) or not track[key].strip()
-                       for key in ("title", "artist"))
                 or not isinstance(ranking, dict)):
             raise ValueError(f"History chart {expected_date} has invalid track metadata")
+        allowed = {*DAILY_RANKING_FIELDS, *HISTORY_METADATA_OVERRIDES, "identity_key"}
+        if set(ranking) - allowed:
+            raise ValueError(f"History chart {expected_date} has unsupported ranking fields")
+        row = {**track, **ranking}
+        if (any(not isinstance(row.get(key), str) or not row[key].strip() for key in ("title", "artist"))
+                or any(not isinstance(row.get(key, ""), str) for key in HISTORY_METADATA_OVERRIDES)):
+            raise ValueError(f"History chart {expected_date} has invalid hydrated metadata")
+        identity = row.get("identity_key", video_id)
+        if not isinstance(identity, str) or not identity.strip() or identity in identities:
+            raise ValueError(f"History chart {expected_date} has invalid or duplicate song identity")
+        identities.add(identity)
         rank, score = ranking.get("hype_rank"), ranking.get("hype_index")
         if (type(rank) is not int or rank <= 0
                 or type(score) not in (int, float) or not math.isfinite(score) or score < 0
@@ -264,57 +479,82 @@ def export_frontend_history(
     days: int = 31,
     full_rebuild: bool = False,
     expected_date: str | None = None,
+    reports_by_date: dict[str, list[dict[str, Any]]] | None = None,
+    identity_links: Iterable[dict[str, str]] = (),
+    identity_exclusions: Iterable[dict[str, Any]] = (),
 ) -> dict[str, Any]:
-    path = Path(db_path)
-    if not path.exists() and not os.environ.get("SUPABASE_DB_URL"):
-        raise RuntimeError(f"History database not found: {path}")
-    if not os.environ.get("SUPABASE_DB_URL"):
-        init_db(path)
+    """Export current charts, optionally from a caller's frozen publication report.
+
+    Supplied reports bypass DB access. Historical repairs use the pure scoped
+    helper instead, so normal retention cannot expire an unrelated date.
+    """
     out = Path(output_path)
     existing_payload: Any = {}
+    previous_hash = None
     if out.exists():
-        try:
-            existing_payload = json.loads(out.read_text(encoding="utf-8"))
-        except Exception:
-            existing_payload = {}
-    with connect(path) as conn:
-        apple_playlists = _apple_history_anchor_jobs()
-        placeholders = ",".join("?" for _ in apple_playlists)
-        limit = days if full_rebuild or not out.exists() else 1
-        date_rows = conn.execute(
-            f"""
-            SELECT DISTINCT p.reference_period AS chart_date
-            FROM playlist_order p
-            WHERE p.job_name IN ({placeholders})
-              AND p.reference_period LIKE '____-__-__'
-              AND {_COMPLETED_SNAPSHOT_SQL}
-            ORDER BY chart_date DESC
-            LIMIT ?
-            """,
-            (*apple_playlists, limit),
-        ).fetchall()
-        dates = [_history_date_from_hype_anchor_reference(row["chart_date"]) for row in date_rows]
-        if full_rebuild or not out.exists():
-            history: dict[str, list[dict[str, Any]]] = {}
-        else:
-            history = inflate_frontend_history(existing_payload)
-        if not dates:
-            raise RuntimeError("History export has no completed Apple anchor dates")
-        intended_date = expected_date or max(dates)
-        if intended_date not in dates:
-            raise RuntimeError(f"History export did not rebuild intended chart date {intended_date}")
-        rows_by_date = fetch_hype_rows_for_dates(conn, dates)
-        for date in sorted(dates):
-            previous_apple_videos = previous_apple_videos_for_history(conn, history, date)
-            report = build_hype_report_from_rows(
-                rows_by_date.get(date, []),
-                previous_apple_videos=previous_apple_videos,
-            )
-            validate_frontend_history(compact_frontend_history({date: report}, days=days), date, days=days)
-            history[date] = report
-        history = prune_history(history, reference_date=max(dates), days=days)
-        payload = compact_frontend_history(history, days=days)
+        raw = out.read_bytes()
+        previous_hash = hashlib.sha256(raw).hexdigest()
+        existing_payload = json.loads(raw)
+    previous_history = inflate_frontend_history(existing_payload)
+    exclusions = _history_identity_exclusions(existing_payload, identity_exclusions)
+    if reports_by_date is None:
+        path = Path(db_path)
+        if not path.exists() and not os.environ.get("SUPABASE_DB_URL"):
+            raise RuntimeError(f"History database not found: {path}")
+        with connect(path, read_only=True) as conn:
+            apple_playlists = _apple_history_anchor_jobs()
+            placeholders = ",".join("?" for _ in apple_playlists)
+            limit = days if full_rebuild or not out.exists() else 1
+            date_rows = conn.execute(
+                f"""
+                SELECT DISTINCT p.reference_period AS chart_date
+                FROM playlist_order p
+                WHERE p.job_name IN ({placeholders})
+                  AND p.reference_period LIKE '____-__-__'
+                  AND {_COMPLETED_SNAPSHOT_SQL}
+                ORDER BY chart_date DESC LIMIT ?
+                """, (*apple_playlists, limit),
+            ).fetchall()
+            dates = [_history_date_from_hype_anchor_reference(row["chart_date"]) for row in date_rows]
+            rows_by_date = fetch_hype_rows_for_dates(conn, dates)
+            reports_by_date = {date: build_hype_report_from_rows(rows_by_date.get(date, [])) for date in dates}
+    if not reports_by_date:
+        raise RuntimeError("History export has no completed Apple anchor dates")
+    dates = sorted(reports_by_date)
+    intended_date = expected_date or max(dates)
+    if intended_date not in dates:
+        raise RuntimeError(f"History export did not rebuild intended chart date {intended_date}")
+    if previous_history and max(dates) < max(previous_history):
+        raise ValueError("Use scoped history repair for a historical-only update")
+    history = {} if full_rebuild else dict(previous_history)
+    links = tuple(identity_links)
+    for date in dates:
+        # Include the prior version of this date when inheriting a repaired key.
+        identity_history = {**previous_history, **history}
+        identity_history = {day: rows for day, rows in identity_history.items() if day <= date}
+        history[date] = carry_history_identity(reports_by_date[date], identity_history, identity_links=links,
+                                               identity_exclusions=exclusions)
+        validate_frontend_history(compact_frontend_history({date: history[date]}, days=days,
+                                  identity_exclusions=exclusions), date, days=days)
+    history = prune_history(history, reference_date=max(dates), days=days)
+    payload = compact_frontend_history(history, days=days, identity_exclusions=exclusions)
+    return write_frontend_history(payload, out, expected_date=intended_date, expected_file_sha256=previous_hash)
+
+
+def write_frontend_history(
+    payload: dict[str, Any],
+    output_path: str | Path,
+    *,
+    expected_date: str,
+    expected_file_sha256: str | None = None,
+) -> dict[str, Any]:
+    """Validate all hydrated dates and atomically write under caller-owned exclusion."""
+    out = Path(output_path)
+    days = payload.get("days", 31)
+    intended_date = expected_date
     validate_frontend_history(payload, intended_date, days=days)
+    for date in payload["dates"]:
+        validate_frontend_history(payload, date, days=days)
     out.parent.mkdir(parents=True, exist_ok=True)
     temporary_path = None
     try:
@@ -329,7 +569,11 @@ def export_frontend_history(
         validate_frontend_history(
             json.loads(temporary_path.read_text(encoding="utf-8")), intended_date, days=days,
         )
-        _backup_legacy_history_file(out, existing_payload)
+        current = out.read_bytes() if out.exists() else None
+        if expected_file_sha256 is not None and (current is None or hashlib.sha256(current).hexdigest() != expected_file_sha256):
+            raise RuntimeError("History changed since the validated snapshot was captured")
+        if current is not None:
+            _backup_legacy_history_file(out, json.loads(current))
         os.replace(temporary_path, out)
     finally:
         if temporary_path is not None:
@@ -437,7 +681,9 @@ def previous_apple_videos_for_history(
     return {item["video_id"] for item in report if item.get("apple_rank")}
 
 
-def fetch_hype_rows_for_dates(conn: sqlite3.Connection, dates: list[str]) -> dict[str, list[Any]]:
+def fetch_hype_rows_for_dates(
+    conn: sqlite3.Connection, dates: list[str], *, include_unmatched: bool = False,
+) -> dict[str, list[Any]]:
     if not dates:
         return {}
     input_config = hype_inputs()
@@ -488,6 +734,9 @@ def fetch_hype_rows_for_dates(conn: sqlite3.Connection, dates: list[str]) -> dic
             p.source_variant,
             p.reference_period,
             p.song_id,
+            mr.run_id,
+            ma.status,
+            ma.video_id AS matched_video_id,
             tl.album_id,
             p.rank_order,
             t.canonical_yt_video_id AS video_id,
@@ -497,6 +746,7 @@ def fetch_hype_rows_for_dates(conn: sqlite3.Connection, dates: list[str]) -> dic
             COALESCE(NULLIF(tl.title_ko, ''), tl.title_en) AS title,
             COALESCE(NULLIF(tl.artist_ko, ''), tl.artist_en) AS artist,
             COALESCE(NULLIF(tl.album_ko, ''), tl.album_en) AS album,
+            tl.title_ko, tl.artist_ko, tl.title_en, tl.artist_en,
             tl.artwork_url
         FROM playlist_order p
         JOIN effective e
@@ -504,6 +754,20 @@ def fetch_hype_rows_for_dates(conn: sqlite3.Connection, dates: list[str]) -> dic
          AND e.job_name = p.job_name
          AND e.source_variant = p.source_variant
          AND p.reference_period = e.eff_period
+        JOIN match_runs mr
+          ON mr.service = p.service AND mr.job_name = p.job_name
+         AND mr.source_variant = p.source_variant AND mr.reference_period = p.reference_period
+         AND mr.status = 'completed' AND mr.completed_at IS NOT NULL
+         AND NOT EXISTS (
+             SELECT 1 FROM match_runs newer
+             WHERE newer.service = mr.service AND newer.job_name = mr.job_name
+               AND newer.source_variant = mr.source_variant AND newer.reference_period = mr.reference_period
+               AND newer.status = 'completed' AND newer.completed_at IS NOT NULL
+               AND (newer.created_at > mr.created_at
+                    OR (newer.created_at = mr.created_at AND newer.run_id > mr.run_id))
+         )
+        LEFT JOIN match_attempts ma
+          ON ma.run_id = mr.run_id AND ma.service = p.service AND ma.song_id = p.song_id
         JOIN platform_song_ids ps
           ON ps.service = p.service
          AND ps.song_id = p.song_id
@@ -513,9 +777,16 @@ def fetch_hype_rows_for_dates(conn: sqlite3.Connection, dates: list[str]) -> dic
            AND tl.song_id = p.song_id
         WHERE t.canonical_yt_video_id IS NOT NULL
           AND t.canonical_yt_video_id != ''
+          AND (? OR (ma.status IN ('matched', 'cached_match', 'proxy_matched', 'manual_override')
+                     AND COALESCE(ma.video_id, '') != ''))
+          AND NOT EXISTS (
+              SELECT 1 FROM manual_overrides mo
+              WHERE mo.service = p.service AND mo.song_id = p.song_id
+                AND LOWER(mo.action) IN ('block', 'manual_blocked')
+          )
         ORDER BY e.chart_date, p.service, p.job_name, p.source_variant, p.rank_order, p.song_id
         """,
-        tuple(params),
+        (*params, include_unmatched),
     ).fetchall()
     out: dict[str, list[Any]] = {date: [] for date in dates}
     for row in rows:
@@ -533,6 +804,41 @@ def hype_report_for_date(
     return build_hype_report_from_rows(rows, previous_apple_videos=previous_apple_videos)
 
 
+def _hype_grouped_rows(rows):
+    """Keep contributor selection identical to the report's ordered grouping."""
+    group_by_video, group_by_identity = {}, {}
+    for row in rows:
+        identity = hype_identity_key(row)
+        video_id = row["video_id"] or ""
+        uid = group_by_video.get(video_id) or group_by_identity.get(identity) or identity
+        group_by_identity.setdefault(identity, uid)
+        if video_id:
+            group_by_video.setdefault(video_id, uid)
+        yield uid, row
+
+
+def _hype_input(row, input_config):
+    job = str(row["job_name"] or "").strip()
+    group = (input_config.get(job) or {}).get("hype_group", "")
+    weight = float((input_config.get(job) or {}).get("hype_weight") or 0.0)
+    if not group and normalized_service(row["service"]) == "melon" and job == "Gen-Z-Daily":
+        return "melon_genz", DEFAULT_HYPE_WEIGHTS["melon_genz"]
+    return group, weight
+
+
+def contributing_hype_rows(rows):
+    """Include every enrichment row of a scored group, including playback selectors."""
+    grouped = list(_hype_grouped_rows(rows))
+    config, scored = hype_inputs(), set()
+    for uid, row in grouped:
+        group, weight = _hype_input(row, config)
+        if (group in {"apple", "ytmusic"} or
+                (group == "melon_genz" and str(row["source_variant"] or "default").strip() == "combined")):
+            if calculate_rank_score(row["rank_order"]) * weight > 0:
+                scored.add(uid)
+    return [row for uid, row in grouped if uid in scored]
+
+
 def build_hype_report_from_rows(
     rows: Iterable[Any],
     *,
@@ -542,15 +848,7 @@ def build_hype_report_from_rows(
     input_config = hype_inputs()
 
     grouped: dict[str, dict[str, Any]] = {}
-    group_by_video: dict[str, str] = {}
-    group_by_identity: dict[str, str] = {}
-    for row in rows:
-        identity = hype_identity_key(row)
-        video_id = row["video_id"] or ""
-        uid = group_by_video.get(video_id) or group_by_identity.get(identity) or identity
-        group_by_identity.setdefault(identity, uid)
-        if video_id:
-            group_by_video.setdefault(video_id, uid)
+    for uid, row in _hype_grouped_rows(rows):
         item = grouped.setdefault(
             uid,
             {
@@ -580,11 +878,7 @@ def build_hype_report_from_rows(
         job_name = str(row["job_name"] or "").strip()
         source_variant = str(row["source_variant"] or "default").strip()
         track_url = build_track_url(service, row["song_id"], row["album_id"])
-        group = (input_config.get(job_name) or {}).get("hype_group", "")
-        weight = float((input_config.get(job_name) or {}).get("hype_weight") or 0.0)
-        if not group and service == "melon" and job_name == "Gen-Z-Daily":
-            group = "melon_genz"
-            weight = DEFAULT_HYPE_WEIGHTS["melon_genz"]
+        group, weight = _hype_input(row, input_config)
         if group == "apple":
             item["apple_rank"] = min(item["apple_rank"] or 9999, row["rank_order"])
             item["apple_url"] = track_url or item["apple_url"]

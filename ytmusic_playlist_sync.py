@@ -1033,15 +1033,19 @@ def resolve_video_to_song(
     duration_seconds: int = 0,
     threshold: float = 0.86,
     search_limit: int = 10,
+    excluded_video_ids: set[str] | None = None,
+    playability_verifier: Any = None,
 ) -> dict[str, Any]:
+    excluded_video_ids = excluded_video_ids or set()
+    fallback_id = video_id if video_id not in excluded_video_ids else ""
     normalized_title = normalize_video_title(title)
     if not normalized_title:
         return {
-            "resolved_video_id": video_id,
+            "resolved_video_id": fallback_id,
             "resolved_title": title,
             "resolved_artist": artist,
             "resolved_album": "",
-            "mapping_status": "kept_original_video",
+            "mapping_status": "kept_original_video" if fallback_id else "failed",
             "mapping_reason": "empty_normalized_title",
             "mapping_score": 1.0,
         }
@@ -1058,6 +1062,8 @@ def resolve_video_to_song(
             track_artist=artist,
         )
     ):
+        if result.get("videoId") in excluded_video_ids:
+            continue
         candidate_artist = result_artists(result)
         cand_title = result.get("title", "")
         artist_score = similarity(artist, candidate_artist, is_title=False)
@@ -1126,6 +1132,13 @@ def resolve_video_to_song(
         if result_type == "song" and similarity(artist, candidate_artist, is_title=False) >= 0.8:
             current_threshold = min(threshold, 0.75)
 
+        if playability_verifier is not None and score >= current_threshold:
+            from sync_validation import PlaybackBlocked
+            observed = playability_verifier.verify(result["videoId"])
+            if observed.get("state") == "unknown":
+                raise PlaybackBlocked("Video-to-song candidate playback is uncertain")
+            if observed.get("state") != "playable":
+                continue
         if score > best_score:
             best = result
             best_score = score
@@ -1141,11 +1154,11 @@ def resolve_video_to_song(
             "mapping_score": round(best_score, 3),
         }
     return {
-        "resolved_video_id": video_id,
+        "resolved_video_id": fallback_id,
         "resolved_title": title,
         "resolved_artist": artist,
         "resolved_album": result_album(best) if best else "",
-        "mapping_status": "kept_original_video" if best_score else "failed",
+        "mapping_status": "kept_original_video" if best_score and fallback_id else "failed",
         "mapping_reason": query,
         "mapping_score": round(best_score, 3),
     }
@@ -1908,6 +1921,8 @@ def search_youtube_music(
     min_artist_score: float,
     limit: int,
     ignore_video_ids: set[str] | None = None,
+    excluded_video_ids: set[str] | None = None,
+    playability_verifier: Any = None,
 ) -> MatchResult:
     # 1. Check manual overrides first from matching_alias.json
     t_norm = normalize_text(track.title)
@@ -1970,7 +1985,7 @@ def search_youtube_music(
 
         for index, result in enumerate(results):
             video_id = result.get("videoId")
-            if not is_song_result(result) or not video_id:
+            if not is_song_result(result) or not video_id or video_id in (excluded_video_ids or set()):
                 continue
 
             signature = _candidate_metadata_signature(result)
@@ -2014,6 +2029,17 @@ def search_youtube_music(
                     min_artist_score=min_artist_score,
                 )
             ]
+            if playability_verifier is not None:
+                from sync_validation import PlaybackBlocked
+                approved = []
+                for item in sorted(passing, key=lambda item: item["score"], reverse=True):
+                    observed = playability_verifier.verify(item["result"]["videoId"])
+                    if observed.get("state") == "unknown":
+                        raise PlaybackBlocked("Search candidate playback is uncertain")
+                    if observed.get("state") == "playable":
+                        approved.append(item)
+                        break
+                passing = approved
             best_passing = max(passing, key=lambda item: item["score"], default=None)
 
         if best_passing:
@@ -2109,7 +2135,10 @@ def get_existing_playlist_items(ytmusic: YTMusic, playlist_id: str) -> list[dict
             raise RuntimeError(
                 f"Playlist {playlist_id} item {index} is missing videoId or setVideoId"
             )
-        items.append({"videoId": video_id, "setVideoId": set_video_id})
+        item = {"videoId": video_id, "setVideoId": set_video_id}
+        if isinstance(track.get("isAvailable"), bool):
+            item["isAvailable"] = track["isAvailable"]
+        items.append(item)
     return items
 
 
@@ -2446,6 +2475,22 @@ def _compare_playlist_video_ids(
     }
 
 
+def _compare_exact_playlist_video_ids(expected: list[str], actual: list[str]) -> dict[str, Any]:
+    """Publication targets are exact IDs; metadata similarity never grants a substitution."""
+    differences = []
+    for index in range(max(len(expected), len(actual))):
+        left = expected[index] if index < len(expected) else ""
+        right = actual[index] if index < len(actual) else ""
+        if left == right:
+            continue
+        reason = ("missing_actual_id" if not right else "missing_expected_id" if not left else
+                  "order_mismatch" if left in actual and right in expected else "unexpected_video_id")
+        differences.append({"position": index + 1, "expected_id": left, "actual_id": right,
+                            "accepted": False, "reason": reason})
+    return {"matches": expected == actual, "expected_count": len(expected),
+            "actual_count": len(actual), "differences": differences}
+
+
 def _playlist_video_ids_match(
     ytmusic: YTMusic,
     expected: list[str],
@@ -2480,6 +2525,40 @@ def _same_owned_slots(actual: list[dict[str, str]], expected: list[dict[str, str
     return _playlist_slots(actual) == _playlist_slots(expected)
 
 
+def _playlist_item_keys(items):
+    return [(item["videoId"], item["setVideoId"]) for item in items]
+
+
+def _observe_playlist_transition(ytmusic, playlist_id, before, after, *, require_exact_ids=True):
+    """Read a successful write back; only an unchanged snapshot may lag behind it."""
+    deadline = time.monotonic() + 3
+    for attempt in range(3):
+        try:
+            actual = get_existing_playlist_items(ytmusic, playlist_id)
+        except Exception as exc:
+            cause = exc.__cause__ or exc
+            retryable = isinstance(cause, (TimeoutError, ConnectionError,
+                                           requests.exceptions.Timeout, requests.exceptions.ConnectionError))
+            if isinstance(cause, requests.exceptions.HTTPError):
+                retryable = getattr(cause.response, "status_code", None) in {429, 500, 502, 503, 504}
+            if not retryable:
+                raise
+        else:
+            if _playlist_item_keys(actual) == _playlist_item_keys(after):
+                return actual
+            if not require_exact_ids and _same_owned_slots(actual, after):
+                # An add receipt still owns these exact slots. The caller must
+                # reject any substituted ID before publishing or moving them.
+                return actual
+            if _playlist_item_keys(actual) != _playlist_item_keys(before):
+                raise RuntimeError("Playlist transition exposed unexpected IDs or ownership slots")
+        delay = min(0.5 * (attempt + 1), deadline - time.monotonic())
+        if attempt == 2 or delay <= 0:
+            break
+        time.sleep(delay)
+    raise PlaylistMutationUncertain("Successful playlist mutation is not yet visible; read-only confirmation required")
+
+
 def _addition_receipts(result: Any, requested: list[str]) -> list[dict[str, str]]:
     _require_playlist_mutation_success(result, "addition")
     rows = result.get("playlistEditResults") if isinstance(result, dict) else None
@@ -2511,6 +2590,7 @@ def _replace_playlist_contents(
     allow_duplicates: bool = False,
     remove_items: list[dict[str, str]] | None = None,
     require_exact_items: bool = False,
+    before_mutation: Any = None,
 ) -> list[dict[str, str]]:
     """Mutate once per durably recorded intent; retain every acknowledged slot."""
     if len(set(target_video_ids)) != len(target_video_ids):
@@ -2526,6 +2606,8 @@ def _replace_playlist_contents(
         ("add", chunked(target_video_ids, 50)),
     ):
         for chunk_order, chunk in enumerate(chunks, 1):
+            if before_mutation is not None:
+                before_mutation()
             before = get_existing_playlist_items(ytmusic, playlist_id)
             if not _same_owned_slots(before, expected):
                 raise RuntimeError("Playlist slots changed outside the audited mutation; refusing further mutation")
@@ -2571,64 +2653,73 @@ def _replace_playlist_contents(
                 raise PlaylistMutationUncertain(
                     f"{operation} acknowledgement is uncertain; automatic retry/restore is forbidden"
                 ) from exc
-            expected = after
+            # Commit the provider's receipt first. A delayed read must neither
+            # replay that write nor manufacture an ambiguous second receipt.
+            expected = _observe_playlist_transition(
+                ytmusic, playlist_id, before, after, require_exact_ids=False,
+            )
             LOG.info("Acknowledged %s of %d playlist items", operation, len(chunk))
     return expected
 
 
-def _publish_without_unverified_substitutions(
-    ytmusic: YTMusic,
-    playlist_id: str,
-    requested: list[str],
-    actual: list[dict[str, str]],
-    comparison: dict[str, Any],
-    *,
-    evidence: Any,
-) -> tuple[list[dict[str, str]], dict[str, Any]] | None:
-    """Omit only observed bad substitutions; preserve every verified slot/order."""
-    rejected = [row for row in comparison["differences"] if not row["accepted"]]
-    allowed = {"title_mismatch", "author_mismatch", "version_mismatch", "duration_mismatch", "metadata_error"}
-    if (not rejected or len(actual) != len(requested)
-            or any(row["reason"] not in allowed for row in rejected)):
-        return None
-    positions = {row["position"] - 1 for row in rejected}
-    effective = [video_id for index, video_id in enumerate(requested) if index not in positions]
-    if not effective:
-        return None  # A total failure is not a usable partial publication.
-    excluded = [{"position": row["position"], "requested_video_id": row["expected_id"],
-                 "actual_video_id": row["actual_id"], "reason": row["reason"]} for row in rejected]
-    policy = {"publication_mode": "partial", "effective_video_ids": effective, "excluded_items": excluded}
-    fresh = get_existing_playlist_items(ytmusic, playlist_id)
-    if fresh != actual:
-        raise RuntimeError("Playlist changed after fallback planning; refusing omission")
-    # Preserve the approved reduced target before deleting anything, including
-    # when the process terminates after a deletion ACK but before finalization.
-    evidence({"phase": "publish", "operation": "observe", "state": "verified",
-              "chunk_order": 0, "attempt": 1, "items": fresh,
-              "verification_matches": False, "observation_complete": True,
-              "differences": comparison["differences"], **policy})
-    removed = [item for index, item in enumerate(fresh) if index in positions]
+def _preserve_playlist_slots(ytmusic, playlist_id, current, requested, *, evidence,
+                             before_mutation=None, phase="publish"):
+    """Keep existing requested items, add only missing IDs, then reorder owned slots."""
+    if len(requested) != len(set(requested)):
+        raise RuntimeError("Cannot preserve a target with duplicate recording IDs")
+    retained, removals = set(), []
+    for item in current:
+        if item["videoId"] in requested and item["videoId"] not in retained:
+            retained.add(item["videoId"])
+        else:
+            removals.append(item)
+    missing = [video_id for video_id in requested if video_id not in retained]
     expected = _replace_playlist_contents(
-        ytmusic, playlist_id, fresh, [], evidence=evidence, phase="publish",
-        remove_items=removed, require_exact_items=True,
+        ytmusic, playlist_id, current, missing, evidence=evidence, phase=phase,
+        remove_items=removals, before_mutation=before_mutation,
     )
-    remaining = get_existing_playlist_items(ytmusic, playlist_id)
-    if remaining != expected:
-        raise RuntimeError("Partial publication differs from the acknowledged retained items")
-    verified = _compare_playlist_video_ids(ytmusic, effective, [item["videoId"] for item in remaining])
-    if not verified["matches"]:
-        raise RuntimeError("Retained playlist items failed partial-publication verification")
-    evidence({"phase": "publish", "operation": "observe", "state": "verified",
-              "chunk_order": 0, "attempt": 1, "items": remaining,
-              "verification_matches": True, "observation_complete": True,
-              "differences": comparison["differences"], **policy})
-    return remaining, verified
+    actual_ids = [item["videoId"] for item in expected]
+    if actual_ids == requested or set(actual_ids) != set(requested):
+        # Let the caller record exact-ID rejection; never move an unexpected alias.
+        return expected
+    for index, requested_id in enumerate(requested):
+        if expected[index]["videoId"] == requested_id:
+            continue
+        if before_mutation is not None:
+            before_mutation()
+        before = get_existing_playlist_items(ytmusic, playlist_id)
+        if not _same_owned_slots(before, expected) or [v["videoId"] for v in before] != [v["videoId"] for v in expected]:
+            raise RuntimeError("Playlist changed before an owned item move")
+        item = next(v for v in before if v["videoId"] == requested_id)
+        target = before[index]["setVideoId"]
+        after = [v for v in before if v["setVideoId"] != item["setVideoId"]]
+        destination = next((i for i, v in enumerate(after) if v["setVideoId"] == target), len(after))
+        after.insert(destination, item)
+        if _same_owned_slots(before, after):
+            expected = before
+            continue
+        event = {"phase": phase, "operation": "move", "chunk_order": index + 1, "attempt": 1,
+                 "items": [item], "target_before_set_video_id": target, "before_items": before, "after_items": after}
+        intent = evidence({**event, "state": "intent"})
+        try:
+            result = ytmusic.edit_playlist(playlist_id, moveItem=(item["setVideoId"], target) if target else item["setVideoId"])
+            _require_playlist_mutation_success(result, "move")
+            actual = _observe_playlist_transition(ytmusic, playlist_id, before, after)
+            evidence({**event, "state": "ack", "intent_seq": intent["seq"], "after_items": actual})
+            expected = actual
+        except Exception as exc:
+            try:
+                evidence({**event, "state": "ambiguous", "intent_seq": intent["seq"], "error": type(exc).__name__})
+            except Exception:
+                LOG.error("Unable to record ambiguous move; durable intent remains unresolved")
+            raise PlaylistMutationUncertain("Item move has no complete durable acknowledgement") from exc
+    return expected
 
 
 def _identity_review_required(differences: list[dict[str, Any]]) -> bool:
     return any(
         not item.get("accepted") and item.get("reason") in {
-            "title_mismatch", "author_mismatch", "version_mismatch", "duration_mismatch",
+            "title_mismatch", "author_mismatch", "version_mismatch", "duration_mismatch", "unexpected_video_id",
         }
         for item in differences
     )
@@ -2645,7 +2736,10 @@ def _audit_playlist_items(items: Any) -> list[dict[str, str]]:
         slot = item.get("setVideoId") or item.get("set_video_id")
         if not isinstance(video_id, str) or not video_id or not isinstance(slot, str) or not slot:
             raise RuntimeError("Audit playlist item is missing identity/ownership fields")
-        normalized.append({"videoId": video_id, "setVideoId": slot})
+        row = {"videoId": video_id, "setVideoId": slot}
+        if isinstance(item.get("isAvailable"), bool):
+            row["isAvailable"] = item["isAvailable"]
+        normalized.append(row)
     _playlist_slots(normalized)
     return normalized
 
@@ -2660,16 +2754,47 @@ def _recoverable_playlist_items(run: dict[str, Any]) -> list[dict[str, str]]:
     expected = _audit_playlist_items(baseline)
     seen_slots = set(_playlist_slots(expected))
     pending: dict[int, dict[str, Any]] = {}
+    ambiguous_moves: set[int] = set()
     for event in payload.get("events", []):
-        if event.get("operation") not in {"remove", "add"}:
+        observed_confirmation = event.get("reconciliation_action") == "confirm_observed_move"
+        if observed_confirmation:
+            if (event.get("phase"), event.get("operation"), event.get("state")) != ("reconcile", "observe", "verified"):
+                raise RuntimeError("Observed move confirmation must be a reconciliation observation")
+            if (len(pending) != 1 or event.get("observation_complete") is not True
+                    or event.get("verification_matches") is not True
+                    or event.get("attestation") != "workers_quiescent=true; explicit_confirmation=true"):
+                raise RuntimeError("Observed move confirmation lacks explicit complete evidence")
+            intent_seq, move = next(iter(pending.items()))
+            checks = event.get("review_checks")
+            after = _audit_playlist_items(move.get("after_items"))
+            if (move.get("operation") != "move" or not isinstance(checks, list) or len(checks) != 2
+                    or _playlist_item_keys(_audit_playlist_items(event.get("before_items"))) != _playlist_item_keys(_audit_playlist_items(move.get("before_items")))
+                    or _playlist_item_keys(_audit_playlist_items(event.get("after_items"))) != _playlist_item_keys(after)
+                    or _playlist_item_keys(_audit_playlist_items(event.get("items"))) != _playlist_item_keys(after)
+                    or any(not isinstance(check, dict) or check.get("intent_seq") != intent_seq
+                           or _playlist_item_keys(_audit_playlist_items(check.get("items"))) != _playlist_item_keys(after)
+                           for check in checks)):
+                raise RuntimeError("Observed move confirmation differs from its exact unresolved intent")
+            # This is observation-based ownership resolution, not a provider ACK.
+            # Reuse the move-order validator without changing the stored evidence.
+            event = {**move, "state": "ack", "intent_seq": intent_seq, "after_items": after}
+            ambiguous_moves.discard(intent_seq)
+        if event.get("operation") not in {"remove", "add", "move"}:
             continue
         if event.get("state") == "intent":
             if pending or not _same_owned_slots(_audit_playlist_items(event.get("before_items")), expected):
                 raise RuntimeError("Mutation evidence has an unresolved or inconsistent intent")
+            if event.get("operation") == "move" and _playlist_item_keys(_audit_playlist_items(event.get("before_items"))) != _playlist_item_keys(expected):
+                raise RuntimeError("Move intent changed an owned recording identity")
             pending[event["seq"]] = event
         elif event.get("state") == "ambiguous":
-            raise RuntimeError("Mutation acknowledgement is ambiguous; manual review required")
+            intent = pending.get(event.get("intent_seq"))
+            if not intent or intent.get("operation") != "move" or event.get("operation") != "move" or intent.get("phase") != event.get("phase"):
+                raise RuntimeError("Mutation acknowledgement is ambiguous; manual review required")
+            ambiguous_moves.add(event["intent_seq"])
         elif event.get("state") == "ack":
+            if event.get("intent_seq") in ambiguous_moves:
+                raise RuntimeError("Ambiguous move requires explicit observation, not a replacement receipt")
             intent = pending.pop(event.get("intent_seq"), None)
             if not intent or intent["operation"] != event["operation"] or intent["phase"] != event["phase"]:
                 raise RuntimeError("Acknowledgement does not match its durable intent")
@@ -2679,6 +2804,24 @@ def _recoverable_playlist_items(run: dict[str, Any]) -> list[dict[str, str]]:
                     raise RuntimeError("Removal receipt does not match the requested slots")
                 removed = set(_playlist_slots(items))
                 expected = [item for item in expected if item["setVideoId"] not in removed]
+            elif event["operation"] == "move":
+                if len(items) != 1 or _playlist_slots(items) != _playlist_slots(_audit_playlist_items(intent["items"])):
+                    raise RuntimeError("Move receipt differs from its intent")
+                before = _audit_playlist_items(intent.get("before_items"))
+                after = _audit_playlist_items(event.get("after_items"))
+                moved_slot = items[0]["setVideoId"]
+                successor = intent.get("target_before_set_video_id") or ""
+                if event.get("target_before_set_video_id", "") != successor:
+                    raise RuntimeError("Move acknowledgement changed its requested successor")
+                moved = next((row for row in before if row["setVideoId"] == moved_slot), None)
+                rest = [row for row in before if row["setVideoId"] != moved_slot]
+                if not moved or successor == moved_slot or (successor and successor not in _playlist_slots(rest)):
+                    raise RuntimeError("Move intent refers to an unowned item or successor")
+                position = _playlist_slots(rest).index(successor) if successor else len(rest)
+                rest.insert(position, moved)
+                if [(v["videoId"], v["setVideoId"]) for v in rest] != [(v["videoId"], v["setVideoId"]) for v in after]:
+                    raise RuntimeError("Move acknowledgement does not apply its exact intent")
+                expected = after
             else:
                 requested = [item.get("videoId") or item.get("video_id") for item in intent["items"]]
                 validated = _addition_receipts(
@@ -2697,6 +2840,8 @@ def _recoverable_playlist_items(run: dict[str, Any]) -> list[dict[str, str]]:
                     raise RuntimeError("Receipt state is inconsistent")
                 expected = after_items
     if pending:
+        if ambiguous_moves:
+            raise RuntimeError("Mutation acknowledgement is ambiguous; manual review required")
         raise RuntimeError("Mutation was interrupted before a durable acknowledgement")
     return expected
 
@@ -2712,6 +2857,9 @@ def update_ytmusic_playlist(
     service: str = "",
     job_name: str = "",
     playlist_name: str = "",
+    playability_verifier: Any = None,
+    before_mutation: Any = None,
+    expected_before_items: list[dict[str, str]] | None = None,
 ) -> None:
     """Publish with durable item ownership; never equate recovery with song identity."""
     if not video_ids or any(not isinstance(value, str) or not value.strip() for value in video_ids):
@@ -2738,11 +2886,20 @@ def update_ytmusic_playlist(
             "Inspect this run with reconcile_playlist_update.py --run-id and --playlist-id; "
             "source collection and matching are not classified by this publication error."
         )
+    from sync_validation import PlaybackBlocked, verifier_for, require_playable
+    verifier = playability_verifier if playability_verifier is not None else verifier_for(ytmusic)
+    require_playable(verifier, video_ids)
+    if before_mutation is not None:
+        before_mutation()
     existing = get_existing_playlist_items(ytmusic, playlist_id)
     _playlist_slots(existing)
+    if expected_before_items is not None and _playlist_item_keys(existing) != _playlist_item_keys(_audit_playlist_items(expected_before_items)):
+        raise PlaybackBlocked("Playlist changed since the reviewed before-image")
     existing_ids = [item["videoId"] for item in existing]
-    metadata_cache: dict[str, dict[str, Any]] = {}
-    initial = _compare_playlist_video_ids(ytmusic, video_ids, existing_ids, metadata_cache=metadata_cache)
+    initial = _compare_exact_playlist_video_ids(video_ids, existing_ids)
+    require_playable(verifier, video_ids, items=existing)
+    if before_mutation is not None:
+        before_mutation()
     claim_token = uuid.uuid4().hex
     run_id = record_playlist_update(
         db_path, playlist_id=playlist_id, service=service, job_name=job_name,
@@ -2770,31 +2927,38 @@ def update_ytmusic_playlist(
             LOG.error("Final playlist observation unavailable: %s", exc)
             return [], False
 
-    # Different chart editions need not match the previous list semantically.
-    # A complete audited baseline protects replacement; the new slots below
-    # receive strict verification and, when possible, per-item omission.
-    metadata_errors = [row for row in initial["differences"] if row["reason"] == "metadata_error"]
-    if len(metadata_errors) == len(video_ids) == len(existing_ids):
-        finish("verification_failed", existing, initial, "No requested item can be verified during metadata outage")
-        raise RuntimeError("All requested substitutions lack metadata; preserving the existing playlist")
-    if description or playlist_name:
-        try:
-            kwargs = {}
-            if playlist_name:
-                kwargs["title"] = playlist_name
-            if description:
-                kwargs["description"] = description
-            ytmusic.edit_playlist(playlist_id, **kwargs)
-        except Exception as exc:
-            LOG.warning("Failed to update playlist metadata: %s", exc)
-    if initial["matches"]:
-        finish("skipped_current", existing, initial)
-        LOG.info("Playlist already matches requested order; no item removal/addition.")
-        return
+    def guard(target_ids=video_ids):
+        observed = get_existing_playlist_items(ytmusic, playlist_id)
+        require_playable(verifier, target_ids, items=observed)
+        if before_mutation is not None:
+            before_mutation()
+        return observed
+
     try:
         current = get_existing_playlist_items(ytmusic, playlist_id)
         if current != existing:
-            raise RuntimeError("Playlist changed after its full audit snapshot")
+            raise PlaybackBlocked("Playlist changed after its full audit snapshot")
+        if guard() != existing:
+            raise PlaybackBlocked("Playlist changed before publication approval")
+        if initial["matches"]:
+            finish("skipped_current", existing, initial)
+            LOG.info("Playlist already matches requested order; no external mutation.")
+            return
+        if description or playlist_name:
+            # Snapshot/playback rejection is not a best-effort metadata failure.
+            guard()
+            try:
+                kwargs = {}
+                if playlist_name:
+                    kwargs["title"] = playlist_name
+                if description:
+                    kwargs["description"] = description
+                _require_playlist_mutation_success(ytmusic.edit_playlist(playlist_id, **kwargs), "metadata update")
+            except PlaybackBlocked:
+                raise
+            except Exception as exc:
+                LOG.warning("Failed to update playlist metadata: %s", exc)
+                guard()
     except Exception as exc:
         actual, complete = observe()
         finish("recovery_required", actual, initial, str(exc), observation_complete=complete)
@@ -2804,36 +2968,23 @@ def update_ytmusic_playlist(
     publication_verified = False
     comparison: dict[str, Any] = {"matches": False, "differences": []}
     try:
-        expected_items = _replace_playlist_contents(
-            ytmusic, playlist_id, current, video_ids, evidence=evidence, phase="publish",
+        expected_items = _preserve_playlist_slots(
+            ytmusic, playlist_id, current, video_ids, evidence=evidence, before_mutation=guard,
         )
         for attempt in range(3):
             actual = get_existing_playlist_items(ytmusic, playlist_id)
             if not _same_owned_slots(actual, expected_items):
                 raise RuntimeError("Playlist item ownership/order differs from acknowledged additions")
-            comparison = _compare_playlist_video_ids(
-                ytmusic, video_ids, [item["videoId"] for item in actual], metadata_cache=metadata_cache,
-            )
+            comparison = _compare_exact_playlist_video_ids(video_ids, [item["videoId"] for item in actual])
             if comparison["matches"]:
+                require_playable(verifier, video_ids, items=actual)
+                if before_mutation is not None:
+                    before_mutation()
                 publication_verified = True
                 finish("published", actual, comparison)
                 return
             if attempt < 2:
                 time.sleep(2)
-        partial = _publish_without_unverified_substitutions(
-            ytmusic, playlist_id, video_ids, actual, comparison, evidence=evidence,
-        )
-        if partial is not None:
-            actual, verified = partial
-            publication_verified = True
-            finish("published", actual, verified)
-            LOG.warning(
-                "Partial publication completed: playlist=%s run_id=%s requested=%d published=%d omitted=%s",
-                playlist_id, run_id, len(video_ids), len(actual),
-                json.dumps([{key: row[key] for key in ("position", "expected_id", "actual_id", "reason")}
-                            for row in comparison["differences"] if not row["accepted"]], ensure_ascii=False),
-            )
-            return
         failure = RuntimeError("Playlist verification failed: " + json.dumps(comparison["differences"], ensure_ascii=False))
     except Exception as exc:
         failure = exc
@@ -2850,32 +3001,35 @@ def update_ytmusic_playlist(
     actual, complete = observe()
     # A lost response/ACK cannot be made atomic with the provider. Preserve the
     # pending intent and stop, including when the uncertain operation was restore.
-    if isinstance(failure, PlaylistMutationUncertain) or publication_verified:
+    if isinstance(failure, (PlaylistMutationUncertain, PlaybackBlocked)) or publication_verified:
         finish("recovery_required", actual, comparison, str(failure), observation_complete=complete)
         raise failure
     try:
+        # The pre-repair list may itself contain unavailable recordings.
+        # Never label reinstating that state as a verified recovery.
+        require_playable(verifier, existing_ids, items=existing)
         run = get_playlist_update_run(db_path, run_id, read_only=True)
         expected = _recoverable_playlist_items(run)
         current = get_existing_playlist_items(ytmusic, playlist_id)
         if not _same_owned_slots(current, expected):
             raise RuntimeError("Current slots are not owned by this execution; refusing destructive restore")
         # Even a same raw-ID list with new/unowned tokens must not enter this path.
-        previous = _compare_playlist_video_ids(
-            ytmusic, existing_ids, [item["videoId"] for item in current], metadata_cache=metadata_cache,
-        )
+        previous = _compare_exact_playlist_video_ids(existing_ids, [item["videoId"] for item in current])
+        restore_guard = lambda: guard(existing_ids)
+        restore_guard()
         if not previous["matches"]:
-            expected = _replace_playlist_contents(
+            expected = _preserve_playlist_slots(
                 ytmusic, playlist_id, current, existing_ids, evidence=evidence,
-                phase="restore", allow_duplicates=True,
+                phase="restore", before_mutation=restore_guard,
             )
             current = get_existing_playlist_items(ytmusic, playlist_id)
             if not _same_owned_slots(current, expected):
                 raise RuntimeError("Restored item ownership/order differs from durable receipts")
-            previous = _compare_playlist_video_ids(
-                ytmusic, existing_ids, [item["videoId"] for item in current], metadata_cache=metadata_cache,
-            )
+            previous = _compare_exact_playlist_video_ids(existing_ids, [item["videoId"] for item in current])
         if not previous["matches"]:
             raise RuntimeError("Restored playlist does not match the pre-update snapshot")
+        require_playable(verifier, existing_ids, items=current)
+        restore_guard()
         needs_review = _identity_review_required(comparison["differences"])
         evidence({
             "phase": "restore", "operation": "observe", "state": "verified",
@@ -2887,6 +3041,8 @@ def update_ytmusic_playlist(
         final, complete = observe()
         finish("recovery_required", final, comparison, f"{failure}; restore failed: {restore_exc}",
                observation_complete=complete)
+        if isinstance(restore_exc, (PlaybackBlocked, PlaylistMutationUncertain)):
+            raise restore_exc from failure
         raise RuntimeError(f"{failure}; restore failed: {restore_exc}") from failure
     raise RuntimeError(f"{failure}; items restored" + ("; identity review required before republishing" if needs_review else ""))
 

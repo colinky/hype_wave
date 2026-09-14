@@ -565,6 +565,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--search-limit", type=int, default=DEFAULT_SEARCH_LIMIT)
     parser.add_argument("--use-musicbrainz", default=None, help="true/false. Enrich missing Spotify album names with MusicBrainz (default: false)")
     parser.add_argument("--shuffle", action="store_true", help="Shuffle the tracks before saving them to the YouTube Music playlist")
+    parser.add_argument("--defer-publish", action="store_true", help="Match, validate, and persist tracks without updating the target playlist")
     parser.add_argument("--dry-run", action="store_true")
     return parser.parse_args()
 
@@ -590,7 +591,7 @@ def main() -> int:
     yt_oauth_client_secret = args.yt_oauth_client_secret or os.environ.get(
         "YTMUSIC_OAUTH_CLIENT_SECRET", ""
     )
-    yt_playlist_id = env_or_arg(args.yt_playlist_id, "YTMUSIC_PLAYLIST_ID")
+    yt_playlist_id = env_or_arg(args.yt_playlist_id, "YTMUSIC_PLAYLIST_ID", required=not args.defer_publish)
     job_name = args.job_name or "spotify"
     playlist_name = args.playlist_name or job_name
     db_path = Path(args.db_path).expanduser()
@@ -741,6 +742,10 @@ def main() -> int:
         history_json=args.history_json,
     )
 
+    if args.defer_publish:
+        LOG.info("Publication deferred; matching, validation, and persistence completed for %s.", job_name)
+        return 0
+
     if args.shuffle:
         LOG.info("Shuffling %d tracks before saving to playlist.", len(matched_video_ids))
         random.shuffle(matched_video_ids)
@@ -762,8 +767,9 @@ def main() -> int:
 
 
 if __name__ == "__main__":
+    from sync_validation import run_locked_cli
     try:
-        raise SystemExit(main())
+        raise SystemExit(run_locked_cli(main))
     except KeyboardInterrupt:
         print("Interrupted", file=sys.stderr)
         raise SystemExit(130)

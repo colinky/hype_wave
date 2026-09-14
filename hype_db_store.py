@@ -7,7 +7,8 @@ import os
 import re
 import sqlite3
 import uuid
-from datetime import datetime, timedelta
+from contextlib import contextmanager
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Iterable, Mapping
 
@@ -66,6 +67,9 @@ __all__ = [
     "get_playlist_update_run",
     "get_pending_playlist_recovery",
     "get_bulk_cached_matches",
+    "CanonicalDecisionError",
+    "apply_canonical_decision",
+    "validate_canonical_decision",
 ]
 
 YOUTUBE_ATV_RELATION = "youtube_charts_atv_external_video_id"
@@ -84,7 +88,7 @@ ACTIVE_PLAYLIST_UPDATE_STATUSES = {
     "recovery_required",
 }
 PLAYLIST_EVIDENCE_PHASES = {"publish", "restore", "reconcile", "reconcile_tail"}
-PLAYLIST_EVIDENCE_OPERATIONS = {"remove", "add", "observe", "finalize"}
+PLAYLIST_EVIDENCE_OPERATIONS = {"remove", "add", "move", "observe", "finalize"}
 PLAYLIST_EVIDENCE_STATES = {"intent", "ack", "ambiguous", "verified"}
 
 
@@ -149,6 +153,12 @@ def find_track_by_metadata(conn: sqlite3.Connection, title: str, artist: str, al
 
 
 
+def _initialize_new_database(db_path: str | Path) -> None:
+    # Routine writers must not run migrations or automatic repairs on an existing DB.
+    if not os.environ.get("SUPABASE_DB_URL") and not Path(db_path).exists():
+        init_db(db_path, repair_source_bindings=False)
+
+
 def manual_override(conn: sqlite3.Connection, service: str, song_id: str) -> sqlite3.Row | None:
     if not service or not song_id:
         return None
@@ -156,6 +166,217 @@ def manual_override(conn: sqlite3.Connection, service: str, song_id: str) -> sql
         "SELECT * FROM manual_overrides WHERE service = ? AND song_id = ?",
         (normalized_service(service), song_id),
     ).fetchone()
+
+
+class CanonicalDecisionError(ValueError):
+    """A proposed recording is not authorized by fresh evidence/current state."""
+
+
+@contextmanager
+def _canonical_write_scope(conn: Any):
+    # A standalone SQLite SAVEPOINT would commit on RELEASE. Keep ownership
+    # with the caller even when it has not started its transaction yet.
+    if isinstance(conn, sqlite3.Connection) and not conn.in_transaction:
+        conn.execute("BEGIN IMMEDIATE")
+    name = "canonical_" + uuid.uuid4().hex
+    conn.execute(f"SAVEPOINT {name}")
+    try:
+        yield
+        conn.execute(f"RELEASE SAVEPOINT {name}")
+    except BaseException:
+        conn.execute(f"ROLLBACK TO SAVEPOINT {name}")
+        conn.execute(f"RELEASE SAVEPOINT {name}")
+        raise
+
+
+def _fresh_playability(evidence: Any, video_id: str, *, now: datetime) -> str:
+    if not isinstance(evidence, dict):
+        raise CanonicalDecisionError("Missing recording playability evidence")
+    try:
+        observed = datetime.fromisoformat(str(evidence["observed_at"]).replace("Z", "+00:00"))
+        expires = datetime.fromisoformat(str(evidence["expires_at"]).replace("Z", "+00:00"))
+        timely = (observed.tzinfo is not None and expires.tzinfo is not None
+                  and observed <= now < expires
+                  and expires - observed <= timedelta(minutes=30))
+    except (KeyError, TypeError, ValueError):
+        timely = False
+    if (not timely or evidence.get("video_id") != video_id
+            or evidence.get("exact_id") is not True
+            or evidence.get("auth_state") != "authenticated"
+            or evidence.get("run_health") != "healthy"
+            or not str(evidence.get("environment") or "").strip()):
+        raise CanonicalDecisionError("Stale, uncertain, or mismatched recording evidence")
+    state = evidence.get("state")
+    if state == "playable" and (evidence.get("has_audio") is not True
+                                or evidence.get("is_available") is False):
+        raise CanonicalDecisionError("Playable evidence lacks audio or conflicts with availability")
+    if state == "unavailable" and evidence.get("confirmed_unavailable") is not True:
+        raise CanonicalDecisionError("Unavailable recording was not reconfirmed")
+    if state not in {"playable", "unavailable"}:
+        raise CanonicalDecisionError("Unknown recording state cannot authorize a selection")
+    return state
+
+
+def validate_canonical_decision(
+    existing: Mapping[str, Any] | None,
+    decision: Mapping[str, Any],
+    *,
+    now: datetime | None = None,
+) -> dict[str, Any]:
+    """Validate injected evidence only; never contact YouTube or mutate a DB."""
+    existing = dict(existing or {})
+    current_id = str(existing.get("canonical_yt_video_id") or "")
+    selected = str(decision.get("selected_video_id") or "")
+    if (decision.get("expected_track_uid") != existing.get("track_uid")
+            or str(decision.get("expected_video_id") or "") != current_id):
+        raise CanonicalDecisionError("Recording binding changed since selection")
+    if not re.fullmatch(r"[A-Za-z0-9_-]{11}", selected):
+        raise CanonicalDecisionError("Invalid selected recording ID")
+    now = now or datetime.now(timezone.utc)
+    candidate = decision.get("candidate_evidence")
+    if _fresh_playability(candidate, selected, now=now) != "playable":
+        raise CanonicalDecisionError("Selected recording is not playable")
+    metadata = dict(decision.get("metadata") or {})
+    for field in ("title", "artist", "album"):
+        metadata[field] = (metadata.get(field) or metadata.get("yt_" + field)
+                           or metadata.get(field + "_en") or metadata.get(field + "_ko") or "")
+    if (metadata.get("video_id") != selected or metadata.get("verified") is not True
+            or not _metadata_variants(metadata)):
+        raise CanonicalDecisionError("Selected recording needs its own exact metadata")
+    switching = bool(current_id and selected != current_id)
+    if switching:
+        if decision.get("same_recording") is not True:
+            raise CanonicalDecisionError("Replacement has no same-recording proof")
+        current_evidence = decision.get("current_evidence")
+        current_state = _fresh_playability(current_evidence, current_id, now=now)
+        if current_evidence["environment"] != candidate["environment"]:
+            raise CanonicalDecisionError("Recording observations use different environments")
+        reason = decision.get("reason")
+        if reason == "restore_unintended_chart_switch":
+            incident = decision.get("incident") or {}
+            if (not all(incident.get(key) for key in ("repair_id", "case_id", "evidence_ref"))
+                    or incident.get("original_video_id") != selected
+                    or incident.get("changed_video_id") != current_id):
+                raise CanonicalDecisionError("Incident restoration is outside its explicit scope")
+        elif reason != "replace_unavailable_recording" or current_state != "unavailable":
+            raise CanonicalDecisionError("A usable existing recording must be preserved")
+    return {"selected_video_id": selected, "metadata": metadata, "switching": switching}
+
+
+def _canonical_manual_rows(conn: Any, track_uid: str, selected: str) -> list[dict[str, Any]]:
+    rows = conn.execute(
+        "SELECT DISTINCT mo.* FROM manual_overrides mo "
+        "LEFT JOIN platform_song_ids ps ON ps.service=mo.service AND ps.song_id=mo.song_id "
+        "WHERE mo.target_track_uid=? OR ps.track_uid=? "
+        "OR (mo.service='ytmusic' AND mo.song_id=?) ORDER BY mo.service,mo.song_id",
+        (track_uid, track_uid, selected),
+    ).fetchall()
+    return [dict(row) for row in rows]
+
+
+def apply_canonical_decision(
+    conn: Any, *, track_uid: str, decision: Mapping[str, Any],
+    source_row: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Apply an evidence-bound selection without committing the caller's work."""
+    with _canonical_write_scope(conn):
+        lock = " FOR UPDATE" if type(conn).__name__ == "PostgresConnectionWrapper" else ""
+        current = conn.execute("SELECT * FROM tracks WHERE track_uid=?" + lock, (track_uid,)).fetchone()
+        current = dict(current) if current else {"track_uid": track_uid}
+        already_selected = bool(current.get("canonical_yt_video_id") == decision.get("selected_video_id")
+                                and str(decision.get("expected_video_id") or "") != str(current.get("canonical_yt_video_id") or ""))
+        approved = validate_canonical_decision(
+            {**current, "canonical_yt_video_id": decision.get("expected_video_id")} if already_selected else current,
+            decision,
+        )
+        selected, metadata = approved["selected_video_id"], approved["metadata"]
+        if already_selected:
+            expected_metadata = tuple(metadata[key] for key in ("title", "artist", "album"))
+            actual_metadata = tuple(str(current.get("yt_" + key) or "") for key in ("title", "artist", "album"))
+            if (actual_metadata != expected_metadata
+                    or current.get("yt_metadata_verified_key") != _yt_metadata_verified_key(selected, *expected_metadata)):
+                raise CanonicalDecisionError("An earlier selection has different metadata; review is required")
+        policies = _canonical_manual_rows(conn, track_uid, selected)
+        if "expected_manual_policy" in decision and policies != decision["expected_manual_policy"]:
+            raise CanonicalDecisionError("Manual policy changed since selection")
+        for policy in policies:
+            if (str(policy.get("action") or "").lower() in {"block", "manual_blocked", "split"}
+                    or (policy.get("canonical_yt_video_id") and policy["canonical_yt_video_id"] != selected)
+                    or (policy.get("target_track_uid") and policy["target_track_uid"] != track_uid)):
+                raise CanonicalDecisionError("Selection conflicts with manual policy")
+        source = dict(source_row or {})
+        source.setdefault("title", source.get("original_title", ""))
+        source.setdefault("artist", source.get("original_artist_or_channel", ""))
+        from sync_validation import source_recording_matches
+        policy_path = Path(__file__).with_name("matching_alias.json")
+        policy_bytes = policy_path.read_bytes()
+        expected_policy = decision.get("expected_identity_policy_hash")
+        if expected_policy is not None and expected_policy != hashlib.sha256(policy_bytes).hexdigest():
+            raise CanonicalDecisionError("Identity policy changed since selection")
+        if source_row and not source_recording_matches(source, metadata, policy=json.loads(policy_bytes)):
+            raise CanonicalDecisionError("Selected metadata does not match the source recording")
+        owner = find_track_by_video(conn, selected)
+        if owner and owner != track_uid:
+            owner_metadata = _track_metadata_rows(conn, owner)
+            owner_track = conn.execute("SELECT canonical_yt_video_id FROM tracks WHERE track_uid=?", (owner,)).fetchone()
+            if (decision.get("expected_target_uid") != owner
+                    or decision.get("same_recording") is not True
+                    or not owner_track or owner_track[0] != selected
+                    or not owner_metadata
+                    or not all(_metadata_rows_equivalent(row, metadata) for row in owner_metadata)
+                    or _canonical_manual_rows(conn, owner, selected)):
+                raise CanonicalDecisionError("Selected video belongs to another track; explicit identity repair required")
+            _merge_track_uids(
+                conn, loser_uid=owner, winner_uid=track_uid,
+                canonical_video=str(current.get("canonical_yt_video_id") or selected),
+                anchor_rows=(metadata,),
+                canonical_decision=decision,
+            )
+        competing = conn.execute(
+            "SELECT track_uid FROM tracks WHERE canonical_yt_video_id=? AND track_uid!=?",
+            (selected, track_uid),
+        ).fetchone()
+        if competing:
+            raise CanonicalDecisionError("Selected canonical is claimed by another track")
+        title = str(metadata.get("title") or metadata.get("title_en") or metadata.get("title_ko") or "")
+        artist = str(metadata.get("artist") or metadata.get("artist_en") or metadata.get("artist_ko") or "")
+        album = str(metadata.get("album") or metadata.get("album_en") or metadata.get("album_ko") or "")
+        verified = _yt_metadata_verified_key(selected, title, artist, album)
+        values = (selected, title, artist, album, verified)
+        keys = ("canonical_yt_video_id", "yt_title", "yt_artist", "yt_album", "yt_metadata_verified_key")
+        if tuple(str(current.get(key) or "") for key in keys) != values:
+            conn.execute(
+                "INSERT INTO tracks(track_uid,canonical_yt_video_id,yt_title,yt_artist,yt_album,"
+                "yt_metadata_verified_key,match_status,best_score,created_at,updated_at) "
+                "VALUES (?,?,?,?,?,?,'matched',1.0,?,?) "
+                "ON CONFLICT(track_uid) DO UPDATE SET canonical_yt_video_id=excluded.canonical_yt_video_id,"
+                "yt_title=excluded.yt_title,yt_artist=excluded.yt_artist,yt_album=excluded.yt_album,"
+                "yt_metadata_verified_key=excluded.yt_metadata_verified_key,updated_at=excluded.updated_at",
+                (track_uid, *values, current.get("created_at") or utc_now_iso(), utc_now_iso()),
+            )
+            _sync_canonical_video_flags(conn, [track_uid])
+            _rebuild_track_metadata_lookup(conn, winner_uid=track_uid, anchor_rows=(metadata,))
+        aliases = conn.execute("SELECT video_id,is_canonical FROM yt_video_ids WHERE track_uid=?", (track_uid,)).fetchall()
+        if (not any(row["video_id"] == selected for row in aliases)
+                or any(int(row["is_canonical"] or 0) != int(row["video_id"] == selected) for row in aliases)):
+            _sync_canonical_video_flags(conn, [track_uid])
+        actual = conn.execute("SELECT canonical_yt_video_id FROM tracks WHERE track_uid=?", (track_uid,)).fetchone()
+        if not actual or actual[0] != selected or policies != _canonical_manual_rows(conn, track_uid, selected):
+            raise CanonicalDecisionError("Canonical selection changed while being saved")
+        if approved["switching"] and not already_selected:
+            payload = {"track_uid": track_uid, "expected_video_id": decision["expected_video_id"],
+                       "selected_video_id": selected, "selected_metadata_key": verified,
+                       "decision": dict(decision)}
+            serialized = json.dumps(payload, ensure_ascii=False, sort_keys=True, default=str)
+            report_id = "canonical:" + hashlib.sha256(serialized.encode()).hexdigest()
+            conn.execute(
+                "INSERT INTO migration_reports(report_id,source,rows_read,tracks_seen,conflicts_seen,created_at,payload_json) "
+                "VALUES (?,'canonical_decision',1,1,0,?,?) ON CONFLICT(report_id) DO NOTHING",
+                (report_id, utc_now_iso(), serialized),
+            )
+        return {"track_uid": track_uid, "video_id": selected, "yt_title": title,
+                "yt_artist": artist, "yt_album": album, "status": "cached_match", "score": 1.0,
+                "query": str(decision.get("reason") or "verified_canonical")}
 
 
 def _canonical_track_values(
@@ -295,7 +516,13 @@ def ensure_track(
     yt_album: str = "",
     status: str = "unmatched",
     score: float = 0.0,
+    canonical_decision: Mapping[str, Any] | None = None,
 ) -> str:
+    if canonical_decision:
+        if canonical_decision.get("selected_video_id") != video_id:
+            raise CanonicalDecisionError("Track write differs from its approved selection")
+        approved = apply_canonical_decision(conn, track_uid=track_uid, decision=canonical_decision)
+        yt_title, yt_artist, yt_album = (approved[key] for key in ("yt_title", "yt_artist", "yt_album"))
     now = utc_now_iso()
     existing = conn.execute(
         """
@@ -976,6 +1203,20 @@ def _rebuild_track_metadata_lookup(
 
 
 def _merge_track_uids(
+    conn: Any, *, loser_uid: str, winner_uid: str, canonical_video: str,
+    dry_run: bool = False, anchor_rows: Iterable[dict[str, Any]] = (),
+    canonical_decision: Mapping[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Merge atomically while leaving the final commit to the caller."""
+    params = dict(loser_uid=loser_uid, winner_uid=winner_uid, canonical_video=canonical_video,
+                  dry_run=dry_run, anchor_rows=anchor_rows, canonical_decision=canonical_decision)
+    if dry_run:
+        return _merge_track_uids_impl(conn, **params)
+    with _canonical_write_scope(conn):
+        return _merge_track_uids_impl(conn, **params)
+
+
+def _merge_track_uids_impl(
     conn: Any,
     *,
     loser_uid: str,
@@ -983,15 +1224,47 @@ def _merge_track_uids(
     canonical_video: str,
     dry_run: bool = False,
     anchor_rows: Iterable[dict[str, Any]] = (),
+    canonical_decision: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     if loser_uid == winner_uid:
         return {"merged": 0, "winner_uid": winner_uid, "loser_uid": loser_uid}
+    winner = conn.execute("SELECT * FROM tracks WHERE track_uid=?", (winner_uid,)).fetchone()
+    if not winner:
+        raise CanonicalDecisionError("Merge winner no longer exists")
+    winner = dict(winner)
+    approved = validate_canonical_decision(winner, canonical_decision) if canonical_decision else None
+    canonical_video = (approved["selected_video_id"] if approved
+                       else str(winner.get("canonical_yt_video_id") or canonical_video))
+    loser = conn.execute("SELECT canonical_yt_video_id FROM tracks WHERE track_uid=?", (loser_uid,)).fetchone()
+    if loser and loser[0] and loser[0] != canonical_video:
+        raise CanonicalDecisionError("Identity merge would replace an unverified recording")
+    for uid in (winner_uid, loser_uid):
+        for policy in _canonical_manual_rows(conn, uid, canonical_video):
+            if (str(policy.get("action") or "").lower() in {"block", "manual_blocked", "split"}
+                    or (policy.get("canonical_yt_video_id") and policy["canonical_yt_video_id"] != canonical_video)
+                    or policy.get("target_track_uid") == loser_uid):
+                raise CanonicalDecisionError("Identity merge conflicts with manual policy")
     if dry_run:
         return {"merged": 1, "winner_uid": winner_uid, "loser_uid": loser_uid}
 
+    if approved:
+        metadata = approved["metadata"]
+        canonical_values = (
+            metadata["title"], metadata["artist"], metadata["album"],
+            _yt_metadata_verified_key(canonical_video, metadata["title"], metadata["artist"], metadata["album"]),
+        )
+    else:
+        exact = conn.execute(
+            "SELECT yt_title,yt_artist,yt_album,yt_metadata_verified_key FROM tracks "
+            "WHERE canonical_yt_video_id=? AND track_uid IN (?,?) ORDER BY track_uid",
+            (canonical_video, winner_uid, loser_uid),
+        ).fetchone()
+        canonical_values = tuple(exact[key] for key in (
+            "yt_title", "yt_artist", "yt_album", "yt_metadata_verified_key",
+        )) if exact else ("", "", "", "")
     now = utc_now_iso()
     conn.execute("UPDATE platform_song_ids SET track_uid = ? WHERE track_uid = ?", (winner_uid, loser_uid))
-    conn.execute("UPDATE match_attempts SET track_uid = ? WHERE track_uid = ?", (winner_uid, loser_uid))
+    # Historical attempts describe the original decision, including its UID.
     conn.execute(
         """
         UPDATE manual_overrides
@@ -1014,8 +1287,9 @@ def _merge_track_uids(
         (canonical_video, winner_uid),
     )
     conn.execute(
-        "UPDATE tracks SET canonical_yt_video_id = ?, updated_at = ? WHERE track_uid = ?",
-        (canonical_video, now, winner_uid),
+        "UPDATE tracks SET canonical_yt_video_id=?,yt_title=?,yt_artist=?,yt_album=?,"
+        "yt_metadata_verified_key=?,updated_at=? WHERE track_uid=?",
+        (canonical_video, *canonical_values, now, winner_uid),
     )
     lookup_stats = _rebuild_track_metadata_lookup(
         conn,
@@ -1143,6 +1417,7 @@ def consolidate_source_song_relation(
     source_row: dict[str, Any] | None = None,
     related_row: dict[str, Any] | None = None,
     dry_run: bool = False,
+    canonical_decision: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     service = normalized_service(service)
     related_service = normalized_service(related_service)
@@ -1270,6 +1545,87 @@ def consolidate_source_song_relation(
             incoming_uid=related_uid,
             existing_video=source_song_id,
         )
+
+    if canonical_decision:
+        chosen_uid = source_uid or related_uid or stable_uid(f"yt:{related_song_id}")
+        existing = conn.execute("SELECT * FROM tracks WHERE track_uid=?", (chosen_uid,)).fetchone()
+        current = dict(existing) if existing else {"track_uid": chosen_uid}
+        approved = validate_canonical_decision(current, canonical_decision)
+        if not _relation_metadata_matches(conn, source_uid, None, source_row, approved["metadata"]):
+            raise CanonicalDecisionError("Approved recording does not satisfy the chart relationship identity")
+        if dry_run:
+            return {"status": "would_link", "winner_uid": chosen_uid,
+                    "selected_video_id": approved["selected_video_id"]}
+        with _canonical_write_scope(conn):
+            selected = apply_canonical_decision(
+                # This relationship's narrow feature-credit equivalence was
+                # checked above against the selected video's exact metadata.
+                conn, track_uid=chosen_uid, decision=canonical_decision,
+            )
+            if selected["video_id"] != related_song_id:
+                return {"status": "preserved_canonical", "match": selected,
+                        "winner_uid": chosen_uid, "loser_uid": None, "merged": 0}
+            owner = find_track_by_video(conn, source_song_id)
+            if owner and owner != chosen_uid:
+                raise CanonicalDecisionError("Source video ownership changed during relation repair")
+            for song_id in dict.fromkeys((source_song_id, related_song_id)):
+                conn.execute(
+                    "INSERT INTO platform_song_ids(service,song_id,track_uid) VALUES ('ytmusic',?,?) "
+                    "ON CONFLICT(service,song_id) DO UPDATE SET track_uid=excluded.track_uid",
+                    (song_id, chosen_uid),
+                )
+                conn.execute(
+                    "INSERT INTO yt_video_ids(video_id,track_uid,is_canonical) VALUES (?,?,?) "
+                    "ON CONFLICT(video_id) DO UPDATE SET is_canonical=excluded.is_canonical",
+                    (song_id, chosen_uid, int(song_id == related_song_id)),
+                )
+            if trusted_charts_source and source_row and related_row:
+                _refresh_trusted_chart_source_metadata(
+                    conn, service=service, source_song_id=source_song_id,
+                    source_uid=chosen_uid, source_row=source_row,
+                )
+            _sync_canonical_video_flags(conn, [chosen_uid])
+            _rebuild_track_metadata_lookup(conn, winner_uid=chosen_uid, anchor_rows=(approved["metadata"],))
+            return {"status": "linked", "match": selected, "winner_uid": chosen_uid,
+                    "loser_uid": None, "merged": 0}
+
+    # Charts identifies another asset for the song, not a reason to replace an
+    # independently verified canonical already shared with other sources.
+    cached_source = source_row
+    if not cached_source:
+        stored_source = conn.execute(
+            "SELECT * FROM track_list WHERE service = ? AND song_id = ?",
+            (service, source_song_id),
+        ).fetchone()
+        cached_source = dict(stored_source) if stored_source else {}
+    cached_source = {
+        **cached_source,
+        "song_id": source_song_id,
+        "title": cached_source.get("title") or cached_source.get("original_title") or "",
+        "artist": cached_source.get("artist") or cached_source.get("original_artist_or_channel") or "",
+    }
+    cached = get_bulk_cached_matches(
+        conn, service=service, tracks=[cached_source], read_only=True,
+    ).get(source_song_id)
+    if (
+        cached
+        and cached.get("track_uid") == source_uid
+        and cached.get("video_id")
+        and cached["video_id"] != related_song_id
+    ):
+        return {
+            "status": "preserved_canonical", "match": cached,
+            "winner_uid": source_uid, "loser_uid": related_uid, "merged": 0,
+        }
+
+    source_current = conn.execute(
+        "SELECT canonical_yt_video_id FROM tracks WHERE track_uid=?", (source_uid,),
+    ).fetchone() if source_uid else None
+    if (not dry_run and source_current and source_current[0]
+            and source_current[0] != related_song_id):
+        return {"status": "identity_review_required", "winner_uid": source_uid,
+                "loser_uid": related_uid, "merged": 0,
+                "reason": "canonical_change_requires_playability_evidence"}
 
     trusted_source_refresh = bool(
         not dry_run
@@ -1426,6 +1782,7 @@ def consolidate_source_song_relation(
             "UPDATE tracks SET canonical_yt_video_id = ?, updated_at = ? WHERE track_uid = ?",
             (related_song_id, utc_now_iso(), related_uid),
         )
+    _sync_canonical_video_flags(conn, [related_uid])
     if source_song_id != related_song_id:
         _invalidate_ytmusic_song_translation(conn, source_song_id)
     if source_metadata_changed and not (source_uid and source_uid != related_uid):
@@ -1592,6 +1949,16 @@ def resolve_track_uid(
 
 
 def upsert_track_match(
+    conn: sqlite3.Connection, *, service: str, source_row: dict[str, Any],
+    match_row: dict[str, Any] | None = None,
+) -> str:
+    from sync_validation import assert_no_active_repair
+    with _canonical_write_scope(conn):
+        assert_no_active_repair(conn)
+        return _upsert_track_match_impl(conn, service=service, source_row=source_row, match_row=match_row)
+
+
+def _upsert_track_match_impl(
     conn: sqlite3.Connection,
     *,
     service: str,
@@ -1608,6 +1975,10 @@ def upsert_track_match(
     status = str(merged.get("status") or ("matched" if video_id else "failed"))
     score = float(merged.get("score") or 0)
     override = manual_override(conn, service, song_id)
+    if override and override["target_track_uid"] and not conn.execute(
+        "SELECT 1 FROM tracks WHERE track_uid=?", (override["target_track_uid"],),
+    ).fetchone():
+        raise CanonicalDecisionError("Manual target UID no longer exists")
     override_action = str(override["action"] or "").lower() if override else ""
     if override_action in {"block", "manual_blocked"} or status == "manual_blocked":
         track_uid = stable_uid(f"blocked:{service}:{song_id}")
@@ -1687,6 +2058,15 @@ def upsert_track_match(
             )
         return track_uid
     track_uid = resolve_track_uid(conn, service=service, song_id=song_id, row=merged, video_id=video_id)
+
+    decision = merged.get("canonical_decision")
+    if decision:
+        if decision.get("selected_video_id") != video_id:
+            raise CanonicalDecisionError("Match differs from its approved selection")
+        approved = apply_canonical_decision(
+            conn, track_uid=track_uid, decision=decision, source_row=source_row,
+        )
+        merged.update({key: approved[key] for key in ("yt_title", "yt_artist", "yt_album")})
 
     existing = conn.execute("SELECT canonical_yt_video_id FROM tracks WHERE track_uid = ?", (track_uid,)).fetchone()
     existing_video = existing["canonical_yt_video_id"] if existing else None
@@ -2135,6 +2515,8 @@ def _persist_crawled_tracks_impl(
     chart_period: str | None,
     tracks: Iterable[Any],
 ) -> None:
+    from sync_validation import assert_no_active_repair
+    assert_no_active_repair(conn)
     track_rows = [row_dict(t) for t in tracks]
     service = normalized_service(service)
     ref_p = reference_period or chart_period
@@ -2288,13 +2670,16 @@ def persist_crawled_tracks(
     _validate_raw_tracks(service, job_name, track_rows)
 
     if conn is not None:
-        if type(conn).__name__ != "PostgresConnectionWrapper":
-            init_schema(conn)
-        _persist_crawled_tracks_impl(conn, service, job_name, source_variant, chart_date, reference_period, chart_period, track_rows)
+        # The supplied connection is already initialized; schema scripts may
+        # commit a transaction containing another chart's staged rows.
+        with _canonical_write_scope(conn):
+            _persist_crawled_tracks_impl(conn, service, job_name, source_variant, chart_date, reference_period, chart_period, track_rows)
         if commit:
             conn.commit()
     else:
-        init_db(db_path)
+        if not commit:
+            raise ValueError("commit=False requires a caller-owned connection")
+        _initialize_new_database(db_path)
         with connect(db_path) as new_conn:
             _persist_crawled_tracks_impl(new_conn, service, job_name, source_variant, chart_date, reference_period, chart_period, track_rows)
 
@@ -2320,6 +2705,8 @@ def _persist_crawl_run_bulk_impl(
     matches: Iterable[Any],
     skip_playlist_order: bool = False,
 ) -> None:
+    from sync_validation import assert_no_active_repair
+    assert_no_active_repair(conn)
     service = normalized_service(service)
     track_rows = [row_dict(t) for t in tracks]
     match_rows = [row_dict(m) for m in matches]
@@ -2356,6 +2743,18 @@ def _persist_crawl_run_bulk_impl(
         sid: track for track in track_rows
         if (sid := normalize_song_id(service, track))
     }
+    for match in match_rows:
+        decision = match.get("canonical_decision")
+        if not decision:
+            continue
+        song_id = normalize_song_id(service, match)
+        source_row = track_by_song.get(song_id, match)
+        selected = str(match.get("video_id") or match.get("canonical_yt_video_id") or "")
+        if decision.get("selected_video_id") != selected:
+            raise CanonicalDecisionError("Bulk match differs from its approved selection")
+        uid = resolve_track_uid(conn, service=service, song_id=song_id, row=source_row, video_id=selected)
+        approved = apply_canonical_decision(conn, track_uid=uid, decision=decision, source_row=source_row)
+        match.update({key: approved[key] for key in ("yt_title", "yt_artist", "yt_album")})
     song_ids = [sid for row in match_rows if (sid := normalize_song_id(service, row))]
     video_ids = [
         str(row.get("video_id") or row.get("canonical_yt_video_id") or "").strip()
@@ -2445,6 +2844,8 @@ def _persist_crawl_run_bulk_impl(
         status = str(merged.get("status") or ("matched" if video_id else "failed"))
         score = float(merged.get("score") or 0)
         override = overrides.get(song_id) if song_id else None
+        if override and override.get("target_track_uid") and override["target_track_uid"] not in tracks_by_uid:
+            raise CanonicalDecisionError("Manual target UID no longer exists")
 
         override_action = str((override or {}).get("action") or "").lower()
         if override_action in {"block", "manual_blocked"} or status == "manual_blocked":
@@ -2459,7 +2860,7 @@ def _persist_crawl_run_bulk_impl(
             canonical_video = video_id or None
         elif override and override_action == "set_canonical" and override.get("canonical_yt_video_id"):
             canonical_video = override["canonical_yt_video_id"]
-            track_uid = video_to_uid.get(canonical_video) or stable_uid(f"yt:{canonical_video}")
+            track_uid = override.get("target_track_uid") or video_to_uid.get(canonical_video) or stable_uid(f"yt:{canonical_video}")
             status = "manual_override"
         elif override and override.get("target_track_uid"):
             track_uid = override["target_track_uid"]
@@ -2799,6 +3200,16 @@ def _persist_crawl_run_bulk_impl(
             match_candidate_params,
         )
     cleanup_old_attempts_and_candidates(conn, days=15)
+    inconsistent = conn.execute(
+        "SELECT ma.song_id FROM match_attempts ma "
+        "LEFT JOIN platform_song_ids ps ON ps.service=ma.service AND ps.song_id=ma.song_id "
+        "LEFT JOIN tracks t ON t.track_uid=ps.track_uid "
+        "WHERE ma.run_id=? AND ma.status NOT IN ('failed','manual_blocked','duplicate_skipped') "
+        "AND COALESCE(ma.video_id,'') != COALESCE(t.canonical_yt_video_id,'') LIMIT 1",
+        (run_id,),
+    ).fetchone()
+    if inconsistent:
+        raise CanonicalDecisionError("Stored canonical differs from the selected match; run cannot complete")
     conn.execute(
         """
         UPDATE match_runs
@@ -2824,6 +3235,7 @@ def persist_crawl_run(
     matches: Iterable[Any],
     conn: Any = None,
     skip_playlist_order: bool = False,
+    commit: bool = True,
 ) -> None:
     job_name = require_job_name(job_name)
     source_variant = normalize_source_variant(source_variant)
@@ -2837,24 +3249,20 @@ def persist_crawl_run(
     _validate_effective_tracks(service, job_name, track_rows, match_rows)
 
     if conn is not None:
-        if type(conn).__name__ != "PostgresConnectionWrapper":
-            init_schema(conn)
-        _persist_crawl_run_bulk_impl(
-            conn,
-            service,
-            job_name,
-            source_variant,
-            chart_date,
-            reference_period,
-            chart_period,
-            started_at,
-            track_rows,
-            match_rows,
-            skip_playlist_order=skip_playlist_order,
-        )
-        conn.commit()
+        # Supplied connections have an initialized schema. init_schema uses
+        # executescript on SQLite, which would commit the caller's transaction.
+        with _canonical_write_scope(conn):
+            _persist_crawl_run_bulk_impl(
+                conn, service, job_name, source_variant, chart_date,
+                reference_period, chart_period, started_at, track_rows, match_rows,
+                skip_playlist_order=skip_playlist_order,
+            )
+        if commit:
+            conn.commit()
     else:
-        init_db(db_path)
+        if not commit:
+            raise ValueError("commit=False requires a caller-owned connection")
+        _initialize_new_database(db_path)
         with connect(db_path) as new_conn:
             _persist_crawl_run_bulk_impl(
                 new_conn,
@@ -3225,6 +3633,7 @@ def _normalize_playlist_evidence_event(event: Mapping[str, Any]) -> dict[str, An
         event.get("items") or (),
         require_set_video_id=(operation == "remove" and state == "intent")
         or (operation == "add" and state == "ack")
+        or operation == "move"
         or (
             operation == "observe"
             and state == "verified"
@@ -3247,6 +3656,27 @@ def _normalize_playlist_evidence_event(event: Mapping[str, Any]) -> dict[str, An
                 require_set_video_id=True,
                 require_contiguous=True,
             )
+    if operation == "move":
+        if (state not in {"intent", "ack", "ambiguous"} or len(items) != 1
+                or "target_before_set_video_id" not in event
+                or not isinstance(event["target_before_set_video_id"], str)):
+            raise ValueError("Move evidence needs one owned slot and an explicit destination")
+        target = event["target_before_set_video_id"]
+        normalized["target_before_set_video_id"] = target
+        if state in {"intent", "ack"}:
+            before, after = normalized.get("before_items"), normalized.get("after_items")
+            if before is None or after is None:
+                raise ValueError("Move intent and acknowledgement need full before/after snapshots")
+            ownership = lambda rows: {row["set_video_id"]: row["video_id"] for row in rows}
+            moved = items[0]["set_video_id"]
+            owners = ownership(before)
+            if (owners != ownership(after) or owners.get(moved) != items[0]["video_id"]
+                    or moved == target or (target and target not in owners)):
+                raise ValueError("Move must preserve every video and ownership token")
+            order = [row["set_video_id"] for row in before if row["set_video_id"] != moved]
+            order.insert(order.index(target) if target else len(order), moved)
+            if [row["set_video_id"] for row in after] != order:
+                raise ValueError("Move after snapshot differs from the requested slot move")
     if state in {"ack", "ambiguous"}:
         if intent_seq < 1:
             raise ValueError("Playlist evidence receipt needs intent_seq")
@@ -3310,7 +3740,29 @@ def _normalize_playlist_evidence_event(event: Mapping[str, Any]) -> dict[str, An
     return normalized
 
 
+def _latest_verified_full_publication(payload: Mapping[str, Any]) -> Mapping[str, Any] | None:
+    requested = (payload.get("snapshot") or {}).get("requested_video_ids")
+    if not isinstance(requested, list) or not requested:
+        return None
+    events = payload.get("events") or []
+    if not events or not isinstance(events[-1], Mapping):
+        return None
+    event = events[-1]
+    if (event.get("phase") not in {"publish", "reconcile"}
+            or event.get("operation") != "observe" or event.get("state") != "verified"
+            or event.get("observation_complete") is not True or event.get("verification_matches") is not True
+            or event.get("publication_mode") == "partial"):
+        return None
+    try:
+        items = _normalize_playlist_items(event.get("items") or [], require_set_video_id=True)
+    except ValueError:
+        return None
+    return event if [item["video_id"] for item in items] == requested else None
+
+
 def _latest_partial_publication(payload: Mapping[str, Any]) -> Mapping[str, Any] | None:
+    if _latest_verified_full_publication(payload):
+        return None
     return next(
         (
             event for event in reversed(payload.get("events", []))
@@ -3362,6 +3814,15 @@ def _assert_receipt_matches_intent(payload: Mapping[str, Any], event: Mapping[st
         for item in payload.get("events", [])
     ):
         raise ValueError("Playlist evidence intent already has a receipt")
+    if event.get("operation") == "move":
+        item_keys = lambda entry: [(item["video_id"], item["set_video_id"]) for item in entry.get("items", [])]
+        if (item_keys(intent) != item_keys(event)
+                or intent.get("target_before_set_video_id") != event.get("target_before_set_video_id")):
+            raise ValueError("Move receipt differs from the intended slot or destination")
+        if event.get("state") == "ack" and any(
+            event.get(key) != intent.get(key) for key in ("before_items", "after_items")
+        ):
+            raise ValueError("Move receipt differs from its complete planned snapshots")
     if event.get("operation") == "add" and event.get("state") == "ack":
         if len(event.get("items", [])) != len(intent.get("items", [])):
             raise ValueError("Add receipt item count does not match its intent")
@@ -3552,7 +4013,7 @@ def record_playlist_update(
     claim_token: str = "",
     dry_run: bool = False,
 ) -> str:
-    init_db(db_path, repair_source_bindings=False)
+    _initialize_new_database(db_path)
     requested = [
         str(value).strip() for value in requested_video_ids if value and str(value).strip()
     ]
@@ -3680,7 +4141,7 @@ def append_playlist_update_evidence(
 ) -> dict[str, Any]:
     """Commit one intent/receipt before the publisher advances to its next side effect."""
     normalized = _normalize_playlist_evidence_event(event)
-    init_db(db_path, repair_source_bindings=False)
+    _initialize_new_database(db_path)
     now = utc_now_iso()
     with connect(db_path) as conn:
         postgres = _begin_playlist_update_write(conn)
@@ -3745,7 +4206,7 @@ def claim_playlist_update_recovery(
     expected = set(expected_statuses)
     if not expected or not expected <= ACTIVE_PLAYLIST_UPDATE_STATUSES:
         raise ValueError("Recovery claim expected statuses must be active statuses")
-    init_db(db_path, repair_source_bindings=False)
+    _initialize_new_database(db_path)
     now = utc_now_iso()
     with connect(db_path) as conn:
         postgres = _begin_playlist_update_write(conn)
@@ -3868,7 +4329,7 @@ def finish_playlist_update(
     expected = set(expected_statuses)
     if not expected:
         raise ValueError("finish_playlist_update requires expected statuses")
-    init_db(db_path, repair_source_bindings=False)
+    _initialize_new_database(db_path)
     legacy_actual = [
         str(value).strip() for value in actual_video_ids if value and str(value).strip()
     ]
@@ -3911,6 +4372,9 @@ def finish_playlist_update(
             if not _playlist_payload_is_complete(dict(run), payload):
                 raise RuntimeError("Playlist update recovery evidence is incomplete")
             _require_playlist_claim(payload, claim_token)
+            full = _latest_verified_full_publication(payload)
+            if full and status in {"published", "skipped_current"} and (not complete or full.get("items") != actual):
+                raise RuntimeError("Full recovery finish must match its fresh complete verified observation")
             partial = _latest_partial_publication(payload)
             if partial and status in {"published", "skipped_current"}:
                 if (
@@ -4145,7 +4609,7 @@ def get_playlist_update_run(
     read_only: bool = True,
 ) -> dict[str, Any] | None:
     if not read_only:
-        init_db(db_path, repair_source_bindings=False)
+        _initialize_new_database(db_path)
     with connect(db_path, read_only=read_only) as conn:
         row = conn.execute(
             "SELECT * FROM playlist_update_runs WHERE update_run_id = ?",
@@ -4170,8 +4634,9 @@ def get_pending_playlist_recovery(
     playlist_id: str,
 ) -> dict[str, Any] | None:
     """Return the active claim; incomplete legacy evidence is explicitly manual-only."""
-    init_db(db_path, repair_source_bindings=False)
-    with connect(db_path) as conn:
+    if not os.environ.get("SUPABASE_DB_URL") and not Path(db_path).exists():
+        return None
+    with connect(db_path, read_only=True) as conn:
         row = conn.execute(
             """
             SELECT *
