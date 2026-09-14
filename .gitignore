@@ -39,6 +39,7 @@ db_migrations/*
 !tests/test_recording_identity_cleanup.py
 !tests/test_observed_recording_identity.py
 !tests/test_publish_chart_repair.py
+!tests/test_recording_identity_cleanup_adversarial.py
 !tests/fixtures/
 !tests/fixtures/observed_recording_identity.json
 *.lock

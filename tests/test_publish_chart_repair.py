@@ -239,6 +239,12 @@ class PublishRepairTests(unittest.TestCase):
             self.publish()
         self.assertEqual(self.mutations, [])
 
+    def test_changed_identity_policy_blocks_reviewed_publication(self):
+        with patch("repair_ytmusic_chart_incident.implementation_fingerprint", return_value="changed-policy"):
+            with self.assertRaisesRegex(PlaybackBlocked, "identity policy changed"):
+                self.publish()
+        self.assertEqual(self.mutations, [])
+
     def test_scope_and_expected_history_date_are_validated_before_external_mutation(self):
         for change in (lambda outputs: outputs["playlists"].append(copy.deepcopy(outputs["playlists"][0])),
                        lambda outputs: outputs["playlists"][0].update(preserved_items=[]),

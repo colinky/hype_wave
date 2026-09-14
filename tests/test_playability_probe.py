@@ -128,6 +128,24 @@ class ProbeTests(unittest.TestCase):
             self.assertEqual(json.loads(output.read_text())["observations"]["public"]["playlists"], [])
             self.assertEqual(public.calls.get(PLAYLIST, 0), 0)
 
+    def test_public_circuit_breaker_does_not_override_complete_authenticated_observation(self):
+        auth = {"health": {"run_health": "healthy", "auth_state": "authenticated"},
+                "videos": [{"video_id": TARGET, "state": "playable", "player_status": "OK"}], "playlists": []}
+        public = {"health": {"run_health": "unknown", "auth_state": "unknown"},
+                  "videos": [{"video_id": TARGET, "state": "unknown", "player_status": "UNKNOWN",
+                              "reason_code": "candidate_environment_errors"}], "playlists": []}
+        with tempfile.TemporaryDirectory() as directory:
+            args = ["--auth", "private-browser.json", "--controls", *CONTROLS, "--ids", TARGET,
+                    "--compare-public", "--output", str(Path(directory) / "complete.json")]
+            with patch.object(probe, "make_probe_client", return_value=self.client), \
+                 patch.object(probe, "collect_probe", side_effect=[auth, public]), redirect_stdout(io.StringIO()):
+                self.assertEqual(probe.main(args), 0)
+            auth["videos"][0].update(state="unknown", player_status="UNKNOWN")
+            args[-1] = str(Path(directory) / "incomplete-auth.json")
+            with patch.object(probe, "make_probe_client", return_value=self.client), \
+                 patch.object(probe, "collect_probe", side_effect=[auth, public]), redirect_stdout(io.StringIO()):
+                self.assertEqual(probe.main(args), 2)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -33,6 +33,7 @@ MODULES = (
     "test_recording_mix_versions",
     "test_recording_identity_cleanup",
     "test_observed_recording_identity", "test_publish_chart_repair",
+    "test_recording_identity_cleanup_adversarial",
 )
 
 

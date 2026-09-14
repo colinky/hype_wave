@@ -66,6 +66,11 @@ def _scope_uids(case):
     return {uid for uid in uids if uid}
 
 
+def _case_decisions(case):
+    return [case["decision"], *case.get("metadata_decisions", []),
+            *[item["decision"] for item in case.get("alias_splits", [])]]
+
+
 def _rows(conn: Any, query: str, params: tuple = ()) -> list[dict]:
     return _plain([dict(row) for row in conn.execute(query, params).fetchall()])
 
@@ -92,7 +97,8 @@ def _case_state(conn: Any, case: Mapping[str, Any]) -> dict[str, Any]:
     for alias in case.get("aliases", []):
         if alias.get("expected_track_uid"):
             uids.add(alias["expected_track_uid"])
-    videos = {str(decision.get("expected_video_id") or ""), decision["selected_video_id"]}
+    videos = {video for item in _case_decisions(case)
+              for video in (item.get("expected_video_id"), item["selected_video_id"]) if video}
     placeholders = ",".join("?" for _ in uids)
     video_marks = ",".join("?" for _ in videos)
     ids = tuple(sorted(uids))
@@ -108,8 +114,9 @@ def _case_state(conn: Any, case: Mapping[str, Any]) -> dict[str, Any]:
     }
     policies = {}
     for uid in ids:
-        for policy in _canonical_manual_rows(conn, uid, decision["selected_video_id"]):
-            policies[(policy["service"], policy["song_id"])] = policy
+        for video in videos:
+            for policy in _canonical_manual_rows(conn, uid, video):
+                policies[(policy["service"], policy["song_id"])] = policy
     state["manual_overrides"] = _plain([policies[key] for key in sorted(policies)])
     source_rows = []
     for binding in state["platform_song_ids"]:
@@ -356,13 +363,31 @@ def verify_repair(conn: Any, manifest: Mapping[str, Any]) -> dict[str, Any]:
         current = _case_state(conn, case)
         if fingerprint(current) != receipt["after"][case["case_id"]]["fingerprint"]:
             raise CanonicalDecisionError("Database changed after repair; resume requires review")
-        uid = case["decision"]["expected_track_uid"]
-        selected = case["decision"]["selected_video_id"]
-        track = next((row for row in current["tracks"] if row["track_uid"] == uid), None)
-        owned = [row for row in current["yt_video_ids"] if row["track_uid"] == uid]
-        if (not track or track["canonical_yt_video_id"] != selected
-                or [row["video_id"] for row in owned if row["is_canonical"]] != [selected]):
-            raise CanonicalDecisionError("Repair canonical/alias invariant failed")
+        for decision in _case_decisions(case):
+            uid, selected = decision["expected_track_uid"], decision["selected_video_id"]
+            track = next((row for row in current["tracks"] if row["track_uid"] == uid), None)
+            owned = [row for row in current["yt_video_ids"] if row["track_uid"] == uid]
+            metadata = decision["metadata"]
+            expected_metadata = [metadata.get(field) or metadata.get("yt_" + field)
+                                 or metadata.get(field + "_en") or metadata.get(field + "_ko") or ""
+                                 for field in ("title", "artist", "album")]
+            if (not track or track["canonical_yt_video_id"] != selected
+                    or [row["video_id"] for row in owned if row["is_canonical"]] != [selected]
+                    or [str(track.get("yt_" + field) or "") for field in ("title", "artist", "album")] != expected_metadata):
+                raise CanonicalDecisionError("Repair canonical/alias/metadata invariant failed")
+        for binding in case.get("bindings", []):
+            target = binding.get("target_track_uid") or case["decision"]["expected_track_uid"]
+            if find_track_by_service_song(conn, binding["service"], binding["song_id"]) != target:
+                raise CanonicalDecisionError("Repaired source did not reach its reviewed recording")
+        for correction in case.get("source_metadata_repairs", []):
+            source = conn.execute("SELECT * FROM track_list WHERE service=? AND song_id=?",
+                                  (correction["service"], correction["song_id"])).fetchone()
+            if not source or any(source[key] != value for key, value in correction["values"].items()):
+                raise CanonicalDecisionError("Source metadata correction was not stored exactly")
+        for invalidation in case.get("invalidate_translations", []):
+            if _has_translations(conn) and conn.execute("SELECT 1 FROM ytmusic_song_translations WHERE video_id=?",
+                                                       (invalidation["video_id"],)).fetchone():
+                raise CanonicalDecisionError("Invalidated translation was retained")
     stages = receipt.get("stages") or {}
     return {"repair_id": manifest["repair_id"], "manifest_hash": manifest["manifest_hash"],
             "status": "db_verified", "cases": len(manifest["cases"]),
@@ -484,15 +509,16 @@ def apply_repair(conn: Any, manifest: Mapping[str, Any], *, evidence_refresh: Ma
                 if evidence_refresh.get("manifest_hash") != manifest["manifest_hash"]:
                     raise CanonicalDecisionError("Evidence refresh belongs to another manifest")
                 evidence = evidence_refresh.get("evidence") or {}
-                for field, video_key in (("candidate_evidence", "selected_video_id"), ("current_evidence", "expected_video_id")):
-                    previous = case["decision"].get(field) or {}
-                    video_id = case["decision"].get(video_key)
-                    if not video_id:
-                        continue
-                    refreshed = evidence.get(video_id)
-                    if not refreshed or refreshed.get("environment") != previous.get("environment"):
-                        raise CanonicalDecisionError("Evidence refresh changed the environment or omitted a recording")
-                    case["decision"][field] = refreshed
+                for decision in _case_decisions(case):
+                    fields = [("candidate_evidence", "selected_video_id")]
+                    if decision.get("expected_video_id") and decision["expected_video_id"] != decision["selected_video_id"]:
+                        fields.append(("current_evidence", "expected_video_id"))
+                    for field, video_key in fields:
+                        previous = decision.get(field) or {}
+                        refreshed = evidence.get(decision.get(video_key))
+                        if not refreshed or refreshed.get("environment") != previous.get("environment"):
+                            raise CanonicalDecisionError("Evidence refresh changed the environment or omitted a recording")
+                        decision[field] = refreshed
             _apply_source_metadata_repairs(conn, case)
             if case.get("action") == "repair_recording_identity":
                 result = _apply_identity_repair(conn, case)

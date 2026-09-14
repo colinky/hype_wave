@@ -105,6 +105,26 @@ class IdentityCleanupTests(unittest.TestCase):
             apply_repair(self.conn, manifest)
         self.assertEqual(self.conn.execute("SELECT track_uid FROM yt_video_ids WHERE video_id=?", (MIX,)).fetchone()[0], "feature")
 
+    def test_refresh_revalidates_alias_and_kept_canonical_without_invented_current_evidence(self):
+        from datetime import datetime, timedelta, timezone
+        from repair_ytmusic_chart_incident import manifest_hash
+        manifest = plan_repair(self.conn, self.spec(self.alias_case()))
+        for decision in (manifest["cases"][0]["decision"], manifest["cases"][0]["alias_splits"][0]["decision"]):
+            decision["candidate_evidence"]["expires_at"] = (datetime.now(timezone.utc) - timedelta(seconds=1)).isoformat()
+        manifest["manifest_hash"] = manifest_hash(manifest)
+        refreshed = {"manifest_hash": manifest["manifest_hash"], "evidence": {ORIGINAL: evidence(ORIGINAL), MIX: evidence(MIX)}}
+        result = apply_repair(self.conn, manifest, evidence_refresh=refreshed)
+        self.assertEqual(result["status"], "db_verified")
+
+    def test_refresh_must_cover_related_metadata_correction(self):
+        manifest = plan_repair(self.conn, self.spec(self.binding_case()))
+        partial = {"manifest_hash": manifest["manifest_hash"], "evidence": {ORIGINAL: evidence(ORIGINAL)}}
+        with self.assertRaisesRegex(CanonicalDecisionError, "omitted a recording"):
+            apply_repair(self.conn, manifest, evidence_refresh=partial)
+        self.assertEqual(self.conn.execute("SELECT track_uid FROM platform_song_ids").fetchone()[0], "feature")
+        partial["evidence"][FEATURE] = evidence(FEATURE)
+        self.assertEqual(apply_repair(self.conn, manifest, evidence_refresh=partial)["status"], "db_verified")
+
     def test_cleanup_cannot_use_a_canonical_switch_as_metadata_correction(self):
         case = self.binding_case()
         case["metadata_decisions"][0]["selected_video_id"] = ORIGINAL

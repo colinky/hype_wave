@@ -166,10 +166,18 @@ def main(argv=None) -> int:
     print(json.dumps({"read_only": True, "run_health": primary.get("health", {}).get("run_health", "unknown"),
                       "counts": {state: sum(row["state"] == state for row in primary.get("videos", []))
                                  for state in ("playable", "unavailable", "unknown")}}))
-    complete = all("health" in observation and len(observation.get("videos", [])) == len(set(args.ids))
-                   and all(row["player_status"] != "UNKNOWN" for row in observation.get("videos", []))
-                   and all(row.get("complete") for row in observation.get("playlists", []))
-                   for observation in report["observations"].values())
+    complete = ("health" in primary and len(primary.get("videos", [])) == len(set(args.ids))
+                and all(row["player_status"] != "UNKNOWN" for row in primary.get("videos", []))
+                and all(row.get("complete") for row in primary.get("playlists", [])))
+    if args.auth and args.compare_public:
+        # Public access is an authentication negative control. Its circuit
+        # breaker can legitimately leave player metadata unobservable; that
+        # does not invalidate complete authenticated observations.
+        public = report["observations"].get("public", {})
+        complete = (complete and "health" in public
+                    and public["health"].get("auth_state") != "authenticated"
+                    and len(public.get("videos", [])) == len(set(args.ids))
+                    and all(row["state"] == "unknown" for row in public.get("videos", [])))
     return 0 if healthy and complete and all(row["state"] != "unknown" for row in primary.get("videos", [])) else 2
 
 

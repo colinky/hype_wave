@@ -137,6 +137,9 @@ def _guard(db_path, manifest, *, check_pending=True, publication_required=False)
 
 
 def _guard_connection(conn, manifest, *, check_pending=True, publication_required=False):
+    from repair_ytmusic_chart_incident import implementation_fingerprint
+    if manifest["implementation_fingerprint"] != implementation_fingerprint():
+        raise PlaybackBlocked("Repair implementation or identity policy changed since review")
     receipt = _receipt(conn, manifest)
     if (not receipt or receipt.get("manifest_hash") != manifest["manifest_hash"]
             or receipt.get("stages", {}).get("db") != "applied"):
