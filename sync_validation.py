@@ -231,6 +231,26 @@ def _identity_variants(row):
                              if row.get("title" + suffix) and row.get("artist" + suffix)))
 
 
+def _same_video_verified_player_artist(metadata, observed, left_name, right_name):
+    """Corroborate literal player spelling using one verified artist of this video."""
+    video_id = metadata.get("video_id")
+    artist_ids = metadata.get("artist_ids")
+    linked = metadata.get("artist_names_by_id")
+    if (not isinstance(video_id, str) or not re.fullmatch(r"[A-Za-z0-9_-]{11}", video_id)
+            or observed.get("video_id") != video_id or observed.get("exact_id") is not True
+            or metadata.get("artist_identity_complete") is not True
+            or not isinstance(artist_ids, list) or len(artist_ids) != 1
+            or not isinstance(artist_ids[0], str)
+            or not re.fullmatch(r"UC[A-Za-z0-9_-]{22}", artist_ids[0])
+            or not isinstance(linked, dict) or set(linked) != {artist_ids[0]}):
+        return False
+    names = linked[artist_ids[0]]
+    return (isinstance(names, list) and all(isinstance(name, str) and name.strip() for name in names)
+            and left_name in names and right_name in names
+            and all(row[field] in names for row in (metadata, observed)
+                    for field in ("artist", "artist_ko", "artist_en") if field in row))
+
+
 def recording_identity_matches(left, right, *, player=False):
     """Check source→exact watch metadata, or exact watch→sparser player metadata.
 
@@ -313,7 +333,8 @@ def recording_identity_matches(left, right, *, player=False):
             left_lead = artist_variants(split_artist_names(la)[0])
             right_lead = artist_variants(split_artist_names(ra)[0])
             if max((similarity(a, b) for a in left_lead for b in right_lead), default=0) < 0.8:
-                continue
+                if not (player and _same_video_verified_player_artist(left, right, la, ra)):
+                    continue
             return True
     return False
 

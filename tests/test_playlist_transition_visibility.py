@@ -139,6 +139,81 @@ class PlaylistTransitionVisibilityTests(unittest.TestCase):
             self.assertEqual(client.get_playlist.call_count, 1)
         self.sleep.assert_not_called()
 
+    def test_count_lag_never_hides_foreign_or_malformed_items(self):
+        before = [{"videoId": str(i), "setVideoId": f"slot-{i}"} for i in range(5)]
+        after = before[:-1]
+        invalid = [
+            [*after[:-1], {"videoId": "other", "setVideoId": "foreign"}],
+            [*after[:-1], {"videoId": "other", "setVideoId": "slot-3"}],
+            list(reversed(after)), after[:-1],
+            [*after[:-1], {"videoId": "3"}],
+            [*after[:-1], {"videoId": "3", "setVideoId": "slot-0"}],
+        ]
+        for actual in invalid:
+            with self.subTest(actual=actual):
+                client = Mock()
+                client.get_playlist.side_effect = [
+                    {"tracks": actual, "trackCount": 5}, {"tracks": after, "trackCount": 4}]
+                with self.assertRaises(RuntimeError):
+                    sync._observe_playlist_transition(client, "fixture", before, after,
+                                                      require_exact_ids=False)
+                self.assertEqual(client.get_playlist.call_count, 1)
+        self.sleep.assert_not_called()
+
+    def test_persistent_count_lag_is_not_accepted_after_three_reads(self):
+        before = [{"videoId": str(i), "setVideoId": f"slot-{i}"} for i in range(5)]
+        after = before[:-1]
+        client = Mock()
+        client.get_playlist.return_value = {"tracks": after, "trackCount": 5}
+        with self.assertRaises(sync.PlaylistMutationUncertain):
+            sync._observe_playlist_transition(client, "fixture", before, after)
+        self.assertEqual(client.get_playlist.call_count, 3)
+        self.assertEqual(self.sleep.call_count, 2)
+
+    def test_sqlite_remove_count_lag_retries_only_known_state_and_never_replays(self):
+        class CountLaggingPlaylist(MovingPlaylist):
+            bad_seen = False
+
+            def get_playlist(self, *args, **kwargs):
+                result = super().get_playlist(*args, **kwargs)
+                result["trackCount"] = len(result["tracks"])
+                if self.remove_calls and not self.bad_seen:
+                    self.bad_seen = True
+                    result["trackCount"] += 1
+                    if foreign:
+                        result["tracks"][-1] = {"videoId": "other", "setVideoId": "foreign"}
+                return result
+
+        for foreign in (False, True):
+            with self.subTest(foreign=foreign), tempfile.TemporaryDirectory() as directory, patch.dict(
+                    os.environ, {"SUPABASE_DB_URL": ""}):
+                db = Path(directory) / "offline.db"
+                hype_db.init_db(db)
+                client = CountLaggingPlaylist([str(i) for i in range(5)])
+                retained = deepcopy(client._items[:-1])
+                def publish():
+                    return sync.update_ytmusic_playlist(client, "fixture", [str(i) for i in range(4)],
+                        dry_run=False, db_path=db, service="ytmusic", job_name="Count lag fixture")
+                if foreign:
+                    with self.assertRaises(sync.PlaylistMutationUncertain):
+                        publish()
+                else:
+                    publish()
+                self.assertEqual(client._items, retained)
+                self.assertEqual((client.remove_calls, client.add_calls, client.edit_calls), (1, [], 0))
+                with hype_db.connect(db, read_only=True) as conn:
+                    run_id = conn.execute("SELECT update_run_id FROM playlist_update_runs").fetchone()[0]
+                run = hype_db.get_playlist_update_run(db, run_id, read_only=True)
+                self.assertEqual(run["status"], "recovery_required" if foreign else "published")
+                self.assertEqual([e["state"] for e in run["recovery_payload"]["events"]], ["intent", "ack"])
+                if foreign:
+                    before_bytes = db.read_bytes()
+                    client.get_playlist = Mock(side_effect=AssertionError("Pending must block before API"))
+                    with self.assertRaises(sync.PlaylistMutationUncertain):
+                        publish()
+                    client.get_playlist.assert_not_called()
+                    self.assertEqual(db.read_bytes(), before_bytes)
+
     def test_lost_move_response_never_enters_read_confirmation_or_replay(self):
         client = LaggingPlaylist(["a", "b"])
         client.lose_move_response = True

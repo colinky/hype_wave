@@ -75,4 +75,18 @@ class NarratorIdentityTests(unittest.TestCase):
   p=copy.deepcopy(policy)
   for key in ('apple:6802901371', 'apple:6804744599'):p['source_identity_evidence'][key]['candidate']={}
   for source in fixture['sources']:self.assertFalse(v.source_recording_matches(source,fixture['candidate'],policy=p))
+ def test_chart_caption_omission_requires_exact_official_source_proof(self):
+  source=fixture['chart_source'];before=copy.deepcopy(source)
+  self.assertFalse(v.source_recording_matches(source,fixture['candidate'],policy={}))
+  self.assertTrue(v.source_recording_matches(source,fixture['candidate'],policy=policy))
+  self.assertEqual(source,before)
+  for changes in [{'song_id':'OtherVideo1'},{'service':'spotify'},{'title_en':'퇴사할게여 (feat. 기안84)'},{'artist_ko':'다른 가수'},{'album_en':'Unreviewed Album'},{'length_seconds':250}]:
+   with self.subTest(changes=changes):self.assertFalse(v.source_recording_matches({**source,**changes},fixture['candidate'],policy=policy))
+ def test_chart_caption_proof_never_allows_other_recordings_or_missing_evidence(self):
+  source=fixture['chart_source']
+  for changes in [{'video_id':'OtherVideo1'},{'title_ko':'퇴사할게여 (Narr. 다른 사람)'},{'title_en':'I’m gonna TOESA (feat. KIAN84)'},{'length_seconds':None},{'length_seconds':250},{'album_en':'Unreviewed Album'}]:
+   with self.subTest(changes=changes):self.assertFalse(v.source_recording_matches(source,{**fixture['candidate'],**changes},policy=policy))
+  for field in ('references','candidate','recording','source_variants'):
+   p=copy.deepcopy(policy);p['source_identity_evidence']['ytmusic:7mDDM0eBWR0'][field]=[] if field in ('references','source_variants') else {}
+   self.assertFalse(v.source_recording_matches(source,fixture['candidate'],policy=p))
 if __name__=='__main__':unittest.main()

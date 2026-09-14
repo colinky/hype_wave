@@ -17,6 +17,63 @@ FIXTURE = json.loads(Path(__file__).with_name('fixtures').joinpath('observed_rec
 POLICY = json.loads(Path(__file__).parents[1].joinpath('matching_alias.json').read_text())
 
 
+class VerifiedPlayerArtistTests(unittest.TestCase):
+    def setUp(self):
+        # Exact LZWlP4kjEtw watch/artist/player observations, 2026-09-14.
+        # The player omitted duration; synthetic lengths below test its guard.
+        self.metadata = {
+            'video_id': 'LZWlP4kjEtw', 'title': 'Akrapovic', 'artist': 'hamo', 'album': 'Akrapovic',
+            'title_ko': '아크라포빅', 'artist_ko': '하모 (hamo)', 'album_ko': '아크라포빅',
+            'title_en': 'Akrapovic', 'artist_en': 'hamo', 'album_en': 'Akrapovic',
+            'length_seconds': 136, 'music_video_type': 'MUSIC_VIDEO_TYPE_ATV',
+            'artist_identity_complete': True, 'artist_ids': ['UCuAp8osZtq3RFRHj4-YakGQ'],
+            'artist_names_by_id': {'UCuAp8osZtq3RFRHj4-YakGQ': ['하모', '하모 (hamo)', 'hamo']},
+        }
+        self.player = {'video_id': 'LZWlP4kjEtw', 'title': 'Akrapovic', 'artist': '하모',
+                       'exact_id': True, 'music_video_type': 'MUSIC_VIDEO_TYPE_ATV'}
+
+    def test_observed_spelling_uses_exact_artist_proof_only_for_the_player(self):
+        before = deepcopy((self.metadata, self.player))
+        self.assertTrue(validation.recording_identity_matches(self.metadata, self.player, player=True))
+        self.assertFalse(validation.recording_identity_matches(self.metadata, self.player))
+        self.assertEqual((self.metadata, self.player), before)
+
+    def test_one_valid_locale_cannot_hide_another_artist_or_extra_credit(self):
+        for field in ('artist', 'artist_ko', 'artist_en'):
+            for value in ('Unrelated Other Artist', 'hamo, Unrelated Other Artist', ['hamo'], ''):
+                with self.subTest(field=field, value=value):
+                    self.assertFalse(validation.recording_identity_matches(
+                        {**self.metadata, field: value}, self.player, player=True))
+        self.assertFalse(validation.recording_identity_matches(self.metadata,
+            {**self.player, 'artist': 'Unrelated Other Artist', 'artist_en': '하모',
+             'title_en': 'Akrapovic'}, player=True))
+
+    def test_incomplete_or_other_video_artist_proof_cannot_authorize_the_spelling(self):
+        artist_id = self.metadata['artist_ids'][0]
+        other = 'UC' + 'x' * 22
+        for changes in ({'artist_identity_complete': False}, {'artist_names_by_id': {}},
+                        {'artist_ids': [artist_id, other]},
+                        {'artist_names_by_id': {artist_id: ['hamo'], other: ['하모']}},
+                        {'artist_names_by_id': {artist_id: ['hamo', '하모 (hamo)']}},
+                        {'video_id': 'otherVID123'}):
+            with self.subTest(changes=changes):
+                self.assertFalse(validation.recording_identity_matches(
+                    {**self.metadata, **changes}, self.player, player=True))
+        for changes in ({'video_id': 'otherVID123'}, {'exact_id': False}, {'exact_id': 1}):
+            with self.subTest(changes=changes):
+                self.assertFalse(validation.recording_identity_matches(
+                    self.metadata, {**self.player, **changes}, player=True))
+
+    def test_artist_proof_never_bypasses_recording_checks(self):
+        for changes in ({'title': 'Entirely Different Recording'}, {'title': 'Akrapovic (Live)'},
+                        {'title': 'Akrapovic (feat. Other Guest)'}, {'length_seconds': 139}):
+            with self.subTest(changes=changes):
+                self.assertFalse(validation.recording_identity_matches(
+                    self.metadata, {**self.player, **changes}, player=True))
+        self.assertTrue(validation.recording_identity_matches(
+            self.metadata, {**self.player, 'length_seconds': 136}, player=True))
+
+
 class RecordedIdentityTests(unittest.TestCase):
     def setUp(self):
         self.enterContext(patch.dict(os.environ, {'SUPABASE_DB_URL': ''}))

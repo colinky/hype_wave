@@ -2206,16 +2206,6 @@ def get_existing_playlist_items(ytmusic: YTMusic, playlist_id: str) -> list[dict
             f"Playlist {playlist_id} response is missing a tracks list"
         )
     tracks = playlist["tracks"]
-    reported_count = playlist.get("trackCount")
-    if (
-        isinstance(reported_count, int)
-        or isinstance(reported_count, str) and reported_count.isdigit()
-    ) and int(reported_count) != len(tracks):
-        raise RuntimeError(
-            f"Playlist {playlist_id} returned {len(tracks)} tracks but reports "
-            f"trackCount={reported_count}"
-        )
-
     items: list[dict[str, str]] = []
     for index, track in enumerate(tracks, 1):
         video_id = track.get("videoId")
@@ -2228,6 +2218,16 @@ def get_existing_playlist_items(ytmusic: YTMusic, playlist_id: str) -> list[dict
         if isinstance(track.get("isAvailable"), bool):
             item["isAvailable"] = track["isAvailable"]
         items.append(item)
+    _playlist_slots(items)
+    reported_count = playlist.get("trackCount")
+    if (
+        isinstance(reported_count, int)
+        or isinstance(reported_count, str) and reported_count.isdigit()
+    ) and int(reported_count) != len(tracks):
+        raise IncompletePlaylistObservation(
+            f"Playlist {playlist_id} returned {len(tracks)} tracks but reports "
+            f"trackCount={reported_count}", items,
+        )
     return items
 
 
@@ -2681,6 +2681,14 @@ def _playlist_video_ids_match(
     return bool(comparison["matches"])
 
 
+class IncompletePlaylistObservation(RuntimeError):
+    """A structurally valid item snapshot disagrees with the provider's count."""
+
+    def __init__(self, message, items):
+        super().__init__(message)
+        self.items = items
+
+
 class PlaylistMutationUncertain(RuntimeError):
     """An attempted mutation lacks durable, complete acknowledgement. Never replay it."""
 
@@ -2714,6 +2722,15 @@ def _observe_playlist_transition(ytmusic, playlist_id, before, after, *, require
                                            requests.exceptions.Timeout, requests.exceptions.ConnectionError))
             if isinstance(cause, requests.exceptions.HTTPError):
                 retryable = getattr(cause.response, "status_code", None) in {429, 500, 502, 503, 504}
+            if isinstance(exc, IncompletePlaylistObservation):
+                # A count may lag a successful write, but every observed slot
+                # must still be exactly one of this operation's known states.
+                keys = _playlist_item_keys(exc.items)
+                if keys not in (_playlist_item_keys(before), _playlist_item_keys(after)):
+                    raise PlaylistMutationUncertain(
+                        "Count-inconsistent playlist exposed unknown IDs or ownership slots"
+                    ) from exc
+                retryable = True
             if not retryable:
                 raise
         else:

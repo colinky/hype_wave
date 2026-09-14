@@ -111,5 +111,26 @@
       "url": "https://music.apple.com/us/album/im-gonna-toesa-feat-kian84/6804744597?i=6804744599",
       "composerName": "SOYEON, Pop Time, Daily & Likey"
     }
-  ]
+  ],
+  "chart_source": {
+    "service": "ytmusic",
+    "song_id": "7mDDM0eBWR0",
+    "title_ko": "퇴사할게여",
+    "artist_ko": "소연 (SOYEON)",
+    "album_ko": "",
+    "title_en": "퇴사할게여",
+    "artist_en": "SOYEON",
+    "album_en": "",
+    "title": "퇴사할게여",
+    "artist": "SOYEON",
+    "album": ""
+  },
+  "chart_source_reference": {
+    "url": "https://music.youtube.com/watch?v=7mDDM0eBWR0",
+    "title": "소연 (SOYEON) '퇴사할게여 (Narr. 기안84)' Official Music Video",
+    "channel_id": "UCritGVo7pLJLUS8wEu32vow",
+    "length_seconds": 211,
+    "microformat_length_seconds": 212,
+    "observed_at": "2026-09-14T18:33:51.073677+00:00"
+  }
 }

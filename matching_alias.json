@@ -185,6 +185,14 @@
       "Jung In",
       "JungIn",
       "정인 Jung In"
+    ],
+    [
+      "윤지영",
+      "Whys Young"
+    ],
+    [
+      "장한나",
+      "Hannah Jang"
     ]
   ],
   "titles": [],
@@ -502,6 +510,206 @@
       "catalog_isrc": "KRA392600017",
       "duration_ms": 211575,
       "limit": "Only these literal observed source variants and exact YouTube recording. Current KR source calls KIAN84 a narrator while the current US equivalent labels the same participant as featured, with matching catalog ISRC and duration. This proves only this source-specific catalog equivalence, not a generic Narr=feat rule. Source rows, ranks, IDs and source-market precedence remain unchanged. Direct YouTube ISRC was not observed; no playback approval is supplied."
+    },
+    "ytmusic:7mDDM0eBWR0": {
+      "kind": "official_cross_service_credit",
+      "source_variants": [
+        [
+          "퇴사할게여",
+          "소연 (SOYEON)",
+          ""
+        ],
+        [
+          "퇴사할게여",
+          "SOYEON",
+          ""
+        ]
+      ],
+      "recording": {
+        "video_id": "nxdxwZztGj0",
+        "title": "퇴사할게여 (Narr. 기안84)",
+        "artist": "소연",
+        "album": "끝내주는 인생",
+        "title_ko": "퇴사할게여 (Narr. 기안84)",
+        "artist_ko": "소연",
+        "album_ko": "끝내주는 인생",
+        "title_en": "I’m gonna TOESA (Narr. KIAN84)",
+        "artist_en": "SOYEON",
+        "album_en": "What a Wonderful Life",
+        "length_seconds": 212,
+        "music_video_type": "MUSIC_VIDEO_TYPE_ATV"
+      },
+      "candidate": {
+        "video_id": "nxdxwZztGj0",
+        "title": "퇴사할게여 (Narr. 기안84)",
+        "artist": "소연",
+        "album": "끝내주는 인생",
+        "title_ko": "퇴사할게여 (Narr. 기안84)",
+        "artist_ko": "소연",
+        "album_ko": "끝내주는 인생",
+        "title_en": "I’m gonna TOESA (Narr. KIAN84)",
+        "artist_en": "SOYEON",
+        "album_en": "What a Wonderful Life",
+        "length_seconds": 212,
+        "music_video_type": "MUSIC_VIDEO_TYPE_ATV"
+      },
+      "references": [
+        {
+          "url": "https://music.youtube.com/watch?v=7mDDM0eBWR0",
+          "locale": "ko",
+          "video_id": "7mDDM0eBWR0",
+          "title": "소연 (SOYEON) '퇴사할게여 (Narr. 기안84)' Official Music Video",
+          "author": "i-dle (아이들)",
+          "channel_id": "UCritGVo7pLJLUS8wEu32vow",
+          "length_seconds": 211,
+          "microformat_length_seconds": 212,
+          "music_video_type": "MUSIC_VIDEO_TYPE_OMV",
+          "exact_watch": [
+            {
+              "videoId": "7mDDM0eBWR0",
+              "title": "소연 (SOYEON) '퇴사할게여 (Narr. 기안84)' Official Music Video",
+              "artists": [
+                {
+                  "name": "i-dle (아이들)",
+                  "id": "UCritGVo7pLJLUS8wEu32vow"
+                }
+              ],
+              "album": null,
+              "duration": null,
+              "isAvailable": null,
+              "videoType": "MUSIC_VIDEO_TYPE_OMV"
+            }
+          ]
+        },
+        {
+          "url": "https://music.youtube.com/watch?v=7mDDM0eBWR0",
+          "locale": "en",
+          "video_id": "7mDDM0eBWR0",
+          "title": "소연 (SOYEON) '퇴사할게여 (Narr. 기안84)' Official Music Video",
+          "author": "i-dle (아이들)",
+          "channel_id": "UCritGVo7pLJLUS8wEu32vow",
+          "length_seconds": 211,
+          "microformat_length_seconds": 212,
+          "music_video_type": "MUSIC_VIDEO_TYPE_OMV",
+          "exact_watch": [
+            {
+              "videoId": "7mDDM0eBWR0",
+              "title": "소연 (SOYEON) '퇴사할게여 (Narr. 기안84)' Official Music Video",
+              "artists": [
+                {
+                  "name": "i-dle (아이들)",
+                  "id": "UCritGVo7pLJLUS8wEu32vow"
+                }
+              ],
+              "album": null,
+              "duration": null,
+              "isAvailable": null,
+              "videoType": "MUSIC_VIDEO_TYPE_OMV"
+            }
+          ]
+        },
+        {
+          "url": "https://music.youtube.com/watch?v=nxdxwZztGj0",
+          "locale": "ko",
+          "video_id": "nxdxwZztGj0",
+          "title": "퇴사할게여 (Narr. 기안84)",
+          "author": "소연 (SOYEON)",
+          "channel_id": "UCXMBqAw-ltLmB_AKCmWaq6Q",
+          "length_seconds": 212,
+          "microformat_length_seconds": 212,
+          "music_video_type": "MUSIC_VIDEO_TYPE_ATV",
+          "exact_watch": [
+            {
+              "videoId": "nxdxwZztGj0",
+              "title": "퇴사할게여 (Narr. 기안84)",
+              "artists": [
+                {
+                  "name": "소연 (SOYEON)",
+                  "id": "UCXMBqAw-ltLmB_AKCmWaq6Q"
+                }
+              ],
+              "album": {
+                "name": "끝내주는 인생",
+                "id": "MPREb_XbKgpwORbbS"
+              },
+              "duration": null,
+              "isAvailable": null,
+              "videoType": "MUSIC_VIDEO_TYPE_ATV"
+            }
+          ]
+        },
+        {
+          "url": "https://music.youtube.com/watch?v=nxdxwZztGj0",
+          "locale": "en",
+          "video_id": "nxdxwZztGj0",
+          "title": "I’m gonna TOESA (Narr. KIAN84)",
+          "author": "SOYEON",
+          "channel_id": "UCXMBqAw-ltLmB_AKCmWaq6Q",
+          "length_seconds": 212,
+          "microformat_length_seconds": 212,
+          "music_video_type": "MUSIC_VIDEO_TYPE_ATV",
+          "exact_watch": [
+            {
+              "videoId": "nxdxwZztGj0",
+              "title": "I’m gonna TOESA (Narr. KIAN84)",
+              "artists": [
+                {
+                  "name": "SOYEON",
+                  "id": "UCXMBqAw-ltLmB_AKCmWaq6Q"
+                }
+              ],
+              "album": {
+                "name": "What a Wonderful Life",
+                "id": "MPREb_XbKgpwORbbS"
+              },
+              "duration": null,
+              "isAvailable": null,
+              "videoType": "MUSIC_VIDEO_TYPE_ATV"
+            }
+          ]
+        },
+        {
+          "storefront": "kr",
+          "locale": "ko-KR",
+          "id": "6802901371",
+          "name": "퇴사할게여 (Narr. 기안84)",
+          "artistName": "소연",
+          "albumName": "끝내주는 인생",
+          "isrc": "KRA392600017",
+          "durationInMillis": 211575,
+          "releaseDate": "2026-09-07",
+          "url": "https://music.apple.com/kr/album/%ED%87%B4%EC%82%AC%ED%95%A0%EA%B2%8C%EC%97%AC-narr-%EA%B8%B0%EC%95%8884/6802901370?i=6802901371",
+          "composerName": "소연 SOYEON, 팝 타임, 데일리 & Likey",
+          "contentRating": null,
+          "trackNumber": 1,
+          "artist_resource_ids": [
+            "1037194059"
+          ]
+        },
+        {
+          "storefront": "kr",
+          "locale": "en-GB",
+          "id": "6802901371",
+          "name": "I’m gonna TOESA (Narr. KIAN84)",
+          "artistName": "SOYEON",
+          "albumName": "What a Wonderful Life",
+          "isrc": "KRA392600017",
+          "durationInMillis": 211575,
+          "releaseDate": "2026-09-07",
+          "url": "https://music.apple.com/kr/album/%ED%87%B4%EC%82%AC%ED%95%A0%EA%B2%8C%EC%97%AC-narr-%EA%B8%B0%EC%95%8884/6802901370?i=6802901371&l=en-GB",
+          "composerName": "소연 SOYEON, Pop Time, Daily & Likey",
+          "contentRating": null,
+          "trackNumber": 1,
+          "artist_resource_ids": [
+            "1037194059"
+          ]
+        }
+      ],
+      "catalog_isrc": "KRA392600017",
+      "duration_ms": 211575,
+      "limit": "Only the observed abbreviated YouTube chart source 7mDDM0eBWR0 and exact candidate nxdxwZztGj0. The original official i-dle music video explicitly credits SOYEON and Narr. KIAN84; its player length is 211 seconds and microformat length is 212 seconds, compared with the 212-second ATV and 211575 ms official catalog recording. This corroborates the chart credit omission and existing selection, not a universal OMV=ATV or Narr=feat rule. No decoded-audio identity or YouTube ISRC was observed. Source rows, ranks, and native IDs remain unchanged; playback must be freshly verified.",
+      "observed_at": "2026-09-14T18:33:51.073677+00:00",
+      "evidence_sha256": "7de5b11146cfd0c21f536711663eae6437be8044b310baac018c3c42d40b1937"
     }
   },
   "recording_release_evidence": [

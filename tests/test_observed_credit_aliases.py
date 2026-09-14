@@ -36,6 +36,27 @@ class ObservedCreditAliasesTests(unittest.TestCase):
             self.assertFalse(recording_identity_matches(left,
                 {'title': f'Time Stop Button (feat. {name})', 'artist': 'RawRabbit'}))
 
+    def test_night_night_guest_rename_does_not_remove_or_replace_the_guest(self):
+        case = next(row for row in CASES if row['name'] == 'night_night')
+        self.assertIn('Whys Young', ALIASES.get_variants('윤지영', 'artist'))
+        for artist in ('Andr', 'Andr, Another Guest'):
+            source = {**case['source'], **{
+                field: artist for field in ('artist', 'artist_ko', 'artist_en')}}
+            with self.subTest(artist=artist):
+                self.assertFalse(source_recording_matches(source, case['metadata']))
+
+    def test_hannah_jang_alias_preserves_the_named_guest_and_role(self):
+        case = next(row for row in CASES if row['name'] == 'lay_down_on_the_grass')
+        self.assertIn('Hannah Jang', ALIASES.get_variants('장한나', 'artist'))
+        for artist in ('CRUCiAL STAR', 'CRUCiAL STAR, Another Guest'):
+            source = {**case['source'], **{
+                field: artist for field in ('artist', 'artist_ko', 'artist_en')}}
+            with self.subTest(artist=artist):
+                self.assertFalse(source_recording_matches(source, case['metadata']))
+        self.assertFalse(recording_identity_matches(
+            {'title': 'Lay Down On The Grass (feat. 장한나)', 'artist': 'CRUCiAL STAR'},
+            {'title': 'Lay Down On The Grass (Narr. Hannah Jang)', 'artist': 'CRUCiAL STAR'}))
+
     def test_reviewed_affiliation_does_not_strip_other_people_or_roles(self):
         left = {'title': 'Question Mark (feat. 최자)', 'artist': 'Primary'}
         self.assertTrue(recording_identity_matches(left,
