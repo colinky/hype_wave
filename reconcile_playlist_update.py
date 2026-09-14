@@ -20,7 +20,6 @@ from ytmusic_playlist_sync import (
     _preserve_playlist_slots,
     _playlist_item_keys,
     _recoverable_playlist_items,
-    _replace_playlist_contents,
     _same_owned_slots,
     bilingual_cache_read_only,
     get_existing_playlist_items,
@@ -185,6 +184,8 @@ def reconcile_playlist_update(
     elif owned is not None:
         action, reason = "restore_owned_items", "Complete durable receipts cover the current slots"
     target = requested if action in {"finalize_requested", "append_missing_last", "complete_requested"} else existing
+    if action == "restore_owned_items" and len(set(target)) != len(target):
+        action, reason = "blocked", "Restoring duplicate original IDs requires separate reviewed slot ownership; no mutation is permitted"
     if action != "blocked":
         try:
             require_playable(verifier, target, items=current)
@@ -284,10 +285,9 @@ def reconcile_playlist_update(
                 raise RuntimeError("Completed request differs from acknowledged item ownership")
             report["item_mutations"] = 1
         elif action == "restore_owned_items":
-            expected = _replace_playlist_contents(
+            expected = _preserve_playlist_slots(
                 ytmusic, playlist_id, fresh, existing, evidence=evidence,
-                phase="restore", allow_duplicates=True,
-                before_mutation=before_change,
+                phase="restore", before_mutation=before_change,
                 playability_verifier=verifier,
             )
             fresh = get_existing_playlist_items(ytmusic, playlist_id)

@@ -96,10 +96,12 @@ class ObservedMoveRecoveryTests(unittest.TestCase):
         self.assert_no_provider_mutations()
 
     def test_explicit_confirmation_preserves_ambiguity_then_restores_owned_items(self):
+        slots = {item["videoId"]: item["setVideoId"] for item in self.client._items}
         report = self.reconcile()
         self.assertEqual(report["status"], "restored")
         self.assertEqual(self.client.video_ids, ["a", "b", "c"])
-        self.assertEqual(self.client.edit_calls, 0)
+        self.assertEqual((self.client.edit_calls, self.client.remove_calls, self.client.add_calls), (1, 0, []))
+        self.assertEqual({item["videoId"]: item["setVideoId"] for item in self.client._items}, slots)
         events = self.run["recovery_payload"]["events"]
         self.assertEqual(events[1]["state"], "ambiguous")
         observed = events[2]

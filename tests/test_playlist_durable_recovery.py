@@ -55,6 +55,116 @@ class DurableRecoveryTests(unittest.TestCase):
                                       error="Interrupted fixture", claim_token="fixture-initial")
         return self.run_record()
 
+    def interrupted_restore(self, client, removed_indexes=(), added_ids=()):
+        """Durable removal/addition ACKs can leave a partial original at recovery."""
+        baseline = deepcopy(client._items)
+        run_id = hype_db.record_playlist_update(
+            self.db, playlist_id="fixture", service="apple", job_name="Fixture",
+            requested_video_ids=["new-target"], existing_video_ids=client.video_ids,
+            existing_items=baseline, claim_token="fixture-initial",
+        )
+
+        def event(operation, state, items, **fields):
+            return hype_db.append_playlist_update_evidence(self.db, run_id, {
+                "phase": "restore" if operation == "add" else "publish",
+                "operation": operation, "state": state, "items": items,
+                "chunk_order": 1, "attempt": 1, **fields,
+            }, claim_token="fixture-initial")
+
+        if removed_indexes:
+            removed = [baseline[index] for index in removed_indexes]
+            intent = event("remove", "intent", removed, before_items=baseline)
+            client._items = [item for index, item in enumerate(baseline) if index not in removed_indexes]
+            event("remove", "ack", removed, intent_seq=intent["seq"], after_items=deepcopy(client._items))
+        if added_ids:
+            intent = event("add", "intent", [{"videoId": value} for value in added_ids],
+                           before_items=deepcopy(client._items))
+            added = [{"videoId": value, "setVideoId": f"owned-added-{index}"}
+                     for index, value in enumerate(added_ids)]
+            client._items.extend(added)
+            event("add", "ack", added, intent_seq=intent["seq"], after_items=deepcopy(client._items))
+        hype_db.finish_playlist_update(self.db, run_id, status="recovery_required",
+                                      error="Interrupted fixture", claim_token="fixture-initial")
+        return self.run_record()
+
+    def test_restore_readded_first_item_with_one_move_preserves_all_current_tokens(self):
+        client = StatefulPlaylist(["a", "b", "c", "d", "e"])
+        run = self.interrupted_restore(client, removed_indexes=(0,), added_ids=("a",))
+        current_tokens = {item["videoId"]: item["setVideoId"] for item in client._items}
+        self.assertEqual(client.video_ids, ["b", "c", "d", "e", "a"])
+        self.assertEqual(self.reconcile(client, run)["action"], "restore_owned_items")
+        result = self.reconcile(client, run, apply=True, workers_quiescent=True)
+        self.assertEqual((result["status"], client.video_ids), ("restored", ["a", "b", "c", "d", "e"]))
+        self.assertEqual((client.remove_calls, client.add_calls, client.edit_calls), (0, [], 1))
+        self.assertEqual({item["videoId"]: item["setVideoId"] for item in client._items}, current_tokens)
+        latest = self.run_record()
+        self.assertTrue(latest["restore_verified"])
+        events = latest["recovery_payload"]["events"]
+        self.assertEqual(events[:len(run["recovery_payload"]["events"])], run["recovery_payload"]["events"])
+        moves = [event for event in events if event["operation"] == "move"]
+        self.assertEqual([(event["phase"], event["state"]) for event in moves],
+                         [("restore", "intent"), ("restore", "ack")])
+        self.assertEqual(moves[0]["items"][0]["set_video_id"], current_tokens["a"])
+
+    def test_duplicate_original_needing_restore_holds_before_claim(self):
+        client = StatefulPlaylist(["a", "a", "b"])
+        run = self.interrupted_restore(client, removed_indexes=(1,))
+        before = self.db.read_bytes()
+        with patch.object(hype_db, "claim_playlist_update_recovery") as claim:
+            self.assertEqual(self.reconcile(client, run)["action"], "blocked")
+            with self.assertRaisesRegex(RuntimeError, "duplicate original IDs"):
+                self.reconcile(client, run, apply=True, workers_quiescent=True)
+            claim.assert_not_called()
+        self.assertEqual(self.db.read_bytes(), before)
+        self.assertEqual((client.remove_calls, client.add_calls, client.edit_calls), (0, [], 0))
+
+    def test_exact_duplicate_original_can_finalize_without_item_mutation(self):
+        client = StatefulPlaylist(["a", "a", "b"])
+        run = self.pending_owned(client, ["new-target"])
+        before = deepcopy(client._items)
+        self.assertEqual(self.reconcile(client, run)["action"], "finalize_restored")
+        result = self.reconcile(client, run, apply=True, workers_quiescent=True)
+        self.assertEqual(result["status"], "restored")
+        self.assertEqual(client._items, before)
+        self.assertEqual((client.remove_calls, client.add_calls, client.edit_calls), (0, [], 0))
+
+    def test_restore_mixed_missing_and_extra_slots_preserves_the_survivor(self):
+        client = StatefulPlaylist(["a", "b", "c"])
+        run = self.interrupted_restore(client, removed_indexes=(0, 2), added_ids=("bad",))
+        survivor = deepcopy(client._items[0])
+        client._hype_playability_verifier.states["bad"] = "unavailable"
+        client._items[1]["isAvailable"] = False
+        result = self.reconcile(client, run, apply=True, workers_quiescent=True)
+        self.assertEqual((result["status"], client.video_ids), ("restored", ["a", "b", "c"]))
+        self.assertEqual((client.remove_calls, client.add_calls, client.edit_calls), (1, [["a", "c"]], 1))
+        self.assertEqual(client._items[1], survivor)
+        self.assertEqual(sync._recoverable_playlist_items(self.run_record()), client._items)
+
+    def test_restore_lost_move_response_holds_and_never_replays_acknowledged_changes(self):
+        client = StatefulPlaylist(["a", "b", "c"])
+        run = self.interrupted_restore(client, removed_indexes=(0,), added_ids=("a",))
+        before_tokens = {item["videoId"]: item["setVideoId"] for item in client._items}
+        edit = client.edit_playlist
+
+        def lose_response(*args, **kwargs):
+            edit(*args, **kwargs)
+            raise TimeoutError("Response lost after actual move")
+
+        client.edit_playlist = lose_response
+        with self.assertRaises(sync.PlaylistMutationUncertain):
+            self.reconcile(client, run, apply=True, workers_quiescent=True)
+        latest = self.run_record()
+        self.assertEqual(latest["status"], "recovery_required")
+        self.assertEqual(client.video_ids, ["a", "b", "c"])
+        self.assertEqual({item["videoId"]: item["setVideoId"] for item in client._items}, before_tokens)
+        self.assertEqual((client.remove_calls, client.add_calls, client.edit_calls), (0, [], 1))
+        before = self.db.read_bytes()
+        self.assertEqual(self.reconcile(client, latest)["action"], "blocked")
+        with self.assertRaises(RuntimeError):
+            self.reconcile(client, latest, apply=True, workers_quiescent=True, reclaim_recovery=True)
+        self.assertEqual(self.db.read_bytes(), before)
+        self.assertEqual((client.remove_calls, client.add_calls, client.edit_calls), (0, [], 1))
+
     def test_optional_availability_keeps_owned_items_and_records_latest_read(self):
         for missing_read in (1, 2, 3, 4):
             with self.subTest(missing_read=missing_read):
