@@ -111,6 +111,23 @@ class ProbeTests(unittest.TestCase):
             self.assertNotIn("PRIVATE_CREDENTIAL", stderr.getvalue())
             self.assertFalse(Path(args[-1]).exists())
 
+    def test_public_comparison_does_not_require_authenticated_playlist_access(self):
+        public = FakeClient()
+        public.get_account_info = Mock(side_effect=RuntimeError("authentication required"))
+        self.client.playlists[PLAYLIST] = {"trackCount": 1, "tracks": [
+            {"videoId": TARGET, "title": "Song", "artists": [], "isAvailable": True}]}
+        with tempfile.TemporaryDirectory() as directory:
+            expected = Path(directory) / "profile.json"
+            expected.write_text(json.dumps(EXPECTED))
+            output = Path(directory) / "probe.json"
+            args = ["--auth", "private-browser.json", "--expected-account-file", str(expected),
+                    "--controls", *CONTROLS, "--ids", TARGET, "--playlist-id", PLAYLIST,
+                    "--compare-public", "--output", str(output)]
+            with patch.object(probe, "make_probe_client", side_effect=[self.client, public]), redirect_stdout(io.StringIO()):
+                self.assertEqual(probe.main(args), 0)
+            self.assertEqual(json.loads(output.read_text())["observations"]["public"]["playlists"], [])
+            self.assertEqual(public.calls.get(PLAYLIST, 0), 0)
+
 
 if __name__ == "__main__":
     unittest.main()

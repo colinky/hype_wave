@@ -152,7 +152,10 @@ def main(argv=None) -> int:
                                           expected_account=expected if auth_file else None,
                                           environment=args.environment, timeout=args.timeout,
                                           budget_seconds=max(0.001, deadline - time.monotonic()))
-            report["observations"][label] = collect_probe(verifier, args.ids, args.playlist_id)
+            # The public comparison is a player/auth negative control. A private
+            # or personalized playlist is only observable in its authenticated context.
+            playlists = args.playlist_id if auth_file or not args.auth else ()
+            report["observations"][label] = collect_probe(verifier, args.ids, playlists)
         write_artifact(args.output, report)
     except Exception:
         # Exceptions can contain request headers, URLs, paths, or profile details.
