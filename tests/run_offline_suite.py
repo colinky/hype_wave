@@ -34,6 +34,8 @@ MODULES = (
     "test_recording_identity_cleanup",
     "test_observed_recording_identity", "test_publish_chart_repair",
     "test_recording_identity_cleanup_adversarial",
+    "test_recording_release_identity", "test_spotify_album_provenance", "test_partial_artist_identity",
+    "test_source_title_translation", "test_spotify_album_storage",
 )
 
 

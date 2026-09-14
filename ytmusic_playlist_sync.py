@@ -9,6 +9,7 @@ import sqlite3
 import time
 import unicodedata
 import uuid
+from collections.abc import Mapping
 from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -2214,6 +2215,7 @@ def get_verified_video_metadata(
     video_id: str,
     *,
     metadata_cache: dict[str, dict[str, Any]] | None = None,
+    allow_partial_artist_ids: bool = False,
 ) -> dict[str, Any] | None:
     """Read current, exact-video bilingual metadata without persistent cache writes.
 
@@ -2222,9 +2224,15 @@ def get_verified_video_metadata(
     The supplied cache belongs to one execution, never to the persistent alias DB.
     """
     cache = metadata_cache if metadata_cache is not None else {}
-    cache_key = f"verified:{video_id}"
+    # Partial credits are usable only when preserving a known healthy ID. Never
+    # let that observation populate the strict cache used for ID substitutions.
+    cache_key = f"verified{'_partial' if allow_partial_artist_ids else ''}:{video_id}"
     if cache_key in cache:
         return cache[cache_key]["metadata"]
+    if allow_partial_artist_ids:
+        complete = get_verified_video_metadata(ytmusic, video_id, metadata_cache=cache)
+        if complete is not None:
+            return complete
     base = _playlist_video_details(ytmusic, video_id, cache)
     if base["error"]:
         if not base.get("metadata_missing"):
@@ -2238,12 +2246,28 @@ def get_verified_video_metadata(
         "music_video_type": base["music_video_type"],
     }
     artist_ids: set[str] | None = None
+    partial_credits: tuple[str, ...] | None = None
+    lead_artist_id: str | None = None
+    has_partial_artists = False
     names_by_id: dict[str, list[str]] = {}
     try:
         for language in ("ko", "en"):
-            client_key = f"verified_client:{language}"
+            client_key = f"verified_client{'_authenticated' if allow_partial_artist_ids else ''}:{language}"
             if client_key not in cache:
-                cache[client_key] = {"client": make_ytmusic(None, language=language)}
+                if allow_partial_artist_ids:
+                    auth_headers = getattr(ytmusic, "_auth_headers", None)
+                    session = getattr(ytmusic, "_session", None)
+                    if (not isinstance(auth_headers, Mapping) or session is None
+                            or not any(str(key).lower() == "cookie" and value
+                                       for key, value in auth_headers.items())):
+                        return None
+                    # In-memory browser headers keep the same account. Share
+                    # the bounded request session; never create an auth file.
+                    localized = YTMusic(dict(auth_headers), language=language, requests_session=session)
+                    localized.headers.update({"Accept-Language": "ko-KR,ko;q=0.9" if language == "ko" else "en-US,en;q=0.9"})
+                else:
+                    localized = make_ytmusic(None, language=language)
+                cache[client_key] = {"client": localized}
             client = cache[client_key]["client"]
             payload = _watch_playlist_for_metadata(client, video_id)
             tracks = payload.get("tracks") if isinstance(payload, dict) else None
@@ -2253,6 +2277,8 @@ def get_verified_video_metadata(
             if len(exact_tracks) != 1:
                 return None
             track = exact_tracks[0]
+            if track.get("isAvailable") is False:
+                return None
             artists = track.get("artists")
             title = track.get("title")
             if isinstance(artists, list):
@@ -2277,18 +2303,62 @@ def get_verified_video_metadata(
                 or not isinstance(artists, list) or not artists
                 or any(
                     not isinstance(artist, dict)
-                    or not isinstance(artist.get("id"), str) or not artist["id"].strip()
+                    or (artist.get("id") is not None and
+                        (not isinstance(artist["id"], str) or not artist["id"].strip()))
                     or not isinstance(artist.get("name"), str) or not artist["name"].strip()
                     for artist in artists
                 )
             ):
                 return None
-            ids = {artist["id"] for artist in artists}
+            unlinked = tuple(artist["name"] for artist in artists if artist.get("id") is None)
+            if unlinked:
+                if not allow_partial_artist_ids or not artists[0].get("id"):
+                    return None
+                has_partial_artists = True
+                album = track.get("album")
+                album_id = album.get("id") if isinstance(album, dict) else None
+                album_name = album.get("name") if isinstance(album, dict) else None
+                if (not isinstance(album_id, str) or not album_id.strip()
+                        or not isinstance(album_name, str) or not album_name.strip()):
+                    return None
+                album_key = f"verified_album:{language}:{album_id}"
+                if album_key not in cache:
+                    cache[album_key] = {"album": client.get_album(album_id)}
+                album_payload = cache[album_key]["album"]
+                album_rows = album_payload.get("tracks") if isinstance(album_payload, dict) else None
+                exact_album_rows = [row for row in album_rows
+                                    if isinstance(row, dict) and row.get("videoId") == video_id
+                                    ] if isinstance(album_rows, list) else []
+                if len(exact_album_rows) != 1:
+                    return None
+                album_row = exact_album_rows[0]
+                album_title = album_payload.get("title")
+                if (album_row.get("title") != title or album_row.get("artists") != artists
+                        or album_row.get("isAvailable") is False
+                        or not isinstance(album_title, str) or not album_title.strip()
+                        or album_title != album_name
+                        or not duration_to_seconds(album_row.get("duration"))
+                        or abs(duration_to_seconds(album_row.get("duration")) - base["length_seconds"]) > 2):
+                    return None
+            # Missing names must be literally stable across locales, including
+            # their affiliations; do not infer an artist ID or drop a credit.
+            credit_key = tuple(" ".join(unicodedata.normalize("NFKC", name).casefold().split())
+                               for name in unlinked)
+            if partial_credits is not None and credit_key != partial_credits:
+                return None
+            partial_credits = credit_key
+            if has_partial_artists and lead_artist_id is not None and artists[0].get("id") != lead_artist_id:
+                return None
+            lead_artist_id = artists[0].get("id")
+            ids = {artist["id"] for artist in artists if artist.get("id")}
             if artist_ids is not None and ids != artist_ids:
                 return None
             artist_ids = ids
             localized_names = []
             for artist in artists:
+                if artist.get("id") is None:
+                    localized_names.append(artist["name"])
+                    continue
                 artist_key = f"verified_artist:{language}:{artist['id']}"
                 if artist_key not in cache:
                     artist_payload = client.get_artist(artist["id"])
@@ -2308,6 +2378,9 @@ def get_verified_video_metadata(
         raise RuntimeError(f"Unable to retrieve verified metadata for {video_id}: {exc}") from exc
 
     details["artist_ids"] = sorted(artist_ids or ())
+    details["artist_identity_complete"] = not has_partial_artists
+    if has_partial_artists:
+        details["unlinked_artist_names"] = list(partial_credits or ())
     details["artist_names_by_id"] = {
         artist_id: unique_values(names) for artist_id, names in names_by_id.items()
     }
@@ -2420,6 +2493,8 @@ def _compare_playlist_video_ids(
                     artist_identity["error"] = "artist_identity_missing"
                 author_matches = bool(
                     expected_identity and actual_identity
+                    and expected_identity.get("artist_identity_complete") is not False
+                    and actual_identity.get("artist_identity_complete") is not False
                     and expected_identity["artist_ids"]
                     and expected_identity["artist_ids"] == actual_identity["artist_ids"]
                 )

@@ -7,6 +7,8 @@ on:
     paths:
       - ytmusic_playability.py
       - diagnose_ytmusic_playability.py
+      - ytmusic_playlist_sync.py
+      - sync_validation.py
       - ytmusic_validation_config.json
       - .github/workflows/playability-diagnostic.yml
 

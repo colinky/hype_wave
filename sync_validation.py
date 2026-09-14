@@ -288,7 +288,7 @@ def proven_source_identity(source, service, policy):
     changes source rows, attempts, playback status, or canonical ownership.
     """
     proof = policy.get("source_identity_evidence", {}).get(f"{service}:{source.get('song_id')}")
-    if not proof or proof.get("kind") != "official_cross_service_credit":
+    if not proof or proof.get("kind") not in {"official_cross_service_credit", "official_cross_service_title_translation"}:
         return source
     def exact_text(value):
         return " ".join(unicodedata.normalize("NFKC", value).casefold().split())
@@ -298,6 +298,13 @@ def proven_source_identity(source, service, policy):
     if (not actual or not all(tuple(exact_text(value) for value in row) in expected for row in actual)
             or not proof.get("references") or not proof.get("recording")):
         return source
+    if source.get("length_seconds") is not None:
+        try:
+            length = float(source["length_seconds"])
+            if not math.isfinite(length) or abs(length - float(proof["recording"]["length_seconds"])) > 2:
+                return source
+        except (TypeError, ValueError, KeyError):
+            return source
     return {**source, **proof["recording"]}
 
 
@@ -308,7 +315,55 @@ def source_recording_matches(source, metadata, *, service=None, policy=None):
     if policy is None:
         policy = json.loads(Path(__file__).with_name("matching_alias.json").read_text())
     service = normalized_service(service or source.get("service") or "")
-    return recording_identity_matches(proven_source_identity(source, service, policy), metadata)
+    proven = proven_source_identity(source, service, policy)
+    proof = policy.get("source_identity_evidence", {}).get(f"{service}:{source.get('song_id')}") or {}
+    if proof.get("kind") == "official_cross_service_title_translation" and proven != source:
+        expected = proof.get("candidate") or {}
+        # A title translation is scoped to the exact reviewed recording; it
+        # cannot turn an unrelated, similarly named catalog entry into a match.
+        try:
+            length = float(metadata["length_seconds"])
+            duration_matches = math.isfinite(length) and abs(length - float(expected["length_seconds"])) <= 2
+        except (KeyError, TypeError, ValueError):
+            duration_matches = False
+        if (not expected.get("video_id")
+                or not duration_matches
+                or any(metadata.get(key) != value for key, value in expected.items() if key != "length_seconds")):
+            proven = source
+    if recording_identity_matches(proven, metadata):
+        return True
+    # An album may contain the original alongside separately named remixes.
+    # Only reviewed exact source/recording pairs may ignore that album label;
+    # every title, performer, feature, rating and duration check still applies.
+    def exact_variants(row):
+        return {tuple(" ".join(unicodedata.normalize("NFKC", value).casefold().split())
+                      for value in variant) for variant in _identity_variants(row)}
+    def without_album(row):
+        return {**row, **{field: "" for field in ("album", "album_ko", "album_en")}}
+    for proof in policy.get("recording_release_evidence", []):
+        if (proof.get("kind") != "official_recording_release_equivalence"
+                or str(source.get("song_id")) not in proof.get("sources", {}).get(service, [])
+                or metadata.get("video_id") != proof.get("recording", {}).get("video_id")):
+            continue
+        expected = proof["recording"]
+        allowed = {tuple(" ".join(unicodedata.normalize("NFKC", value).casefold().split())
+                         for value in variant) for variant in proof.get("source_variants", [])}
+        references = proof.get("references", [])
+        isrc = proof.get("catalog_isrc")
+        if (not exact_variants(source) or not exact_variants(source) <= allowed
+                or any(metadata.get(key) != value for key, value in expected.items()
+                       if key.startswith(("title", "artist", "album")))
+                or metadata.get("length_seconds") != expected.get("length_seconds")
+                or not isinstance(expected.get("length_seconds"), (float, int))
+                or not isrc or len(references) < 2
+                or any(ref.get("isrc") != isrc or not ref.get("url") for ref in references)):
+            continue
+        if ({_rating_version(row[0]) for row in _identity_variants(proven)}
+                != {_rating_version(row[0]) for row in _identity_variants(metadata)}):
+            continue
+        if recording_identity_matches(without_album(proven), without_album(metadata)):
+            return True
+    return False
 
 
 def validate_matches(conn, *, service, sources, matches, client, verifier=None):
@@ -365,6 +420,30 @@ def validate_matches(conn, *, service, sources, matches, client, verifier=None):
     conn.commit()
     metadata_cache = {}
     validated_identity = {}
+
+    def partial_credits_match(source, metadata):
+        if metadata.get("artist_identity_complete") is not False:
+            return True
+        from ytmusic_playlist_sync import split_artist_names
+        def names(value):
+            return {normalize_text(name).replace(" ", "") for name in ALIASES.get_variants(value, "artist")}
+        required = [names(name) for name in metadata.get("unlinked_artist_names") or ()]
+        linked = metadata.get("artist_names_by_id") or {}
+        for artist_id in metadata.get("artist_ids") or ():
+            variants = linked.get(artist_id) or ()
+            if not variants:
+                return False
+            required.append(set().union(*(names(name) for name in variants)))
+        if not required or any(not group for group in required):
+            return False
+        # Every observed performer, linked or unlinked, needs an explicit
+        # source credit in each locale. Same-ID locale names may corroborate it.
+        for title, artist, _ in _identity_variants(source):
+            credits = set().union(*(names(name) for name in split_artist_names(artist)))
+            credits |= _feature_names(title)
+            if any(not group & credits for group in required):
+                return False
+        return bool(_identity_variants(source))
     for match in result:
         song_id = str(match.get("song_id") or "")
         source = by_source[song_id]
@@ -401,8 +480,11 @@ def validate_matches(conn, *, service, sources, matches, client, verifier=None):
             if old_evidence.get("state") == "unknown":
                 raise PlaybackBlocked(f"Existing recording is uncertain: {old}")
             if trusted.get("video_id") != old:
-                old_metadata = get_verified_video_metadata(client, old, metadata_cache=metadata_cache)
+                old_metadata = get_verified_video_metadata(
+                    client, old, metadata_cache=metadata_cache,
+                    allow_partial_artist_ids=old_evidence.get("state") == "playable")
                 if (not old_metadata or old_metadata.get("video_id") != old
+                        or not partial_credits_match(source, old_metadata)
                         or not source_recording_matches(source, old_metadata, service=service, policy=identity_policy)
                         or not recording_identity_matches(old_metadata, old_evidence, player=True)):
                     raise PlaybackBlocked(f"Existing recording identity needs review for {service}:{song_id}")
@@ -416,8 +498,13 @@ def validate_matches(conn, *, service, sources, matches, client, verifier=None):
         if not manual:
             # get_song can omit credits that its exact watch metadata exposes.
             # A trusted cache must not hide that live contradiction (Dirty Work).
-            metadata = get_verified_video_metadata(client, selected, metadata_cache=metadata_cache)
+            keeping_healthy = selected == old and old_evidence.get("state") == "playable"
+            metadata = get_verified_video_metadata(
+                client, selected, metadata_cache=metadata_cache,
+                allow_partial_artist_ids=keeping_healthy)
             if (not metadata or metadata.get("video_id") != selected
+                    or (metadata.get("artist_identity_complete") is False and not keeping_healthy)
+                    or not partial_credits_match(source, metadata)
                     or not source_recording_matches(source, metadata, service=service, policy=identity_policy)
                     or not recording_identity_matches(metadata, selected_evidence, player=True)):
                 raise PlaybackBlocked(f"Selected recording does not match the source identity: {selected}")
@@ -427,7 +514,8 @@ def validate_matches(conn, *, service, sources, matches, client, verifier=None):
             validated_identity[selected] = metadata or selected_evidence
         if old and old != selected and not manual:
             metadata = metadata or get_verified_video_metadata(client, selected, metadata_cache=metadata_cache)
-            if not metadata or metadata.get("video_id") != selected:
+            if (not metadata or metadata.get("video_id") != selected
+                    or metadata.get("artist_identity_complete") is False):
                 raise PlaybackBlocked(f"Replacement identity is uncertain: {selected}")
             metadata = {**metadata, "verified": True}
             match["canonical_decision"] = {

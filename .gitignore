@@ -69,3 +69,13 @@ diagnostic-artifacts/
 !tests/test_deferred_crawlers.py
 !tests/test_frozen_publication_snapshot.py
 !tests/test_sync_playability_contract.py
+
+!tests/test_recording_release_identity.py
+!tests/test_spotify_album_provenance.py
+!tests/test_partial_artist_identity.py
+!tests/fixtures/observed_release_identity.json
+!tests/fixtures/observed_partial_artist_identity.json
+
+!tests/test_source_title_translation.py
+
+!tests/test_spotify_album_storage.py

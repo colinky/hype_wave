@@ -1,0 +1,295 @@
+{
+  "provenance": "Read-only exact authenticated KO/EN watch and album responses observed 2026-09-14T15:46Z–15:47Z. Public metadata only; player status and timestamps intentionally omitted for offline synthetic verification. Offline get_artist mocks use the observed linked watch name.",
+  "cases": [
+    {
+      "video_id": "HLTQoCRBfxc",
+      "source": {
+        "song_id": "3m08yeqLjXsqblRU3KXPAp",
+        "title_ko": "TICK TOCK (Feat. ZICO) (Prod. by ZICO, Crush)",
+        "title_en": "TICK TOCK (Feat. ZICO) (Prod. by ZICO, Crush)",
+        "artist_ko": "김하온, Nosun, Raf Sandou, Marv, Jung Junhyuk, 지코",
+        "artist_en": "HAON, Nosun, Raf Sandou, Marv, Jung Junhyuk, ZICO",
+        "album_ko": "쇼미더머니 12 Episode 1 - EP",
+        "album_en": "쇼미더머니 12 Episode 1 - EP",
+        "service": "spotify"
+      },
+      "player": {
+        "title": "TICK TOCK (Prod. by ZICO, Crush)",
+        "artist": "김하온 (HAON), Nosun, Raf Sandou, Marv 및 정준혁",
+        "music_video_type": "MUSIC_VIDEO_TYPE_ATV"
+      },
+      "watch": {
+        "ko": {
+          "videoId": "HLTQoCRBfxc",
+          "title": "TICK TOCK (Prod. by ZICO, Crush) (feat. 지코 (ZICO))",
+          "artists": [
+            {
+              "name": "김하온 (HAON)",
+              "id": "UCa6xaGioOMH9tlLNlPI7OMQ"
+            },
+            {
+              "name": "Nosun",
+              "id": "UCTl1nrEdVEU445ujcZmJE5Q"
+            },
+            {
+              "name": "Raf Sandou",
+              "id": "UCOOQ--nwW438qWbc0b-d1hw"
+            },
+            {
+              "name": "Marv",
+              "id": null
+            }
+          ],
+          "album": {
+            "name": "쇼미더머니 12 Episode 1",
+            "id": "MPREb_52LZLXq9bu3"
+          },
+          "length": "3:50",
+          "isAvailable": null,
+          "videoType": "MUSIC_VIDEO_TYPE_ATV"
+        },
+        "en": {
+          "videoId": "HLTQoCRBfxc",
+          "title": "TICK TOCK (Prod. by ZICO, Crush) (feat. ZICO)",
+          "artists": [
+            {
+              "name": "HAON",
+              "id": "UCa6xaGioOMH9tlLNlPI7OMQ"
+            },
+            {
+              "name": "Nosun",
+              "id": "UCTl1nrEdVEU445ujcZmJE5Q"
+            },
+            {
+              "name": "Raf Sandou",
+              "id": "UCOOQ--nwW438qWbc0b-d1hw"
+            },
+            {
+              "name": "Marv",
+              "id": null
+            }
+          ],
+          "album": {
+            "name": "Show Me The Money 12 Episode 1",
+            "id": "MPREb_52LZLXq9bu3"
+          },
+          "length": "3:50",
+          "isAvailable": null,
+          "videoType": "MUSIC_VIDEO_TYPE_ATV"
+        }
+      },
+      "album": {
+        "ko": {
+          "title": "쇼미더머니 12 Episode 1",
+          "artists": [
+            {
+              "name": "Various Artists",
+              "id": null
+            }
+          ],
+          "year": null,
+          "type": "싱글",
+          "tracks": [
+            {
+              "videoId": "HLTQoCRBfxc",
+              "title": "TICK TOCK (Prod. by ZICO, Crush) (feat. 지코 (ZICO))",
+              "artists": [
+                {
+                  "name": "김하온 (HAON)",
+                  "id": "UCa6xaGioOMH9tlLNlPI7OMQ"
+                },
+                {
+                  "name": "Nosun",
+                  "id": "UCTl1nrEdVEU445ujcZmJE5Q"
+                },
+                {
+                  "name": "Raf Sandou",
+                  "id": "UCOOQ--nwW438qWbc0b-d1hw"
+                },
+                {
+                  "name": "Marv",
+                  "id": null
+                }
+              ],
+              "duration": "3:50",
+              "isAvailable": true,
+              "videoType": "MUSIC_VIDEO_TYPE_ATV"
+            }
+          ]
+        },
+        "en": {
+          "title": "Show Me The Money 12 Episode 1",
+          "artists": [
+            {
+              "name": "Various Artists",
+              "id": null
+            }
+          ],
+          "year": "2026",
+          "type": "Single",
+          "tracks": [
+            {
+              "videoId": "HLTQoCRBfxc",
+              "title": "TICK TOCK (Prod. by ZICO, Crush) (feat. ZICO)",
+              "artists": [
+                {
+                  "name": "HAON",
+                  "id": "UCa6xaGioOMH9tlLNlPI7OMQ"
+                },
+                {
+                  "name": "Nosun",
+                  "id": "UCTl1nrEdVEU445ujcZmJE5Q"
+                },
+                {
+                  "name": "Raf Sandou",
+                  "id": "UCOOQ--nwW438qWbc0b-d1hw"
+                },
+                {
+                  "name": "Marv",
+                  "id": null
+                }
+              ],
+              "duration": "3:50",
+              "isAvailable": true,
+              "videoType": "MUSIC_VIDEO_TYPE_ATV"
+            }
+          ]
+        }
+      },
+      "length_seconds": 230
+    },
+    {
+      "video_id": "kh4hpnGs9iY",
+      "source": {
+        "song_id": "3Va1GWNQ53gcPiB4KxuCd5",
+        "title_ko": "~할때만 (Feat. JUNNY)",
+        "title_en": "Whenever (Feat. JUNNY)",
+        "artist_ko": "dress, Raf Sandou, JUNNY",
+        "artist_en": "dress, Raf Sandou, JUNNY",
+        "album_ko": "MOHO - EP",
+        "album_en": "MOHO - EP",
+        "service": "spotify"
+      },
+      "player": {
+        "title": "~할때만",
+        "artist": "dress 및 Raf Sandou",
+        "music_video_type": "MUSIC_VIDEO_TYPE_ATV"
+      },
+      "watch": {
+        "ko": {
+          "videoId": "kh4hpnGs9iY",
+          "title": "~할때만 (feat. JUNNY)",
+          "artists": [
+            {
+              "name": "dress",
+              "id": "UCNSlta2YwAgMPFwHj1WGnxQ"
+            },
+            {
+              "name": "Raf Sandou",
+              "id": null
+            }
+          ],
+          "album": {
+            "name": "MOHO",
+            "id": "MPREb_RcrG1irw58L"
+          },
+          "length": "2:34",
+          "isAvailable": null,
+          "videoType": "MUSIC_VIDEO_TYPE_ATV"
+        },
+        "en": {
+          "videoId": "kh4hpnGs9iY",
+          "title": "Whenever (feat. JUNNY)",
+          "artists": [
+            {
+              "name": "dress",
+              "id": "UCNSlta2YwAgMPFwHj1WGnxQ"
+            },
+            {
+              "name": "Raf Sandou",
+              "id": null
+            }
+          ],
+          "album": {
+            "name": "MOHO",
+            "id": "MPREb_RcrG1irw58L"
+          },
+          "length": "2:34",
+          "isAvailable": null,
+          "videoType": "MUSIC_VIDEO_TYPE_ATV"
+        }
+      },
+      "album": {
+        "ko": {
+          "title": "MOHO",
+          "artists": [
+            {
+              "name": "dress",
+              "id": "UCNSlta2YwAgMPFwHj1WGnxQ"
+            },
+            {
+              "name": "Raf Sandou",
+              "id": null
+            }
+          ],
+          "year": null,
+          "type": "EP",
+          "tracks": [
+            {
+              "videoId": "kh4hpnGs9iY",
+              "title": "~할때만 (feat. JUNNY)",
+              "artists": [
+                {
+                  "name": "dress",
+                  "id": "UCNSlta2YwAgMPFwHj1WGnxQ"
+                },
+                {
+                  "name": "Raf Sandou",
+                  "id": null
+                }
+              ],
+              "duration": "2:34",
+              "isAvailable": true,
+              "videoType": "MUSIC_VIDEO_TYPE_ATV"
+            }
+          ]
+        },
+        "en": {
+          "title": "MOHO",
+          "artists": [
+            {
+              "name": "dress",
+              "id": "UCNSlta2YwAgMPFwHj1WGnxQ"
+            },
+            {
+              "name": "Raf Sandou",
+              "id": null
+            }
+          ],
+          "year": "2026",
+          "type": "EP",
+          "tracks": [
+            {
+              "videoId": "kh4hpnGs9iY",
+              "title": "Whenever (feat. JUNNY)",
+              "artists": [
+                {
+                  "name": "dress",
+                  "id": "UCNSlta2YwAgMPFwHj1WGnxQ"
+                },
+                {
+                  "name": "Raf Sandou",
+                  "id": null
+                }
+              ],
+              "duration": "2:34",
+              "isAvailable": true,
+              "videoType": "MUSIC_VIDEO_TYPE_ATV"
+            }
+          ]
+        }
+      },
+      "length_seconds": 154
+    }
+  ]
+}

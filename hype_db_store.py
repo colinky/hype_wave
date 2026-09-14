@@ -668,6 +668,7 @@ def upsert_track_list_metadata(
     row: dict[str, Any],
     locale: str = "",
     bind_source_id: bool = True,
+    source_album_row: dict[str, Any] | None = None,
 ) -> None:
     if bind_source_id:
         conn.execute(
@@ -690,13 +691,14 @@ def upsert_track_list_metadata(
             album_id = COALESCE(NULLIF(excluded.album_id, ''), track_list.album_id),
             title_ko = COALESCE(NULLIF(excluded.title_ko, ''), track_list.title_ko),
             artist_ko = COALESCE(NULLIF(excluded.artist_ko, ''), track_list.artist_ko),
-            album_ko = COALESCE(NULLIF(excluded.album_ko, ''), track_list.album_ko),
+            album_ko = CASE WHEN ? THEN excluded.album_ko ELSE COALESCE(NULLIF(excluded.album_ko, ''), track_list.album_ko) END,
             title_en = COALESCE(NULLIF(excluded.title_en, ''), track_list.title_en),
             artist_en = COALESCE(NULLIF(excluded.artist_en, ''), track_list.artist_en),
-            album_en = COALESCE(NULLIF(excluded.album_en, ''), track_list.album_en),
+            album_en = CASE WHEN ? THEN excluded.album_en ELSE COALESCE(NULLIF(excluded.album_en, ''), track_list.album_en) END,
             artwork_url = COALESCE(NULLIF(excluded.artwork_url, ''), track_list.artwork_url)
         """,
-        track_list_metadata_params(service=service, song_id=song_id, row=row, locale=locale),
+        _track_list_metadata_write_params(service=service, song_id=song_id, row=row, locale=locale,
+                                          source_album_row=source_album_row),
     )
 
 
@@ -758,6 +760,40 @@ def track_list_metadata_params(
         album_en,
         str(row.get("artwork_url") or "").strip(),
     )
+
+
+def _track_list_metadata_write_params(
+    *, service: str, song_id: str, row: dict[str, Any], locale: str = "",
+    source_album_row: dict[str, Any] | None = None,
+) -> tuple[Any, ...]:
+    """Keep Spotify source albums separate from cached match/display metadata.
+
+    A fresh source's observed locale may explicitly have no official album.
+    Missing locales retain their stored values; ordinary partial/manual metadata
+    upserts opt out by omitting source_album_row.
+    """
+    values = list(track_list_metadata_params(service=service, song_id=song_id, row=row, locale=locale))
+    replace = [False, False]
+    if normalized_service(service) == "spotify" and source_album_row is not None:
+        source = source_album_row
+        source_values = track_list_metadata_params(service=service, song_id=song_id, row=source, locale=locale)
+        source_locale = str(source.get("locale") or locale or "").lower()
+        if not source_locale and source.get("title") and source.get("artist"):
+            source_locale = "en"
+        for offset, (language, index) in enumerate((("ko", 5), ("en", 8))):
+            # Even when a locale was not observed, do not insert a cached
+            # match's album as new Spotify source metadata.
+            values[index] = source_values[index]
+            field = "album_" + language
+            observed = (source_locale.startswith(language) or
+                        bool(source.get("title_" + language) and source.get("artist_" + language)))
+            if observed and field in source:
+                values[index] = str(source.get(field) or "").strip()
+                replace[offset] = True
+            elif source_locale.startswith(language) and "album" in source:
+                values[index] = str(source.get("album") or "").strip()
+                replace[offset] = True
+    return (*values, *replace)
 
 
 def _metadata_variants(row: dict[str, Any]) -> list[tuple[str, str, str]]:
@@ -2000,6 +2036,7 @@ def _upsert_track_match_impl(
                 track_uid=track_uid,
                 row=merged,
                 bind_source_id=False,
+                source_album_row=source_row,
             )
         return track_uid
     if override_action == "split":
@@ -2021,6 +2058,7 @@ def _upsert_track_match_impl(
                 song_id=song_id,
                 track_uid=track_uid,
                 row=merged,
+                source_album_row=source_row,
             )
         return track_uid
     if override and override_action == "set_canonical" and override["canonical_yt_video_id"]:
@@ -2055,6 +2093,7 @@ def _upsert_track_match_impl(
                 track_uid=track_uid,
                 row=merged,
                 bind_source_id=is_ytmusic_video,
+                source_album_row=source_row,
             )
         return track_uid
     track_uid = resolve_track_uid(conn, service=service, song_id=song_id, row=merged, video_id=video_id)
@@ -2192,7 +2231,8 @@ def _upsert_track_match_impl(
                     payload=merged,
                 )
                 track_uid = bound_uid
-        upsert_track_list_metadata(conn, service=service, song_id=song_id, track_uid=track_uid, row=merged)
+        upsert_track_list_metadata(conn, service=service, song_id=song_id, track_uid=track_uid, row=merged,
+                                   source_album_row=source_row)
     if canonical_video:
         conn.execute(
             "UPDATE tracks SET canonical_yt_video_id = COALESCE(canonical_yt_video_id, ?) WHERE track_uid = ?",
@@ -2579,7 +2619,8 @@ def _persist_crawled_tracks_impl(
         platform_song_ids_params.append((service, song_id, track_uid))
         
         # Collect track_list metadata params
-        track_list_params.append(track_list_metadata_params(service=service, song_id=song_id, row=track))
+        track_list_params.append(_track_list_metadata_write_params(
+            service=service, song_id=song_id, row=track, source_album_row=track))
         
         # Collect playlist_order params
         playlist_order_params.append((
@@ -2629,10 +2670,10 @@ def _persist_crawled_tracks_impl(
                 album_id = COALESCE(NULLIF(excluded.album_id, ''), track_list.album_id),
                 title_ko = COALESCE(NULLIF(excluded.title_ko, ''), track_list.title_ko),
                 artist_ko = COALESCE(NULLIF(excluded.artist_ko, ''), track_list.artist_ko),
-                album_ko = COALESCE(NULLIF(excluded.album_ko, ''), track_list.album_ko),
+                album_ko = CASE WHEN ? THEN excluded.album_ko ELSE COALESCE(NULLIF(excluded.album_ko, ''), track_list.album_ko) END,
                 title_en = COALESCE(NULLIF(excluded.title_en, ''), track_list.title_en),
                 artist_en = COALESCE(NULLIF(excluded.artist_en, ''), track_list.artist_en),
-                album_en = COALESCE(NULLIF(excluded.album_en, ''), track_list.album_en),
+                album_en = CASE WHEN ? THEN excluded.album_en ELSE COALESCE(NULLIF(excluded.album_en, ''), track_list.album_en) END,
                 artwork_url = COALESCE(NULLIF(excluded.artwork_url, ''), track_list.artwork_url)
             """,
             track_list_params
@@ -2963,7 +3004,8 @@ def _persist_crawl_run_bulk_impl(
         ):
             platform_song_ids_params.append((service, song_id, track_uid))
         if song_id and not (service == "spotify" and str(song_id).startswith("fallback:")):
-            track_list_params.append(track_list_metadata_params(service=service, song_id=song_id, row=merged))
+            track_list_params.append(_track_list_metadata_write_params(
+                service=service, song_id=song_id, row=merged, source_album_row=source_row))
         if canonical_video and status not in failed_statuses and override_action != "split":
             metadata_params.extend(metadata_lookup_params(
                 track_uid=track_uid,
@@ -3128,10 +3170,10 @@ def _persist_crawl_run_bulk_impl(
                 album_id = COALESCE(NULLIF(excluded.album_id, ''), track_list.album_id),
                 title_ko = COALESCE(NULLIF(excluded.title_ko, ''), track_list.title_ko),
                 artist_ko = COALESCE(NULLIF(excluded.artist_ko, ''), track_list.artist_ko),
-                album_ko = COALESCE(NULLIF(excluded.album_ko, ''), track_list.album_ko),
+                album_ko = CASE WHEN ? THEN excluded.album_ko ELSE COALESCE(NULLIF(excluded.album_ko, ''), track_list.album_ko) END,
                 title_en = COALESCE(NULLIF(excluded.title_en, ''), track_list.title_en),
                 artist_en = COALESCE(NULLIF(excluded.artist_en, ''), track_list.artist_en),
-                album_en = COALESCE(NULLIF(excluded.album_en, ''), track_list.album_en),
+                album_en = CASE WHEN ? THEN excluded.album_en ELSE COALESCE(NULLIF(excluded.album_en, ''), track_list.album_en) END,
                 artwork_url = COALESCE(NULLIF(excluded.artwork_url, ''), track_list.artwork_url)
             """,
             track_list_params,

@@ -11,7 +11,7 @@ Features:
     - Supports merging multiple Spotify playlists into a single YTMusic playlist.
     - Automatic deduplication by Spotify Track ID.
     - Fetches both US (English) and KR (Korean) metadata for maximum YouTube matching accuracy.
-    - Uses Spotify page/embed data and enriches missing album names through MusicBrainz.
+    - Uses exact Spotify page/embed album metadata without substituting other catalogs.
     - No Spotify API credentials are required.
 """
 
@@ -29,6 +29,9 @@ from datetime import datetime, timedelta, timezone
 from functools import lru_cache
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlsplit
+
+from bs4 import BeautifulSoup
 
 from ytmusic_playlist_sync import (
     SourceTrack,
@@ -107,7 +110,7 @@ def first_text_from_mapping(value: Any, keys: tuple[str, ...] = ("name", "title"
         return text_field(value)
     for key in keys:
         text = text_field(value.get(key))
-        if text:
+        if text and not text.startswith(("spotify:", "https://", "http://")):
             return text
     return ""
 
@@ -128,21 +131,13 @@ def candidate_album_name(value: Any) -> str:
     )
     for key in direct_keys:
         text = text_field(value.get(key))
-        if text:
+        if text and not text.startswith(("spotify:", "https://", "http://")):
             return text
 
     nested_keys = ("album", "albumOfTrack", "release", "releaseOfTrack")
     for key in nested_keys:
         text = first_text_from_mapping(value.get(key))
-        if text:
-            return text
-
-    for key, nested in value.items():
-        lower_key = str(key).lower()
-        if "album" not in lower_key and "release" not in lower_key:
-            continue
-        text = first_text_from_mapping(nested)
-        if text:
+        if text and not text.startswith(("spotify:", "https://", "http://")):
             return text
 
     return ""
@@ -158,33 +153,82 @@ def iter_mappings(value: Any):
             yield from iter_mappings(item)
 
 
+def _spotify_resource_id(value: Any, kind: str = "track") -> str:
+    raw = text_field(value)
+    if re.fullmatch(r"[A-Za-z0-9]{22}", raw):
+        return raw
+    if raw.startswith(f"spotify:{kind}:"):
+        candidate = raw[len(f"spotify:{kind}:"):]
+        return candidate if re.fullmatch(r"[A-Za-z0-9]{22}", candidate) else ""
+    url = urlsplit(raw)
+    if url.scheme != "https" or url.netloc != "open.spotify.com":
+        return ""
+    match = re.fullmatch(rf"/(?:intl-[^/]+/)?(?:embed/)?{kind}/([A-Za-z0-9]{{22}})/?", url.path)
+    return match.group(1) if match else ""
+
+
 def mapping_has_track_id(value: dict[str, Any], track_id: str) -> bool:
-    if not track_id:
-        return False
-    for key in ("id", "uri", "gid", "shareUrl", "url"):
-        raw = value.get(key)
-        if isinstance(raw, str) and (raw == track_id or raw.endswith(track_id) or f"/track/{track_id}" in raw):
-            return True
-    return False
+    identities = {_spotify_resource_id(value.get(key)) for key in ("id", "uri", "gid", "shareUrl", "url", "@id")}
+    identities.discard("")
+    return bool(track_id) and identities == {track_id}
 
 
 def album_name_from_page_data(item: dict[str, Any], data: dict[str, Any], track_id: str) -> str:
-    album_name = candidate_album_name(item)
-    if album_name:
-        return album_name
-
-    for mapping in iter_mappings(item):
-        album_name = candidate_album_name(mapping)
-        if album_name:
-            return album_name
-
-    if track_id:
-        for mapping in iter_mappings(data):
-            if mapping_has_track_id(mapping, track_id):
-                album_name = candidate_album_name(mapping)
-                if album_name:
-                    return album_name
+    if not track_id or _spotify_resource_id(track_id) != track_id:
+        return ""
+    for mapping in iter_mappings([item, data]):
+        if mapping_has_track_id(mapping, track_id):
+            album_name = candidate_album_name(mapping)
+            if album_name:
+                return album_name
     return ""
+
+
+def official_spotify_album_from_html(page_html: str, track_id: str) -> str:
+    """Accept only metadata attached to the requested Spotify track identity."""
+    if not track_id or _spotify_resource_id(track_id) != track_id:
+        return ""
+    soup = BeautifulSoup(page_html, "html.parser")
+    meta = {tag.get("property") or tag.get("name"): tag.get("content", "") for tag in soup.find_all("meta")}
+    if meta.get("og:url") and _spotify_resource_id(meta["og:url"]) != track_id:
+        return ""
+    for script in soup.find_all("script", type=("application/json", "application/ld+json")):
+        try:
+            data = json.loads(script.string or "")
+        except (TypeError, ValueError):
+            continue
+        album = album_name_from_page_data({}, data, track_id)
+        if album:
+            return album
+    # Spotify's exact track page exposes the album title in its Open Graph
+    # description and its identity in music:album; unrelated page cards do not.
+    if _spotify_resource_id(meta.get("og:url")) != track_id or not _spotify_resource_id(meta.get("music:album"), "album"):
+        return ""
+    parts = meta.get("og:description", "").rsplit(" · ", 2)
+    if len(parts) != 3 or parts[1] != "Song" or not re.fullmatch(r"\d{4}", parts[2]):
+        return ""
+    credits = parts[0].split(" · ", 1)
+    return credits[1].strip() if len(credits) == 2 else ""
+
+
+def fetch_official_spotify_album(track_id: str, *, album_cache: dict[str, str] | None = None) -> str:
+    """Read a public exact-track page; the cache belongs to this collection run."""
+    if not track_id or _spotify_resource_id(track_id) != track_id:
+        return ""
+    if album_cache is not None and track_id in album_cache:
+        return album_cache[track_id]
+    album = ""
+    try:
+        response = http_session.get(f"https://open.spotify.com/track/{track_id}",
+                                    headers={"User-Agent": "Mozilla/5.0", "Accept-Language": "en-US,en;q=0.9"}, timeout=30)
+        response.raise_for_status()
+        if _spotify_resource_id(response.url) == track_id:
+            album = official_spotify_album_from_html(response.content.decode("utf-8", errors="replace"), track_id)
+    except Exception as exc:
+        LOG.warning("Official Spotify album unavailable for %s (%s)", track_id, type(exc).__name__)
+    if album_cache is not None:
+        album_cache[track_id] = album
+    return album
 
 
 def spotify_artist_text(value: str) -> str:
@@ -366,9 +410,12 @@ def fetch_spotify_tracks_scraped(
     *,
     market: str = "US",
     limit: int | None = None,
-    use_musicbrainz: bool = True,
+    use_musicbrainz: bool = False,
     match_cache: dict[str, dict[str, Any]] | None = None,
+    official_album_cache: dict[str, str] | None = None,
 ) -> tuple[str, str, list[SourceTrack], str]:
+    if official_album_cache is None:
+        official_album_cache = {}
     playlist_id = spotify_playlist_id(playlist_url)
     # Use the embed page which is more stable for scraping
     embed_url = f"https://open.spotify.com/embed/playlist/{playlist_id}"
@@ -426,7 +473,8 @@ def fetch_spotify_tracks_scraped(
             LOG.warning(f"No tracks found in Spotify embed page for {playlist_id}. This might be a private or empty playlist.")
 
         tracks: list[SourceTrack] = []
-        musicbrainz_album_count = 0
+        if use_musicbrainz:
+            LOG.warning("MusicBrainz album enrichment is disabled for Spotify source identity; only official albums are used.")
         for i, item in enumerate(raw_items):
             # item is usually a track object directly in embed
             # track_id fallback to title+artist if uri/id is missing
@@ -441,19 +489,10 @@ def fetch_spotify_tracks_scraped(
             artist_str = item.get("subtitle", "").strip()
             
             album_name = album_name_from_page_data(item, data, track_id)
-            if use_musicbrainz and not album_name:
-                # Lazy MusicBrainz: check cache first
-                t_norm = normalize_text(title)
-                a_norm = normalize_text(artist_str)
-                cache_key = f"{t_norm}|{a_norm}"
-                
-                if match_cache and cache_key in match_cache:
-                    album_name = match_cache[cache_key].get("album", "")
-                
-                if not album_name:
-                    album_name = get_album_from_musicbrainz(title, artist_str)
-                    if album_name:
-                        musicbrainz_album_count += 1
+            if not album_name:
+                album_name = fetch_official_spotify_album(track_id, album_cache=official_album_cache)
+            else:
+                official_album_cache[track_id] = album_name
             
             tracks.append(
                 SourceTrack(
@@ -472,10 +511,7 @@ def fetch_spotify_tracks_scraped(
         
         if len(raw_items) >= 100:
             LOG.info(f"Note: Scraped {len(tracks)} tracks. Spotify embed is typically limited to the first 100 tracks.")
-        if musicbrainz_album_count:
-            LOG.info("Enriched %d Spotify album names via MusicBrainz", musicbrainz_album_count)
-                
-        source = "spotify_embed_scrape+musicbrainz" if use_musicbrainz else "spotify_embed_scrape"
+        source = "spotify_embed_scrape"
         return playlist_name, playlist_desc, tracks, source
         
     except Exception as exc:
@@ -509,18 +545,8 @@ def apply_spotify_album_cache(
     tracks: list[SourceTrack],
     cache_by_song_id: dict[str, dict[str, Any]],
 ) -> int:
-    filled = 0
-    for track in tracks:
-        if track.album:
-            continue
-        cached = cache_by_song_id.get(track.song_id or "")
-        if not cached:
-            continue
-        album = str(cached.get("album") or cached.get("yt_album") or "").strip()
-        if album:
-            track.album = album
-            filled += 1
-    return filled
+    """Compatibility no-op: cached YouTube albums are not Spotify source data."""
+    return 0
 
 
 def enrich_spotify_albums_with_musicbrainz(
@@ -528,19 +554,10 @@ def enrich_spotify_albums_with_musicbrainz(
     *,
     use_musicbrainz: bool,
 ) -> int:
-    if not use_musicbrainz:
-        return 0
-    enriched = 0
-    for track in tracks:
-        if track.album:
-            continue
-        album_name = get_album_from_musicbrainz(track.title, track.artist)
-        if album_name:
-            track.album = album_name
-            enriched += 1
-    if enriched:
-        LOG.info("Enriched %d Spotify album names via MusicBrainz", enriched)
-    return enriched
+    """Compatibility no-op: a third-party release is not exact source evidence."""
+    if use_musicbrainz:
+        LOG.warning("MusicBrainz album enrichment is disabled for Spotify source identity; only official albums are used.")
+    return 0
 
 
 def parse_args() -> argparse.Namespace:
@@ -563,7 +580,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--min-title-score", type=float, default=DEFAULT_MIN_TITLE_SCORE)
     parser.add_argument("--min-artist-score", type=float, default=DEFAULT_MIN_ARTIST_SCORE)
     parser.add_argument("--search-limit", type=int, default=DEFAULT_SEARCH_LIMIT)
-    parser.add_argument("--use-musicbrainz", default=None, help="true/false. Enrich missing Spotify album names with MusicBrainz (default: false)")
+    parser.add_argument("--use-musicbrainz", default=None, help="Deprecated compatibility option; source albums now require official Spotify metadata")
     parser.add_argument("--shuffle", action="store_true", help="Shuffle the tracks before saving them to the YouTube Music playlist")
     parser.add_argument("--defer-publish", action="store_true", help="Match, validate, and persist tracks without updating the target playlist")
     parser.add_argument("--dry-run", action="store_true")
@@ -608,6 +625,8 @@ def main() -> int:
         args.use_musicbrainz if args.use_musicbrainz is not None else os.environ.get("USE_MUSICBRAINZ"),
         default=False,
     )
+    if use_musicbrainz:
+        LOG.warning("--use-musicbrainz is retained for compatibility but cannot replace official Spotify source albums.")
     started_at = os.environ.get("HYPE_MATCH_STARTED_AT") or datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
 
     kst_now = datetime.now(timezone.utc).astimezone(timezone(timedelta(hours=9)))
@@ -616,6 +635,7 @@ def main() -> int:
     raw_tracks: list[SourceTrack] = []
     tracks_ko_map: dict[str, SourceTrack] = {}
     combined_desc_parts = []
+    official_album_cache: dict[str, str] = {}
     
     max_retries = 3
     for url in spotify_urls:
@@ -628,6 +648,7 @@ def main() -> int:
                     market="US",
                     limit=track_limit,
                     use_musicbrainz=False,
+                    official_album_cache=official_album_cache,
                 )
                 
                 # Check validation if there's an expected count (based on job_name)
@@ -654,16 +675,6 @@ def main() -> int:
                     tracks,
                     no_db_cache=args.no_db_cache,
                 )
-                cache_album_count = apply_spotify_album_cache(tracks, targeted_cache)
-                if cache_album_count:
-                    LOG.info("Filled %d Spotify album names from targeted DB cache.", cache_album_count)
-                musicbrainz_count = enrich_spotify_albums_with_musicbrainz(
-                    tracks,
-                    use_musicbrainz=use_musicbrainz,
-                )
-                if musicbrainz_count:
-                    source = f"{source}+musicbrainz"
-
                 needs_ko_fallback = any((track.song_id or "") not in targeted_cache for track in tracks)
                 
                 if needs_ko_fallback:
@@ -675,8 +686,8 @@ def main() -> int:
                             market="KR",
                             limit=track_limit,
                             use_musicbrainz=False,
+                            official_album_cache=official_album_cache,
                         )
-                        apply_spotify_album_cache(tracks_ko, targeted_cache)
                         for t in tracks_ko:
                             if t.song_id:
                                 tracks_ko_map[t.song_id] = t
@@ -720,7 +731,7 @@ def main() -> int:
         min_artist_score,
         search_limit,
     )
-    LOG.info("MusicBrainz album enrichment: %s", use_musicbrainz)
+    LOG.info("Spotify source albums use exact official Spotify metadata only.")
     ytmusic = make_ytmusic(yt_auth, yt_oauth_client_id, yt_oauth_client_secret)
     matched_video_ids = process_matching_pipeline(
         all_tracks=all_tracks,

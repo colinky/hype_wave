@@ -15,6 +15,75 @@
       "융진 of Casker",
       "Yoong Jin of Casker",
       "YoongJin of Casker"
+    ],
+    [
+      "악동뮤지션",
+      "AKMU",
+      "AKMU (악뮤)",
+      "악뮤"
+    ],
+    [
+      "도경수",
+      "디오",
+      "D.O.",
+      "도경수(D.O.)"
+    ],
+    [
+      "제이홉",
+      "j-hope",
+      "j-hope of BTS"
+    ],
+    [
+      "선우(THE BOYZ)",
+      "SUNWOO(THE BOYZ)",
+      "SUNWOO"
+    ],
+    [
+      "SOLE (쏠)",
+      "SOLE"
+    ],
+    [
+      "지코",
+      "지코 (ZICO)",
+      "ZICO"
+    ],
+    [
+      "스키니 브라운",
+      "Skinny Brown"
+    ],
+    [
+      "홈보이",
+      "Homeboy"
+    ],
+    [
+      "지젤",
+      "GISELLE",
+      "지젤 of aespa"
+    ],
+    [
+      "다이나믹 듀오",
+      "Dynamic Duo",
+      "Dynamicduo"
+    ],
+    [
+      "순순희(기태)",
+      "순순희 (기태)",
+      "Gitae"
+    ],
+    [
+      "릴러말즈",
+      "Leellamarz"
+    ],
+    [
+      "엔하이픈",
+      "엔하이픈 (ENHYPEN)",
+      "ENHYPEN"
+    ],
+    [
+      "김하온",
+      "김하온 (HAON)",
+      "김하온(HAON)",
+      "HAON"
     ]
   ],
   "titles": [],
@@ -66,6 +135,506 @@
         }
       ],
       "limit": "Official album, lead artist, performer credit and exact millisecond duration corroborate this source omission; ISRC and decoded-audio identity were not provided."
+    },
+    "melon:36386455": {
+      "kind": "official_cross_service_title_translation",
+      "observed_at": "2026-09-14T15:57:54.450543+00:00",
+      "source_variants": [
+        [
+          "사랑으로",
+          "wave to earth",
+          "0.1 flaws and all."
+        ]
+      ],
+      "recording": {
+        "title": "love.",
+        "artist": "wave to earth",
+        "album": "0.1 flaws and all.",
+        "title_ko": "사랑으로",
+        "artist_ko": "wave to earth",
+        "album_ko": "0.1 flaws and all.",
+        "title_en": "love.",
+        "artist_en": "wave to earth",
+        "album_en": "0.1 flaws and all.",
+        "length_seconds": 307.75
+      },
+      "candidate": {
+        "video_id": "QX2dqXr8mOU",
+        "title": "love.",
+        "artist": "wave to earth",
+        "album": "0.1 flaws and all.",
+        "title_ko": "love.",
+        "artist_ko": "wave to earth",
+        "album_ko": "0.1 flaws and all.",
+        "title_en": "love.",
+        "artist_en": "wave to earth",
+        "album_en": "0.1 flaws and all.",
+        "length_seconds": 308,
+        "music_video_type": "MUSIC_VIDEO_TYPE_ATV"
+      },
+      "references": [
+        {
+          "service": "apple",
+          "song_id": "1770274550",
+          "storefront": "kr",
+          "locale": "ko-KR",
+          "url": "https://music.apple.com/kr/album/%EC%82%AC%EB%9E%91%EC%9C%BC%EB%A1%9C/1770274106?i=1770274550",
+          "title": "사랑으로",
+          "artist": "wave to earth",
+          "album": "0.1 flaws and all.",
+          "isrc": "KRA252300813",
+          "duration_ms": 307750
+        },
+        {
+          "service": "apple",
+          "song_id": "1770274550",
+          "storefront": "kr",
+          "locale": "en-GB",
+          "url": "https://music.apple.com/kr/album/%EC%82%AC%EB%9E%91%EC%9C%BC%EB%A1%9C/1770274106?i=1770274550&l=en-GB",
+          "title": "love.",
+          "artist": "wave to earth",
+          "album": "0.1 flaws and all.",
+          "isrc": "KRA252300813",
+          "duration_ms": 307750
+        },
+        {
+          "service": "melon",
+          "song_id": "36386455",
+          "url": "https://www.melon.com/song/detail.htm?songId=36386455",
+          "title": "사랑으로",
+          "artist": "wave to earth",
+          "album": "0.1 flaws and all.",
+          "duration_ms": null,
+          "isrc": null
+        }
+      ],
+      "evidence_sha256": "b8d2b18c2e52174182cc2ee0c6620e50ca13fd514f3c59cb0895ed1117b5e2af",
+      "scope_note": "Translation evidence only for exact Melon 36386455 input and observed exact candidate metadata QX2dqXr8mOU. Does not select an ID, authorize canonical replacement, or establish current playback. Melon duration/ISRC and YouTube ISRC were not observed."
     }
-  }
+  },
+  "recording_release_evidence": [
+    {
+      "kind": "official_recording_release_equivalence",
+      "title": "LEMONADE",
+      "observed_at": "2026-09-14",
+      "sources": {
+        "apple": [
+          "1893599773",
+          "6772870627"
+        ],
+        "melon": [
+          "602115220"
+        ],
+        "spotify": [
+          "40tqYMTWs6E1FKEDMTWRFB"
+        ],
+        "ytmusic": [
+          "83C3TZ4Zm_o",
+          "LBhcqYqeu0U"
+        ]
+      },
+      "source_variants": [
+        [
+          "LEMONADE",
+          "aespa",
+          ""
+        ],
+        [
+          "LEMONADE",
+          "aespa",
+          "LEMONADE - The 2nd Album"
+        ],
+        [
+          "LEMONADE",
+          "aespa",
+          "LEMONADE - The 2nd Album (GISELLE Special Version)"
+        ],
+        [
+          "LEMONADE",
+          "aespa",
+          "LEMONADE - The 2nd Album (KARINA Special Version)"
+        ],
+        [
+          "LEMONADE",
+          "에스파",
+          ""
+        ]
+      ],
+      "recording": {
+        "video_id": "LBhcqYqeu0U",
+        "title": "LEMONADE",
+        "artist": "에스파",
+        "album": "LEMONADE - The 2nd Album",
+        "title_ko": "LEMONADE",
+        "artist_ko": "에스파",
+        "album_ko": "LEMONADE - The 2nd Album",
+        "title_en": "LEMONADE",
+        "artist_en": "aespa",
+        "album_en": "LEMONADE - The 2nd Album",
+        "length_seconds": 187,
+        "music_video_type": "MUSIC_VIDEO_TYPE_ATV"
+      },
+      "catalog_isrc": "KRA302600098",
+      "references": [
+        {
+          "url": "https://music.apple.com/kr/album/lemonade/1893599771?i=1893599773&l=en-GB",
+          "title": "LEMONADE",
+          "artist": "aespa",
+          "album": "LEMONADE - The 2nd Album",
+          "isrc": "KRA302600098",
+          "duration_ms": 187000
+        },
+        {
+          "url": "https://music.apple.com/us/album/lemonade/6772870169?i=6772870627",
+          "title": "LEMONADE",
+          "artist": "aespa",
+          "album": "LEMONADE - The 2nd Album (GISELLE Special Version)",
+          "isrc": "KRA302600098",
+          "duration_ms": 187000
+        },
+        {
+          "url": "https://music.apple.com/us/album/lemonade/6772869924?i=6772869930",
+          "title": "LEMONADE",
+          "artist": "aespa",
+          "album": "LEMONADE - The 2nd Album (KARINA Special Version)",
+          "isrc": "KRA302600098",
+          "duration_ms": 187000
+        }
+      ],
+      "limit": "Only these exact source IDs, observed metadata variants and YouTube recording. The catalog editions share ISRC; Spotify/YouTube ISRC was not directly observed. Cross-service identity remains an inference from official title, credits, album and duration. No audio comparison or playability approval is supplied."
+    },
+    {
+      "kind": "official_recording_release_equivalence",
+      "title": "Bloody Paradise",
+      "observed_at": "2026-09-14",
+      "sources": {
+        "apple": [
+          "6780548391",
+          "6802251495"
+        ],
+        "melon": [
+          "602858445"
+        ],
+        "spotify": [
+          "0r2JVOjI7H1jhXzXBOorKu"
+        ],
+        "ytmusic": [
+          "MT-4Bk1Lw8g",
+          "YJhEsDa2o8w"
+        ]
+      },
+      "source_variants": [
+        [
+          "Bloody Paradise",
+          "ENHYPEN",
+          ""
+        ],
+        [
+          "Bloody Paradise",
+          "ENHYPEN",
+          "THE SIN : BLISS"
+        ],
+        [
+          "Bloody Paradise",
+          "ENHYPEN",
+          "THE SIN : BLISS - EP"
+        ],
+        [
+          "Bloody Paradise",
+          "엔하이픈",
+          "THE SIN : BLISS (Japanese Ver.)"
+        ],
+        [
+          "Bloody Paradise",
+          "엔하이픈",
+          "THE SIN : BLISS - EP"
+        ],
+        [
+          "Bloody Paradise",
+          "엔하이픈 (ENHYPEN)",
+          "THE SIN : BLISS"
+        ]
+      ],
+      "recording": {
+        "video_id": "EmRFwlGlbb8",
+        "title": "Bloody Paradise",
+        "artist": "ENHYPEN",
+        "album": "THE SIN : BLISS (Japanese Ver.)",
+        "title_ko": "Bloody Paradise",
+        "artist_ko": "ENHYPEN",
+        "album_ko": "THE SIN : BLISS (Japanese Ver.)",
+        "title_en": "Bloody Paradise",
+        "artist_en": "ENHYPEN",
+        "album_en": "THE SIN : BLISS (Japanese Ver.)",
+        "length_seconds": 131,
+        "music_video_type": "MUSIC_VIDEO_TYPE_ATV"
+      },
+      "catalog_isrc": "USA2P2637926",
+      "references": [
+        {
+          "url": "https://music.apple.com/kr/album/bloody-paradise/6780548049?i=6780548391&l=en-GB",
+          "title": "Bloody Paradise",
+          "artist": "ENHYPEN",
+          "album": "THE SIN : BLISS - EP",
+          "isrc": "USA2P2637926",
+          "duration_ms": 131200
+        },
+        {
+          "url": "https://music.apple.com/kr/album/bloody-paradise/6802251267?i=6802251495&l=en-GB",
+          "title": "Bloody Paradise",
+          "artist": "ENHYPEN",
+          "album": "THE SIN : BLISS (Japanese Ver.)",
+          "isrc": "USA2P2637926",
+          "duration_ms": 131200
+        }
+      ],
+      "limit": "Only these exact source IDs, observed metadata variants and YouTube recording. The catalog editions share ISRC; Spotify/YouTube ISRC was not directly observed. Cross-service identity remains an inference from official title, credits, album and duration. No audio comparison or playability approval is supplied."
+    },
+    {
+      "kind": "official_recording_release_equivalence",
+      "title": "Ice Cream",
+      "observed_at": "2026-09-14",
+      "sources": {
+        "apple": [
+          "6778800489",
+          "6785585350",
+          "6789400143"
+        ],
+        "spotify": [
+          "10aWlzB6sD6iF58yKPMgVB"
+        ],
+        "ytmusic": [
+          "ihvuwqlGHXs"
+        ]
+      },
+      "source_variants": [
+        [
+          "Ice Cream",
+          "YEONJUN",
+          "NO LABELS: PART 02"
+        ],
+        [
+          "Ice Cream",
+          "YEONJUN",
+          "NO LABELS: PART 02 (Earl Grey Ver.)"
+        ],
+        [
+          "Ice Cream",
+          "YEONJUN",
+          "NO LABELS: PART 02 - EP"
+        ],
+        [
+          "Ice Cream",
+          "연준",
+          "NO LABELS: PART 02"
+        ],
+        [
+          "Ice Cream",
+          "연준",
+          "NO LABELS: PART 02 (Earl Grey Ver.)"
+        ],
+        [
+          "Ice Cream",
+          "연준",
+          "NO LABELS: PART 02 - EP"
+        ]
+      ],
+      "recording": {
+        "video_id": "JjYJgaF5J-0",
+        "title": "Ice Cream",
+        "artist": "YEONJUN",
+        "album": "NO LABELS: PART 02",
+        "title_ko": "Ice Cream",
+        "artist_ko": "YEONJUN",
+        "album_ko": "NO LABELS: PART 02",
+        "title_en": "Ice Cream",
+        "artist_en": "YEONJUN",
+        "album_en": "NO LABELS: PART 02",
+        "length_seconds": 125,
+        "music_video_type": "MUSIC_VIDEO_TYPE_ATV"
+      },
+      "catalog_isrc": "USA2P2637645",
+      "references": [
+        {
+          "url": "https://music.apple.com/us/album/ice-cream/6778800277?i=6778800489",
+          "title": "Ice Cream",
+          "artist": "YEONJUN",
+          "album": "NO LABELS: PART 02 - EP",
+          "isrc": "USA2P2637645",
+          "duration_ms": 124896
+        },
+        {
+          "url": "https://music.apple.com/us/album/ice-cream/6785585347?i=6785585350",
+          "title": "Ice Cream",
+          "artist": "YEONJUN",
+          "album": "NO LABELS: PART 02 - EP",
+          "isrc": "USA2P2637645",
+          "duration_ms": 124896
+        },
+        {
+          "url": "https://music.apple.com/us/album/ice-cream/6789400137?i=6789400143",
+          "title": "Ice Cream",
+          "artist": "YEONJUN",
+          "album": "NO LABELS: PART 02 (Earl Grey Ver.)",
+          "isrc": "USA2P2637645",
+          "duration_ms": 124896
+        }
+      ],
+      "limit": "Only these exact source IDs, observed metadata variants and YouTube recording. The catalog editions share ISRC; Spotify/YouTube ISRC was not directly observed. Cross-service identity remains an inference from official title, credits, album and duration. No audio comparison or playability approval is supplied."
+    },
+    {
+      "kind": "official_recording_release_equivalence",
+      "title": "DNA (More Than A Game)",
+      "observed_at": "2026-09-14",
+      "sources": {
+        "apple": [
+          "6778605032"
+        ],
+        "spotify": [
+          "40qwbrvCXsiOPh9xOupCMp"
+        ],
+        "ytmusic": [
+          "c5O89AX6Lpo"
+        ]
+      },
+      "source_variants": [
+        [
+          "DNA (More Than A Game)",
+          "Andrea Bocelli, David Guetta, EJAE & Megan Thee Stallion",
+          "DNA (More Than A Game) [FIFA World Cup 2026™] - Single"
+        ],
+        [
+          "DNA (More Than A Game)",
+          "Andrea Bocelli, David Guetta, EJAE, Megan Thee Stallion",
+          "Official FIFA World Cup 2026™ Album (Opening Ceremony Edition)"
+        ],
+        [
+          "DNA (More Than A Game)",
+          "Andrea Bocelli, David Guetta, EJAE, 메건 더 스탤리언",
+          "Official FIFA World Cup 2026™ Album (Opening Ceremony Edition)"
+        ],
+        [
+          "DNA (More Than A Game)",
+          "Andrea Bocelli, David Guetta, EJAE, Megan Thee Stallion",
+          "DNA (More Than A Game) [FIFA World Cup 2026™]"
+        ],
+        [
+          "DNA (More Than A Game)",
+          "Andrea Bocelli, David Guetta, EJAE, Megan Thee Stallion",
+          "DNA (More Than A Game) [FIFA World Cup 2026™] - Single"
+        ],
+        [
+          "DNA (More Than A Game)",
+          "안드레아 보첼리, David Guetta, EJAE & Megan Thee Stallion",
+          "DNA (More Than A Game) [FIFA World Cup 2026™] - Single"
+        ]
+      ],
+      "recording": {
+        "video_id": "7Mr3B6thNrQ",
+        "title": "DNA (More Than A Game)",
+        "artist": "Andrea Bocelli, David Guetta, EJAE, 메건 더 스탤리언",
+        "album": "Official FIFA World Cup 2026™ Album (Opening Ceremony Edition)",
+        "title_ko": "DNA (More Than A Game)",
+        "artist_ko": "Andrea Bocelli, David Guetta, EJAE, 메건 더 스탤리언",
+        "album_ko": "Official FIFA World Cup 2026™ Album (Opening Ceremony Edition)",
+        "title_en": "DNA (More Than A Game)",
+        "artist_en": "Andrea Bocelli, David Guetta, EJAE, Megan Thee Stallion",
+        "album_en": "Official FIFA World Cup 2026™ Album (Opening Ceremony Edition)",
+        "length_seconds": 177,
+        "music_video_type": "MUSIC_VIDEO_TYPE_ATV"
+      },
+      "catalog_isrc": "USUG12605298",
+      "references": [
+        {
+          "url": "https://music.apple.com/kr/album/dna-more-than-a-game/6778605030?i=6778605032&l=en-GB",
+          "title": "DNA (More Than A Game)",
+          "artist": "Andrea Bocelli, David Guetta, EJAE & Megan Thee Stallion",
+          "album": "DNA (More Than A Game) [FIFA World Cup 2026™] - Single",
+          "isrc": "USUG12605298",
+          "duration_ms": 176856
+        },
+        {
+          "url": "https://music.apple.com/kr/album/dna-more-than-a-game/6778672248?i=6778672596&l=en-GB",
+          "title": "DNA (More Than A Game)",
+          "artist": "Andrea Bocelli, David Guetta, EJAE & Megan Thee Stallion",
+          "album": "Official FIFA World Cup 2026™ Album (Opening Ceremony Edition)",
+          "isrc": "USUG12605298",
+          "duration_ms": 176856
+        }
+      ],
+      "limit": "Only these exact source IDs, observed metadata variants and YouTube recording. The catalog editions share ISRC; Spotify/YouTube ISRC was not directly observed. Cross-service identity remains an inference from official title, credits, album and duration. No audio comparison or playability approval is supplied."
+    },
+    {
+      "kind": "official_recording_release_equivalence",
+      "title": "Dynamite",
+      "observed_at": "2026-09-14",
+      "sources": {
+        "apple": [
+          "1596532400"
+        ],
+        "melon": [
+          "32872978"
+        ],
+        "ytmusic": [
+          "gdZLi9oWNZg"
+        ]
+      },
+      "source_variants": [
+        [
+          "Dynamite",
+          "BTS",
+          "BE"
+        ],
+        [
+          "Dynamite",
+          "BTS(방탄소년단)",
+          "BE"
+        ],
+        [
+          "Dynamite",
+          "방탄소년단",
+          "BE"
+        ],
+        [
+          "Dynamite",
+          "방탄소년단",
+          "Dynamite (DayTime Version)"
+        ]
+      ],
+      "recording": {
+        "video_id": "HaEYUJ2aRHs",
+        "title": "Dynamite",
+        "artist": "BTS(방탄소년단)",
+        "album": "BE",
+        "title_ko": "Dynamite",
+        "artist_ko": "BTS(방탄소년단)",
+        "album_ko": "BE",
+        "title_en": "Dynamite",
+        "artist_en": "BTS",
+        "album_en": "BE",
+        "length_seconds": 199,
+        "music_video_type": "MUSIC_VIDEO_TYPE_ATV"
+      },
+      "catalog_isrc": "QM7282022872",
+      "references": [
+        {
+          "url": "https://music.apple.com/kr/album/dynamite/1597024421?i=1597024424&l=en-GB",
+          "title": "Dynamite",
+          "artist": "BTS",
+          "album": "Dynamite (DayTime Version) - EP",
+          "isrc": "QM7282022872",
+          "duration_ms": 199054
+        },
+        {
+          "url": "https://music.apple.com/kr/album/dynamite/1596532185?i=1596532400&l=en-GB",
+          "title": "Dynamite",
+          "artist": "BTS",
+          "album": "BE",
+          "isrc": "QM7282022872",
+          "duration_ms": 199054
+        }
+      ],
+      "limit": "Only these exact source IDs, observed metadata variants and YouTube recording. The catalog editions share ISRC; Spotify/YouTube ISRC was not directly observed. Cross-service identity remains an inference from official title, credits, album and duration. No audio comparison or playability approval is supplied."
+    }
+  ]
 }
