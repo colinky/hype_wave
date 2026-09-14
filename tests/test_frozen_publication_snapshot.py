@@ -1,12 +1,16 @@
 """Real SQLite joins and compact exports; no production DB, API or history access."""
 import os
+from itertools import permutations
 from pathlib import Path
 import tempfile
 import unittest
 from unittest.mock import patch
 
 from hype_db import connect, init_db, persist_crawled_tracks, persist_crawl_run
-from hype_db_reports import export_frontend_history, inflate_frontend_history
+from hype_db_reports import (
+    build_hype_report_from_rows, contributing_hype_rows,
+    export_frontend_history, inflate_frontend_history,
+)
 from sync_all import data_snapshot_ready
 from sync_validation import PlaybackBlocked, assert_frozen, freeze_outputs
 from ytmusic_playlist_sync import SourceTrack
@@ -40,16 +44,18 @@ class FrozenPublicationSnapshotTests(unittest.TestCase):
         self.seed("apple", "KR-Top-100", "2026-09-13")
         self.seed("ytmusic", "Weekly-Hot-100", "2026-W37")
 
-    def seed(self, service, job_name, period):
+    def seed(self, service, job_name, period, variant="default"):
         raw = [SourceTrack(rank, title, artist, service=service, song_id=f"{service}-{rank}", album="Album")
                for rank, (title, artist, video) in enumerate(SONGS, 1)]
         matches = [{**vars(track), "video_id": video, "yt_title": track.title, "yt_artist": track.artist,
                     "yt_album": "Album", "status": "matched", "score": 1.0}
                    for track, (_, _, video) in zip(raw, SONGS)]
         persist_crawled_tracks(self.path, service=service, job_name=job_name, chart_date="2026-09-13",
-                               reference_period=period, tracks=raw, conn=self.conn, commit=False)
+                               reference_period=period, source_variant=variant, tracks=raw,
+                               conn=self.conn, commit=False)
         persist_crawl_run(self.path, service=service, job_name=job_name, chart_date="2026-09-13",
-                          reference_period=period, started_at=START, tracks=raw, matches=matches,
+                          reference_period=period, source_variant=variant, started_at=START,
+                          tracks=raw, matches=matches,
                           conn=self.conn, commit=False, skip_playlist_order=True)
         self.conn.commit()
 
@@ -92,6 +98,80 @@ class FrozenPublicationSnapshotTests(unittest.TestCase):
         self.conn.execute("UPDATE playlist_order SET rank_order=rank_order+10 WHERE service='ytmusic'")
         with self.assertRaises(PlaybackBlocked):
             assert_frozen(self.conn, snapshot, self.tasks)
+
+    def test_legacy_auxiliary_without_attempts_does_not_change_report(self):
+        baseline = freeze_outputs(self.conn, self.tasks, history_date=DAY)
+        for variant in ("gen10", "gen20"):
+            self.seed("melon", "Gen-Z-Daily", "2026-08-28", variant)
+        self.conn.execute("DELETE FROM match_attempts WHERE run_id IN "
+                          "(SELECT run_id FROM match_runs WHERE job_name='Gen-Z-Daily')")
+        self.conn.execute("UPDATE track_list SET title_ko='Unverified legacy title', "
+                          "album_ko='Unverified legacy album' WHERE service='melon'")
+        self.conn.commit()
+        before = self.path.read_bytes()
+        snapshot = freeze_outputs(self.conn, self.tasks, history_date=DAY)
+        self.assertEqual(snapshot["outputs"], baseline["outputs"])
+        self.assertEqual(snapshot["report"], baseline["report"])
+        self.assertFalse(any(row["service"] == "melon" for row in snapshot["hype_rows"]))
+        self.assertEqual(self.path.read_bytes(), before)
+
+    def test_missing_inactive_primary_and_combined_attempts_still_block(self):
+        self.seed("melon", "Gen-Z-Daily", "2026-09-13", "combined")
+        freeze_outputs(self.conn, self.tasks, history_date=DAY)
+        for service, job in (("ytmusic", "Weekly-Hot-100"), ("melon", "Gen-Z-Daily")):
+            with self.subTest(job=job):
+                self.conn.execute("SAVEPOINT missing_primary")
+                self.conn.execute("DELETE FROM match_attempts WHERE service=? AND song_id=? "
+                                  "AND run_id IN (SELECT run_id FROM match_runs WHERE job_name=?)",
+                                  (service, f"{service}-1", job))
+                with self.assertRaisesRegex(PlaybackBlocked, "lacks selection evidence"):
+                    freeze_outputs(self.conn, self.tasks, history_date=DAY)
+                self.conn.execute("ROLLBACK TO missing_primary")
+                self.conn.execute("RELEASE missing_primary")
+
+    def test_matched_enrichment_selection_and_manual_policy_remain_guarded(self):
+        self.seed("spotify", "Fresh-Indie-Korea", "2026-09-13")
+        snapshot = freeze_outputs(self.conn, self.tasks, history_date=DAY)
+        self.assertTrue(any(row["service"] == "spotify" for row in snapshot["hype_rows"]))
+        changes = (
+            ("UPDATE match_attempts SET video_id='ZZZZZZZZZZZ' "
+             "WHERE service='spotify' AND song_id='spotify-1'", ()),
+            ("INSERT INTO manual_overrides(service,song_id,action,canonical_yt_video_id,updated_at) "
+             "VALUES('spotify','spotify-1','set_canonical','ZZZZZZZZZZZ',?)", (START,)),
+        )
+        for sql, params in changes:
+            with self.subTest(sql=sql):
+                self.conn.execute("SAVEPOINT enrichment_change")
+                self.conn.execute(sql, params)
+                with self.assertRaises(PlaybackBlocked):
+                    freeze_outputs(self.conn, self.tasks, history_date=DAY)
+                self.conn.execute("ROLLBACK TO enrichment_change")
+                self.conn.execute("RELEASE enrichment_change")
+
+    def test_null_auxiliary_cannot_connect_unrelated_matched_groups(self):
+        base = freeze_outputs(self.conn, self.tasks, history_date=DAY)["hype_rows"][0]
+        primary = {**base, "service": "apple", "job_name": "KR-Top-100", "status": "matched",
+                   "title": "First recording", "artist": "Fixture artist", "video_id": "aaaaaaaaaaa"}
+        missing = {**primary, "service": "melon", "job_name": "Gen-Z-Daily",
+                   "source_variant": "gen10", "status": None, "title": "Other recording"}
+        auxiliary = {**missing, "service": "spotify", "job_name": "Fresh-Indie-Korea",
+                     "status": "matched", "video_id": "bbbbbbbbbbb"}
+        expected = build_hype_report_from_rows([primary])
+        for rows in permutations((primary, missing, auxiliary)):
+            with self.subTest(order=[row["job_name"] for row in rows]):
+                consumed = contributing_hype_rows(iter(rows))
+                self.assertEqual(consumed, [primary])
+                self.assertEqual(build_hype_report_from_rows(consumed), expected)
+
+    def test_missing_scoring_row_is_retained_without_any_matched_group(self):
+        base = freeze_outputs(self.conn, self.tasks, history_date=DAY)["hype_rows"][0]
+        for service, job, variant in (("apple", "KR-Top-100", "default"),
+                                      ("ytmusic", "Weekly-Hot-100", "default"),
+                                      ("melon", "Gen-Z-Daily", " combined ")):
+            with self.subTest(job=job):
+                missing = {**base, "service": service, "job_name": job,
+                           "source_variant": variant, "status": None, "rank_order": 1}
+                self.assertEqual(contributing_hype_rows([missing]), [missing])
 
 
 if __name__ == "__main__":

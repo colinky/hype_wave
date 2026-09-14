@@ -17,6 +17,7 @@ from hype_scoring import calculate_rank_score
 
 from hype_db_common import (
     DEFAULT_HYPE_WEIGHTS,
+    MATCHED_STATUSES,
     build_track_url,
     hype_identity_key,
     hype_inputs,
@@ -830,16 +831,20 @@ def _hype_input(row, input_config):
 
 
 def contributing_hype_rows(rows):
-    """Include every enrichment row of a scored group, including playback selectors."""
-    grouped = list(_hype_grouped_rows(rows))
-    config, scored = hype_inputs(), set()
-    for uid, row in grouped:
+    """Validate consumed matched rows and independently hold missing scoring evidence."""
+    rows = list(rows)
+    config = hype_inputs()
+
+    def has_score(row):
         group, weight = _hype_input(row, config)
-        if (group in {"apple", "ytmusic"} or
-                (group == "melon_genz" and str(row["source_variant"] or "default").strip() == "combined")):
-            if calculate_rank_score(row["rank_order"]) * weight > 0:
-                scored.add(uid)
-    return [row for uid, row in grouped if uid in scored]
+        return ((group in {"apple", "ytmusic"} or
+                 (group == "melon_genz" and str(row["source_variant"] or "default").strip() == "combined"))
+                and calculate_rank_score(row["rank_order"]) * weight > 0)
+
+    grouped = list(_hype_grouped_rows(row for row in rows if row["status"] in MATCHED_STATUSES))
+    scored = {uid for uid, row in grouped if has_score(row)}
+    return ([row for uid, row in grouped if uid in scored]
+            + [row for row in rows if row["status"] is None and has_score(row)])
 
 
 def build_hype_report_from_rows(
