@@ -18,6 +18,7 @@ from ytmusic_playlist_sync import (
     _compare_exact_playlist_video_ids,
     _identity_review_required,
     _preserve_playlist_slots,
+    _playlist_item_keys,
     _recoverable_playlist_items,
     _replace_playlist_contents,
     _same_owned_slots,
@@ -187,6 +188,8 @@ def reconcile_playlist_update(
     if action != "blocked":
         try:
             require_playable(verifier, target, items=current)
+            if move_confirmation is not None:
+                require_playable(verifier, target, items=second)
         except PlaybackBlocked as exc:
             action, reason = "blocked", str(exc)
     report = {
@@ -247,7 +250,7 @@ def reconcile_playlist_update(
         if before_mutation is not None:
             before_mutation()
         observed = _audit_playlist_items(get_existing_playlist_items(ytmusic, playlist_id))
-        if observed != _audit_playlist_items(items):
+        if _playlist_item_keys(observed) != _playlist_item_keys(_audit_playlist_items(items)):
             raise RuntimeError("Playlist changed during recovery verification; refusing reconciliation")
         require_playable(verifier, target, items=observed)
         return observed
@@ -258,7 +261,7 @@ def reconcile_playlist_update(
     comparison = requested_comparison
     try:
         fresh = _audit_playlist_items(get_existing_playlist_items(ytmusic, playlist_id))
-        if fresh != current:
+        if _playlist_item_keys(fresh) != _playlist_item_keys(current):
             raise RuntimeError("Playlist changed after recovery planning; refusing reconciliation")
         observed = verify_target(fresh)
         if move_confirmation is not None:
@@ -336,7 +339,7 @@ def reconcile_playlist_update(
                     "identity_review_required": True, "differences": comparison["differences"],
                 })
             raise RuntimeError("Playlist no longer verifies against the approved recovery target")
-        verify_target(fresh)
+        fresh = verify_target(fresh)
         evidence({
             "phase": "reconcile_tail" if action == "append_missing_last" or tail_attempted else "reconcile",
             "operation": "observe", "state": "verified",

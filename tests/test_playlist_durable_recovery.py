@@ -4,6 +4,7 @@ from __future__ import annotations
 import os
 import tempfile
 import unittest
+from copy import deepcopy
 from pathlib import Path
 from unittest.mock import Mock, patch
 
@@ -43,6 +44,96 @@ class DurableRecoveryTests(unittest.TestCase):
         )
         hype_db.finish_playlist_update(self.db, run_id, status="recovery_required", error="Original failure evidence")
         return hype_db.get_playlist_update_run(self.db, run_id, read_only=True)
+
+    def pending_owned(self, client, requested):
+        run_id = hype_db.record_playlist_update(
+            self.db, playlist_id="fixture", service="apple", job_name="Fixture",
+            requested_video_ids=requested, existing_video_ids=client.video_ids,
+            existing_items=deepcopy(client._items), claim_token="fixture-initial",
+        )
+        hype_db.finish_playlist_update(self.db, run_id, status="recovery_required",
+                                      error="Interrupted fixture", claim_token="fixture-initial")
+        return self.run_record()
+
+    def test_optional_availability_keeps_owned_items_and_records_latest_read(self):
+        for missing_read in (1, 2, 3, 4):
+            with self.subTest(missing_read=missing_read):
+                client = StatefulPlaylist(["a", "b"])
+                run = self.pending_owned(client, ["a", "b"])
+                original_read, observed = client.get_playlist, []
+
+                def read(*args, **kwargs):
+                    payload = deepcopy(original_read(*args, **kwargs))
+                    for item in payload["tracks"]:
+                        if len(observed) + 1 != missing_read:
+                            item["isAvailable"] = True
+                    observed.append(deepcopy(payload["tracks"]))
+                    return payload
+
+                client.get_playlist = read
+                verifier = client._hype_playability_verifier
+                append, written = hype_db.append_playlist_update_evidence, []
+
+                def record(*args, **kwargs):
+                    written.append(deepcopy(args[2]))
+                    return append(*args, **kwargs)
+
+                with patch.object(verifier, "verify", wraps=verifier.verify) as verify, patch.object(
+                        hype_db, "append_playlist_update_evidence", side_effect=record):
+                    result = self.reconcile(client, run, apply=True, workers_quiescent=True)
+                self.assertEqual(result["status"], "published")
+                self.assertEqual(result["actual_items"], observed[-1])
+                self.assertEqual(written[-1]["items"], observed[-1])
+                latest = self.run_record()["recovery_payload"]["events"][-1]
+                self.assertEqual(sync._playlist_item_keys(sync._audit_playlist_items(latest["items"])),
+                                 sync._playlist_item_keys(observed[-1]))
+                self.assertEqual(len(observed), 4)
+                self.assertEqual(sum(call.kwargs.get("force", False) for call in verify.call_args_list), 4)
+                self.assertEqual((client.remove_calls, client.add_calls, client.edit_calls), (0, [], 0))
+
+    def test_false_second_move_observation_blocks_before_claim_or_mutation(self):
+        from test_playlist_transition_visibility import LaggingPlaylist
+
+        client = LaggingPlaylist(["a", "b", "c"], lag=5)
+        with self.assertRaises(sync.PlaylistMutationUncertain):
+            self.publish(client, ["c", "b", "a"])
+        run = self.run_record()
+        client.pending_reads, client.lag = [], 0
+        original_read, reads = client.get_playlist, []
+
+        def read(*args, **kwargs):
+            payload = deepcopy(original_read(*args, **kwargs))
+            if len(reads) == 1:
+                payload["tracks"][0]["isAvailable"] = False
+            reads.append(payload)
+            return payload
+
+        client.get_playlist = read
+        before = self.db.read_bytes()
+        counts = client.remove_calls, list(client.add_calls), len(client.moves)
+        with self.assertRaises(RuntimeError):
+            self.reconcile(client, run, apply=True, workers_quiescent=True,
+                           confirm_observed_move=True, complete_requested=True)
+        self.assertEqual(len(reads), 2)
+        self.assertEqual(self.db.read_bytes(), before)
+        self.assertEqual((client.remove_calls, client.add_calls, len(client.moves)), counts)
+
+    def test_complete_requested_can_remove_unavailable_non_target(self):
+        client = StatefulPlaylist(["old"])
+        client._hype_playability_verifier.states["old"] = "unavailable"
+        run = self.pending_owned(client, ["new"])
+        original_read = client.get_playlist
+
+        def read(*args, **kwargs):
+            payload = deepcopy(original_read(*args, **kwargs))
+            for item in payload["tracks"]:
+                item["isAvailable"] = item["videoId"] != "old"
+            return payload
+
+        client.get_playlist = read
+        result = self.reconcile(client, run, apply=True, workers_quiescent=True, complete_requested=True)
+        self.assertEqual((result["status"], client.video_ids), ("published", ["new"]))
+        self.assertEqual((client.remove_calls, client.add_calls), (1, [["new"]]))
 
     def test_publish_receipts_are_durable_and_second_run_changes_no_items(self):
         client = StatefulPlaylist(["old"])
