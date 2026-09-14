@@ -165,18 +165,28 @@ def playable_cache(cache, verifier):
     return selected
 
 
-def _feature_names(title):
-    """Compare credited people, including reviewed name translations, not title tokens."""
+def _guest_credits(title):
+    """Keep each named guest paired with their explicitly asserted role."""
     from ytmusic_playlist_sync import ALIASES, normalize_text, split_artist_names
 
-    match = re.search(r"\b(?:feat\.?|ft\.?|featuring)\s+([^\)\]]+)", title, re.I)
-    if not match:
-        return set()
-    names = set()
-    for name in split_artist_names(match.group(1)):
-        variants = ALIASES.get_variants(name, "artist")
-        names.add(min(normalize_text(value).replace(" ", "") for value in variants))
-    return names
+    marker = r"(?:featuring|feat|ft|narration|narr)"
+    delimiter = r"(?:[.:]\s*|\s+)"
+    pattern = rf"\b({marker}){delimiter}(.*?)(?=[\)\]]|\b{marker}{delimiter}|$)"
+    credits = set()
+    for match in re.finditer(pattern, title, re.I):
+        role = "narr" if match.group(1).lower().startswith("narr") else "feat"
+        names = split_artist_names(match.group(2).strip(" ,&:"))
+        if not names:
+            credits.add((role, ""))
+        for name in names:
+            variants = ALIASES.get_variants(name, "artist")
+            person = min(normalize_text(value).replace(" ", "") for value in variants)
+            credits.add((role, person))
+    return credits
+
+
+def _feature_names(title):
+    return {person for _, person in _guest_credits(title)}
 
 
 def _rating_version(title):
@@ -234,13 +244,31 @@ def recording_identity_matches(left, right, *, player=False):
     right_versions = assertions(right_rows, 0, _recording_version)
     left_ratings = assertions(left_rows, 0, _rating_version)
     right_ratings = assertions(right_rows, 0, _rating_version)
+    left_roles = assertions(left_rows, 0, lambda title: frozenset(_guest_credits(title)))
+    right_roles = assertions(right_rows, 0, lambda title: frozenset(_guest_credits(title)))
     left_features = assertions(left_rows, 0, lambda title: frozenset(_feature_names(title)))
     right_features = assertions(right_rows, 0, lambda title: frozenset(_feature_names(title)))
     left_albums = {_album_version(row[2]) for row in left_rows if row[2]}
     right_albums = {_album_version(row[2]) for row in right_rows if row[2]}
     if any(len(values) > 1 for values in (left_versions, right_versions, left_ratings, right_ratings,
-                                          left_features, right_features, left_albums, right_albums)):
+                                          left_features, right_features, left_roles, right_roles, left_albums, right_albums)):
         return False
+    for lt, la, _ in left_rows:
+        for rt, _, _ in right_rows:
+            left_credits, right_credits = _guest_credits(lt), _guest_credits(rt)
+            if any(not name for _, name in left_credits | right_credits):
+                return False
+            if left_credits == right_credits or (player and not right_credits):
+                continue
+            # Omitted feature labels still require that locale's source artist
+            # credits. A narrator role must be explicit, except in the player.
+            if not left_credits and right_credits and all(role == "feat" for role, _ in right_credits):
+                declared = set()
+                for name in artist_variants(la):
+                    declared |= _feature_names("Song (feat. " + name + ")")
+                if {person for _, person in right_credits} <= declared:
+                    continue
+            return False
     if left_versions != right_versions and not (player and not right_versions):
         return False
     if left_ratings and right_ratings and left_ratings != right_ratings:
@@ -317,10 +345,10 @@ def source_recording_matches(source, metadata, *, service=None, policy=None):
     service = normalized_service(service or source.get("service") or "")
     proven = proven_source_identity(source, service, policy)
     proof = policy.get("source_identity_evidence", {}).get(f"{service}:{source.get('song_id')}") or {}
-    if proof.get("kind") == "official_cross_service_title_translation" and proven != source:
+    if proven != source and (proof.get("kind") == "official_cross_service_title_translation" or "candidate" in proof):
         expected = proof.get("candidate") or {}
-        # A title translation is scoped to the exact reviewed recording; it
-        # cannot turn an unrelated, similarly named catalog entry into a match.
+        # Any proof carrying a candidate is scoped to that exact recording.
+        # Existing credit proofs without a candidate keep their prior contract.
         try:
             length = float(metadata["length_seconds"])
             duration_matches = math.isfinite(length) and abs(length - float(expected["length_seconds"])) <= 2
@@ -361,7 +389,46 @@ def source_recording_matches(source, metadata, *, service=None, policy=None):
         if ({_rating_version(row[0]) for row in _identity_variants(proven)}
                 != {_rating_version(row[0]) for row in _identity_variants(metadata)}):
             continue
-        if recording_identity_matches(without_album(proven), without_album(metadata)):
+        comparison_source = proven
+        source_references = [ref for ref in references
+                             if ref.get("catalog_song_id") == str(source.get("song_id"))]
+        if source_references:
+            # Do not treat a known catalog duration as missing just because the
+            # chart collector does not expose duration on its source row.
+            durations = [ref.get("duration_ms") for ref in source_references]
+            if (any(type(value) not in (int, float) or not math.isfinite(value) or value <= 0
+                    for value in durations) or len(set(durations)) != 1):
+                continue
+            if source.get("length_seconds") is None:
+                comparison_source = {**proven, "length_seconds": durations[0] / 1000}
+        pair = proof.get("catalog_duration_pair")
+        if pair is not None:
+            # An explicit reviewed catalog pair may differ in reported duration.
+            # Only that pair bypasses source→watch duration; all other identity
+            # assertions and the reference→watch duration bound remain active.
+            try:
+                source_ms = pair["source_duration_ms"]
+                reference_ms = pair["recording_duration_ms"]
+                candidate_seconds = float(metadata["length_seconds"])
+                if (pair.get("source_service") != service
+                        or pair.get("source_song_id") != str(source.get("song_id"))
+                        or pair.get("recording_video_id") != metadata.get("video_id")
+                        or any(type(value) not in (int, float) or not math.isfinite(value) or value <= 0
+                               for value in (source_ms, reference_ms))
+                        or not math.isfinite(candidate_seconds)
+                        or abs(reference_ms / 1000 - candidate_seconds) > 2
+                        or (source.get("length_seconds") is not None
+                            and float(source["length_seconds"]) != source_ms / 1000)
+                        or not any(ref.get("url") == pair.get("source_url")
+                                   and ref.get("duration_ms") == source_ms for ref in source_references)
+                        or not any(ref.get("url") == pair.get("recording_reference_url")
+                                   and ref.get("catalog_song_id") == pair.get("recording_song_id")
+                                   and ref.get("duration_ms") == reference_ms for ref in references)):
+                    continue
+            except (KeyError, TypeError, ValueError):
+                continue
+            comparison_source = {key: value for key, value in comparison_source.items() if key != "length_seconds"}
+        if recording_identity_matches(without_album(comparison_source), without_album(metadata)):
             return True
     return False
 
@@ -370,7 +437,7 @@ def validate_matches(conn, *, service, sources, matches, client, verifier=None):
     """Finish all network checks before raw data or matching results are written."""
     from hype_db_common import normalized_service, row_dict
     from hype_db_store import get_bulk_cached_matches, manual_override, find_track_by_video
-    from ytmusic_playlist_sync import ALIASES, get_verified_video_metadata, normalize_text
+    from ytmusic_playlist_sync import ALIASES, get_verified_video_metadata, normalize_text, _watch_playlist_for_metadata
 
     verifier = verifier if verifier is not None else verifier_for(client)
     require_playable(verifier, [])
@@ -420,6 +487,7 @@ def validate_matches(conn, *, service, sources, matches, client, verifier=None):
     conn.commit()
     metadata_cache = {}
     validated_identity = {}
+    native_identity = {}
 
     def partial_credits_match(source, metadata):
         if metadata.get("artist_identity_complete") is not False:
@@ -475,11 +543,17 @@ def validate_matches(conn, *, service, sources, matches, client, verifier=None):
                 raise PlaybackBlocked(f"Existing selection would disappear for {service}:{song_id}")
             continue
         old_evidence = verifier.verify(old) if old else None
+        keeping_native = (not manual and service == "ytmusic" and song_id == old == selected
+                          and str(prior.get("yt_title") or "").strip()
+                          and str(prior.get("yt_artist") or "").strip()
+                          and old_evidence.get("state") == "playable")
         trusted = cached.get(song_id, {})
         if old and selected != old and not manual:
             if old_evidence.get("state") == "unknown":
                 raise PlaybackBlocked(f"Existing recording is uncertain: {old}")
-            if trusted.get("video_id") != old:
+            # Direct native identity authorizes preservation, not a claim that
+            # another selected video contains the same recording.
+            if trusted.get("video_id") != old or trusted.get("cache_origin") == "native_source_id":
                 old_metadata = get_verified_video_metadata(
                     client, old, metadata_cache=metadata_cache,
                     allow_partial_artist_ids=old_evidence.get("state") == "playable")
@@ -495,7 +569,21 @@ def validate_matches(conn, *, service, sources, matches, client, verifier=None):
         selected_evidence = require_playable(verifier, [selected])[selected]
         match["playability_evidence"] = selected_evidence
         metadata = None
-        if not manual:
+        if keeping_native:
+            match.pop("canonical_decision", None)
+            # A native source ID already identifies this exact existing video.
+            # Charts may shorten upload titles or label a performance "Live".
+            # Preserve its stored identity; this cannot approve another ID.
+            with verifier._bounded_session():
+                watch = _watch_playlist_for_metadata(client, selected)
+            rows = watch.get("tracks") if isinstance(watch, dict) else None
+            exact = [row for row in rows if isinstance(row, dict) and row.get("videoId") == selected] if isinstance(rows, list) else []
+            if len(exact) != 1 or exact[0].get("isAvailable") is False:
+                raise PlaybackBlocked(f"Native recording availability is inconclusive: {selected}")
+            match.update(yt_title=prior["yt_title"], yt_artist=prior["yt_artist"], yt_album=prior["yt_album"],
+                         status="cached_match", query="preserved_exact_native_id")
+            native_identity[selected] = {key: selected_evidence.get(key) for key in ("title", "artist", "music_video_type")}
+        elif not manual:
             # get_song can omit credits that its exact watch metadata exposes.
             # A trusted cache must not hide that live contradiction (Dirty Work).
             keeping_healthy = selected == old and old_evidence.get("state") == "playable"
@@ -510,7 +598,7 @@ def validate_matches(conn, *, service, sources, matches, client, verifier=None):
                 raise PlaybackBlocked(f"Selected recording does not match the source identity: {selected}")
             match.update(yt_title=metadata.get("title", ""), yt_artist=metadata.get("artist", ""),
                          yt_album=metadata.get("album", ""))
-        if not manual:
+        if not manual and not keeping_native:
             validated_identity[selected] = metadata or selected_evidence
         if old and old != selected and not manual:
             metadata = metadata or get_verified_video_metadata(client, selected, metadata_cache=metadata_cache)
@@ -528,6 +616,10 @@ def validate_matches(conn, *, service, sources, matches, client, verifier=None):
             }
             conn.commit()
     final_evidence = require_playable(verifier, [row["video_id"] for row in result if row.get("video_id")])
+    for video_id, identity in native_identity.items():
+        final_evidence[video_id] = require_playable(verifier, [video_id], force=True)[video_id]
+        if any(final_evidence[video_id].get(key) != value for key, value in identity.items()):
+            raise PlaybackBlocked(f"Native recording changed during validation: {video_id}")
     for video_id, identity in validated_identity.items():
         if not recording_identity_matches(identity, final_evidence[video_id], player=True):
             raise PlaybackBlocked(f"Live recording identity changed during validation: {video_id}")

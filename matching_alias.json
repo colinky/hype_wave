@@ -84,6 +84,107 @@
       "김하온 (HAON)",
       "김하온(HAON)",
       "HAON"
+    ],
+    [
+      "Kian84",
+      "기안84"
+    ],
+    [
+      "nib.archive",
+      "닙아카이브"
+    ],
+    [
+      "Loco",
+      "로꼬"
+    ],
+    [
+      "GRAY",
+      "그레이"
+    ],
+    [
+      "LeeHi",
+      "Lee Hi",
+      "이하이"
+    ],
+    [
+      "Yerin Baek",
+      "YerinBaek",
+      "백예린",
+      "백예린 Yerin Baek"
+    ],
+    [
+      "Young B",
+      "YoungB",
+      "양홍원",
+      "YANGHONGWON"
+    ],
+    [
+      "창모",
+      "CHANGMO"
+    ],
+    [
+      "박재범",
+      "Jay Park",
+      "JayPark"
+    ],
+    [
+      "비오",
+      "BE'O",
+      "BE′O"
+    ],
+    [
+      "존박",
+      "존 박",
+      "John Park",
+      "JohnPark"
+    ],
+    [
+      "최자",
+      "Choiza",
+      "CHOIZA",
+      "CHOIZA Of Dynamicduo"
+    ],
+    [
+      "자이언티",
+      "Zion.T"
+    ],
+    [
+      "Younha",
+      "윤하"
+    ],
+    [
+      "강민정",
+      "Minjeong"
+    ],
+    [
+      "황세현",
+      "황세현(h3hyeon)",
+      "황세현 (h3hyeon)",
+      "h3hyeon"
+    ],
+    [
+      "Gemini (제미나이)",
+      "Gemini(제미나이)",
+      "Gemini",
+      "제미나이"
+    ],
+    [
+      "G-DRAGON",
+      "지드래곤"
+    ],
+    [
+      "리쌍",
+      "리쌍 LeeSSang",
+      "리쌍(Leessang)",
+      "리쌍 (Leessang)",
+      "LeeSSang",
+      "Leessang"
+    ],
+    [
+      "정인",
+      "Jung In",
+      "JungIn",
+      "정인 Jung In"
     ]
   ],
   "titles": [],
@@ -210,6 +311,197 @@
       ],
       "evidence_sha256": "b8d2b18c2e52174182cc2ee0c6620e50ca13fd514f3c59cb0895ed1117b5e2af",
       "scope_note": "Translation evidence only for exact Melon 36386455 input and observed exact candidate metadata QX2dqXr8mOU. Does not select an ID, authorize canonical replacement, or establish current playback. Melon duration/ISRC and YouTube ISRC were not observed."
+    },
+    "apple:6802901371": {
+      "kind": "official_cross_service_credit",
+      "source_variants": [
+        [
+          "I’m gonna TOESA (feat. Kian84)",
+          "SOYEON",
+          "What a Wonderful Life"
+        ],
+        [
+          "퇴사할게여 (Narr. 기안84)",
+          "소연",
+          "끝내주는 인생"
+        ]
+      ],
+      "recording": {
+        "video_id": "nxdxwZztGj0",
+        "title": "퇴사할게여 (Narr. 기안84)",
+        "artist": "소연",
+        "album": "끝내주는 인생",
+        "title_ko": "퇴사할게여 (Narr. 기안84)",
+        "artist_ko": "소연",
+        "album_ko": "끝내주는 인생",
+        "title_en": "I’m gonna TOESA (Narr. KIAN84)",
+        "artist_en": "SOYEON",
+        "album_en": "What a Wonderful Life",
+        "length_seconds": 212,
+        "music_video_type": "MUSIC_VIDEO_TYPE_ATV"
+      },
+      "candidate": {
+        "video_id": "nxdxwZztGj0",
+        "title": "퇴사할게여 (Narr. 기안84)",
+        "artist": "소연",
+        "album": "끝내주는 인생",
+        "title_ko": "퇴사할게여 (Narr. 기안84)",
+        "artist_ko": "소연",
+        "album_ko": "끝내주는 인생",
+        "title_en": "I’m gonna TOESA (Narr. KIAN84)",
+        "artist_en": "SOYEON",
+        "album_en": "What a Wonderful Life",
+        "length_seconds": 212,
+        "music_video_type": "MUSIC_VIDEO_TYPE_ATV"
+      },
+      "references": [
+        {
+          "storefront": "kr",
+          "locale": "ko-KR",
+          "id": "6802901371",
+          "name": "퇴사할게여 (Narr. 기안84)",
+          "artistName": "소연",
+          "albumName": "끝내주는 인생",
+          "isrc": "KRA392600017",
+          "durationInMillis": 211575,
+          "releaseDate": "2026-09-07",
+          "url": "https://music.apple.com/kr/album/%ED%87%B4%EC%82%AC%ED%95%A0%EA%B2%8C%EC%97%AC-narr-%EA%B8%B0%EC%95%8884/6802901370?i=6802901371",
+          "composerName": "소연 SOYEON, 팝 타임, 데일리 & Likey",
+          "contentRating": null,
+          "trackNumber": 1,
+          "artist_resource_ids": [
+            "1037194059"
+          ]
+        },
+        {
+          "storefront": "kr",
+          "locale": "en-GB",
+          "id": "6802901371",
+          "name": "I’m gonna TOESA (Narr. KIAN84)",
+          "artistName": "SOYEON",
+          "albumName": "What a Wonderful Life",
+          "isrc": "KRA392600017",
+          "durationInMillis": 211575,
+          "releaseDate": "2026-09-07",
+          "url": "https://music.apple.com/kr/album/%ED%87%B4%EC%82%AC%ED%95%A0%EA%B2%8C%EC%97%AC-narr-%EA%B8%B0%EC%95%8884/6802901370?i=6802901371&l=en-GB",
+          "composerName": "소연 SOYEON, Pop Time, Daily & Likey",
+          "contentRating": null,
+          "trackNumber": 1,
+          "artist_resource_ids": [
+            "1037194059"
+          ]
+        },
+        {
+          "storefront": "us",
+          "locale": "en-US",
+          "source_id": "6802901371",
+          "resolved_id": "6804744599",
+          "name": "I’m gonna TOESA (feat. Kian84)",
+          "artistName": "SOYEON",
+          "albumName": "What a Wonderful Life",
+          "isrc": "KRA392600017",
+          "durationInMillis": 211575,
+          "releaseDate": "2026-09-07",
+          "url": "https://music.apple.com/us/album/im-gonna-toesa-feat-kian84/6804744597?i=6804744599",
+          "composerName": "SOYEON, Pop Time, Daily & Likey"
+        }
+      ],
+      "catalog_isrc": "KRA392600017",
+      "duration_ms": 211575,
+      "limit": "Only these literal observed source variants and exact YouTube recording. Current KR source calls KIAN84 a narrator while the current US equivalent labels the same participant as featured, with matching catalog ISRC and duration. This proves only this source-specific catalog equivalence, not a generic Narr=feat rule. Source rows, ranks, IDs and source-market precedence remain unchanged. Direct YouTube ISRC was not observed; no playback approval is supplied."
+    },
+    "apple:6804744599": {
+      "kind": "official_cross_service_credit",
+      "source_variants": [
+        [
+          "I’m gonna TOESA (feat. Kian84)",
+          "SOYEON",
+          "What a Wonderful Life"
+        ]
+      ],
+      "recording": {
+        "video_id": "nxdxwZztGj0",
+        "title": "퇴사할게여 (Narr. 기안84)",
+        "artist": "소연",
+        "album": "끝내주는 인생",
+        "title_ko": "퇴사할게여 (Narr. 기안84)",
+        "artist_ko": "소연",
+        "album_ko": "끝내주는 인생",
+        "title_en": "I’m gonna TOESA (Narr. KIAN84)",
+        "artist_en": "SOYEON",
+        "album_en": "What a Wonderful Life",
+        "length_seconds": 212,
+        "music_video_type": "MUSIC_VIDEO_TYPE_ATV"
+      },
+      "candidate": {
+        "video_id": "nxdxwZztGj0",
+        "title": "퇴사할게여 (Narr. 기안84)",
+        "artist": "소연",
+        "album": "끝내주는 인생",
+        "title_ko": "퇴사할게여 (Narr. 기안84)",
+        "artist_ko": "소연",
+        "album_ko": "끝내주는 인생",
+        "title_en": "I’m gonna TOESA (Narr. KIAN84)",
+        "artist_en": "SOYEON",
+        "album_en": "What a Wonderful Life",
+        "length_seconds": 212,
+        "music_video_type": "MUSIC_VIDEO_TYPE_ATV"
+      },
+      "references": [
+        {
+          "storefront": "kr",
+          "locale": "ko-KR",
+          "id": "6802901371",
+          "name": "퇴사할게여 (Narr. 기안84)",
+          "artistName": "소연",
+          "albumName": "끝내주는 인생",
+          "isrc": "KRA392600017",
+          "durationInMillis": 211575,
+          "releaseDate": "2026-09-07",
+          "url": "https://music.apple.com/kr/album/%ED%87%B4%EC%82%AC%ED%95%A0%EA%B2%8C%EC%97%AC-narr-%EA%B8%B0%EC%95%8884/6802901370?i=6802901371",
+          "composerName": "소연 SOYEON, 팝 타임, 데일리 & Likey",
+          "contentRating": null,
+          "trackNumber": 1,
+          "artist_resource_ids": [
+            "1037194059"
+          ]
+        },
+        {
+          "storefront": "kr",
+          "locale": "en-GB",
+          "id": "6802901371",
+          "name": "I’m gonna TOESA (Narr. KIAN84)",
+          "artistName": "SOYEON",
+          "albumName": "What a Wonderful Life",
+          "isrc": "KRA392600017",
+          "durationInMillis": 211575,
+          "releaseDate": "2026-09-07",
+          "url": "https://music.apple.com/kr/album/%ED%87%B4%EC%82%AC%ED%95%A0%EA%B2%8C%EC%97%AC-narr-%EA%B8%B0%EC%95%8884/6802901370?i=6802901371&l=en-GB",
+          "composerName": "소연 SOYEON, Pop Time, Daily & Likey",
+          "contentRating": null,
+          "trackNumber": 1,
+          "artist_resource_ids": [
+            "1037194059"
+          ]
+        },
+        {
+          "storefront": "us",
+          "locale": "en-US",
+          "source_id": "6802901371",
+          "resolved_id": "6804744599",
+          "name": "I’m gonna TOESA (feat. Kian84)",
+          "artistName": "SOYEON",
+          "albumName": "What a Wonderful Life",
+          "isrc": "KRA392600017",
+          "durationInMillis": 211575,
+          "releaseDate": "2026-09-07",
+          "url": "https://music.apple.com/us/album/im-gonna-toesa-feat-kian84/6804744597?i=6804744599",
+          "composerName": "SOYEON, Pop Time, Daily & Likey"
+        }
+      ],
+      "catalog_isrc": "KRA392600017",
+      "duration_ms": 211575,
+      "limit": "Only these literal observed source variants and exact YouTube recording. Current KR source calls KIAN84 a narrator while the current US equivalent labels the same participant as featured, with matching catalog ISRC and duration. This proves only this source-specific catalog equivalence, not a generic Narr=feat rule. Source rows, ranks, IDs and source-market precedence remain unchanged. Direct YouTube ISRC was not observed; no playback approval is supplied."
     }
   },
   "recording_release_evidence": [
@@ -635,6 +927,215 @@
         }
       ],
       "limit": "Only these exact source IDs, observed metadata variants and YouTube recording. The catalog editions share ISRC; Spotify/YouTube ISRC was not directly observed. Cross-service identity remains an inference from official title, credits, album and duration. No audio comparison or playability approval is supplied."
+    },
+    {
+      "kind": "official_recording_release_equivalence",
+      "title": "Who",
+      "observed_at": "2026-09-14T16:18:49.712525+00:00",
+      "sources": {
+        "spotify": [
+          "5wPnPIZS8wr4lPNLz4qvHK"
+        ]
+      },
+      "source_variants": [
+        [
+          "Who",
+          "Jimin",
+          "MUSE (WONDER ver.)"
+        ],
+        [
+          "Who",
+          "지민",
+          "MUSE (WONDER ver.)"
+        ]
+      ],
+      "recording": {
+        "video_id": "sEcvQvftOQY",
+        "title": "Who",
+        "artist": "지민 (Jimin)",
+        "album": "MUSE",
+        "length_seconds": 171,
+        "title_ko": "Who",
+        "artist_ko": "지민 (Jimin)",
+        "album_ko": "MUSE",
+        "title_en": "Who",
+        "artist_en": "Jimin",
+        "album_en": "MUSE"
+      },
+      "catalog_isrc": "USA2P2431062",
+      "references": [
+        {
+          "url": "https://music.apple.com/us/album/who/1751773074?i=1751773093",
+          "service": "apple",
+          "song_id": "1751773093",
+          "title": "Who",
+          "artist": "Jimin",
+          "album": "MUSE",
+          "isrc": "USA2P2431062",
+          "duration_ms": 170888
+        },
+        {
+          "url": "https://music.apple.com/us/album/who/1757558114?i=1757558454",
+          "service": "apple",
+          "song_id": "1757558454",
+          "title": "Who",
+          "artist": "Jimin",
+          "album": "MUSE (WONDER ver.)",
+          "isrc": "USA2P2431062",
+          "duration_ms": 170888
+        }
+      ],
+      "source_evidence": {
+        "spotify_exact_url": "https://open.spotify.com/track/5wPnPIZS8wr4lPNLz4qvHK",
+        "spotify_exact_id": "5wPnPIZS8wr4lPNLz4qvHK",
+        "title": "Who",
+        "artist": "Jimin",
+        "album": "MUSE (WONDER ver.)",
+        "duration_ms": 170887,
+        "isrc": null,
+        "standard_id": "7tI8dRuH2Yc6RuoTjxo4dU",
+        "same_official_preview_url": true
+      },
+      "scope_note": "Inference through matching official Apple catalog recordings and exact Spotify/YouTube metadata, not a directly observed Spotify or YouTube ISRC. Only versionless Who from this exact source/YouTube pair. Instrumental has the same duration but a different ISRC; every title version/feature/rating gate remains required.",
+      "evidence_sha256": "c99e4a4062051381d16cd2bd3a6537590b1d66edb97e87613e91e9508f0e831a"
+    },
+    {
+      "kind": "official_recording_release_equivalence",
+      "title": "WDA (Whole Different Animal) [feat. G-DRAGON]",
+      "observed_at": "2026-09-14T16:54:03.475314+00:00",
+      "sources": {
+        "apple": [
+          "1893599772"
+        ]
+      },
+      "source_variants": [
+        [
+          "WDA (Whole Different Animal) [feat. G-DRAGON]",
+          "aespa",
+          "LEMONADE - The 2nd Album (GISELLE Special Version)"
+        ],
+        [
+          "WDA (Whole Different Animal) [feat. G-DRAGON]",
+          "aespa",
+          "LEMONADE - The 2nd Album"
+        ]
+      ],
+      "recording": {
+        "video_id": "ZAsxW7bkK-A",
+        "title": "WDA (Whole Different Animal) (feat. G-DRAGON)",
+        "artist": "에스파",
+        "album": "WDA (Whole Different Animal)",
+        "length_seconds": 174,
+        "music_video_type": "MUSIC_VIDEO_TYPE_ATV",
+        "title_ko": "WDA (Whole Different Animal) (feat. G-DRAGON)",
+        "artist_ko": "에스파",
+        "album_ko": "WDA (Whole Different Animal)",
+        "title_en": "WDA (Whole Different Animal) (feat. G-DRAGON)",
+        "artist_en": "aespa",
+        "album_en": "WDA (Whole Different Animal)"
+      },
+      "catalog_isrc": "KRA302600095",
+      "references": [
+        {
+          "url": "https://music.apple.com/kr/album/wda-whole-different-animal-feat-g-dragon/1893599771?i=1893599772",
+          "catalog_song_id": "1893599772",
+          "title": "WDA (Whole Different Animal) [feat. G-DRAGON]",
+          "artist": "aespa",
+          "album": "LEMONADE - The 2nd Album",
+          "isrc": "KRA302600095",
+          "duration_ms": 174000
+        },
+        {
+          "url": "https://music.apple.com/us/album/wda-whole-different-animal-feat-g-dragon/6772870169?i=6772870621",
+          "catalog_song_id": "6772870621",
+          "title": "WDA (Whole Different Animal) [feat. G-DRAGON]",
+          "artist": "aespa",
+          "album": "LEMONADE - The 2nd Album (GISELLE Special Version)",
+          "isrc": "KRA302600095",
+          "duration_ms": 174000
+        },
+        {
+          "url": "https://music.apple.com/kr/album/wda-whole-different-animal-feat-g-dragon/1894805931?i=1894805932&l=en-GB",
+          "catalog_song_id": "1894805932",
+          "title": "WDA (Whole Different Animal) [feat. G-DRAGON]",
+          "artist": "aespa",
+          "album": "WDA (Whole Different Animal) [feat. G-DRAGON] - Single",
+          "isrc": "KRA302600095",
+          "duration_ms": 174000
+        }
+      ],
+      "limit": "Only exact observed Apple source variants and candidate video metadata. No direct YouTube ISRC or audio comparison was observed; cross-service identity is an inference from official title, credits, album and duration. No playability approval. All generic title/feature/version/duration checks remain in force."
+    },
+    {
+      "kind": "official_recording_release_equivalence",
+      "title": "Blue",
+      "observed_at": "2026-09-14T16:54:03.475314+00:00",
+      "sources": {
+        "apple": [
+          "1337456890"
+        ]
+      },
+      "source_variants": [
+        [
+          "Blue",
+          "BIGBANG",
+          "Special Edition 'Still Alive'"
+        ]
+      ],
+      "recording": {
+        "video_id": "k2zDLzfcb3I",
+        "title": "Blue",
+        "artist": "BIGBANG",
+        "album": "ALIVE",
+        "length_seconds": 233,
+        "music_video_type": "MUSIC_VIDEO_TYPE_ATV",
+        "title_ko": "Blue",
+        "artist_ko": "BIGBANG",
+        "album_ko": "ALIVE",
+        "title_en": "Blue",
+        "artist_en": "BIGBANG",
+        "album_en": "ALIVE"
+      },
+      "catalog_isrc": "KRA341200725",
+      "references": [
+        {
+          "url": "https://music.apple.com/kr/album/blue/1337456879?i=1337456890",
+          "catalog_song_id": "1337456890",
+          "title": "Blue",
+          "artist": "BIGBANG",
+          "album": "Special Edition 'Still Alive'",
+          "isrc": "KRA341200725",
+          "duration_ms": 235107
+        },
+        {
+          "url": "https://music.apple.com/kr/album/blue/1337452970?i=1337452975",
+          "catalog_song_id": "1337452975",
+          "title": "Blue",
+          "artist": "BIGBANG",
+          "album": "Alive",
+          "isrc": "KRA341200725",
+          "duration_ms": 233099
+        }
+      ],
+      "limit": "Only exact observed Apple source variants and candidate video metadata. No direct YouTube ISRC or audio comparison was observed; cross-service identity is an inference from official title, credits, album and duration. No playability approval. All generic title/feature/version/duration checks remain in force.",
+      "duration_discrepancy": {
+        "source_catalog_ms": 235107,
+        "standard_catalog_ms": 233099,
+        "difference_ms": 2008,
+        "candidate_watch_seconds": 233,
+        "current_source_has_duration": false,
+        "decision": "This exact same-ISRC catalog pair is explicitly reviewed despite source235.107s versus standard233.099s. Consume both durations even when the collected source omits length. A provided source duration must equal235.107s. Exact candidate233s is checked against233.099s with the unchanged2s bound. Only source→candidate duration is excluded after pair validation; all other identity checks remain. No assertion of audio padding or audio-file equality."
+      },
+      "catalog_duration_pair": {
+        "source_service": "apple",
+        "source_song_id": "1337456890",
+        "source_url": "https://music.apple.com/kr/album/blue/1337456879?i=1337456890",
+        "source_duration_ms": 235107,
+        "recording_song_id": "1337452975",
+        "recording_reference_url": "https://music.apple.com/kr/album/blue/1337452970?i=1337452975",
+        "recording_duration_ms": 233099,
+        "recording_video_id": "k2zDLzfcb3I"
+      }
     }
   ]
 }

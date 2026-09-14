@@ -54,7 +54,7 @@ jobs:
               --auth "$RUNNER_TEMP/ytmusic-browser.json" \
               --expected-account-file ytmusic_validation_config.json \
               --controls 5sOgJQ3N03Q Q4AE3ub4nBM z9ifbheDGFM \
-              --ids 5sOgJQ3N03Q DBOyG7y_FQg QbsbqekMkCU cQPXraDIvS4 Q4AE3ub4nBM EsU7ng0KIy0 MUny_GDYIDM KL7km3PxilQ z9ifbheDGFM 1PVUTUFxq8g TfAiFxoXVlE 1moSPsMlDBA cOARkf5ZmtI SCl9CL9vqa4 A9EpZWrQ3dM hl7_dxuytRQ DbI-M_jZukE QJmPjIwxzhc vOfyxPRunFM kDsRsv3DsHg EmRFwlGlbb8 YJhEsDa2o8w XNc6BJlvczs 107UoVP2fAA GxChUrrY4bc JJx_WQXOeK0 Ag-LdVKMgiU 6696qeSTVyo DxVbg_RbczA clsPwXUeZFk 5McUFZz2s-w uWCI0NqgHSc JwC6KUpBAAU qAe0v0PnhGs qdr0fZbuffY \
+              --ids 5sOgJQ3N03Q DBOyG7y_FQg QbsbqekMkCU cQPXraDIvS4 Q4AE3ub4nBM EsU7ng0KIy0 MUny_GDYIDM KL7km3PxilQ z9ifbheDGFM 1PVUTUFxq8g TfAiFxoXVlE 1moSPsMlDBA cOARkf5ZmtI SCl9CL9vqa4 A9EpZWrQ3dM hl7_dxuytRQ DbI-M_jZukE QJmPjIwxzhc vOfyxPRunFM kDsRsv3DsHg EmRFwlGlbb8 YJhEsDa2o8w XNc6BJlvczs 107UoVP2fAA GxChUrrY4bc JJx_WQXOeK0 Ag-LdVKMgiU 6696qeSTVyo DxVbg_RbczA clsPwXUeZFk 5McUFZz2s-w uWCI0NqgHSc JwC6KUpBAAU qAe0v0PnhGs qdr0fZbuffY 0iiW__6izcs kjNGAVT_ySg y5Wi5kOiGAQ XMWIJCaYx1M nhuFm3BGIBY jsXAwVnd1gE VvXVuWwAG90 h9hdorPqukU to3sjq-CAvA i0zqeEAJEx8 Tq05jNIY_10 qGgMwvoYgmo UsjsYMo3O1Q ljCOHKamf4Q X0PUdt1gt5c wt2qlecXbUc v8mCh6TZfEU 1rAos7HClwI AlNEtjBX1wU oHFQ6aKTAMw \
               --playlist-id PLtawHGpcUVZWJV93R_C0xb8rnW1wx79Yx \
               --compare-public --environment actions \
               --output "diagnostic-artifacts/authenticated-$sample.json" || status=1

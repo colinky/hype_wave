@@ -366,7 +366,10 @@ def repair_frontend_history(
             raise ValueError(f"Invalid history repair date: {date}")
         previous_rows = {row["video_id"]: row for row in history.get(date, [])}
         incoming = [dict(row) for row in reports_by_date[date]]
-        changed = [index for index, row in enumerate(incoming) if row != previous_rows.get(row["video_id"])]
+        def identity_fields(row):
+            return {key: value for key, value in (row or {}).items() if key not in DAILY_RANKING_FIELDS}
+        changed = [index for index, row in enumerate(incoming)
+                   if identity_fields(row) != identity_fields(previous_rows.get(row["video_id"]))]
         # A newer identity receipt must not rewrite untouched rows on an older
         # date. Identity-only repairs explicitly include the intended key.
         carried = carry_history_identity([incoming[index] for index in changed], history,

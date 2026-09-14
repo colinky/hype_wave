@@ -5086,6 +5086,14 @@ def get_bulk_cached_matches(
                 incoming=t,
             )
             if cached:
+                if (service == "ytmusic" and cached["video_id"] == sid
+                        and str(cached.get("yt_title") or "").strip()
+                        and str(cached.get("yt_artist") or "").strip()):
+                    # Exact native identity needs no fuzzy title or performer
+                    # rematch. Callers still require current playback evidence.
+                    cached.update(cache_origin="native_source_id", query="db_cache:native_source_id")
+                    results[sid] = cached
+                    continue
                 cache_state, resolved = verify_cache_in_memory(
                     track_uid, t, exclude_source_binding=True,
                 )

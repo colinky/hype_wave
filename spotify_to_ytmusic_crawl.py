@@ -670,31 +670,24 @@ def main() -> int:
                 desc_text = f"[{p_name}] {p_desc}".strip() if p_desc else f"[{p_name}]"
                 combined_desc_parts.append(desc_text)
 
-                targeted_cache = load_targeted_spotify_cache(
-                    db_path,
-                    tracks,
-                    no_db_cache=args.no_db_cache,
-                )
-                needs_ko_fallback = any((track.song_id or "") not in targeted_cache for track in tracks)
-                
-                if needs_ko_fallback:
-                    # Fetch Korean fallback version (market=KR)
-                    try:
-                        LOG.info("New tracks detected. Fetching Korean metadata fallback from Spotify (KR)...")
-                        _, _, tracks_ko, _ = fetch_spotify_tracks_scraped(
-                            url,
-                            market="KR",
-                            limit=track_limit,
-                            use_musicbrainz=False,
-                            official_album_cache=official_album_cache,
-                        )
-                        for t in tracks_ko:
-                            if t.song_id:
-                                tracks_ko_map[t.song_id] = t
-                    except Exception as exc:
-                        LOG.warning("Failed to fetch Korean fallback tracks for %s: %s", url, exc)
-                else:
-                    LOG.info("All tracks in '%s' are already in cache. Skipping Korean metadata fallback fetch.", p_name)
+                # Source locales must be refreshed even when every match is cached.
+                # The shared official album cache avoids duplicate exact-track reads.
+                try:
+                    LOG.info("Fetching current Korean Spotify source metadata...")
+                    _, _, tracks_ko, _ = fetch_spotify_tracks_scraped(
+                        url,
+                        market="KR",
+                        limit=track_limit,
+                        use_musicbrainz=False,
+                        official_album_cache=official_album_cache,
+                    )
+                    for track_ko in tracks_ko:
+                        if track_ko.song_id:
+                            tracks_ko_map[track_ko.song_id] = track_ko
+                except Exception as exc:
+                    # Korean metadata remains optional; never invent a fresh KO
+                    # observation from cached display metadata after a read failure.
+                    LOG.warning("Korean Spotify source refresh failed for %s; only observed locales will update: %s", url, exc)
 
                 raw_tracks.extend(tracks)
                 LOG.info("Added %d raw tracks from '%s' (Raw total: %d)", len(tracks), p_name, len(raw_tracks))

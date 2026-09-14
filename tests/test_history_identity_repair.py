@@ -46,6 +46,17 @@ def compact(history):
 
 
 class HistoryIdentityRepairTests(unittest.TestCase):
+    def test_rank_only_changes_do_not_rewrite_existing_identity_fields(self):
+        source = "https://music.apple.com/album/1?i=2"
+        older = row("old-video11", apple_url=source)
+        current = row("current1111", apple_url=source)
+        neighbor = row("neighbor111", rank=2)
+        history = {"2026-09-12": [older], "2026-09-13": [current, neighbor]}
+        incoming = [{**neighbor, "hype_rank": 1}, {**current, "hype_rank": 2}]
+        result = reports.repair_frontend_history(compact(history), {"2026-09-13": incoming}, generated_at=STAMP)
+        self.assertEqual(reports.inflate_frontend_history(result)["2026-09-13"], incoming)
+        self.assertEqual(reports.inflate_frontend_history(result)["2026-09-12"], [older])
+
     def test_sparse_metadata_preserves_old_text_and_explicit_empty_values(self):
         first = row(title="Original display", album="", apple_url="")
         second = row(title="Localized display", album="New album", apple_url="https://music.apple.com/album/1?i=2")

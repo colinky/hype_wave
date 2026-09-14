@@ -11,6 +11,7 @@ from contextlib import contextmanager, nullcontext
 from datetime import datetime, timedelta, timezone
 import hashlib
 import json
+import math
 import os
 from pathlib import Path
 import re
@@ -191,6 +192,8 @@ def _validate_manifest(manifest: Mapping[str, Any]) -> None:
                 raise ValueError("Incident decision belongs to another repair or case")
         if case.get("action", "restore_canonical") not in {"restore_canonical", "split_binding", "repair_recording_identity"}:
             raise ValueError("Unsupported repair action")
+        if any(item.get("metadata", {}).get("identity_basis") == "exact_native_uploader" for item in _case_decisions(case)) and case.get("action") != "split_binding":
+            raise ValueError("Uploader evidence is only valid for a native source split")
 
 
 def plan_repair(conn: Any, spec: Mapping[str, Any]) -> dict[str, Any]:
@@ -233,7 +236,15 @@ def _apply_source_metadata_repairs(conn: Any, case: Mapping[str, Any]) -> None:
                 or find_track_by_service_song(conn, service, song_id) not in uids):
             raise CanonicalDecisionError("Source metadata correction lacks exact upstream proof")
         corrected = {**dict(row), **values}
-        if not source_recording_matches(corrected, case["decision"]["metadata"], service=service):
+        metadata = case["decision"]["metadata"]
+        native_source_correction = (
+            case.get("action") == "split_binding" and service == case.get("service") == "ytmusic"
+            and song_id == case.get("song_id") == case["decision"]["selected_video_id"]
+        )
+        if native_source_correction:
+            if not set(values) <= {"album_ko", "album_en"} or any(value != metadata.get(key) for key, value in values.items()):
+                raise CanonicalDecisionError("Native source correction must preserve its caption and use exact observed albums")
+        elif not source_recording_matches(corrected, metadata, service=service):
             raise CanonicalDecisionError("Corrected source metadata describes another recording")
         columns = sorted(values)
         conn.execute(f"UPDATE track_list SET {','.join(key + '=?' for key in columns)} WHERE service=? AND song_id=?",
@@ -248,8 +259,55 @@ def _apply_source_metadata_repairs(conn: Any, case: Mapping[str, Any]) -> None:
         _invalidate_ytmusic_song_translation(conn, repair["video_id"])
 
 
+def _native_uploader_metadata_matches(case: Mapping[str, Any]) -> bool:
+    """A native UGC creator channel proves the exact entity, not a musical artist."""
+    try:
+        decision, proof = case["decision"], case["native_watch_evidence"]
+        metadata, player = decision["metadata"], proof["player_details"]
+        selected, channel = decision["selected_video_id"], player["channelId"]
+        observed = datetime.fromisoformat(proof["observed_at"].replace("Z", "+00:00"))
+        length = int(player["lengthSeconds"])
+        if (not proof["evidence_ref"] or not observed.tzinfo
+                or not isinstance(channel, str) or not re.fullmatch(r"UC[A-Za-z0-9_-]{22}", channel) or length <= 0
+                or not timedelta(0) <= datetime.now(timezone.utc) - observed <= timedelta(minutes=30)
+                or player["videoId"] != selected or player["musicVideoType"] != "MUSIC_VIDEO_TYPE_UGC"
+                or decision["candidate_evidence"]["music_video_type"] != "MUSIC_VIDEO_TYPE_UGC"
+                or metadata["music_video_type"] != "MUSIC_VIDEO_TYPE_UGC"
+                or metadata["artist_identity_complete"] is not False
+                or metadata["artist_ids"] != [] or metadata["artist_names_by_id"] != {}
+                or metadata["creator_channel_id"] != channel or metadata["length_seconds"] != length
+                or metadata["album"] != ""):
+            return False
+        for field, player_field in (("title", "title"), ("artist", "author")):
+            value = player[player_field]
+            if not isinstance(value, str) or not value.strip() or decision["candidate_evidence"][field] != value or metadata[field] != value:
+                return False
+            if any(metadata[field + "_" + locale] != value for locale in ("ko", "en")):
+                return False
+        for locale in ("ko", "en"):
+            rows = proof["watch"][locale]
+            # The watch parser places numeric view/like/year labels in artists.
+            # Match the strict metadata reader's display-only filter; keep every creator.
+            artists = [artist for artist in rows[0]["artists"] if not (
+                artist.get("id") is None and isinstance(artist.get("name"), str)
+                and re.fullmatch(r"(?:(?:조회수|좋아요)\s*\d[\d.,]*\s*[천만억]?\s*[회개]"
+                                 r"|(?:19|20)\d{2}년?|\d[\d.,]*\s*[KMB]?\s*(?:views?|likes?))",
+                                 artist["name"].strip(), re.IGNORECASE))] if len(rows) == 1 else []
+            if (len(rows) != 1 or rows[0]["videoId"] != selected or rows[0]["title"] != player["title"]
+                    or artists != [{"name": player["author"], "id": channel}]
+                    or rows[0].get("isAvailable") is False or rows[0].get("album") is not None
+                    or rows[0]["videoType"] != "MUSIC_VIDEO_TYPE_UGC" or metadata["album_" + locale] != ""):
+                return False
+        return True
+    except (AttributeError, KeyError, TypeError, ValueError, OverflowError):
+        return False
+
+
 def _apply_split(conn: Any, case: Mapping[str, Any]) -> dict[str, Any]:
     """Separate only explicitly evidenced source bindings/aliases; never infer an inverse merge."""
+    from sync_validation import recording_identity_matches
+    from ytmusic_playlist_sync import normalize_text, split_artist_names
+
     decision, bindings, aliases = case["decision"], case.get("bindings"), case.get("aliases")
     destination = decision["expected_track_uid"]
     if (not case.get("evidence_ref") or not bindings or not aliases
@@ -259,6 +317,33 @@ def _apply_split(conn: Any, case: Mapping[str, Any]) -> dict[str, Any]:
         raise CanonicalDecisionError("A new split destination cannot already have a canonical")
     metadata = decision["metadata"]
     selected = decision["selected_video_id"]
+    validate_canonical_decision({"track_uid": destination}, decision)
+    native = case.get("service") == "ytmusic" and case.get("song_id") == selected
+    uploader = metadata.get("identity_basis") == "exact_native_uploader"
+    if uploader and (not native or not _native_uploader_metadata_matches(case)):
+        raise CanonicalDecisionError("Native uploader identity needs fresh exact watch and player evidence")
+    if native:
+        names_by_id = metadata.get("artist_names_by_id") or {}
+        artist_ids = metadata.get("artist_ids")
+        if not uploader and (not isinstance(artist_ids, list) or not artist_ids or not isinstance(names_by_id, dict)
+                or not all(isinstance(artist, str) and artist.strip()
+                           and isinstance(names_by_id.get(artist), list) and names_by_id[artist]
+                           and all(isinstance(name, str) and name.strip() for name in names_by_id[artist])
+                           for artist in artist_ids)):
+            raise CanonicalDecisionError("Native source split needs complete exact artist identities")
+        known_names = {normalize_text(name).replace(" ", "")
+                       for artist in artist_ids for name in names_by_id[artist]}
+        if (len(bindings) != 1 or len(aliases) != 1
+                or (not uploader and metadata.get("artist_identity_complete") is not True)
+                or any(metadata.get(field) not in (metadata.get(field + "_ko"), metadata.get(field + "_en"))
+                       for field in ("title", "artist", "album"))
+                or not all(metadata.get(field + suffix) for field in ("title", "artist") for suffix in ("_ko", "_en"))
+                or (not uploader and not all(normalize_text(name).replace(" ", "") in known_names
+                                             for suffix in ("_ko", "_en") for name in split_artist_names(metadata["artist" + suffix])))
+                or type(metadata.get("length_seconds")) not in (int, float)
+                or not math.isfinite(metadata["length_seconds"]) or metadata["length_seconds"] <= 0
+                or not recording_identity_matches(metadata, decision["candidate_evidence"], player=True)):
+            raise CanonicalDecisionError("Native source split needs strict exact recording metadata and playback")
     if selected not in {item["video_id"] for item in aliases}:
         raise CanonicalDecisionError("Split aliases must include the selected video")
     old_uids = set()
@@ -268,26 +353,39 @@ def _apply_split(conn: Any, case: Mapping[str, Any]) -> dict[str, Any]:
             raise CanonicalDecisionError("Split source ownership changed")
         raw = conn.execute("SELECT * FROM track_list WHERE service=? AND song_id=?",
                            (binding["service"], binding["song_id"])).fetchone()
-        if not raw or not _metadata_rows_equivalent(dict(raw), metadata) or _canonical_manual_rows(conn, old_uid, selected):
+        if (not raw or _canonical_manual_rows(conn, old_uid, selected)
+                or (native and (binding["service"] != "ytmusic" or binding["song_id"] != selected
+                                or binding.get("source_metadata_verified") is not True or not binding.get("evidence_ref")))
+                or (not native and not _metadata_rows_equivalent(dict(raw), metadata))):
             raise CanonicalDecisionError("Split source identity or manual policy requires review")
         old_uids.add(old_uid)
     for alias in aliases:
-        owner = conn.execute("SELECT track_uid FROM yt_video_ids WHERE video_id=?", (alias["video_id"],)).fetchone()
-        if not owner or owner[0] != alias["expected_track_uid"] or owner[0] not in old_uids:
-            raise CanonicalDecisionError("Split alias ownership is not proved")
+        owner = conn.execute("SELECT track_uid,is_canonical FROM yt_video_ids WHERE video_id=?", (alias["video_id"],)).fetchone()
         if conn.execute("SELECT 1 FROM tracks WHERE canonical_yt_video_id=?", (alias["video_id"],)).fetchone():
             raise CanonicalDecisionError("Moving another track's canonical needs a separate reviewed repair")
+        if alias.get("expected_absent") is True:
+            if (owner or "expected_track_uid" not in alias or alias["expected_track_uid"] is not None
+                    or len(aliases) != 1 or not native
+                    or alias["video_id"] != selected or not alias.get("evidence_ref")):
+                raise CanonicalDecisionError("An absent alias needs exact native source and strict recording proof")
+        elif not owner or owner[0] != alias["expected_track_uid"] or owner[0] not in old_uids or (native and owner[1]):
+            raise CanonicalDecisionError("Split alias ownership is not proved")
     ensure_track(conn, track_uid=destination)
     for alias in aliases:
-        conn.execute("UPDATE yt_video_ids SET track_uid=?,is_canonical=0 WHERE video_id=? AND track_uid=?",
-                     (destination, alias["video_id"], alias["expected_track_uid"]))
+        if alias.get("expected_absent") is True:
+            conn.execute("INSERT INTO yt_video_ids(video_id,track_uid,is_canonical) VALUES (?,?,0)",
+                         (alias["video_id"], destination))
+        else:
+            conn.execute("UPDATE yt_video_ids SET track_uid=?,is_canonical=0 WHERE video_id=? AND track_uid=?",
+                         (destination, alias["video_id"], alias["expected_track_uid"]))
     for binding in bindings:
         conn.execute("UPDATE platform_song_ids SET track_uid=? WHERE service=? AND song_id=? AND track_uid=?",
                      (destination, binding["service"], binding["song_id"], binding["expected_track_uid"]))
     for uid in old_uids:
         _rebuild_track_metadata_lookup(conn, winner_uid=uid)
         _sync_canonical_video_flags(conn, [uid])
-    return apply_canonical_decision(conn, track_uid=destination, decision=decision, source_row=case.get("source_row"))
+    return apply_canonical_decision(conn, track_uid=destination, decision=decision,
+                                    source_row=None if native else case.get("source_row"))
 
 
 def _apply_identity_repair(conn: Any, case: Mapping[str, Any]) -> dict[str, Any]:

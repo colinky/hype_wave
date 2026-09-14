@@ -36,6 +36,8 @@ MODULES = (
     "test_recording_identity_cleanup_adversarial",
     "test_recording_release_identity", "test_spotify_album_provenance", "test_partial_artist_identity",
     "test_source_title_translation", "test_spotify_album_storage",
+    "test_narrator_identity", "test_spotify_locale_refresh", "test_native_recording_preservation", "test_native_source_split",
+    "test_observed_credit_aliases", "test_catalog_duration_pair",
 )
 
 

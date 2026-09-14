@@ -79,3 +79,12 @@ diagnostic-artifacts/
 !tests/test_source_title_translation.py
 
 !tests/test_spotify_album_storage.py
+
+!tests/test_narrator_identity.py
+!tests/test_spotify_locale_refresh.py
+!tests/fixtures/observed_narrator_identity.json
+!tests/test_native_recording_preservation.py
+!tests/test_native_source_split.py
+!tests/test_observed_credit_aliases.py
+!tests/test_catalog_duration_pair.py
+!tests/fixtures/observed_credit_identity.json

@@ -613,7 +613,9 @@ class SourceSongRelationTests(unittest.TestCase):
 
                 self.assertEqual(
                     result["status"],
-                    "manual_blocked" if mode == "manual_block" else "would_link",
+                    # A read-only relationship without a typed decision cannot
+                    # replace the already bound exact native recording.
+                    "manual_blocked" if mode == "manual_block" else "preserved_canonical",
                 )
                 self.assertEqual(
                     tuple(source_metadata),
@@ -982,7 +984,10 @@ class ChartRelationPreflightTests(unittest.TestCase):
         from playlist_playability_fixture import PlaylistVerifier
         self.environment = patch.dict(os.environ, {"SUPABASE_DB_URL": ""})
         self.environment.start()
-        self.verifier = PlaylistVerifier(metadata={F7: {"title": "GRLS", "artist": "TUIDE"}})
+        # These cases inspect a replacement candidate after the original is
+        # unavailable. Final source/old/target identity validation is separate.
+        self.verifier = PlaylistVerifier(states={PHCI: "unavailable"},
+                                        metadata={F7: {"title": "GRLS", "artist": "TUIDE"}})
         self.enterContext(patch("sync_validation.verifier_for", return_value=self.verifier))
         self.metadata = self.enterContext(patch("ytmusic_playlist_sync.get_verified_video_metadata", return_value={
             "video_id": F7, "title": "GRLS", "artist": "TUIDE", "album": "TUNE & PLAY",
@@ -997,6 +1002,10 @@ class ChartRelationPreflightTests(unittest.TestCase):
         return {
             "source": "youtube_charts_weekly_browse_api",
             "rank": 40,
+            # The real caller normalizes effective_entries before preflight.
+            "song_id": PHCI,
+            "title": "GRLS",
+            "artist": "TUIDE",
             "original_video_id": PHCI,
             "atv_external_video_id": F7,
             "original_title": "GRLS",
@@ -1030,7 +1039,7 @@ class ChartRelationPreflightTests(unittest.TestCase):
             "album_ko": "TUNE & PLAY",
         }
 
-    def test_verified_relation_uses_atv_without_rewriting_raw_chart_rank(self) -> None:
+    def test_unavailable_native_relation_observes_atv_without_rewriting_raw_chart_rank(self) -> None:
         with tempfile.TemporaryDirectory(dir=Path(__file__).resolve().parent) as directory:
             db_path = Path(directory) / "preflight.db"
             init_db(db_path)
@@ -1064,6 +1073,20 @@ class ChartRelationPreflightTests(unittest.TestCase):
                     ).fetchone()),
                     (40, PHCI),
                 )
+
+    def test_healthy_native_relation_keeps_its_id_without_using_target_metadata(self) -> None:
+        with tempfile.TemporaryDirectory(dir=Path(__file__).resolve().parent) as directory:
+            db_path = Path(directory) / "healthy-native-preflight.db"
+            init_db(db_path)
+            with connect(db_path) as conn:
+                seed_grls(conn)
+                conn.commit()
+                before = list(conn.iterdump())
+                self.verifier.states[PHCI] = "playable"
+                result = preflight_chart_relations(conn, [self.entry()], self.verified_ytmusic(), "2026-W36")
+                self.assertEqual(result[PHCI]["video_id"], PHCI)
+                self.metadata.assert_not_called()
+                self.assertEqual(list(conn.iterdump()), before)
 
     def test_manual_block_is_terminal_before_atv_metadata_request(self) -> None:
         with tempfile.TemporaryDirectory(dir=Path(__file__).resolve().parent) as directory:
