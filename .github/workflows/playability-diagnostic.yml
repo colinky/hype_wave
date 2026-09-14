@@ -1,0 +1,91 @@
+name: Recording availability diagnosis
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [codex/ytmusic-id-stability]
+    paths:
+      - ytmusic_playability.py
+      - diagnose_ytmusic_playability.py
+      - ytmusic_validation_config.json
+      - .github/workflows/playability-diagnostic.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: recording-diagnosis-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+      - run: pip install -r requirements.txt
+      - name: Test playback classification without network
+        env:
+          PYTHONPATH: .:tests
+          SUPABASE_DB_URL: ''
+        run: python -m unittest test_ytmusic_playability test_playability_probe
+      - name: Prepare read-only browser authentication
+        env:
+          BROWSER_AUTH: ${{ secrets.YTMUSIC_BROWSER_JSON }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          printf '%s' "$BROWSER_AUTH" > "$RUNNER_TEMP/ytmusic-browser.json"
+          mkdir -p diagnostic-artifacts
+      - name: Compare two authenticated observations and public control
+        shell: bash
+        run: |
+          set -euo pipefail
+          status=0
+          for sample in 1 2; do
+            python diagnose_ytmusic_playability.py \
+              --auth "$RUNNER_TEMP/ytmusic-browser.json" \
+              --expected-account-file ytmusic_validation_config.json \
+              --controls 5sOgJQ3N03Q Q4AE3ub4nBM z9ifbheDGFM \
+              --ids 5sOgJQ3N03Q DBOyG7y_FQg QbsbqekMkCU cQPXraDIvS4 Q4AE3ub4nBM EsU7ng0KIy0 MUny_GDYIDM KL7km3PxilQ z9ifbheDGFM 1PVUTUFxq8g \
+              --playlist-id PLtawHGpcUVZWJV93R_C0xb8rnW1wx79Yx \
+              --compare-public --environment actions \
+              --output "diagnostic-artifacts/authenticated-$sample.json" || status=1
+          done
+          exit "$status"
+      - name: Verify unauthenticated execution is inconclusive
+        if: ${{ !cancelled() }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if python diagnose_ytmusic_playability.py \
+            --controls 5sOgJQ3N03Q Q4AE3ub4nBM z9ifbheDGFM \
+            --ids 5sOgJQ3N03Q Q4AE3ub4nBM z9ifbheDGFM --environment actions \
+            --output diagnostic-artifacts/unauthenticated.json; then
+            echo 'Unauthenticated execution must not pass the release gate'
+            exit 1
+          fi
+          python - <<'PY'
+          import json
+          result = json.load(open('diagnostic-artifacts/unauthenticated.json'))
+          observation = result['observations']['public']
+          assert observation['health']['run_health'] != 'healthy'
+          assert all(row['state'] == 'unknown' for row in observation['videos'])
+          PY
+      - name: Remove authentication material
+        if: always()
+        shell: bash
+        run: rm -f "$RUNNER_TEMP/ytmusic-browser.json"
+      - name: Upload sanitized observations
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: recording-observations-${{ github.run_id }}
+          path: diagnostic-artifacts/*.json
+          retention-days: 7
+          if-no-files-found: error
