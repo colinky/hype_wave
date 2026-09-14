@@ -1,6 +1,6 @@
 {
   "schema_version": 2,
-  "generated_at": "2026-09-14T12:55:06+00:00",
+  "generated_at": "2026-09-14T15:03:21+00:00",
   "days": 31,
   "dates": [
     "2026-09-14",
@@ -1874,7 +1874,7 @@
       "title": "뱅뱅뱅",
       "artist": "BIGBANG",
       "album": "A",
-      "yt_title": "BANG BANG BANG",
+      "yt_title": "뱅뱅뱅 (BANG BANG BANG)",
       "yt_artist": "BIGBANG",
       "yt_album": "A",
       "artwork_url": "https://yt3.googleusercontent.com/c_TVJhHdMRfb_qPe0HqX6HVEWRpB23nK_jlfCGUYaUvmwLlFxhn4LeA_TTdzQcs2DCk5kaOlvVpy3w=w180-h180-l90-rj",
@@ -2370,9 +2370,9 @@
       "album": "응답하라 1988 OST Part.3",
       "yt_title": "소녀",
       "yt_artist": "오혁",
+      "yt_album": "응답하라 1988 OST Part 3",
       "artwork_url": "https://kkoimg.melon.co.kr/cm/album/images/026/52/150/2652150_500.jpg?32fc4fdfb07373ab9de088397fdc1f4e/melon/resize/96/quality/80/optimize",
       "melon_url": "https://www.melon.com/song/detail.htm?songId=7942948",
-      "yt_album": "",
       "apple_url": "",
       "spotify_url": ""
     },
