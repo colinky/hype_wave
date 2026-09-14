@@ -160,7 +160,9 @@ class SyncPhaseReadinessTests(unittest.TestCase):
     def test_sources_then_heal_then_freeze_then_all_publish_then_exact_report_export(self):
         result = self.run_sync()
         self.assertEqual(result["exitcode"], 0)
-        self.assertEqual(result["clients"], 2)
+        self.assertEqual(result["clients"], 6)
+        self.assertEqual(len({id(call.kwargs["playability_verifier"])
+                              for call in result["publishes"]}), 3)
         events = result["events"]
         self.assertEqual(events[0], "health")
         sequence = [e for e in events if e.startswith(("run:", "ready:", "published:")) or e in {"freeze", "export"}]
@@ -199,6 +201,12 @@ class SyncPhaseReadinessTests(unittest.TestCase):
 
     def test_playback_unknown_aborts_later_publications_and_history(self):
         result = self.run_sync(publication_error=sync_validation.PlaybackBlocked("unknown"))
+        self.assertEqual(result["exitcode"], 1)
+        self.assertEqual(len(result["publishes"]), 1)
+        self.assertFalse(result["exports"] or result["ready"])
+
+    def test_uncertain_mutation_aborts_later_publications_and_history(self):
+        result = self.run_sync(publication_error=playlist_sync.PlaylistMutationUncertain("unacknowledged move"))
         self.assertEqual(result["exitcode"], 1)
         self.assertEqual(len(result["publishes"]), 1)
         self.assertFalse(result["exports"] or result["ready"])
@@ -310,7 +318,7 @@ class HypeFailurePhaseTests(unittest.TestCase):
             conn.execute.side_effect = lambda query, params=(): MagicMock(**{
                 "fetchall.return_value": [] if "migration_reports" in query else [{"job_name": "KR-Top-100"}]})
             argv = ["hype_moment.py", "--db-path", str(db), "--yt-playlist-id", "target", "--history-date", DAY]
-            cases = [("calc", 2), ("export", 3), ("auth", 4), ("publish", 4), ("unknown", 4), ("deferred", 0)]
+            cases = [("calc", 2), ("export", 3), ("auth", 4), ("publish", 4), ("uncertain", 4), ("unknown", 4), ("deferred", 0)]
             for case, expected in cases:
                 with self.subTest(case=case), ExitStack() as stack:
                     stack.enter_context(patch.dict(os.environ, {"SUPABASE_DB_URL": "",
@@ -343,10 +351,12 @@ class HypeFailurePhaseTests(unittest.TestCase):
                         kwargs["before_mutation"]()
                         if case == "publish":
                             raise RuntimeError("pending run")
+                        if case == "uncertain":
+                            raise playlist_sync.PlaylistMutationUncertain("unacknowledged move")
                     publisher = stack.enter_context(patch.object(hype_moment, "update_ytmusic_playlist", side_effect=publish))
                     stack.enter_context(patch("socket.create_connection", side_effect=AssertionError("network forbidden")))
                     self.assertEqual(hype_moment.main(), expected)
-                    if case in {"calc", "auth", "unknown", "deferred"}:
+                    if case in {"calc", "auth", "uncertain", "unknown", "deferred"}:
                         exporter.assert_not_called()
                     if case in {"calc", "auth", "unknown"}:
                         publisher.assert_not_called()

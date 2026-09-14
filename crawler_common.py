@@ -46,18 +46,88 @@ def load_verified_matching_cache(
         read_only=True,
     )
     conn.commit()
-    if not pending:
+    if ytmusic is None:
         return cached
 
-    metadata_cache: dict[str, Any] = {}
-    resolved = {
-        video_id: get_verified_video_metadata(ytmusic, video_id, metadata_cache=metadata_cache)
-        for video_id in pending
-    }
-    return get_bulk_cached_matches(
-        conn, service=service, tracks=tracks,
-        metadata_resolver=resolved.get, read_only=read_only,
-    )
+    if pending:
+        metadata_cache: dict[str, Any] = {}
+        resolved = {
+            video_id: get_verified_video_metadata(ytmusic, video_id, metadata_cache=metadata_cache)
+            for video_id in pending
+        }
+        cached = get_bulk_cached_matches(
+            conn, service=service, tracks=tracks,
+            metadata_resolver=resolved.get, read_only=read_only,
+        )
+
+    from hype_db_common import normalized_service, normalize_song_id, row_dict
+    from hype_db_store import manual_override
+    from sync_validation import PlaybackBlocked, require_playable, validate_matches, verifier_for
+    from ytmusic_playlist_sync import ALIASES, normalize_text
+
+    service = normalized_service(service)
+    aliases = dict(ALIASES.overrides)
+    missing = [row_dict(row) for row in tracks if normalize_song_id(service, row_dict(row)) not in cached]
+    if not missing:
+        return cached
+
+    def binding(song_id):
+        row = conn.execute(
+            "SELECT t.* FROM platform_song_ids p JOIN tracks t ON t.track_uid=p.track_uid "
+            "WHERE p.service=? AND p.song_id=?", (service, song_id),
+        ).fetchone()
+        return dict(row) if row else {}
+
+    candidates, before = [], {}
+    for source in missing:
+        song_id = normalize_song_id(service, source)
+        # A manual choice takes precedence even when its target is not cached.
+        if manual_override(conn, service, song_id) or any(
+            aliases.get("|".join(normalize_text(source.get(field + suffix) or "")
+                                for field in ("title", "artist")))
+            for suffix in ("", "_ko", "_en")
+        ):
+            continue
+        prior = binding(song_id)
+        if prior.get("canonical_yt_video_id"):
+            before[song_id] = (prior["track_uid"], prior["canonical_yt_video_id"])
+            candidates.append({**source, "song_id": song_id, "track_uid": prior["track_uid"],
+                               "video_id": prior["canonical_yt_video_id"], "status": "cached_match",
+                               "score": float(prior.get("best_score") or 0),
+                               "query": "db_cache:validated_current_binding",
+                               "cache_origin": "validated_current_binding"})
+    conn.commit()
+    if not candidates:
+        return cached
+    verifier = verifier_for(ytmusic)
+    require_playable(verifier, [])
+    healthy = []
+    for candidate in candidates:
+        video_id = candidate["video_id"]
+        observed = verifier.verify(video_id)
+        if observed.get("state") == "unavailable":
+            cached[candidate["song_id"]] = {"status": "unavailable", "excluded_video_ids": [video_id]}
+        elif observed.get("state") == "playable":
+            healthy.append(candidate)
+        else:
+            raise PlaybackBlocked(f"Existing recording is uncertain: {video_id}")
+    if healthy:
+        # Legacy cross-source string comparisons may miss reviewed locales or
+        # releases. Only fresh exact metadata, playback and the complete normal
+        # validator can promote this already-bound ID; stored text is no proof.
+        validated = validate_matches(conn, service=service, sources=missing, matches=healthy,
+                                     client=ytmusic, verifier=verifier)
+        for match in validated:
+            cached[match["song_id"]] = match
+    conn.commit()
+    for song_id, expected in before.items():
+        current = binding(song_id)
+        if (current.get("track_uid"), current.get("canonical_yt_video_id")) != expected:
+            raise PlaybackBlocked(f"Existing binding changed during cache validation: {service}:{song_id}")
+        if manual_override(conn, service, song_id) or ALIASES.overrides != aliases:
+            raise PlaybackBlocked(f"Manual policy changed during cache validation: {service}:{song_id}")
+    conn.commit()
+    return cached
 
 
 def process_matching_pipeline(

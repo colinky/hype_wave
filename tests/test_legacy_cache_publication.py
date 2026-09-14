@@ -463,7 +463,9 @@ class VerifiedAuthorIdentityTests(OfflineCase):
                 update_date_str="2026-09-08", reference_period="2026-09-07",
                 started_at="2026-09-08T12:00:00+00:00")
         self.assertEqual(result, [ATV])
-        self.assertGreater(self.client.calls["search"], 0)
+        # The full current-binding validator can retry the exact metadata read
+        # and preserve the healthy ID before an unnecessary search begins.
+        self.assertEqual(self.client.calls["search"], 0)
         with connect(self.db_path, read_only=True) as conn:
             self.assertEqual(conn.execute("SELECT canonical_yt_video_id FROM tracks WHERE track_uid='legacy'").fetchone()[0], ATV)
             self.assertEqual([row[0] for row in conn.execute("SELECT video_id FROM match_attempts")], [ATV])
@@ -474,12 +476,14 @@ class VerifiedAuthorIdentityTests(OfflineCase):
             seed_legacy(conn)
         self.client.metadata[ATV]['title'] = ''
         before = self.db_path.read_bytes()
-        with self.assertRaisesRegex(RuntimeError, 'identity needs review'):
+        with self.assertRaisesRegex(RuntimeError, 'matching cache/manual policy safely') as raised:
             crawler_common.process_matching_pipeline(
                 all_tracks=[source_track()], ytmusic=self.client, db_path=self.db_path,
                 service='melon', job_name='Alias-Fixture', source_variant='combined',
                 update_date_str='2026-09-08', reference_period='2026-09-07',
                 started_at='2026-09-08T12:00:00+00:00')
+        self.assertIn('does not match the source identity', str(raised.exception.__cause__))
+        self.assertEqual(self.client.calls['search'], 0)
         self.assertEqual(self.db_path.read_bytes(), before)
         self.assertEqual((self.client.edit_calls, self.client.remove_calls, self.client.add_calls), (0, 0, []))
 

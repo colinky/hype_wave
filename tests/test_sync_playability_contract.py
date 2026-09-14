@@ -110,6 +110,102 @@ class SyncPlayabilityContractTests(unittest.TestCase):
         return validation.validate_matches(self.conn, service="apple", sources=[source or self.source()],
                                            matches=matches or [self.selected()], client=object(), verifier=self.verifier)
 
+    def cache_miss_source(self):
+        self.seed()
+        source = self.source(artist=IDENTITY["artist"] + ", Guest", artist_en=IDENTITY["artist"] + ", Guest")
+        metadata = {"video_id": OLD, "artist_identity_complete": True, **IDENTITY,
+                    "title": IDENTITY["title"] + " (feat. Guest)"}
+        self.metadata[OLD] = metadata
+        self.conn.execute("UPDATE tracks SET yt_title=?, best_score=0 WHERE track_uid=?", (metadata["title"], UID))
+        self.conn.execute("UPDATE track_list SET title_ko=?,title_en=?,artist_ko=?,artist_en=?",
+                          (metadata["title"], metadata["title"], metadata["artist"], metadata["artist"]))
+        self.conn.commit()
+        self.assertFalse(store._metadata_rows_equivalent(source, metadata))
+        self.assertTrue(validation.source_recording_matches(source, metadata, service="apple"))
+        self.assertNotIn(SOURCE, store.get_bulk_cached_matches(self.conn, "apple", [source], read_only=True))
+        return source
+
+    def load_cache(self, source):
+        return crawler_common.load_verified_matching_cache(
+            self.conn, service="apple", tracks=[source], ytmusic=object(), read_only=True)
+
+    def test_legacy_cache_miss_promotes_only_a_fully_validated_current_id(self):
+        source = self.cache_miss_source()
+        before = self.snapshot()
+        result = self.load_cache(source)[SOURCE]
+        self.assertEqual(result["video_id"], OLD)
+        self.assertEqual(result["score"], 0)
+        self.assertEqual(result["cache_origin"], "validated_current_binding")
+        self.assertNotIn("canonical_decision", result)
+        self.assertEqual(self.snapshot(), before)
+
+    def test_current_binding_cache_unknown_holds_and_unavailable_stays_excluded(self):
+        source = self.cache_miss_source()
+        before = self.snapshot()
+        self.verifier.states[OLD] = "unknown"
+        with self.assertRaises(validation.PlaybackBlocked):
+            self.load_cache(source)
+        self.verifier.states[OLD] = "unavailable"
+        self.assertEqual(self.load_cache(source)[SOURCE], {"status": "unavailable", "excluded_video_ids": [OLD]})
+        self.assertEqual(self.snapshot(), before)
+
+    def test_current_binding_cache_does_not_self_validate_unverified_metadata(self):
+        source = self.cache_miss_source()
+        good = deepcopy(self.metadata[OLD])
+        before = self.snapshot()
+        for change in (None, {"title": IDENTITY["title"] + " (feat. Other)"},
+                       {"title": IDENTITY["title"] + " (Live) (feat. Guest)"},
+                       {"video_id": NEW}, {"artist_identity_complete": False,
+                                           "unlinked_artist_names": ["Another guest"]}):
+            self.metadata[OLD] = {**good, **change} if change else None
+            with self.subTest(change=change), self.assertRaises(validation.PlaybackBlocked):
+                self.load_cache(source)
+            self.assertEqual(self.snapshot(), before)
+
+    def test_current_binding_cache_requires_a_binding_and_honors_manual_priority(self):
+        before = self.snapshot()
+        self.assertNotIn(SOURCE, self.load_cache(self.source()))
+        self.assertEqual(self.verifier.calls, [])
+        self.assertEqual(self.snapshot(), before)
+        source = self.cache_miss_source()
+        key = "|".join(matching.normalize_text(source[field]) for field in ("title", "artist"))
+        with patch.dict(matching.ALIASES.overrides, {key: NEW}):
+            self.assertNotIn(SOURCE, self.load_cache(source))
+        self.assertEqual(self.verifier.calls, [])
+        self.manual("block")
+        self.assertEqual(self.load_cache(source)[SOURCE]["status"], "manual_blocked")
+        self.assertEqual(self.verifier.calls, [])
+
+    def test_current_binding_cache_rechecks_binding_and_policy_after_validation(self):
+        source = self.cache_miss_source()
+        real = validation.validate_matches
+        def after(*args, **kwargs):
+            result = real(*args, **kwargs)
+            self.conn.execute("UPDATE tracks SET canonical_yt_video_id=? WHERE track_uid=?", (NEW, UID))
+            self.conn.commit()
+            return result
+        with patch.object(validation, "validate_matches", side_effect=after), self.assertRaises(validation.PlaybackBlocked):
+            self.load_cache(source)
+        self.conn.execute("UPDATE tracks SET canonical_yt_video_id=? WHERE track_uid=?", (OLD, UID))
+        self.conn.commit()
+        def manual_after(*args, **kwargs):
+            result = real(*args, **kwargs)
+            self.manual("block")
+            return result
+        with patch.object(validation, "validate_matches", side_effect=manual_after), self.assertRaises(validation.PlaybackBlocked):
+            self.load_cache(source)
+
+    def test_current_binding_cache_cannot_skip_final_player_identity_check(self):
+        source = self.cache_miss_source()
+        before = self.snapshot()
+        def change_on_final(_video_id, result):
+            if len(self.verifier.calls) >= 4:
+                result["title"] = "A different recording"
+        self.verifier.after_verify = change_on_final
+        with self.assertRaises(validation.PlaybackBlocked):
+            self.load_cache(source)
+        self.assertEqual(self.snapshot(), before)
+
     def test_playable_prior_beats_a_new_chart_recording_without_writes(self):
         self.seed()
         before = self.snapshot()

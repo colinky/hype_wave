@@ -249,6 +249,7 @@ def reconcile_playlist_update(
         observed = _audit_playlist_items(get_existing_playlist_items(ytmusic, playlist_id))
         if observed != _audit_playlist_items(items):
             raise RuntimeError("Playlist changed during recovery verification; refusing reconciliation")
+        require_playable(verifier, target, items=observed)
         return observed
 
     def before_change():
@@ -273,6 +274,7 @@ def reconcile_playlist_update(
         if action == "complete_requested":
             expected = _preserve_playlist_slots(
                 ytmusic, playlist_id, fresh, requested, evidence=evidence, before_mutation=before_change,
+                playability_verifier=verifier,
             )
             fresh = get_existing_playlist_items(ytmusic, playlist_id)
             if not _same_owned_slots(fresh, expected):
@@ -283,6 +285,7 @@ def reconcile_playlist_update(
                 ytmusic, playlist_id, fresh, existing, evidence=evidence,
                 phase="restore", allow_duplicates=True,
                 before_mutation=before_change,
+                playability_verifier=verifier,
             )
             fresh = get_existing_playlist_items(ytmusic, playlist_id)
             if not _same_owned_slots(fresh, expected):
@@ -298,6 +301,7 @@ def reconcile_playlist_update(
                 "items": [{"videoId": requested[-1]}], "before_items": fresh,
                 "verification_matches": True, "differences": prefix_comparison["differences"],
             })
+            require_playable(verifier, target, items=fresh)
             try:
                 result = ytmusic.add_playlist_items(playlist_id, [requested[-1]], duplicates=False)
                 acknowledged = _addition_receipts(result, [requested[-1]])

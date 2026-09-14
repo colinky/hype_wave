@@ -56,7 +56,9 @@ def implementation_fingerprint() -> str:
     root = Path(__file__).resolve().parent
     return fingerprint({name: hashlib.sha256((root / name).read_bytes()).hexdigest()
                         for name in ("hype_db_store.py", "hype_db_common.py", "sync_validation.py",
-                                     "matching_alias.json", "heal_split_tracks.py", Path(__file__).name)})
+                                     "matching_alias.json", "heal_split_tracks.py", "ytmusic_playability.py",
+                                     "ytmusic_playlist_sync.py", "publish_chart_repair.py",
+                                     "reconcile_playlist_update.py", Path(__file__).name)})
 
 
 def _scope_uids(case):

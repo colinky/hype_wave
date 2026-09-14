@@ -189,19 +189,21 @@ def _recheck_lists(outputs, client, verifier):
     observations = []
     for target in outputs["playlists"]:
         actual = get_existing_playlist_items(client, target["playlist_id"])
+        observed_at = datetime.now(timezone.utc).isoformat()
         if [video for video, _ in _slots(actual)] != target["video_ids"]:
             raise PlaybackBlocked("Published playlist differs from the full ordered target")
         _assert_preserved(target, actual)
         require_playable(verifier, target["video_ids"], items=actual, force=True)
         observations.append({"playlist_id": target["playlist_id"], "video_ids": target["video_ids"],
                              "items": [{"video_id": video, "set_video_id": token} for video, token in _slots(actual)],
-                             "readback_verified": True, "observed_at": datetime.now(timezone.utc).isoformat()})
+                             "readback_verified": True, "observed_at": observed_at})
     return observations
 
 
 def publish(manifest, db_path, client, *, verifier=None):
     outputs = _scope(manifest)
-    verifier = verifier or verifier_for(client)
+    managed_verifier = verifier is None
+    verifier = verifier if verifier is not None else verifier_for(client, fresh=True)
     _, history_videos = _read_previews(outputs)
     video_ids = list(dict.fromkeys(history_videos + [video for target in outputs["playlists"]
                                                    for video in target["video_ids"]]))
@@ -211,6 +213,11 @@ def publish(manifest, db_path, client, *, verifier=None):
     _guard(db_path, manifest)
     for target in outputs["playlists"]:
         _guard(db_path, manifest)
+        if managed_verifier:
+            # Each playlist is a separate bounded observation phase. Never
+            # carry successes or extend a deadline from the preceding phase.
+            verifier = verifier_for(client, fresh=True)
+        require_playable(verifier, target["video_ids"])
         actual = get_existing_playlist_items(client, target["playlist_id"])
         actual_ids = [video for video, _ in _slots(actual)]
         if actual_ids == target["video_ids"]:
@@ -227,6 +234,9 @@ def publish(manifest, db_path, client, *, verifier=None):
             before_mutation=lambda: _guard(db_path, manifest, check_pending=False),
             expected_before_items=target["before_items"],
         )
+    if managed_verifier:
+        verifier = verifier_for(client, fresh=True)
+    require_playable(verifier, video_ids)
     observations = _recheck_lists(outputs, client, verifier)
     _guard(db_path, manifest)
     evidence = {"evidence_ref": "manifest:" + manifest["manifest_hash"], "playlists": observations}

@@ -231,7 +231,9 @@ def run_sync(tasks: list[dict], script_dir: Path, yt_auth: str) -> int:
     from hype_db_common import normalized_service
     from hype_moment import playlist_description
     from sync_validation import PlaybackBlocked, assert_frozen, assert_no_active_repair, freeze_outputs, require_playable, verifier_for
-    from ytmusic_playlist_sync import get_existing_playlist_items, make_ytmusic, update_ytmusic_playlist
+    from ytmusic_playlist_sync import (
+        PlaylistMutationUncertain, get_existing_playlist_items, make_ytmusic, update_ytmusic_playlist,
+    )
 
     active = []
     for item in tasks:
@@ -324,9 +326,16 @@ def run_sync(tasks: list[dict], script_dir: Path, yt_auth: str) -> int:
         with connect(db_path, read_only=True) as conn:
             assert_no_active_repair(conn)
             assert_frozen(conn, snapshot, active)
+        require_healthy(verifier)
 
     publish_failures = []
     for output in snapshot["outputs"]:
+        # Publication guards and owned-item moves can outlast a preceding
+        # playlist's verification budget. Observe this playlist afresh.
+        client = make_ytmusic(yt_auth)
+        verifier = verifier_for(client)
+        require_healthy(verifier)
+        require_playable(verifier, output["video_ids"])
         guard()
         description = playlist_description(snapshot["report"], history_date) if output["service"] == "hypex" else ""
         try:
@@ -335,7 +344,7 @@ def run_sync(tasks: list[dict], script_dir: Path, yt_auth: str) -> int:
                 dry_run=False, db_path=db_path, service=output["service"], job_name=output["job_name"],
                 playlist_name=output["playlist_name"], playability_verifier=verifier, before_mutation=guard,
             )
-        except PlaybackBlocked:
+        except (PlaybackBlocked, PlaylistMutationUncertain):
             # Playback uncertainty is a data gate, not a retryable playlist transport error.
             raise
         except Exception as exc:
@@ -343,6 +352,9 @@ def run_sync(tasks: list[dict], script_dir: Path, yt_auth: str) -> int:
             LOG.error("Playlist publication failed for %s: %s", output["job_name"], exc)
             require_healthy(verifier, force=True)
             guard()
+    client = make_ytmusic(yt_auth)
+    verifier = verifier_for(client)
+    require_healthy(verifier)
     guard()
     require_playable(verifier, video_ids)
     guard()

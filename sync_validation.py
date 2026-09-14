@@ -103,11 +103,11 @@ def _has_approved_path(changes, uid, old, selected):
     return False
 
 
-def verifier_for(client: Any):
+def verifier_for(client: Any, *, fresh: bool = False):
     from ytmusic_playability import PlayabilityVerifier
 
     cached = vars(client).get("_hype_playability_verifier")
-    if cached is not None:
+    if cached is not None and not fresh:
         return cached
     config_path = Path(__file__).with_name("ytmusic_validation_config.json")
     config = json.loads(config_path.read_text()) if config_path.is_file() else {}
@@ -145,6 +145,15 @@ def require_playable(verifier, video_ids, *, items=(), force=False):
     ):
         raise PlaybackBlocked("Playback evidence expired or the execution environment changed")
     return evidence
+
+
+def require_search_budget(verifier, *, wait_seconds=0):
+    """Stop search work before an API call or delay can outlive this run."""
+    if verifier is None:
+        return
+    require_playable(verifier, [])
+    if hasattr(verifier, "deadline") and verifier.deadline - verifier.clock() <= wait_seconds:
+        raise PlaybackBlocked("YouTube Music search time budget exhausted")
 
 
 def playable_cache(cache, verifier):
@@ -380,7 +389,12 @@ def source_recording_matches(source, metadata, *, service=None, policy=None):
         isrc = proof.get("catalog_isrc")
         if (not exact_variants(source) or not exact_variants(source) <= allowed
                 or any(metadata.get(key) != value for key, value in expected.items()
-                       if key.startswith(("title", "artist", "album")))
+                       if key.startswith(("title", "artist", "album")) and key not in {"title", "artist", "album"})
+                # The authenticated client's language chooses the default
+                # display fields. Both exact locale observations stay fixed.
+                or any(not all(field + suffix in expected for suffix in ("_ko", "_en"))
+                       or metadata.get(field) not in (expected[field + "_ko"], expected[field + "_en"])
+                       for field in ("title", "artist", "album"))
                 or metadata.get("length_seconds") != expected.get("length_seconds")
                 or not isinstance(expected.get("length_seconds"), (float, int))
                 or not isrc or len(references) < 2

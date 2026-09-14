@@ -1,5 +1,6 @@
 """Exact reviewed releases do not authorize different recordings or source inputs."""
 from copy import deepcopy
+from itertools import product
 import json
 from pathlib import Path
 import unittest
@@ -10,6 +11,30 @@ CASES=json.loads((ROOT/'tests/fixtures/observed_release_identity.json').read_tex
 POLICY=json.loads((ROOT/'matching_alias.json').read_text())
 
 class ReleaseIdentityTests(unittest.TestCase):
+    def test_default_display_fields_may_use_either_exact_observed_locale(self):
+        self.assertEqual(len(CASES), 8)
+        for case in CASES:
+            for locales in product(("ko", "en"), repeat=3):
+                metadata = {**case["metadata"], **{
+                    field: case["metadata"][field + "_" + locale]
+                    for field, locale in zip(("title", "artist", "album"), locales)}}
+                for source in case["sources"]:
+                    with self.subTest(title=case["title"], source=source["song_id"], locales=locales):
+                        self.assertTrue(source_recording_matches(source, metadata, policy=POLICY))
+
+    def test_release_exception_rejects_unobserved_default_or_changed_locale(self):
+        for case in CASES:
+            # Exercise the reviewed exception, rather than the ordinary match
+            # path for a source that already names the standard release.
+            source = next(row for row in case["sources"]
+                          if not recording_identity_matches(row, case["metadata"]))
+            for field in ("title", "artist", "album"):
+                for key in (field, field + "_ko", field + "_en"):
+                    for value in ("Unobserved recording", "", None):
+                        with self.subTest(title=case["title"], field=key, value=value):
+                            self.assertFalse(source_recording_matches(
+                                source, {**case["metadata"], key: value}, policy=POLICY))
+
     def test_observed_originals_across_reviewed_release_editions(self):
         for case in CASES:
             for source in case['sources']:

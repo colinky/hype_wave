@@ -173,6 +173,32 @@ class ReconcilePlayabilityTests(unittest.TestCase):
         self.assertEqual({call.args[0] for call in self.verifier.verify.call_args_list}, {"a", "b", "tail"})
         self.assertEqual([event["state"] for event in self.events], ["intent", "ack", "verified"])
 
+    def test_expiry_during_tail_intent_commit_blocks_the_provider_write(self):
+        self.run = self.audit(["a", "tail"])
+        client = StatefulPlaylist(["a"], requested_values=["tail"])
+        original = self.append.side_effect
+
+        def append(*args, **kwargs):
+            result = original(*args, **kwargs)
+            if args[2].get("state") == "intent":
+                self.verifier.expired = True
+            return result
+
+        self.append.side_effect = append
+        with self.assertRaises(PlaybackBlocked):
+            self.reconcile(client, append_missing_last=True)
+        self.assert_no_mutations(client)
+        self.assertEqual([event["state"] for event in self.events], ["intent"])
+        self.assertEqual(self.finish.call_args.kwargs["status"], "recovery_required")
+
+    def test_expiry_during_external_guard_blocks_recovery(self):
+        self.run = self.audit(["a", "tail"])
+        client = StatefulPlaylist(["a"], requested_values=["tail"])
+        with self.assertRaises(PlaybackBlocked):
+            self.reconcile(client, append_missing_last=True,
+                           before_mutation=lambda: setattr(self.verifier, "expired", True))
+        self.assert_no_mutations(client)
+
     def test_unknown_after_tail_add_holds_recovery_without_retry_or_old_restore(self):
         self.run = self.audit(["a", "tail"])
         client = StatefulPlaylist(["a"], requested_values=["tail"])

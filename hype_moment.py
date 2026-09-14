@@ -13,6 +13,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from ytmusic_playlist_sync import (
+    PlaylistMutationUncertain,
     make_ytmusic,
     update_ytmusic_playlist,
 )
@@ -160,6 +161,7 @@ def main() -> int:
             require_healthy(verifier)
             with connect(db_path, read_only=True) as conn:
                 assert_frozen(conn, snapshot, tasks)
+            require_healthy(verifier)
 
         guard()
         try:
@@ -169,7 +171,7 @@ def main() -> int:
                 dry_run=False, db_path=db_path, service="hypex", job_name=args.job_name,
                 playlist_name=args.playlist_name, playability_verifier=verifier, before_mutation=guard,
             )
-        except PlaybackBlocked:
+        except (PlaybackBlocked, PlaylistMutationUncertain):
             raise
         except Exception as exc:
             publication_failed = True

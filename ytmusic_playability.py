@@ -192,8 +192,8 @@ class PlayabilityVerifier:
         self.request_count = 0
 
     @contextmanager
-    def _bounded_session(self):
-        session = getattr(self.client, "_session", None)
+    def _bounded_session(self, client=None):
+        session = getattr(self.client if client is None else client, "_session", None)
         original = getattr(session, "request", None)
         if not callable(original):
             yield  # Injected offline clients have no HTTP session.
@@ -203,7 +203,14 @@ class PlayabilityVerifier:
             remaining = self.deadline - self.clock()
             if remaining <= 0:
                 raise _BudgetExceeded()
-            kwargs["timeout"] = min(self.timeout, remaining)
+            limit = min(self.timeout, remaining)
+            requested = kwargs.get("timeout")
+            # Nested scopes must preserve the strictest caller timeout. Requests
+            # accepts a scalar or separate connect/read values, including None.
+            if isinstance(requested, tuple):
+                kwargs["timeout"] = tuple(limit if value is None else min(value, limit) for value in requested)
+            else:
+                kwargs["timeout"] = limit if requested is None else min(requested, limit)
             response = original(*args, **kwargs)
             response.raise_for_status()
             return response

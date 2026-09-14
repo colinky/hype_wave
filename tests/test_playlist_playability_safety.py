@@ -104,6 +104,89 @@ class PlaylistPlayabilitySafetyTests(unittest.TestCase):
         self.assertEqual((client.edit_calls, client.remove_calls, client.add_calls), (0, 0, []))
         self.assertEqual(self.run_record()["status"], "recovery_required")
 
+    def test_slow_guard_or_snapshot_cannot_start_any_expired_mutation(self):
+        for boundary in ("guard", "snapshot", "intent"):
+            for operation in ("metadata", "remove", "add", "move"):
+                if boundary == "intent" and operation == "metadata":
+                    continue
+                with self.subTest(boundary=boundary, operation=operation):
+                    self.db = self.db.with_name(boundary + "-" + operation + ".db")
+                    hype_db.init_db(self.db)
+                    self.verifier = PlaylistVerifier()
+                    current = [] if operation == "add" else ["a", "b"] if operation == "move" else ["old"]
+                    requested = ["b", "a"] if operation == "move" else ["new"]
+                    client = MovingPlaylist(current)
+                    calls, armed = 0, False
+                    def guard():
+                        nonlocal calls, armed
+                        calls += 1
+                        if calls == 4:
+                            if boundary == "guard":
+                                self.verifier.health = "unknown"
+                            elif boundary == "snapshot":
+                                armed = True
+                    read = sync.get_existing_playlist_items
+                    def slow_read(*args, **kwargs):
+                        result = read(*args, **kwargs)
+                        if armed:
+                            self.verifier.health = "unknown"
+                        return result
+                    append = hype_db.append_playlist_update_evidence
+                    def slow_intent(*args, **kwargs):
+                        result = append(*args, **kwargs)
+                        if boundary == "intent" and args[2].get("state") == "intent":
+                            self.verifier.health = "unknown"
+                        return result
+                    with patch.object(sync, "get_existing_playlist_items", side_effect=slow_read), patch.object(
+                            hype_db, "append_playlist_update_evidence", side_effect=slow_intent):
+                        with self.assertRaises(sync_validation.PlaybackBlocked):
+                            self.publish(client, requested, description="new" if operation == "metadata" else "",
+                                         before_mutation=guard)
+                    self.assertEqual((client.edit_calls, client.remove_calls, client.add_calls), (0, 0, []))
+                    self.assertEqual(self.run_record()["status"], "recovery_required")
+
+    def test_unresolved_audit_errors_use_a_hold_exception(self):
+        client = MovingPlaylist(["old"])
+        def changed():
+            raise RuntimeError("Owned snapshot changed")
+        calls = 0
+        def guard():
+            nonlocal calls
+            calls += 1
+            if calls == 3:
+                changed()
+        with self.assertRaises(sync.PlaylistMutationUncertain):
+            self.publish(client, ["new"], before_mutation=guard)
+        self.assertEqual(self.run_record()["status"], "recovery_required")
+        with self.assertRaises(sync.PlaylistMutationUncertain):
+            self.publish(client, ["new"])
+        self.assertEqual((client.edit_calls, client.remove_calls, client.add_calls), (0, 0, []))
+
+    def test_audit_finalization_failure_cannot_be_classified_as_safe_to_continue(self):
+        client = MovingPlaylist(["old"])
+        with patch.object(hype_db, "finish_playlist_update", side_effect=RuntimeError("DB finalization failed")):
+            with self.assertRaises(sync.PlaylistMutationUncertain):
+                self.publish(client, ["old"])
+        self.assertEqual((client.edit_calls, client.remove_calls, client.add_calls), (0, 0, []))
+        self.assertEqual(self.run_record()["status"], "running")
+
+    def test_confirmed_complete_restore_retains_the_generic_failure_contract(self):
+        client = MovingPlaylist(["old"])
+        observe = sync._observe_playlist_transition
+        calls = 0
+        def failed_read(*args, **kwargs):
+            nonlocal calls
+            calls += 1
+            if calls == 1:
+                raise RuntimeError("Acknowledged removal readback failed")
+            return observe(*args, **kwargs)
+        with patch.object(sync, "_observe_playlist_transition", side_effect=failed_read):
+            with self.assertRaises(RuntimeError) as raised:
+                self.publish(client, ["new"])
+        self.assertIs(type(raised.exception), RuntimeError)
+        self.assertEqual(client.video_ids, ["old"])
+        self.assertEqual(self.run_record()["status"], "restored")
+
     def test_response_lost_move_is_held_without_retry_or_restore(self):
         client = MovingPlaylist(["a", "b", "c"])
         client.lose_move_response = True

@@ -432,6 +432,48 @@
           ]
         }
       }
+    },
+    {
+      "title": "WDA (Whole Different Animal) [feat. G-DRAGON]",
+      "metadata": {
+        "video_id": "ZAsxW7bkK-A",
+        "title": "WDA (Whole Different Animal) (feat. G-DRAGON)",
+        "artist": "에스파",
+        "album": "WDA (Whole Different Animal)",
+        "length_seconds": 174,
+        "music_video_type": "MUSIC_VIDEO_TYPE_ATV",
+        "title_ko": "WDA (Whole Different Animal) (feat. G-DRAGON)",
+        "artist_ko": "에스파",
+        "album_ko": "WDA (Whole Different Animal)",
+        "title_en": "WDA (Whole Different Animal) (feat. G-DRAGON)",
+        "artist_en": "aespa",
+        "album_en": "WDA (Whole Different Animal)",
+        "artist_ids": [
+          "UCEdZAdnnKqbaHOlv8nM6OtA"
+        ],
+        "artist_identity_complete": true,
+        "artist_names_by_id": {
+          "UCEdZAdnnKqbaHOlv8nM6OtA": [
+            "aespa",
+            "에스파"
+          ]
+        }
+      },
+      "sources": [
+        {
+          "service": "apple",
+          "song_id": "1893599772",
+          "title": "WDA (Whole Different Animal) [feat. G-DRAGON]",
+          "artist": "aespa",
+          "album": "LEMONADE - The 2nd Album (GISELLE Special Version)",
+          "title_ko": "WDA (Whole Different Animal) [feat. G-DRAGON]",
+          "artist_ko": "aespa",
+          "album_ko": "LEMONADE - The 2nd Album",
+          "title_en": "WDA (Whole Different Animal) [feat. G-DRAGON]",
+          "artist_en": "aespa",
+          "album_en": "LEMONADE - The 2nd Album (GISELLE Special Version)"
+        }
+      ]
     }
   ]
 }

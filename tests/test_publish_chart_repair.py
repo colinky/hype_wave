@@ -140,6 +140,58 @@ class PublishRepairTests(unittest.TestCase):
         self.assertEqual(self.mutations, ["playlist-1"])
         self.assertEqual(publish.business_fingerprint(self.conn), before)
 
+    def test_managed_publication_starts_fresh_observations_after_each_phase(self):
+        phases = []
+        class BoundedVerifier(Verifier):
+            expired = False
+            def check_health(self):
+                return {"run_health": "unknown" if self.expired else "healthy",
+                        "auth_state": "authenticated"}
+        def factory(client, *, fresh=False):
+            self.assertIs(client, self.client)
+            self.assertTrue(fresh)
+            for previous in phases:
+                previous.expired = True
+            verifier = BoundedVerifier()
+            phases.append(verifier)
+            return verifier
+        original_update = self.update.side_effect
+        def update(*args, **kwargs):
+            self.assertIs(kwargs["playability_verifier"], phases[-1])
+            original_update(*args, **kwargs)
+            phases[-1].expired = True
+        self.update.side_effect = update
+        with patch.object(publish, "verifier_for", side_effect=factory):
+            result = publish.publish(self.manifest, self.db, self.client)
+        self.assertEqual(result["status"], "verified")
+        self.assertEqual(len(phases), 3)
+        self.assertEqual(self.actual["playlist-1"][1], self.before[1])
+
+    def test_new_phase_still_rejects_unknown_target_before_any_mutation(self):
+        phases = []
+        def factory(client, *, fresh=False):
+            verifier = Verifier()
+            phases.append(verifier)
+            if len(phases) == 2:
+                verifier.unavailable.add(NEW)
+            return verifier
+        with patch.object(publish, "verifier_for", side_effect=factory), self.assertRaises(PlaybackBlocked):
+            publish.publish(self.manifest, self.db, self.client)
+        self.assertEqual(self.mutations, [])
+        self.assertEqual(self.receipt()["stages"]["publication"], "pending")
+
+    def test_fresh_factory_constructs_a_new_verifier_with_the_current_policy(self):
+        from sync_validation import verifier_for
+        client = Mock()
+        first, second = Verifier(), Verifier()
+        with patch("ytmusic_playability.PlayabilityVerifier", side_effect=[first, second]) as constructor:
+            self.assertIs(verifier_for(client), first)
+            self.assertIs(verifier_for(client), first)
+            self.assertIs(verifier_for(client, fresh=True), second)
+            self.assertIs(verifier_for(client), second)
+        self.assertEqual(constructor.call_count, 2)
+        self.assertEqual(constructor.call_args_list[0], constructor.call_args_list[1])
+
     def test_exact_target_with_pending_audit_is_blocked_without_mutation_or_stage(self):
         self.actual["playlist-1"] = [{"video_id": NEW, "set_video_id": "new-slot"}, self.before[1]]
         self.pending()
