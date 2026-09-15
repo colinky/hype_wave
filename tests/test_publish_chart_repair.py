@@ -133,6 +133,123 @@ class PublishRepairTests(unittest.TestCase):
         return Mock(status_code=status, content=self.preview_path.read_bytes() if content is None else content,
                     raise_for_status=Mock())
 
+    def execution_release(self, new_fingerprint="a" * 64):
+        release = {"version": 1, "manifest_hash": self.manifest["manifest_hash"],
+                   "old_implementation_fingerprint": self.manifest["implementation_fingerprint"],
+                   "new_implementation_fingerprint": new_fingerprint,
+                   "applied_receipt_core_hash": publish.applied_receipt_core_hash(self.receipt()),
+                   "outputs_fingerprint": fingerprint(self.manifest["outputs"]),
+                   "evidence_ref": "fixture:reviewed-audit-preservation-regression"}
+        release["release_hash"] = fingerprint(release)
+        return release
+
+    def test_execution_release_publishes_and_verifies_without_reapplying_or_changing_core(self):
+        release = self.execution_release()
+        original = copy.deepcopy((self.manifest, release))
+        original_core = publish.applied_receipt_core_hash(self.receipt())
+        with patch("repair_ytmusic_chart_incident.implementation_fingerprint", return_value="a" * 64), \
+                patch("repair_ytmusic_chart_incident.apply_repair", side_effect=AssertionError("No DB reapply")), \
+                patch("requests.get", return_value=self.public_response()):
+            with self.assertRaisesRegex(PlaybackBlocked, "implementation"):
+                self.publish()
+            with self.assertRaisesRegex(PlaybackBlocked, "verified playlist publication"):
+                publish.install_history(self.manifest, self.db, execution_release=release)
+            result = publish.publish(self.manifest, self.db, self.client, verifier=self.verifier,
+                                     execution_release=release)
+            self.assertEqual(result["evidence"]["execution_release_hash"], release["release_hash"])
+            publish.install_history(self.manifest, self.db, execution_release=release)
+            result = publish.verify_public_history(self.manifest, self.db, self.client,
+                                                   verifier=self.verifier, execution_release=release)
+        self.assertEqual(result["repair_status"], "surfaces_verified")
+        self.assertEqual(result["evidence"]["execution_release_hash"], release["release_hash"])
+        self.assertEqual(publish.applied_receipt_core_hash(self.receipt()), original_core)
+        self.assertEqual((self.manifest, release), original)
+        self.assertEqual(self.mutations, ["playlist-1"])
+        self.assertEqual(self.actual["playlist-1"][1], self.before[1])
+
+    def test_execution_release_rejects_wrong_bindings_missing_evidence_and_stale_runtime(self):
+        original = self.execution_release()
+        invalid = []
+        for key in ("manifest_hash", "old_implementation_fingerprint", "new_implementation_fingerprint",
+                    "applied_receipt_core_hash", "outputs_fingerprint"):
+            release = copy.deepcopy(original)
+            release[key] = "b" * 64
+            release["release_hash"] = fingerprint({k: v for k, v in release.items() if k != "release_hash"})
+            invalid.append(release)
+        for key, value in (("evidence_ref", " "), ("version", True), ("release_hash", "b" * 64)):
+            release = {**original, key: value}
+            invalid.append(release)
+        invalid.append({k: v for k, v in original.items() if k != "evidence_ref"})
+        before = list(self.conn.iterdump())
+        with patch("repair_ytmusic_chart_incident.implementation_fingerprint", return_value="a" * 64):
+            for release in invalid:
+                with self.subTest(release=release), self.assertRaisesRegex(PlaybackBlocked, "Execution release"):
+                    publish._guard(self.db, self.manifest, execution_release=release)
+        # A subsequent code or identity-policy change has a different composite fingerprint.
+        with patch("repair_ytmusic_chart_incident.implementation_fingerprint", return_value="c" * 64), \
+                self.assertRaisesRegex(PlaybackBlocked, "Execution release"):
+            publish._guard(self.db, self.manifest, execution_release=original)
+        self.assertEqual(list(self.conn.iterdump()), before)
+        self.assertEqual(self.mutations, [])
+
+    def test_execution_release_rejects_receipt_core_changes_but_allows_normal_stage_fields(self):
+        release = self.execution_release()
+        original = self.receipt()
+        with patch("repair_ytmusic_chart_incident.implementation_fingerprint", return_value="a" * 64):
+            for field in ("repair_id", "manifest_hash", "implementation_fingerprint", "created_at",
+                          "before", "after", "outputs", "supersedes", "implementation_revision",
+                          "evidence_refresh", "future_apply_evidence"):
+                self.alter_receipt(lambda row, field=field: row.update({field: "changed"}))
+                with self.subTest(field=field), self.assertRaises(PlaybackBlocked):
+                    publish._guard(self.db, self.manifest, execution_release=release)
+                self.alter_receipt(lambda row: (row.clear(), row.update(copy.deepcopy(original))))
+            publish.publish(self.manifest, self.db, self.client, verifier=self.verifier, execution_release=release)
+            self.assertEqual(publish.applied_receipt_core_hash(self.receipt()), release["applied_receipt_core_hash"])
+            publish._guard(self.db, self.manifest, publication_required=True, execution_release=release)
+            self.alter_receipt(lambda row: row["stages"].update(db="not_applied"))
+            with self.assertRaisesRegex(PlaybackBlocked, "applied DB receipt"):
+                publish._guard(self.db, self.manifest, execution_release=release)
+
+    def test_execution_release_keeps_pending_business_and_playability_guards(self):
+        release = self.execution_release()
+        with patch("repair_ytmusic_chart_incident.implementation_fingerprint", return_value="a" * 64):
+            self.pending()
+            with self.assertRaisesRegex(PlaybackBlocked, "pending durable"):
+                publish.publish(self.manifest, self.db, self.client, verifier=self.verifier,
+                                execution_release=release)
+            self.conn.execute("UPDATE playlist_update_runs SET status='verification_failed' WHERE update_run_id='pending'")
+            self.conn.commit()
+            with self.assertRaisesRegex(PlaybackBlocked, "original publication audit changed"):
+                publish._guard(self.db, self.manifest, execution_release=release)
+            self.conn.execute("DELETE FROM playlist_update_runs WHERE update_run_id='pending'")
+            self.conn.commit()
+            self.verifier.unavailable.add(NEW)
+            with self.assertRaises(PlaybackBlocked):
+                publish.publish(self.manifest, self.db, self.client, verifier=self.verifier,
+                                execution_release=release)
+        self.assertEqual(self.mutations, [])
+        self.assertEqual(self.receipt()["stages"]["publication"], "pending")
+
+    def test_cli_passes_explicit_execution_release_to_every_phase(self):
+        from contextlib import nullcontext, redirect_stdout
+        import io
+        manifest_path, release_path = self.folder / "manifest.json", self.folder / "release.json"
+        manifest_path.write_text(json.dumps(self.manifest))
+        release = self.execution_release()
+        release_path.write_text(json.dumps(release))
+        for phase, function in (("publish", "publish"), ("install-history", "install_history"),
+                                ("verify-public-history", "verify_public_history")):
+            args = ["publish_chart_repair.py", phase, "--manifest", str(manifest_path),
+                    "--execution-release", str(release_path), "--db-path", str(self.db),
+                    "--output", str(self.folder / (phase + ".json"))]
+            with self.subTest(phase=phase), patch("sys.argv", args), patch("sync_all.load_env_file"), \
+                    patch.object(publish, "sync_run_lock", return_value=nullcontext()), \
+                    patch.object(publish, "make_ytmusic", return_value=self.client), \
+                    patch.object(publish, function, return_value={"status": "fixture"}) as run, \
+                    redirect_stdout(io.StringIO()):
+                self.assertEqual(publish.main(), 0)
+            self.assertEqual(run.call_args.kwargs["execution_release"], release)
+
     def child_spec(self):
         """Fixture-only compensating choice; no actual provider identity approval."""
         parent_receipt = _receipt(self.conn, self.manifest)

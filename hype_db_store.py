@@ -4154,22 +4154,31 @@ def record_playlist_update(
             "next_seq": 1,
         }
     with connect(db_path) as conn:
-        postgres = type(conn).__name__ == "PostgresConnectionWrapper"
-        if postgres:
-            conn.execute(
-                "DELETE FROM playlist_update_items "
-                "WHERE created_at::timestamptz < CAST(? AS timestamptz)",
-                (item_retention_cutoff,),
-            )
+        from sync_validation import PlaybackBlocked, assert_no_active_repair
+
+        try:
+            assert_no_active_repair(conn)
+        except PlaybackBlocked:
+            # An incident's reviewed before-image includes historical audits.
+            # Creating its new audit must not prune that original evidence.
+            LOG.info("Skipping playlist audit retention during an active or invalid incident repair.")
         else:
-            conn.execute(
-                "DELETE FROM playlist_update_items "
-                "WHERE datetime(created_at) < datetime(?)",
-                (item_retention_cutoff,),
+            postgres = type(conn).__name__ == "PostgresConnectionWrapper"
+            if postgres:
+                conn.execute(
+                    "DELETE FROM playlist_update_items "
+                    "WHERE created_at::timestamptz < CAST(? AS timestamptz)",
+                    (item_retention_cutoff,),
+                )
+            else:
+                conn.execute(
+                    "DELETE FROM playlist_update_items "
+                    "WHERE datetime(created_at) < datetime(?)",
+                    (item_retention_cutoff,),
+                )
+            _compact_old_playlist_recovery_payloads(
+                conn, item_retention_cutoff, postgres=postgres
             )
-        _compact_old_playlist_recovery_payloads(
-            conn, item_retention_cutoff, postgres=postgres
-        )
         conn.execute(
             """
             INSERT INTO playlist_update_runs(

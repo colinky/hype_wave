@@ -6,6 +6,8 @@ the normal durable publisher; a pending operation must be reconciled explicitly.
 Installing history and confirming its public deployment are separate phases.
 Refresh playback evidence before planning: different decision evidence changes
 the immutable canonical receipt and requires a new projected fingerprint/manifest.
+An explicit execution release can bind this unchanged applied manifest and its
+outputs to a reviewed replacement implementation; it never reapplies DB repairs.
 """
 from __future__ import annotations
 
@@ -131,19 +133,50 @@ def _scope(manifest):
     return outputs
 
 
-def _guard(db_path, manifest, *, check_pending=True, publication_required=False):
+def applied_receipt_core_hash(receipt):
+    """Bind an execution release to the applied repair, allowing verified stages to advance."""
+    return fingerprint({key: value for key, value in receipt.items()
+                        if key not in {"status", "stages", "stage_evidence", "followups"}})
+
+
+def _check_execution_release(manifest, receipt, execution_release, current_fingerprint):
+    if execution_release is None:
+        if manifest["implementation_fingerprint"] != current_fingerprint:
+            raise PlaybackBlocked("Repair implementation or identity policy changed since review")
+        return
+    hashes = ("manifest_hash", "old_implementation_fingerprint", "new_implementation_fingerprint",
+              "applied_receipt_core_hash", "outputs_fingerprint", "release_hash")
+    release = execution_release
+    if (not isinstance(release, dict) or set(release) != {*hashes, "version", "evidence_ref"}
+            or type(release.get("version")) is not int or release["version"] != 1
+            or not isinstance(release.get("evidence_ref"), str) or not release["evidence_ref"].strip()
+            or any(not isinstance(release.get(key), str) or not re.fullmatch(r"[0-9a-f]{64}", release[key])
+                   for key in hashes)
+            or release["release_hash"] != fingerprint({key: value for key, value in release.items()
+                                                      if key != "release_hash"})):
+        raise PlaybackBlocked("Execution release is incomplete or changed since review")
+    if (release["manifest_hash"] != manifest["manifest_hash"]
+            or release["old_implementation_fingerprint"] != manifest["implementation_fingerprint"]
+            or release["new_implementation_fingerprint"] != current_fingerprint
+            or release["old_implementation_fingerprint"] == release["new_implementation_fingerprint"]
+            or release["applied_receipt_core_hash"] != applied_receipt_core_hash(receipt)
+            or release["outputs_fingerprint"] != fingerprint(manifest["outputs"])):
+        raise PlaybackBlocked("Execution release does not match this applied repair, outputs or implementation")
+
+
+def _guard(db_path, manifest, *, check_pending=True, publication_required=False, execution_release=None):
     with incident_connection(Path(db_path), read_only=True) as conn:
-        return _guard_connection(conn, manifest, check_pending=check_pending, publication_required=publication_required)
+        return _guard_connection(conn, manifest, check_pending=check_pending,
+                                 publication_required=publication_required, execution_release=execution_release)
 
 
-def _guard_connection(conn, manifest, *, check_pending=True, publication_required=False):
+def _guard_connection(conn, manifest, *, check_pending=True, publication_required=False, execution_release=None):
     from repair_ytmusic_chart_incident import implementation_fingerprint
-    if manifest["implementation_fingerprint"] != implementation_fingerprint():
-        raise PlaybackBlocked("Repair implementation or identity policy changed since review")
     receipt = _receipt(conn, manifest)
     if (not receipt or receipt.get("manifest_hash") != manifest["manifest_hash"]
             or receipt.get("stages", {}).get("db") != "applied"):
         raise PlaybackBlocked("Publication requires the matching applied DB receipt")
+    _check_execution_release(manifest, receipt, execution_release, implementation_fingerprint())
     if publication_required and receipt.get("stages", {}).get("publication") != "verified":
         raise PlaybackBlocked("History requires verified playlist publication")
     if check_pending:
@@ -159,10 +192,13 @@ def _guard_connection(conn, manifest, *, check_pending=True, publication_require
     return receipt
 
 
-def _mark_stage(db_path, manifest, stage, evidence):
+def _mark_stage(db_path, manifest, stage, evidence, *, execution_release=None):
     with incident_connection(Path(db_path), read_only=False) as conn:
         with _canonical_write_scope(conn):
-            _guard_connection(conn, manifest, publication_required=stage == "history")
+            _guard_connection(conn, manifest, publication_required=stage == "history",
+                              execution_release=execution_release)
+            if execution_release is not None:
+                evidence = {**evidence, "execution_release_hash": execution_release["release_hash"]}
             result = mark_repair_stage(conn, manifest, stage, evidence)
         conn.commit()
     return {**result, "evidence": evidence}
@@ -227,7 +263,7 @@ def _recheck_lists(outputs, client, verifier):
     return observations
 
 
-def publish(manifest, db_path, client, *, verifier=None):
+def publish(manifest, db_path, client, *, verifier=None, execution_release=None):
     outputs = _scope(manifest)
     managed_verifier = verifier is None
     verifier = verifier if verifier is not None else verifier_for(client, fresh=True)
@@ -237,9 +273,9 @@ def publish(manifest, db_path, client, *, verifier=None):
     require_playable(verifier, video_ids)
     with incident_connection(Path(db_path), read_only=True) as conn:
         verify_repair(conn, manifest)
-    _guard(db_path, manifest)
+    _guard(db_path, manifest, execution_release=execution_release)
     for target in outputs["playlists"]:
-        _guard(db_path, manifest)
+        _guard(db_path, manifest, execution_release=execution_release)
         if managed_verifier:
             # Each playlist is a separate bounded observation phase. Never
             # carry successes or extend a deadline from the preceding phase.
@@ -258,19 +294,20 @@ def publish(manifest, db_path, client, *, verifier=None):
             db_path=db_path, service=target["service"],
             job_name="repair:" + manifest["repair_id"] + ":" + target["job_name"],
             playability_verifier=verifier,
-            before_mutation=lambda: _guard(db_path, manifest, check_pending=False),
+            before_mutation=lambda: _guard(db_path, manifest, check_pending=False,
+                                           execution_release=execution_release),
             expected_before_items=target["before_items"],
         )
     if managed_verifier:
         verifier = verifier_for(client, fresh=True)
     require_playable(verifier, video_ids)
     observations = _recheck_lists(outputs, client, verifier)
-    _guard(db_path, manifest)
+    _guard(db_path, manifest, execution_release=execution_release)
     evidence = {"evidence_ref": "manifest:" + manifest["manifest_hash"], "playlists": observations}
-    return _mark_stage(db_path, manifest, "publication", evidence)
+    return _mark_stage(db_path, manifest, "publication", evidence, execution_release=execution_release)
 
 
-def install_history(manifest, db_path, *, client=None, verifier=None):
+def install_history(manifest, db_path, *, client=None, verifier=None, execution_release=None):
     from hype_db_reports import write_frontend_history
     outputs = _scope(manifest)
     previews, _ = _read_previews(outputs, manifest=manifest)
@@ -278,7 +315,7 @@ def install_history(manifest, db_path, *, client=None, verifier=None):
         state = verify_repair(conn, manifest)
     if state["publication_status"] != "verified":
         raise PlaybackBlocked("History installation requires verified playlist publication")
-    receipt = _guard(db_path, manifest, publication_required=True)
+    receipt = _guard(db_path, manifest, publication_required=True, execution_release=execution_release)
     reads = receipt.get("stage_evidence", {}).get("publication", {}).get("playlists", [])
     try:
         if {row["playlist_id"] for row in reads} != {target["playlist_id"] for target in outputs["playlists"]}:
@@ -290,7 +327,7 @@ def install_history(manifest, db_path, *, client=None, verifier=None):
             raise PlaybackBlocked("Publication proof expired; fresh playlist reads are required")
         _recheck_lists(outputs, client, verifier or verifier_for(client))
     for target, payload in previews:
-        _guard(db_path, manifest, publication_required=True)
+        _guard(db_path, manifest, publication_required=True, execution_release=execution_release)
         path = Path(target["path"])
         current_hash = hashlib.sha256(path.read_bytes()).hexdigest()
         if current_hash == target["sha256"]:
@@ -302,12 +339,12 @@ def install_history(manifest, db_path, *, client=None, verifier=None):
     return {"status": "installed", "public_verification": "pending"}
 
 
-def verify_public_history(manifest, db_path, client, *, verifier=None):
+def verify_public_history(manifest, db_path, client, *, verifier=None, execution_release=None):
     import requests
     outputs = _scope(manifest)
     with incident_connection(Path(db_path), read_only=True) as conn:
         verify_repair(conn, manifest)
-    _guard(db_path, manifest, publication_required=True)
+    _guard(db_path, manifest, publication_required=True, execution_release=execution_release)
     _, history_videos = _read_previews(outputs, manifest=manifest)
     verifier = verifier or verifier_for(client)
     require_playable(verifier, history_videos)
@@ -328,14 +365,16 @@ def verify_public_history(manifest, db_path, client, *, verifier=None):
                                   "public_url": target["public_url"], "readback_verified": True,
                                   "observed_at": datetime.now(timezone.utc).isoformat()})
     evidence["playlists"] = _recheck_lists(outputs, client, verifier)
-    _guard(db_path, manifest, publication_required=True)
-    return _mark_stage(db_path, manifest, "history", evidence)
+    _guard(db_path, manifest, publication_required=True, execution_release=execution_release)
+    return _mark_stage(db_path, manifest, "history", evidence, execution_release=execution_release)
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("phase", choices=("publish", "install-history", "verify-public-history"))
     parser.add_argument("--manifest", type=Path, required=True)
+    parser.add_argument("--execution-release", type=Path,
+                        help="Reviewed exact implementation transition for this already-applied manifest")
     parser.add_argument("--db-path", type=Path, required=True)
     parser.add_argument("--auth", default=".secrets/browser.json")
     parser.add_argument("--env-file", default=".secrets/.env")
@@ -344,13 +383,16 @@ def main():
     from sync_all import load_env_file
     load_env_file(Path(args.env_file))
     manifest = json.loads(args.manifest.read_text())
+    execution_release = json.loads(args.execution_release.read_text()) if args.execution_release else None
     with sync_run_lock(args.db_path):
         if args.phase == "publish":
-            result = publish(manifest, args.db_path, make_ytmusic(args.auth))
+            result = publish(manifest, args.db_path, make_ytmusic(args.auth), execution_release=execution_release)
         elif args.phase == "install-history":
-            result = install_history(manifest, args.db_path, client=make_ytmusic(args.auth))
+            result = install_history(manifest, args.db_path, client=make_ytmusic(args.auth),
+                                     execution_release=execution_release)
         else:
-            result = verify_public_history(manifest, args.db_path, make_ytmusic(args.auth))
+            result = verify_public_history(manifest, args.db_path, make_ytmusic(args.auth),
+                                           execution_release=execution_release)
     args.output.write_text(json.dumps(result, ensure_ascii=False, indent=2))
     args.output.chmod(0o600)
     print(json.dumps({key: value for key, value in result.items() if key != "evidence"}))
