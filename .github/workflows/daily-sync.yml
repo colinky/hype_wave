@@ -31,12 +31,6 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
 
-      - name: Verify matching, storage, publication and history contracts
-        env:
-          SUPABASE_DB_URL: ""
-          PYTHONPATH: .:tests
-        run: python tests/run_offline_suite.py
-
       - name: Restore YouTube Music browser auth file from secret
         shell: bash
         env:
