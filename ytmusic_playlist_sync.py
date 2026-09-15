@@ -9,14 +9,12 @@ import sqlite3
 import time
 import unicodedata
 import uuid
-from collections.abc import Mapping
-from contextlib import contextmanager, nullcontext
+from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from difflib import SequenceMatcher
 from functools import lru_cache
 from pathlib import Path
-from types import SimpleNamespace
 from typing import Any
 
 import requests
@@ -30,7 +28,6 @@ from hype_db_common import (
     strip_content_rating_version_markers,
     version_signature,
 )
-from sync_validation import PlaybackBlocked, require_playable, require_search_budget
 
 try:
     from ytmusicapi.auth.oauth import OAuthCredentials
@@ -39,33 +36,6 @@ except ImportError:  # pragma: no cover - compatibility with older ytmusicapi.
 
 
 LOG = logging.getLogger("ytmusic_playlist_sync")
-
-
-def _search_verifier(client, verifier=None):
-    return verifier if verifier is not None else getattr(client, "__dict__", {}).get("_hype_playability_verifier")
-
-
-@contextmanager
-def _search_api(client, verifier=None):
-    """All search/locale requests share the authenticated run's deadline."""
-    verifier = _search_verifier(client, verifier)
-    require_search_budget(verifier)
-    bounded = getattr(verifier, "_bounded_session", None)
-    missing = object()
-    previous = getattr(client, "__dict__", {}).get("_hype_playability_verifier", missing)
-    if verifier is not None:
-        client._hype_playability_verifier = verifier
-    try:
-        with bounded(client) if callable(bounded) else nullcontext():
-            yield
-    finally:
-        if verifier is not None:
-            if previous is missing:
-                del client._hype_playability_verifier
-            else:
-                client._hype_playability_verifier = previous
-        # Convert a timeout at the deadline into a non-retryable run hold.
-        require_search_budget(verifier)
 
 
 def get_resilient_session(retries: int = 3, backoff_factor: float = 0.3) -> requests.Session:
@@ -177,16 +147,10 @@ def get_ytmusic_en(yt_ko: YTMusic) -> YTMusic:
     global _YTMUSIC_EN_INSTANCE
     if _YTMUSIC_EN_INSTANCE is None:
         try:
-            verifier = _search_verifier(yt_ko)
-            yt_en = make_ytmusic(None, language="en", playability_verifier=verifier)
-            with _search_api(yt_ko, verifier):
-                original_headers = dict(yt_ko.headers)
-            with _search_api(yt_en, verifier):
-                yt_en.headers.update(original_headers)
-                yt_en.headers.update({"Accept-Language": "en-US,en;q=0.9"})
+            yt_en = YTMusic(language="en")
+            yt_en.headers.update(yt_ko.headers)
+            yt_en.headers.update({"Accept-Language": "en-US,en;q=0.9"})
             _YTMUSIC_EN_INSTANCE = yt_en
-        except PlaybackBlocked:
-            raise
         except Exception as e:
             LOG.warning("Failed to clone English YTMusic instance: %s", e)
             _YTMUSIC_EN_INSTANCE = yt_ko
@@ -789,26 +753,19 @@ def resolve_bilingual_artist(yt_ko: YTMusic, artist_id: str) -> list[str]:
 
     names = []
     try:
-        with _search_api(yt_ko):
-            a_ko = yt_ko.get_artist(artist_id)
+        a_ko = yt_ko.get_artist(artist_id)
         if a_ko.get("name"):
             names.append(a_ko["name"])
             names.extend(_extract_parentheses_variants(a_ko["name"]))
-    except PlaybackBlocked:
-        raise
     except Exception as e:
         LOG.debug("Failed to get KO artist for %s: %s", artist_id, e)
 
     try:
-        require_search_budget(_search_verifier(yt_ko))
         yt_en = get_ytmusic_en(yt_ko)
-        with _search_api(yt_en, _search_verifier(yt_ko)):
-            a_en = yt_en.get_artist(artist_id)
+        a_en = yt_en.get_artist(artist_id)
         if a_en.get("name"):
             names.append(a_en["name"])
             names.extend(_extract_parentheses_variants(a_en["name"]))
-    except PlaybackBlocked:
-        raise
     except Exception as e:
         LOG.debug("Failed to get EN artist for %s: %s", artist_id, e)
 
@@ -870,8 +827,7 @@ def resolve_bilingual_song(yt_ko: YTMusic, video_id: str) -> dict[str, str]:
     
     # 1. KO locale
     try:
-        with _search_api(yt_ko):
-            playlist_ko = _watch_playlist_for_metadata(yt_ko, video_id)
+        playlist_ko = _watch_playlist_for_metadata(yt_ko, video_id)
         track = exact_watch_track(playlist_ko)
         if track:
             details["title_ko"] = track.get("title", "")
@@ -882,17 +838,13 @@ def resolve_bilingual_song(yt_ko: YTMusic, video_id: str) -> dict[str, str]:
                 details["album_ko"] = album_obj.get("name", "")
         else:
             LOG.debug("KO watch playlist did not contain requested video %s", video_id)
-    except PlaybackBlocked:
-        raise
     except Exception as e:
         LOG.debug("Failed to get KO song details for %s: %s", video_id, e)
 
     # 2. EN locale
     try:
-        require_search_budget(_search_verifier(yt_ko))
         yt_en = get_ytmusic_en(yt_ko)
-        with _search_api(yt_en, _search_verifier(yt_ko)):
-            playlist_en = _watch_playlist_for_metadata(yt_en, video_id)
+        playlist_en = _watch_playlist_for_metadata(yt_en, video_id)
         track = exact_watch_track(playlist_en)
         if track:
             details["title_en"] = track.get("title", "")
@@ -903,8 +855,6 @@ def resolve_bilingual_song(yt_ko: YTMusic, video_id: str) -> dict[str, str]:
                 details["album_en"] = album_obj.get("name", "")
         else:
             LOG.debug("EN watch playlist did not contain requested video %s", video_id)
-    except PlaybackBlocked:
-        raise
     except Exception as e:
         LOG.debug("Failed to get EN song details for %s: %s", video_id, e)
 
@@ -1083,21 +1033,15 @@ def resolve_video_to_song(
     duration_seconds: int = 0,
     threshold: float = 0.86,
     search_limit: int = 10,
-    excluded_video_ids: set[str] | None = None,
-    playability_verifier: Any = None,
 ) -> dict[str, Any]:
-    verifier = _search_verifier(ytmusic, playability_verifier)
-    require_search_budget(verifier)
-    excluded_video_ids = excluded_video_ids or set()
-    fallback_id = video_id if video_id not in excluded_video_ids else ""
     normalized_title = normalize_video_title(title)
     if not normalized_title:
         return {
-            "resolved_video_id": fallback_id,
+            "resolved_video_id": video_id,
             "resolved_title": title,
             "resolved_artist": artist,
             "resolved_album": "",
-            "mapping_status": "kept_original_video" if fallback_id else "failed",
+            "mapping_status": "kept_original_video",
             "mapping_reason": "empty_normalized_title",
             "mapping_score": 1.0,
         }
@@ -1112,11 +1056,8 @@ def resolve_video_to_song(
             search_limit,
             track_title=normalized_title,
             track_artist=artist,
-            playability_verifier=verifier,
         )
     ):
-        if result.get("videoId") in excluded_video_ids:
-            continue
         candidate_artist = result_artists(result)
         cand_title = result.get("title", "")
         artist_score = similarity(artist, candidate_artist, is_title=False)
@@ -1127,8 +1068,7 @@ def resolve_video_to_song(
             candidate_id = result.get("videoId")
             if candidate_id:
                 try:
-                    with _search_api(ytmusic, verifier):
-                        resolved_details = resolve_bilingual_song(ytmusic, candidate_id)
+                    resolved_details = resolve_bilingual_song(ytmusic, candidate_id)
                     titles_to_check = [cand_title]
                     if resolved_details.get("title_ko"):
                         titles_to_check.append(resolved_details["title_ko"])
@@ -1151,8 +1091,6 @@ def resolve_video_to_song(
                         (similarity(artist, a, is_title=False) for a in artists_to_check),
                         default=artist_score
                     )
-                except PlaybackBlocked:
-                    raise
                 except Exception:
                     title_score = similarity(normalized_title, cand_title, is_title=True)
             else:
@@ -1188,13 +1126,6 @@ def resolve_video_to_song(
         if result_type == "song" and similarity(artist, candidate_artist, is_title=False) >= 0.8:
             current_threshold = min(threshold, 0.75)
 
-        if verifier is not None and score >= current_threshold:
-            require_search_budget(verifier)
-            observed = verifier.verify(result["videoId"])
-            if observed.get("state") == "unknown":
-                raise PlaybackBlocked("Video-to-song candidate playback is uncertain")
-            if observed.get("state") != "playable":
-                continue
         if score > best_score:
             best = result
             best_score = score
@@ -1210,11 +1141,11 @@ def resolve_video_to_song(
             "mapping_score": round(best_score, 3),
         }
     return {
-        "resolved_video_id": fallback_id,
+        "resolved_video_id": video_id,
         "resolved_title": title,
         "resolved_artist": artist,
         "resolved_album": result_album(best) if best else "",
-        "mapping_status": "kept_original_video" if best_score and fallback_id else "failed",
+        "mapping_status": "kept_original_video" if best_score else "failed",
         "mapping_reason": query,
         "mapping_score": round(best_score, 3),
     }
@@ -1384,8 +1315,6 @@ def score_result(
     if should_resolve and ytmusic and video_id:
         try:
             resolved_details = resolve_bilingual_song(ytmusic, video_id)
-        except PlaybackBlocked:
-            raise
         except Exception as e:
             LOG.debug("Failed to resolve bilingual song details for %s: %s", video_id, e)
 
@@ -1437,8 +1366,6 @@ def score_result(
                     try:
                         channel_names = resolve_bilingual_artist(ytmusic, a_id)
                         cand_artists.extend(channel_names)
-                    except PlaybackBlocked:
-                        raise
                     except Exception as e:
                         LOG.debug("Failed to resolve bilingual artist %s: %s", a_id, e)
                         
@@ -1589,8 +1516,6 @@ def score_result(
                         try:
                             channel_names = resolve_bilingual_artist(ytmusic, a_id)
                             names.extend(channel_names)
-                        except PlaybackBlocked:
-                            raise
                         except Exception:
                             pass
                 cand_groups.append({normalize_text(n) for n in names if n})
@@ -1780,10 +1705,7 @@ def search_ytmusic_songs(
     min_score: float = 0.6,
     min_title_score: float = 0.65,
     min_artist_score: float = 0.55,
-    playability_verifier: Any = None,
 ) -> list[dict[str, Any]]:
-    verifier = _search_verifier(ytmusic, playability_verifier)
-    require_search_budget(verifier)
     # Build dummy source tracks to score candidates inside search_ytmusic_songs
     track_en = SourceTrack(rank=1, title=track_title, artist=track_artist, album=track_album)
     track_ko = SourceTrack(rank=1, title=track_title_ko, artist=track_artist_ko, album=track_album_ko) if (track_title_ko or track_artist_ko) else None
@@ -1792,17 +1714,13 @@ def search_ytmusic_songs(
     max_retries = 3
     delay = 3.0
     for attempt in range(max_retries):
-        require_search_budget(verifier)
         try:
             stage1_candidates: list[dict[str, Any]] = []
             stage1_error: Exception | None = None
 
             # 1. Stage 1: Search with filter="songs"
             try:
-                with _search_api(ytmusic, verifier):
-                    stage1_results = ytmusic.search(query, filter="songs", limit=limit)
-            except PlaybackBlocked:
-                raise
+                stage1_results = ytmusic.search(query, filter="songs", limit=limit)
             except Exception as e:
                 LOG.warning("Stage 1 search failed for query '%s': %s", query, e)
                 stage1_error = e
@@ -1820,10 +1738,9 @@ def search_ytmusic_songs(
                 for r in stage1_candidates[:3]:
                     try:
                         # Use force_resolve=False inside search_ytmusic_songs to prevent redundant API calls
-                        with _search_api(ytmusic, verifier):
-                            score, title_score, artist_score, _ = score_result(
-                                track_en, r, track_ko, ytmusic=ytmusic, force_resolve=False
-                            )
+                        score, title_score, artist_score, _ = score_result(
+                            track_en, r, track_ko, ytmusic=ytmusic, force_resolve=False
+                        )
                         if passes_match_gates(
                             track_en, score=score, title_score=title_score,
                             artist_score=artist_score, min_score=max(0.75, min_score),
@@ -1831,8 +1748,6 @@ def search_ytmusic_songs(
                         ):
                             need_stage2 = False
                             break
-                    except PlaybackBlocked:
-                        raise
                     except Exception as e:
                         LOG.debug("Error scoring in search_ytmusic_songs: %s", e)
 
@@ -1840,10 +1755,7 @@ def search_ytmusic_songs(
             stage2_candidates: list[dict[str, Any]] = []
             if need_stage2:
                 try:
-                    with _search_api(ytmusic, verifier):
-                        stage2_results = ytmusic.search(query, limit=limit)
-                except PlaybackBlocked:
-                    raise
+                    stage2_results = ytmusic.search(query, limit=limit)
                 except Exception as e:
                     LOG.warning("Stage 2 search failed for query '%s': %s", query, e)
                     if stage1_error is not None:
@@ -1892,8 +1804,7 @@ def search_ytmusic_songs(
                             if is_target_album:
                                 try:
                                     LOG.debug("Fetching album tracks for '%s' (ID: %s) to resolve song '%s'", alb_title, r.get("browseId"), track_title)
-                                    with _search_api(ytmusic, verifier):
-                                        alb_details = ytmusic.get_album(r.get("browseId"))
+                                    alb_details = ytmusic.get_album(r.get("browseId"))
                                     for t in alb_details.get("tracks", []):
                                         t_title = t.get("title", "")
                                         t_video_id = t.get("videoId")
@@ -1914,8 +1825,6 @@ def search_ytmusic_songs(
                                                     "duration_seconds": t.get("duration_seconds")
                                                 }
                                                 resolved_album_songs.append(song_res)
-                                except PlaybackBlocked:
-                                    raise
                                 except Exception as e:
                                     LOG.warning("Failed to resolve tracks from album %s: %s", r.get("browseId"), e)
 
@@ -1950,11 +1859,8 @@ def search_ytmusic_songs(
             add_candidates(stage1_candidates, limit)
             return [candidate_pool[video_id] for video_id in candidate_order[: 2 * limit]]
 
-        except PlaybackBlocked:
-            raise
         except Exception as exc:
             if attempt < max_retries - 1:
-                require_search_budget(verifier, wait_seconds=delay)
                 LOG.warning("Search failed for query '%s' on attempt %d: %s. Retrying in %.1fs...", query, attempt + 1, exc, delay)
                 time.sleep(delay)
                 delay *= 2.0
@@ -2002,8 +1908,6 @@ def search_youtube_music(
     min_artist_score: float,
     limit: int,
     ignore_video_ids: set[str] | None = None,
-    excluded_video_ids: set[str] | None = None,
-    playability_verifier: Any = None,
 ) -> MatchResult:
     # 1. Check manual overrides first from matching_alias.json
     t_norm = normalize_text(track.title)
@@ -2035,8 +1939,6 @@ def search_youtube_music(
         )
 
     # 2. Proceed with search if no override
-    verifier = _search_verifier(ytmusic, playability_verifier)
-    require_search_budget(verifier)
     best_passing: dict[str, Any] | None = None
     best_diagnostic: dict[str, Any] | None = None
     last_search_error: Exception | None = None
@@ -2045,9 +1947,7 @@ def search_youtube_music(
     evaluated_candidates: dict[tuple[str, ...], dict[str, Any]] = {}
 
     for query in search_queries_for_track(track, track_ko):
-        require_search_budget(verifier, wait_seconds=0.5)
         time.sleep(0.5)  # Add sleep to prevent rate limiting (429 Too Many Requests)
-        require_search_budget(verifier)
         try:
             results = search_ytmusic_songs(
                 ytmusic,
@@ -2062,10 +1962,7 @@ def search_youtube_music(
                 min_score=min_score,
                 min_title_score=min_title_score,
                 min_artist_score=min_artist_score,
-                playability_verifier=verifier,
             )
-        except PlaybackBlocked:
-            raise
         except Exception as exc:
             LOG.warning("Search failed: %s (%s)", query, exc)
             last_search_error = exc
@@ -2073,7 +1970,7 @@ def search_youtube_music(
 
         for index, result in enumerate(results):
             video_id = result.get("videoId")
-            if not is_song_result(result) or not video_id or video_id in (excluded_video_ids or set()):
+            if not is_song_result(result) or not video_id:
                 continue
 
             signature = _candidate_metadata_signature(result)
@@ -2083,14 +1980,13 @@ def search_youtube_music(
 
             # Force resolve for the top 3 search results of each query
             force_resolve = (index < 3)
-            with _search_api(ytmusic, verifier):
-                candidate_score, title_score, artist_score, album_score = score_result(
-                    track,
-                    result,
-                    track_ko,
-                    ytmusic=ytmusic,
-                    force_resolve=force_resolve
-                )
+            candidate_score, title_score, artist_score, album_score = score_result(
+                track,
+                result,
+                track_ko,
+                ytmusic=ytmusic,
+                force_resolve=force_resolve
+            )
             evaluated_candidates[signature] = {
                 "result": result,
                 "score": candidate_score,
@@ -2118,17 +2014,6 @@ def search_youtube_music(
                     min_artist_score=min_artist_score,
                 )
             ]
-            if verifier is not None:
-                approved = []
-                for item in sorted(passing, key=lambda item: item["score"], reverse=True):
-                    require_search_budget(verifier)
-                    observed = verifier.verify(item["result"]["videoId"])
-                    if observed.get("state") == "unknown":
-                        raise PlaybackBlocked("Search candidate playback is uncertain")
-                    if observed.get("state") == "playable":
-                        approved.append(item)
-                        break
-                passing = approved
             best_passing = max(passing, key=lambda item: item["score"], default=None)
 
         if best_passing:
@@ -2206,6 +2091,16 @@ def get_existing_playlist_items(ytmusic: YTMusic, playlist_id: str) -> list[dict
             f"Playlist {playlist_id} response is missing a tracks list"
         )
     tracks = playlist["tracks"]
+    reported_count = playlist.get("trackCount")
+    if (
+        isinstance(reported_count, int)
+        or isinstance(reported_count, str) and reported_count.isdigit()
+    ) and int(reported_count) != len(tracks):
+        raise RuntimeError(
+            f"Playlist {playlist_id} returned {len(tracks)} tracks but reports "
+            f"trackCount={reported_count}"
+        )
+
     items: list[dict[str, str]] = []
     for index, track in enumerate(tracks, 1):
         video_id = track.get("videoId")
@@ -2214,20 +2109,7 @@ def get_existing_playlist_items(ytmusic: YTMusic, playlist_id: str) -> list[dict
             raise RuntimeError(
                 f"Playlist {playlist_id} item {index} is missing videoId or setVideoId"
             )
-        item = {"videoId": video_id, "setVideoId": set_video_id}
-        if isinstance(track.get("isAvailable"), bool):
-            item["isAvailable"] = track["isAvailable"]
-        items.append(item)
-    _playlist_slots(items)
-    reported_count = playlist.get("trackCount")
-    if (
-        isinstance(reported_count, int)
-        or isinstance(reported_count, str) and reported_count.isdigit()
-    ) and int(reported_count) != len(tracks):
-        raise IncompletePlaylistObservation(
-            f"Playlist {playlist_id} returned {len(tracks)} tracks but reports "
-            f"trackCount={reported_count}", items,
-        )
+        items.append({"videoId": video_id, "setVideoId": set_video_id})
     return items
 
 
@@ -2303,7 +2185,6 @@ def get_verified_video_metadata(
     video_id: str,
     *,
     metadata_cache: dict[str, dict[str, Any]] | None = None,
-    allow_partial_artist_ids: bool = False,
 ) -> dict[str, Any] | None:
     """Read current, exact-video bilingual metadata without persistent cache writes.
 
@@ -2312,18 +2193,10 @@ def get_verified_video_metadata(
     The supplied cache belongs to one execution, never to the persistent alias DB.
     """
     cache = metadata_cache if metadata_cache is not None else {}
-    # Partial credits are usable only when preserving a known healthy ID. Never
-    # let that observation populate the strict cache used for ID substitutions.
-    cache_key = f"verified{'_partial' if allow_partial_artist_ids else ''}:{video_id}"
+    cache_key = f"verified:{video_id}"
     if cache_key in cache:
         return cache[cache_key]["metadata"]
-    if allow_partial_artist_ids:
-        complete = get_verified_video_metadata(ytmusic, video_id, metadata_cache=cache)
-        if complete is not None:
-            return complete
-    verifier = _search_verifier(ytmusic)
-    with _search_api(ytmusic, verifier):
-        base = _playlist_video_details(ytmusic, video_id, cache)
+    base = _playlist_video_details(ytmusic, video_id, cache)
     if base["error"]:
         if not base.get("metadata_missing"):
             raise RuntimeError(f"Unable to verify video {video_id}: {base['error']}")
@@ -2336,44 +2209,14 @@ def get_verified_video_metadata(
         "music_video_type": base["music_video_type"],
     }
     artist_ids: set[str] | None = None
-    partial_credits: tuple[str, ...] | None = None
-    lead_artist_id: str | None = None
-    has_partial_artists = False
     names_by_id: dict[str, list[str]] = {}
-    reviewed_unlinked = None
-    if allow_partial_artist_ids:
-        from sync_validation import _music_video_candidate_matches
-        identity_policy = json.loads(Path(__file__).with_name("matching_alias.json").read_text())
-        proofs = [proof for proof in identity_policy.get("source_identity_evidence", {}).values()
-                  if proof.get("candidate", {}).get("video_id") == video_id
-                  and proof.get("candidate", {}).get("artist_ids") == []
-                  and _music_video_candidate_matches(proof, proof.get("candidate"))]
-        if len(proofs) == 1:
-            reviewed_unlinked = proofs[0]
     try:
         for language in ("ko", "en"):
-            require_search_budget(verifier)
-            client_key = f"verified_client{'_authenticated' if allow_partial_artist_ids else ''}:{language}"
+            client_key = f"verified_client:{language}"
             if client_key not in cache:
-                if allow_partial_artist_ids:
-                    auth_headers = getattr(ytmusic, "_auth_headers", None)
-                    session = getattr(ytmusic, "_session", None)
-                    if (not isinstance(auth_headers, Mapping) or session is None
-                            or not any(str(key).lower() == "cookie" and value
-                                       for key, value in auth_headers.items())):
-                        return None
-                    # In-memory browser headers keep the same account. Share
-                    # the bounded request session; never create an auth file.
-                    with _search_api(ytmusic, verifier):
-                        localized = YTMusic(dict(auth_headers), language=language, requests_session=session)
-                    with _search_api(localized, verifier):
-                        localized.headers.update({"Accept-Language": "ko-KR,ko;q=0.9" if language == "ko" else "en-US,en;q=0.9"})
-                else:
-                    localized = make_ytmusic(None, language=language, playability_verifier=verifier)
-                cache[client_key] = {"client": localized}
+                cache[client_key] = {"client": make_ytmusic(None, language=language)}
             client = cache[client_key]["client"]
-            with _search_api(client, verifier):
-                payload = _watch_playlist_for_metadata(client, video_id)
+            payload = _watch_playlist_for_metadata(client, video_id)
             tracks = payload.get("tracks") if isinstance(payload, dict) else None
             exact_tracks = [
                 row for row in tracks if isinstance(row, dict) and row.get("videoId") == video_id
@@ -2381,8 +2224,6 @@ def get_verified_video_metadata(
             if len(exact_tracks) != 1:
                 return None
             track = exact_tracks[0]
-            if track.get("isAvailable") is False:
-                return None
             artists = track.get("artists")
             title = track.get("title")
             if isinstance(artists, list):
@@ -2407,75 +2248,21 @@ def get_verified_video_metadata(
                 or not isinstance(artists, list) or not artists
                 or any(
                     not isinstance(artist, dict)
-                    or (artist.get("id") is not None and
-                        (not isinstance(artist["id"], str) or not artist["id"].strip()))
+                    or not isinstance(artist.get("id"), str) or not artist["id"].strip()
                     or not isinstance(artist.get("name"), str) or not artist["name"].strip()
                     for artist in artists
                 )
             ):
                 return None
-            unlinked = tuple(artist["name"] for artist in artists if artist.get("id") is None)
-            exact_unlinked = bool(
-                reviewed_unlinked and len(unlinked) == len(artists)
-                and title == reviewed_unlinked["candidate"][f"title_{language}"]
-                and ", ".join(unlinked) == reviewed_unlinked["candidate"][f"artist_{language}"]
-                and base["length_seconds"] == reviewed_unlinked["candidate"]["length_seconds"]
-            )
-            if unlinked:
-                if not allow_partial_artist_ids or (not artists[0].get("id") and not exact_unlinked):
-                    return None
-                has_partial_artists = True
-                album = track.get("album")
-                album_id = album.get("id") if isinstance(album, dict) else None
-                album_name = album.get("name") if isinstance(album, dict) else None
-                if (not isinstance(album_id, str) or not album_id.strip()
-                        or not isinstance(album_name, str) or not album_name.strip()):
-                    return None
-                album_key = f"verified_album:{language}:{album_id}"
-                if album_key not in cache:
-                    with _search_api(client, verifier):
-                        cache[album_key] = {"album": client.get_album(album_id)}
-                album_payload = cache[album_key]["album"]
-                album_rows = album_payload.get("tracks") if isinstance(album_payload, dict) else None
-                exact_album_rows = [row for row in album_rows
-                                    if isinstance(row, dict) and row.get("videoId") == video_id
-                                    ] if isinstance(album_rows, list) else []
-                if len(exact_album_rows) != 1:
-                    return None
-                album_row = exact_album_rows[0]
-                album_title = album_payload.get("title")
-                expected_album_artists = reviewed_unlinked.get("candidate_album_artists") if exact_unlinked else artists
-                if (album_row.get("title") != title or not expected_album_artists
-                        or album_row.get("artists") != expected_album_artists
-                        or album_row.get("isAvailable") is False
-                        or not isinstance(album_title, str) or not album_title.strip()
-                        or album_title != album_name
-                        or not duration_to_seconds(album_row.get("duration"))
-                        or abs(duration_to_seconds(album_row.get("duration")) - base["length_seconds"]) > 2):
-                    return None
-            # Missing names must be literally stable across locales, including
-            # their affiliations; do not infer an artist ID or drop a credit.
-            credit_key = tuple(" ".join(unicodedata.normalize("NFKC", name).casefold().split())
-                               for name in unlinked)
-            if partial_credits is not None and credit_key != partial_credits:
-                return None
-            partial_credits = credit_key
-            if has_partial_artists and lead_artist_id is not None and artists[0].get("id") != lead_artist_id:
-                return None
-            lead_artist_id = artists[0].get("id")
-            ids = {artist["id"] for artist in artists if artist.get("id")}
+            ids = {artist["id"] for artist in artists}
             if artist_ids is not None and ids != artist_ids:
                 return None
             artist_ids = ids
             localized_names = []
             for artist in artists:
-                if artist.get("id") is None:
-                    localized_names.append(artist["name"])
-                    continue
                 artist_key = f"verified_artist:{language}:{artist['id']}"
                 if artist_key not in cache:
-                    with _search_api(client, verifier):
-                        artist_payload = client.get_artist(artist["id"])
+                    artist_payload = client.get_artist(artist["id"])
                     name = artist_payload.get("name") if isinstance(artist_payload, dict) else None
                     if not isinstance(name, str) or not name.strip():
                         return None
@@ -2488,15 +2275,10 @@ def get_verified_video_metadata(
             details[f"title_{language}"] = title
             details[f"artist_{language}"] = ", ".join(localized_names)
             details[f"album_{language}"] = album_name if isinstance(album_name, str) else ""
-    except PlaybackBlocked:
-        raise
     except Exception as exc:
         raise RuntimeError(f"Unable to retrieve verified metadata for {video_id}: {exc}") from exc
 
     details["artist_ids"] = sorted(artist_ids or ())
-    details["artist_identity_complete"] = not has_partial_artists
-    if has_partial_artists:
-        details["unlinked_artist_names"] = list(partial_credits or ())
     details["artist_names_by_id"] = {
         artist_id: unique_values(names) for artist_id, names in names_by_id.items()
     }
@@ -2507,9 +2289,6 @@ def get_verified_video_metadata(
     details["title"] = details[f"title_{language}"]
     details["artist"] = details[f"artist_{language}"]
     details["album"] = details[f"album_{language}"] or details["album_ko"] or details["album_en"]
-    if has_partial_artists and not details["artist_ids"]:
-        if not reviewed_unlinked or not _music_video_candidate_matches(reviewed_unlinked, details):
-            return None
     cache[cache_key] = {"metadata": details}
     return details
 
@@ -2612,8 +2391,6 @@ def _compare_playlist_video_ids(
                     artist_identity["error"] = "artist_identity_missing"
                 author_matches = bool(
                     expected_identity and actual_identity
-                    and expected_identity.get("artist_identity_complete") is not False
-                    and actual_identity.get("artist_identity_complete") is not False
                     and expected_identity["artist_ids"]
                     and expected_identity["artist_ids"] == actual_identity["artist_ids"]
                 )
@@ -2669,22 +2446,6 @@ def _compare_playlist_video_ids(
     }
 
 
-def _compare_exact_playlist_video_ids(expected: list[str], actual: list[str]) -> dict[str, Any]:
-    """Publication targets are exact IDs; metadata similarity never grants a substitution."""
-    differences = []
-    for index in range(max(len(expected), len(actual))):
-        left = expected[index] if index < len(expected) else ""
-        right = actual[index] if index < len(actual) else ""
-        if left == right:
-            continue
-        reason = ("missing_actual_id" if not right else "missing_expected_id" if not left else
-                  "order_mismatch" if left in actual and right in expected else "unexpected_video_id")
-        differences.append({"position": index + 1, "expected_id": left, "actual_id": right,
-                            "accepted": False, "reason": reason})
-    return {"matches": expected == actual, "expected_count": len(expected),
-            "actual_count": len(actual), "differences": differences}
-
-
 def _playlist_video_ids_match(
     ytmusic: YTMusic,
     expected: list[str],
@@ -2702,14 +2463,6 @@ def _playlist_video_ids_match(
     return bool(comparison["matches"])
 
 
-class IncompletePlaylistObservation(RuntimeError):
-    """A structurally valid item snapshot disagrees with the provider's count."""
-
-    def __init__(self, message, items):
-        super().__init__(message)
-        self.items = items
-
-
 class PlaylistMutationUncertain(RuntimeError):
     """An attempted mutation lacks durable, complete acknowledgement. Never replay it."""
 
@@ -2725,49 +2478,6 @@ def _same_owned_slots(actual: list[dict[str, str]], expected: list[dict[str, str
     # An owned slot may expose a provider-substituted video ID. This proves item
     # ownership only; _compare_playlist_video_ids still decides song identity.
     return _playlist_slots(actual) == _playlist_slots(expected)
-
-
-def _playlist_item_keys(items):
-    return [(item["videoId"], item["setVideoId"]) for item in items]
-
-
-def _observe_playlist_transition(ytmusic, playlist_id, before, after, *, require_exact_ids=True):
-    """Read a successful write back; only an unchanged snapshot may lag behind it."""
-    deadline = time.monotonic() + 3
-    for attempt in range(3):
-        try:
-            actual = get_existing_playlist_items(ytmusic, playlist_id)
-        except Exception as exc:
-            cause = exc.__cause__ or exc
-            retryable = isinstance(cause, (TimeoutError, ConnectionError,
-                                           requests.exceptions.Timeout, requests.exceptions.ConnectionError))
-            if isinstance(cause, requests.exceptions.HTTPError):
-                retryable = getattr(cause.response, "status_code", None) in {429, 500, 502, 503, 504}
-            if isinstance(exc, IncompletePlaylistObservation):
-                # A count may lag a successful write, but every observed slot
-                # must still be exactly one of this operation's known states.
-                keys = _playlist_item_keys(exc.items)
-                if keys not in (_playlist_item_keys(before), _playlist_item_keys(after)):
-                    raise PlaylistMutationUncertain(
-                        "Count-inconsistent playlist exposed unknown IDs or ownership slots"
-                    ) from exc
-                retryable = True
-            if not retryable:
-                raise
-        else:
-            if _playlist_item_keys(actual) == _playlist_item_keys(after):
-                return actual
-            if not require_exact_ids and _same_owned_slots(actual, after):
-                # An add receipt still owns these exact slots. The caller must
-                # reject any substituted ID before publishing or moving them.
-                return actual
-            if _playlist_item_keys(actual) != _playlist_item_keys(before):
-                raise RuntimeError("Playlist transition exposed unexpected IDs or ownership slots")
-        delay = min(0.5 * (attempt + 1), deadline - time.monotonic())
-        if attempt == 2 or delay <= 0:
-            break
-        time.sleep(delay)
-    raise PlaylistMutationUncertain("Successful playlist mutation is not yet visible; read-only confirmation required")
 
 
 def _addition_receipts(result: Any, requested: list[str]) -> list[dict[str, str]]:
@@ -2801,16 +2511,11 @@ def _replace_playlist_contents(
     allow_duplicates: bool = False,
     remove_items: list[dict[str, str]] | None = None,
     require_exact_items: bool = False,
-    before_mutation: Any = None,
-    playability_verifier: Any = None,
-    playability_video_ids: list[str] | None = None,
 ) -> list[dict[str, str]]:
     """Mutate once per durably recorded intent; retain every acknowledged slot."""
     if len(set(target_video_ids)) != len(target_video_ids):
         raise RuntimeError("Cannot prove receipt order for duplicate requested IDs")
     expected = list(current_items)
-    verifier = _search_verifier(ytmusic, playability_verifier)
-    playback_ids = target_video_ids if playability_video_ids is None else playability_video_ids
     _playlist_slots(expected)
     selected_items = list(current_items) if remove_items is None else list(remove_items)
     selected_slots = set(_playlist_slots(selected_items))
@@ -2821,25 +2526,17 @@ def _replace_playlist_contents(
         ("add", chunked(target_video_ids, 50)),
     ):
         for chunk_order, chunk in enumerate(chunks, 1):
-            if before_mutation is not None:
-                before_mutation()
             before = get_existing_playlist_items(ytmusic, playlist_id)
             if not _same_owned_slots(before, expected):
                 raise RuntimeError("Playlist slots changed outside the audited mutation; refusing further mutation")
             if require_exact_items and before != expected:
                 raise RuntimeError("Playlist video identity changed after fallback verification")
-            if verifier is not None:
-                require_playable(verifier, playback_ids, items=before)
             items = chunk if operation == "remove" else [{"videoId": video_id} for video_id in chunk]
             intent = evidence({
                 "phase": phase, "operation": operation, "state": "intent",
                 "chunk_order": chunk_order, "attempt": 1,
                 "items": items, "before_items": before,
             })
-            # A slow durable write can exhaust the run after the snapshot check.
-            # No provider request has started, so keep PlaybackBlocked intact.
-            if verifier is not None:
-                require_playable(verifier, playback_ids, items=before)
             try:
                 if operation == "remove":
                     # Remove observed IDs for the exact audited slots, even when
@@ -2874,119 +2571,64 @@ def _replace_playlist_contents(
                 raise PlaylistMutationUncertain(
                     f"{operation} acknowledgement is uncertain; automatic retry/restore is forbidden"
                 ) from exc
-            # Commit the provider's receipt first. A delayed read must neither
-            # replay that write nor manufacture an ambiguous second receipt.
-            expected = _observe_playlist_transition(
-                ytmusic, playlist_id, before, after, require_exact_ids=False,
-            )
+            expected = after
             LOG.info("Acknowledged %s of %d playlist items", operation, len(chunk))
     return expected
 
 
-def _preserve_playlist_slots(ytmusic, playlist_id, current, requested, *, evidence,
-                             before_mutation=None, phase="publish", playability_verifier=None):
-    """Verify every added chunk before removing or moving any existing slot."""
-    if len(requested) != len(set(requested)):
-        raise RuntimeError("Cannot preserve a target with duplicate recording IDs")
-    verifier = _search_verifier(ytmusic, playability_verifier)
-    retained, removals = set(), []
-    for item in current:
-        if item["videoId"] in requested and item["videoId"] not in retained:
-            retained.add(item["videoId"])
-        else:
-            removals.append(item)
-    missing = [video_id for video_id in requested if video_id not in retained]
-    expected = list(current)
-    for chunk in chunked(missing, 50):
-        acknowledged_after = None
-
-        def addition_evidence(event):
-            nonlocal acknowledged_after
-            committed = evidence(event)
-            if event["operation"] == "add" and event["state"] == "ack":
-                acknowledged_after = event["after_items"]
-            return committed
-
-        try:
-            actual = _replace_playlist_contents(
-                ytmusic, playlist_id, expected, chunk, evidence=addition_evidence, phase=phase,
-                remove_items=[], require_exact_items=True, before_mutation=before_mutation,
-                playability_verifier=verifier, playability_video_ids=requested,
-            )
-            if acknowledged_after is None:
-                raise PlaylistMutationUncertain("Addition has no committed acknowledgement to verify")
-            if _playlist_item_keys(actual) != _playlist_item_keys(acknowledged_after):
-                comparison = _compare_exact_playlist_video_ids(
-                    [item["videoId"] for item in acknowledged_after],
-                    [item["videoId"] for item in actual],
-                )
-                evidence({
-                    "phase": phase, "operation": "observe", "state": "verified",
-                    "chunk_order": 0, "attempt": 1, "items": actual,
-                    "verification_matches": False, "identity_review_required": True,
-                    "differences": comparison["differences"],
-                })
-                raise PlaylistMutationUncertain("Added playlist items differ from their exact acknowledgement; identity review required")
-            if verifier is not None:
-                require_playable(verifier, requested, items=actual)
-        except (PlaylistMutationUncertain, PlaybackBlocked):
-            raise
-        except Exception as exc:
-            # An acknowledged tail may exist, but the original slots must not
-            # be removed by a later chunk, move, or automatic restoration.
-            raise PlaylistMutationUncertain("Added playlist items are not completely verified") from exc
-        expected = actual
+def _publish_without_unverified_substitutions(
+    ytmusic: YTMusic,
+    playlist_id: str,
+    requested: list[str],
+    actual: list[dict[str, str]],
+    comparison: dict[str, Any],
+    *,
+    evidence: Any,
+) -> tuple[list[dict[str, str]], dict[str, Any]] | None:
+    """Omit only observed bad substitutions; preserve every verified slot/order."""
+    rejected = [row for row in comparison["differences"] if not row["accepted"]]
+    allowed = {"title_mismatch", "author_mismatch", "version_mismatch", "duration_mismatch", "metadata_error"}
+    if (not rejected or len(actual) != len(requested)
+            or any(row["reason"] not in allowed for row in rejected)):
+        return None
+    positions = {row["position"] - 1 for row in rejected}
+    effective = [video_id for index, video_id in enumerate(requested) if index not in positions]
+    if not effective:
+        return None  # A total failure is not a usable partial publication.
+    excluded = [{"position": row["position"], "requested_video_id": row["expected_id"],
+                 "actual_video_id": row["actual_id"], "reason": row["reason"]} for row in rejected]
+    policy = {"publication_mode": "partial", "effective_video_ids": effective, "excluded_items": excluded}
+    fresh = get_existing_playlist_items(ytmusic, playlist_id)
+    if fresh != actual:
+        raise RuntimeError("Playlist changed after fallback planning; refusing omission")
+    # Preserve the approved reduced target before deleting anything, including
+    # when the process terminates after a deletion ACK but before finalization.
+    evidence({"phase": "publish", "operation": "observe", "state": "verified",
+              "chunk_order": 0, "attempt": 1, "items": fresh,
+              "verification_matches": False, "observation_complete": True,
+              "differences": comparison["differences"], **policy})
+    removed = [item for index, item in enumerate(fresh) if index in positions]
     expected = _replace_playlist_contents(
-        ytmusic, playlist_id, expected, [], evidence=evidence, phase=phase,
-        remove_items=removals, require_exact_items=True, before_mutation=before_mutation,
-        playability_verifier=verifier, playability_video_ids=requested,
+        ytmusic, playlist_id, fresh, [], evidence=evidence, phase="publish",
+        remove_items=removed, require_exact_items=True,
     )
-    actual_ids = [item["videoId"] for item in expected]
-    if actual_ids == requested or set(actual_ids) != set(requested):
-        # Let the caller record exact-ID rejection; never move an unexpected alias.
-        return expected
-    for index, requested_id in enumerate(requested):
-        if expected[index]["videoId"] == requested_id:
-            continue
-        if before_mutation is not None:
-            before_mutation()
-        before = get_existing_playlist_items(ytmusic, playlist_id)
-        if not _same_owned_slots(before, expected) or [v["videoId"] for v in before] != [v["videoId"] for v in expected]:
-            raise RuntimeError("Playlist changed before an owned item move")
-        if verifier is not None:
-            require_playable(verifier, requested, items=before)
-        item = next(v for v in before if v["videoId"] == requested_id)
-        target = before[index]["setVideoId"]
-        after = [v for v in before if v["setVideoId"] != item["setVideoId"]]
-        destination = next((i for i, v in enumerate(after) if v["setVideoId"] == target), len(after))
-        after.insert(destination, item)
-        if _same_owned_slots(before, after):
-            expected = before
-            continue
-        event = {"phase": phase, "operation": "move", "chunk_order": index + 1, "attempt": 1,
-                 "items": [item], "target_before_set_video_id": target, "before_items": before, "after_items": after}
-        intent = evidence({**event, "state": "intent"})
-        if verifier is not None:
-            require_playable(verifier, requested, items=before)
-        try:
-            result = ytmusic.edit_playlist(playlist_id, moveItem=(item["setVideoId"], target) if target else item["setVideoId"])
-            _require_playlist_mutation_success(result, "move")
-            actual = _observe_playlist_transition(ytmusic, playlist_id, before, after)
-            evidence({**event, "state": "ack", "intent_seq": intent["seq"], "after_items": actual})
-            expected = actual
-        except Exception as exc:
-            try:
-                evidence({**event, "state": "ambiguous", "intent_seq": intent["seq"], "error": type(exc).__name__})
-            except Exception:
-                LOG.error("Unable to record ambiguous move; durable intent remains unresolved")
-            raise PlaylistMutationUncertain("Item move has no complete durable acknowledgement") from exc
-    return expected
+    remaining = get_existing_playlist_items(ytmusic, playlist_id)
+    if remaining != expected:
+        raise RuntimeError("Partial publication differs from the acknowledged retained items")
+    verified = _compare_playlist_video_ids(ytmusic, effective, [item["videoId"] for item in remaining])
+    if not verified["matches"]:
+        raise RuntimeError("Retained playlist items failed partial-publication verification")
+    evidence({"phase": "publish", "operation": "observe", "state": "verified",
+              "chunk_order": 0, "attempt": 1, "items": remaining,
+              "verification_matches": True, "observation_complete": True,
+              "differences": comparison["differences"], **policy})
+    return remaining, verified
 
 
 def _identity_review_required(differences: list[dict[str, Any]]) -> bool:
     return any(
         not item.get("accepted") and item.get("reason") in {
-            "title_mismatch", "author_mismatch", "version_mismatch", "duration_mismatch", "unexpected_video_id",
+            "title_mismatch", "author_mismatch", "version_mismatch", "duration_mismatch",
         }
         for item in differences
     )
@@ -3003,10 +2645,7 @@ def _audit_playlist_items(items: Any) -> list[dict[str, str]]:
         slot = item.get("setVideoId") or item.get("set_video_id")
         if not isinstance(video_id, str) or not video_id or not isinstance(slot, str) or not slot:
             raise RuntimeError("Audit playlist item is missing identity/ownership fields")
-        row = {"videoId": video_id, "setVideoId": slot}
-        if isinstance(item.get("isAvailable"), bool):
-            row["isAvailable"] = item["isAvailable"]
-        normalized.append(row)
+        normalized.append({"videoId": video_id, "setVideoId": slot})
     _playlist_slots(normalized)
     return normalized
 
@@ -3021,47 +2660,16 @@ def _recoverable_playlist_items(run: dict[str, Any]) -> list[dict[str, str]]:
     expected = _audit_playlist_items(baseline)
     seen_slots = set(_playlist_slots(expected))
     pending: dict[int, dict[str, Any]] = {}
-    ambiguous_moves: set[int] = set()
     for event in payload.get("events", []):
-        observed_confirmation = event.get("reconciliation_action") == "confirm_observed_move"
-        if observed_confirmation:
-            if (event.get("phase"), event.get("operation"), event.get("state")) != ("reconcile", "observe", "verified"):
-                raise RuntimeError("Observed move confirmation must be a reconciliation observation")
-            if (len(pending) != 1 or event.get("observation_complete") is not True
-                    or event.get("verification_matches") is not True
-                    or event.get("attestation") != "workers_quiescent=true; explicit_confirmation=true"):
-                raise RuntimeError("Observed move confirmation lacks explicit complete evidence")
-            intent_seq, move = next(iter(pending.items()))
-            checks = event.get("review_checks")
-            after = _audit_playlist_items(move.get("after_items"))
-            if (move.get("operation") != "move" or not isinstance(checks, list) or len(checks) != 2
-                    or _playlist_item_keys(_audit_playlist_items(event.get("before_items"))) != _playlist_item_keys(_audit_playlist_items(move.get("before_items")))
-                    or _playlist_item_keys(_audit_playlist_items(event.get("after_items"))) != _playlist_item_keys(after)
-                    or _playlist_item_keys(_audit_playlist_items(event.get("items"))) != _playlist_item_keys(after)
-                    or any(not isinstance(check, dict) or check.get("intent_seq") != intent_seq
-                           or _playlist_item_keys(_audit_playlist_items(check.get("items"))) != _playlist_item_keys(after)
-                           for check in checks)):
-                raise RuntimeError("Observed move confirmation differs from its exact unresolved intent")
-            # This is observation-based ownership resolution, not a provider ACK.
-            # Reuse the move-order validator without changing the stored evidence.
-            event = {**move, "state": "ack", "intent_seq": intent_seq, "after_items": after}
-            ambiguous_moves.discard(intent_seq)
-        if event.get("operation") not in {"remove", "add", "move"}:
+        if event.get("operation") not in {"remove", "add"}:
             continue
         if event.get("state") == "intent":
             if pending or not _same_owned_slots(_audit_playlist_items(event.get("before_items")), expected):
                 raise RuntimeError("Mutation evidence has an unresolved or inconsistent intent")
-            if event.get("operation") == "move" and _playlist_item_keys(_audit_playlist_items(event.get("before_items"))) != _playlist_item_keys(expected):
-                raise RuntimeError("Move intent changed an owned recording identity")
             pending[event["seq"]] = event
         elif event.get("state") == "ambiguous":
-            intent = pending.get(event.get("intent_seq"))
-            if not intent or intent.get("operation") != "move" or event.get("operation") != "move" or intent.get("phase") != event.get("phase"):
-                raise RuntimeError("Mutation acknowledgement is ambiguous; manual review required")
-            ambiguous_moves.add(event["intent_seq"])
+            raise RuntimeError("Mutation acknowledgement is ambiguous; manual review required")
         elif event.get("state") == "ack":
-            if event.get("intent_seq") in ambiguous_moves:
-                raise RuntimeError("Ambiguous move requires explicit observation, not a replacement receipt")
             intent = pending.pop(event.get("intent_seq"), None)
             if not intent or intent["operation"] != event["operation"] or intent["phase"] != event["phase"]:
                 raise RuntimeError("Acknowledgement does not match its durable intent")
@@ -3071,24 +2679,6 @@ def _recoverable_playlist_items(run: dict[str, Any]) -> list[dict[str, str]]:
                     raise RuntimeError("Removal receipt does not match the requested slots")
                 removed = set(_playlist_slots(items))
                 expected = [item for item in expected if item["setVideoId"] not in removed]
-            elif event["operation"] == "move":
-                if len(items) != 1 or _playlist_slots(items) != _playlist_slots(_audit_playlist_items(intent["items"])):
-                    raise RuntimeError("Move receipt differs from its intent")
-                before = _audit_playlist_items(intent.get("before_items"))
-                after = _audit_playlist_items(event.get("after_items"))
-                moved_slot = items[0]["setVideoId"]
-                successor = intent.get("target_before_set_video_id") or ""
-                if event.get("target_before_set_video_id", "") != successor:
-                    raise RuntimeError("Move acknowledgement changed its requested successor")
-                moved = next((row for row in before if row["setVideoId"] == moved_slot), None)
-                rest = [row for row in before if row["setVideoId"] != moved_slot]
-                if not moved or successor == moved_slot or (successor and successor not in _playlist_slots(rest)):
-                    raise RuntimeError("Move intent refers to an unowned item or successor")
-                position = _playlist_slots(rest).index(successor) if successor else len(rest)
-                rest.insert(position, moved)
-                if [(v["videoId"], v["setVideoId"]) for v in rest] != [(v["videoId"], v["setVideoId"]) for v in after]:
-                    raise RuntimeError("Move acknowledgement does not apply its exact intent")
-                expected = after
             else:
                 requested = [item.get("videoId") or item.get("video_id") for item in intent["items"]]
                 validated = _addition_receipts(
@@ -3107,8 +2697,6 @@ def _recoverable_playlist_items(run: dict[str, Any]) -> list[dict[str, str]]:
                     raise RuntimeError("Receipt state is inconsistent")
                 expected = after_items
     if pending:
-        if ambiguous_moves:
-            raise RuntimeError("Mutation acknowledgement is ambiguous; manual review required")
         raise RuntimeError("Mutation was interrupted before a durable acknowledgement")
     return expected
 
@@ -3124,9 +2712,6 @@ def update_ytmusic_playlist(
     service: str = "",
     job_name: str = "",
     playlist_name: str = "",
-    playability_verifier: Any = None,
-    before_mutation: Any = None,
-    expected_before_items: list[dict[str, str]] | None = None,
 ) -> None:
     """Publish with durable item ownership; never equate recovery with song identity."""
     if not video_ids or any(not isinstance(value, str) or not value.strip() for value in video_ids):
@@ -3146,52 +2731,37 @@ def update_ytmusic_playlist(
     # Source crawl/matching has already completed. Only publication is blocked.
     pending = get_pending_playlist_recovery(db_path, playlist_id)
     if pending:
-        raise PlaylistMutationUncertain(
+        raise RuntimeError(
             f"Playlist {playlist_id} has pending recovery "
             f"(run_id={pending.get('update_run_id')}, status={pending.get('status')}, "
             f"started_at={pending.get('started_at')}); publication is blocked. "
             "Inspect this run with reconcile_playlist_update.py --run-id and --playlist-id; "
             "source collection and matching are not classified by this publication error."
         )
-    from sync_validation import PlaybackBlocked, verifier_for, require_playable
-    verifier = playability_verifier if playability_verifier is not None else verifier_for(ytmusic)
-    require_playable(verifier, video_ids)
-    if before_mutation is not None:
-        before_mutation()
     existing = get_existing_playlist_items(ytmusic, playlist_id)
     _playlist_slots(existing)
-    if expected_before_items is not None and _playlist_item_keys(existing) != _playlist_item_keys(_audit_playlist_items(expected_before_items)):
-        raise PlaybackBlocked("Playlist changed since the reviewed before-image")
     existing_ids = [item["videoId"] for item in existing]
-    initial = _compare_exact_playlist_video_ids(video_ids, existing_ids)
-    require_playable(verifier, video_ids, items=existing)
-    if before_mutation is not None:
-        before_mutation()
+    metadata_cache: dict[str, dict[str, Any]] = {}
+    initial = _compare_playlist_video_ids(ytmusic, video_ids, existing_ids, metadata_cache=metadata_cache)
     claim_token = uuid.uuid4().hex
-    try:
-        run_id = record_playlist_update(
-            db_path, playlist_id=playlist_id, service=service, job_name=job_name,
-            requested_video_ids=video_ids, existing_video_ids=existing_ids,
-            existing_items=existing, dry_run=False, claim_token=claim_token,
-        )
-    except Exception as exc:
-        raise PlaylistMutationUncertain(f"Playlist audit creation is uncertain: {exc}") from exc
+    run_id = record_playlist_update(
+        db_path, playlist_id=playlist_id, service=service, job_name=job_name,
+        requested_video_ids=video_ids, existing_video_ids=existing_ids,
+        existing_items=existing, dry_run=False, claim_token=claim_token,
+    )
     if not run_id:
-        raise PlaylistMutationUncertain("Playlist audit returned no run ID; refusing external mutation")
+        raise RuntimeError("Playlist audit returned no run ID; refusing external mutation")
 
     def evidence(event: dict[str, Any]) -> dict[str, Any]:
         return append_playlist_update_evidence(db_path, run_id, event, claim_token=claim_token)
 
     def finish(status: str, actual: list[dict[str, str]], comparison: dict[str, Any], error: str = "",
                *, observation_complete: bool = True) -> None:
-        try:
-            finish_playlist_update(
-                db_path, run_id, status=status, actual_video_ids=[item["videoId"] for item in actual],
-                actual_items=actual, observation_complete=observation_complete,
-                error=error, differences=comparison.get("differences", []), claim_token=claim_token,
-            )
-        except Exception as exc:
-            raise PlaylistMutationUncertain(f"Playlist audit completion is uncertain: {exc}") from exc
+        finish_playlist_update(
+            db_path, run_id, status=status, actual_video_ids=[item["videoId"] for item in actual],
+            actual_items=actual, observation_complete=observation_complete,
+            error=error, differences=comparison.get("differences", []), claim_token=claim_token,
+        )
 
     def observe() -> tuple[list[dict[str, str]], bool]:
         try:
@@ -3200,69 +2770,70 @@ def update_ytmusic_playlist(
             LOG.error("Final playlist observation unavailable: %s", exc)
             return [], False
 
-    def guard(target_ids=video_ids):
-        require_playable(verifier, target_ids)
-        if before_mutation is not None:
-            before_mutation()
-        observed = get_existing_playlist_items(ytmusic, playlist_id)
-        require_playable(verifier, target_ids, items=observed)
-        return observed
-
+    # Different chart editions need not match the previous list semantically.
+    # A complete audited baseline protects replacement; the new slots below
+    # receive strict verification and, when possible, per-item omission.
+    metadata_errors = [row for row in initial["differences"] if row["reason"] == "metadata_error"]
+    if len(metadata_errors) == len(video_ids) == len(existing_ids):
+        finish("verification_failed", existing, initial, "No requested item can be verified during metadata outage")
+        raise RuntimeError("All requested substitutions lack metadata; preserving the existing playlist")
+    if description or playlist_name:
+        try:
+            kwargs = {}
+            if playlist_name:
+                kwargs["title"] = playlist_name
+            if description:
+                kwargs["description"] = description
+            ytmusic.edit_playlist(playlist_id, **kwargs)
+        except Exception as exc:
+            LOG.warning("Failed to update playlist metadata: %s", exc)
+    if initial["matches"]:
+        finish("skipped_current", existing, initial)
+        LOG.info("Playlist already matches requested order; no item removal/addition.")
+        return
     try:
         current = get_existing_playlist_items(ytmusic, playlist_id)
         if current != existing:
-            raise PlaybackBlocked("Playlist changed after its full audit snapshot")
-        if guard() != existing:
-            raise PlaybackBlocked("Playlist changed before publication approval")
-        if initial["matches"]:
-            finish("skipped_current", existing, initial)
-            LOG.info("Playlist already matches requested order; no external mutation.")
-            return
-        if description or playlist_name:
-            # Snapshot/playback rejection is not a best-effort metadata failure.
-            guard()
-            try:
-                kwargs = {}
-                if playlist_name:
-                    kwargs["title"] = playlist_name
-                if description:
-                    kwargs["description"] = description
-                require_playable(verifier, video_ids)
-                _require_playlist_mutation_success(ytmusic.edit_playlist(playlist_id, **kwargs), "metadata update")
-            except PlaybackBlocked:
-                raise
-            except Exception as exc:
-                LOG.warning("Failed to update playlist metadata: %s", exc)
-                guard()
+            raise RuntimeError("Playlist changed after its full audit snapshot")
     except Exception as exc:
         actual, complete = observe()
         finish("recovery_required", actual, initial, str(exc), observation_complete=complete)
-        if isinstance(exc, (PlaybackBlocked, PlaylistMutationUncertain)):
-            raise
-        raise PlaylistMutationUncertain(str(exc)) from exc
+        raise
 
     failure: Exception | None = None
     publication_verified = False
     comparison: dict[str, Any] = {"matches": False, "differences": []}
     try:
-        expected_items = _preserve_playlist_slots(
-            ytmusic, playlist_id, current, video_ids, evidence=evidence, before_mutation=guard,
-            playability_verifier=verifier,
+        expected_items = _replace_playlist_contents(
+            ytmusic, playlist_id, current, video_ids, evidence=evidence, phase="publish",
         )
         for attempt in range(3):
             actual = get_existing_playlist_items(ytmusic, playlist_id)
             if not _same_owned_slots(actual, expected_items):
                 raise RuntimeError("Playlist item ownership/order differs from acknowledged additions")
-            comparison = _compare_exact_playlist_video_ids(video_ids, [item["videoId"] for item in actual])
+            comparison = _compare_playlist_video_ids(
+                ytmusic, video_ids, [item["videoId"] for item in actual], metadata_cache=metadata_cache,
+            )
             if comparison["matches"]:
-                require_playable(verifier, video_ids, items=actual)
-                if before_mutation is not None:
-                    before_mutation()
                 publication_verified = True
                 finish("published", actual, comparison)
                 return
             if attempt < 2:
                 time.sleep(2)
+        partial = _publish_without_unverified_substitutions(
+            ytmusic, playlist_id, video_ids, actual, comparison, evidence=evidence,
+        )
+        if partial is not None:
+            actual, verified = partial
+            publication_verified = True
+            finish("published", actual, verified)
+            LOG.warning(
+                "Partial publication completed: playlist=%s run_id=%s requested=%d published=%d omitted=%s",
+                playlist_id, run_id, len(video_ids), len(actual),
+                json.dumps([{key: row[key] for key in ("position", "expected_id", "actual_id", "reason")}
+                            for row in comparison["differences"] if not row["accepted"]], ensure_ascii=False),
+            )
+            return
         failure = RuntimeError("Playlist verification failed: " + json.dumps(comparison["differences"], ensure_ascii=False))
     except Exception as exc:
         failure = exc
@@ -3279,36 +2850,32 @@ def update_ytmusic_playlist(
     actual, complete = observe()
     # A lost response/ACK cannot be made atomic with the provider. Preserve the
     # pending intent and stop, including when the uncertain operation was restore.
-    if isinstance(failure, (PlaylistMutationUncertain, PlaybackBlocked)) or publication_verified:
+    if isinstance(failure, PlaylistMutationUncertain) or publication_verified:
         finish("recovery_required", actual, comparison, str(failure), observation_complete=complete)
         raise failure
     try:
-        # The pre-repair list may itself contain unavailable recordings.
-        # Never label reinstating that state as a verified recovery.
-        require_playable(verifier, existing_ids, items=existing)
         run = get_playlist_update_run(db_path, run_id, read_only=True)
         expected = _recoverable_playlist_items(run)
         current = get_existing_playlist_items(ytmusic, playlist_id)
         if not _same_owned_slots(current, expected):
             raise RuntimeError("Current slots are not owned by this execution; refusing destructive restore")
         # Even a same raw-ID list with new/unowned tokens must not enter this path.
-        previous = _compare_exact_playlist_video_ids(existing_ids, [item["videoId"] for item in current])
-        restore_guard = lambda: guard(existing_ids)
-        restore_guard()
+        previous = _compare_playlist_video_ids(
+            ytmusic, existing_ids, [item["videoId"] for item in current], metadata_cache=metadata_cache,
+        )
         if not previous["matches"]:
-            expected = _preserve_playlist_slots(
+            expected = _replace_playlist_contents(
                 ytmusic, playlist_id, current, existing_ids, evidence=evidence,
-                phase="restore", before_mutation=restore_guard,
-                playability_verifier=verifier,
+                phase="restore", allow_duplicates=True,
             )
             current = get_existing_playlist_items(ytmusic, playlist_id)
             if not _same_owned_slots(current, expected):
                 raise RuntimeError("Restored item ownership/order differs from durable receipts")
-            previous = _compare_exact_playlist_video_ids(existing_ids, [item["videoId"] for item in current])
+            previous = _compare_playlist_video_ids(
+                ytmusic, existing_ids, [item["videoId"] for item in current], metadata_cache=metadata_cache,
+            )
         if not previous["matches"]:
             raise RuntimeError("Restored playlist does not match the pre-update snapshot")
-        require_playable(verifier, existing_ids, items=current)
-        restore_guard()
         needs_review = _identity_review_required(comparison["differences"])
         evidence({
             "phase": "restore", "operation": "observe", "state": "verified",
@@ -3320,13 +2887,8 @@ def update_ytmusic_playlist(
         final, complete = observe()
         finish("recovery_required", final, comparison, f"{failure}; restore failed: {restore_exc}",
                observation_complete=complete)
-        if isinstance(restore_exc, (PlaybackBlocked, PlaylistMutationUncertain)):
-            raise restore_exc from failure
-        raise PlaylistMutationUncertain(f"{failure}; restore failed: {restore_exc}") from failure
-    message = f"{failure}; items restored" + ("; identity review required before republishing" if needs_review else "")
-    if needs_review:
-        raise PlaylistMutationUncertain(message) from failure
-    raise RuntimeError(message) from failure
+        raise RuntimeError(f"{failure}; restore failed: {restore_exc}") from failure
+    raise RuntimeError(f"{failure}; items restored" + ("; identity review required before republishing" if needs_review else ""))
 
 
 def write_json(path: Path, data: Any) -> None:
@@ -3334,27 +2896,27 @@ def write_json(path: Path, data: Any) -> None:
     path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
-def make_ytmusic(auth_file: str | None, client_id: str = "", client_secret: str = "", language: str = "en",
-                 *, playability_verifier: Any = None) -> YTMusic:
-    options = {"language": language}
+def make_ytmusic(auth_file: str | None, client_id: str = "", client_secret: str = "", language: str = "en") -> YTMusic:
+    yt = None
     if client_id or client_secret:
         if not client_id or not client_secret:
             raise SystemExit("Both YTMUSIC_OAUTH_CLIENT_ID and YTMUSIC_OAUTH_CLIENT_SECRET are required.")
         if OAuthCredentials is None:
             raise SystemExit("Installed ytmusicapi does not support OAuthCredentials.")
-        options["oauth_credentials"] = OAuthCredentials(client_id=client_id, client_secret=client_secret)
+        yt = YTMusic(
+            auth_file,
+            language=language,
+            oauth_credentials=OAuthCredentials(
+                client_id=client_id,
+                client_secret=client_secret,
+            ),
+        )
+    else:
+        yt = YTMusic(auth_file, language=language)
 
-    # The installed client lazily fetches its visitor ID on the first headers
-    # access (and during browser-auth construction). Bound the new session
-    # before either step; independent clients retain their usual construction.
-    holder = None
-    if playability_verifier is not None:
-        holder = SimpleNamespace(_session=requests.Session())
-        options["requests_session"] = holder._session
-    with _search_api(holder, playability_verifier) if holder is not None else nullcontext():
-        yt = YTMusic(auth_file, **options)
-        if language == "ko":
-            yt.headers.update({"Accept-Language": "ko-KR,ko;q=0.9,en-US,en;q=0.8"})
-        else:
-            yt.headers.update({"Accept-Language": "en-US,en;q=0.9"})
+    # Force headers based on language to ensure metadata matches the source chart
+    if language == "ko":
+        yt.headers.update({"Accept-Language": "ko-KR,ko;q=0.9,en-US,en;q=0.8"})
+    else:
+        yt.headers.update({"Accept-Language": "en-US,en;q=0.9"})
     return yt

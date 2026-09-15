@@ -738,71 +738,83 @@ def fetch_ytmusic_playlist_entries(ytmusic, playlist_url_or_id: str, *, limit: i
 
 
 def preflight_chart_relations(conn, entries, ytmusic, reference_period, *, dry_run=False):
-    """Observe chart relationships without mutating mappings before playback checks."""
-    from hype_db_store import consolidate_source_song_relation, manual_override, get_bulk_cached_matches
-    from sync_validation import verifier_for, PlaybackBlocked
-    from ytmusic_playlist_sync import get_verified_video_metadata
+    """Validate chart-provided official audio before consulting old video caches.
 
+    The relation selects the chart's song asset; it does not make the source MV
+    interchangeable with that audio during playlist verification.
+    """
+    from hype_db_store import (
+        record_source_song_relation, consolidate_source_song_relation, manual_override,
+    )
     resolved = {}
-    cached = get_bulk_cached_matches(conn, service="ytmusic", tracks=entries, read_only=True)
-    conn.commit()
-    verifier = verifier_for(ytmusic) if ytmusic is not None else None
-    metadata_cache = {}
     for row in entries:
         source_id = row.get("original_video_id") or row.get("song_id") or ""
         target_id = row.get("atv_external_video_id") or ""
         if row.get("source") != "youtube_charts_weekly_browse_api" or not target_id:
             continue
         if not all(re.fullmatch(r"[A-Za-z0-9_-]{11}", value) for value in (source_id, target_id)):
+            LOG.warning("Ignoring invalid Charts ATV relation for %s", source_id)
             continue
+        if not dry_run:
+            status = record_source_song_relation(
+                conn, service="ytmusic", source_song_id=source_id,
+                relation_type="youtube_charts_atv_external_video_id",
+                related_service="ytmusic", related_song_id=target_id,
+                evidence_source=row["source"], reference_period=reference_period, payload=row,
+            )
+            if status == "conflict":
+                continue
         override = manual_override(conn, "ytmusic", source_id)
-        conn.commit()
         if override:
             if override["action"] == "block":
                 resolved[source_id] = {"status": "manual_blocked"}
+            # Manual decisions always precede automatic source relationships.
             continue
-        old = cached.get(source_id, {})
-        if old.get("video_id") and verifier:
-            observation = verifier.verify(old["video_id"])
-            if observation["state"] == "playable":
-                resolved[source_id] = old
+        if not ytmusic:
+            continue
+        try:
+            payload = ytmusic.get_song(target_id)
+            details = payload.get("videoDetails") or {}
+            if (details.get("videoId") != target_id
+                    or details.get("musicVideoType") != "MUSIC_VIDEO_TYPE_ATV"
+                    or not details.get("title") or not details.get("author")
+                    or details.get("isPrivate")):
+                raise ValueError("Target metadata does not identify a public official audio resource")
+            # A Premium playback restriction is not missing song identity. We
+            # fetch metadata only; playlist verification remains a separate gate.
+            localized = resolve_bilingual_song(ytmusic, target_id)
+            target = {
+                "title": localized.get("title_en") or details["title"],
+                "artist": localized.get("artist_en") or details["author"],
+                "album": localized.get("album_en") or localized.get("album_ko") or "",
+                **localized,
+            }
+            result = consolidate_source_song_relation(
+                conn, service="ytmusic", source_song_id=source_id,
+                relation_type="youtube_charts_atv_external_video_id",
+                related_service="ytmusic", related_song_id=target_id,
+                source_row=row, related_row=target, dry_run=dry_run,
+            )
+            if result["status"] == "manual_blocked":
+                resolved[source_id] = {"status": "manual_blocked"}
                 continue
-            if observation["state"] == "unknown":
-                raise PlaybackBlocked(f"Existing chart recording is uncertain: {old['video_id']}")
-        if not verifier:
-            continue
-        observation = verifier.verify(target_id)
-        if observation["state"] == "unknown":
-            raise PlaybackBlocked(f"Chart relationship playback is uncertain: {target_id}")
-        if observation["state"] == "unavailable":
-            resolved[source_id] = {"status": "unavailable", "excluded_video_ids": [target_id]}
-            continue
-        target = get_verified_video_metadata(ytmusic, target_id, metadata_cache=metadata_cache)
-        if not target or target.get("music_video_type") != "MUSIC_VIDEO_TYPE_ATV":
-            resolved[source_id] = {"status": "failed", "excluded_video_ids": [target_id]}
-            continue
-        # Identity validation is a preview. The final caller-owned transaction
-        # records the relationship and selected match together after all checks.
-        approval = consolidate_source_song_relation(
-            conn, service="ytmusic", source_song_id=source_id,
-            relation_type="youtube_charts_atv_external_video_id",
-            related_service="ytmusic", related_song_id=target_id,
-            source_row=row, related_row=target, dry_run=True,
-        )
-        conn.commit()
-        if approval["status"] == "preserved_canonical":
-            # An unavailable old canonical may only change through the shared
-            # conditional storage decision generated by validate_matches.
-            if not old.get("video_id"):
-                resolved[source_id] = approval["match"]
+            if result["status"] not in {"linked", "already_linked", "would_link"}:
+                LOG.warning("Charts ATV relation not approved: %s -> %s (%s)",
+                            source_id, target_id, result["status"])
                 continue
-        elif approval["status"] not in {"linked", "already_linked", "would_link"}:
-            continue
-        resolved[source_id] = {
-            "video_id": target_id, "yt_title": target["title"], "yt_artist": target["artist"],
-            "yt_album": target["album"], "score": 1.0, "status": "cached_match",
-            "query": "youtube_charts_atv_external_video_id",
-        }
+            resolved[source_id] = {
+                "video_id": target_id, "yt_title": target["title"],
+                "yt_artist": target["artist"], "yt_album": target["album"],
+                "score": 1.0, "status": "cached_match",
+                "query": "youtube_charts_atv_external_video_id",
+            }
+        except (ValueError, KeyError) as exc:
+            LOG.warning("Charts ATV metadata rejected for %s -> %s: %s", source_id, target_id, exc)
+        except Exception:
+            # API/DB errors are not evidence of a different song. Abort rather
+            # than silently falling back to the stale binding being repaired.
+            LOG.exception("Charts ATV preflight failed for %s -> %s", source_id, target_id)
+            raise
     return resolved
 
 
@@ -830,7 +842,6 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--search-limit", type=int, default=10)
     p.add_argument("--resolve-threshold", type=float, default=0.86)
     p.add_argument("--db-only", action="store_true", help="Persist DB/export only and skip YouTube Music playlist updates")
-    p.add_argument("--defer-publish", action="store_true", help="Validate and save data; let the parent publish the final shared snapshot")
     p.add_argument("--no-resolve", action="store_true", help="Import chart rows without resolving chart videos through YTMusic search")
     p.add_argument("--dry-run", action="store_true")
     return p.parse_args()
@@ -838,8 +849,6 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> int:
     args = parse_args()
-    if args.defer_publish:
-        os.environ["HYPE_DEFER_HISTORY_EXPORT"] = "1"
     load_dotenv(args.env_file)
     logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s", datefmt="%Y-%m-%d %H:%M:%S")
 
@@ -1033,31 +1042,60 @@ def main() -> int:
         bilingual_cache_read_only() if args.dry_run else nullcontext(),
         connect(db_path, read_only=args.dry_run) as conn,
     ):
-        from sync_validation import verifier_for, playable_cache, validate_matches
-        verifier = verifier_for(ytmusic) if ytmusic else None
+        # Persist raw crawled tracks to playlist_order immediately (if not dry-run)
         reference_period = fetched_reference_period or reference_period_for_date(args.job_name, chart_period_end)
-        raw_tracks = []
-        for row in entries:
-            song_id = row.get("original_video_id") or ""
-            raw_tracks.append({
-                "rank": row.get("rank"),
-                "service": "ytmusic",
-                "song_id": song_id,
-                "title": row.get("original_title") or "",
-                "artist": row.get("original_artist_or_channel") or "",
-                "album": row.get("album") or "",
-                "source": row.get("source", "youtube_music_playlist"),
-                "title_en": row.get("title_en", ""),
-                "artist_en": row.get("artist_en", ""),
-                "album_en": row.get("album_en", ""),
-                "title_ko": row.get("title_ko", ""),
-                "artist_ko": row.get("artist_ko", ""),
-                "album_ko": row.get("album_ko", ""),
-                "artwork_url": row.get("artwork_url", ""),
-            })
+        if not args.dry_run:
+            try:
+                raw_tracks = []
+                for row in entries:
+                    song_id = row.get("original_video_id") or ""
+                    raw_tracks.append({
+                        "rank": row.get("rank"),
+                        "service": "ytmusic",
+                        "song_id": song_id,
+                        "title": row.get("original_title") or "",
+                        "artist": row.get("original_artist_or_channel") or "",
+                        "album": row.get("album") or "",
+                        "source": row.get("source", "youtube_music_playlist"),
+                        "title_en": row.get("title_en", ""),
+                        "artist_en": row.get("artist_en", ""),
+                        "album_en": row.get("album_en", ""),
+                        "title_ko": row.get("title_ko", ""),
+                        "artist_ko": row.get("artist_ko", ""),
+                        "album_ko": row.get("album_ko", ""),
+                        "artwork_url": row.get("artwork_url", ""),
+                    })
+                persist_crawled_tracks(
+                    db_path,
+                    service="ytmusic",
+                    job_name=args.job_name,
+                    source_variant="default",
+                    chart_date=chart_period_end,
+                    reference_period=reference_period,
+                    tracks=raw_tracks,
+                    conn=conn,
+                    commit=False,
+                )
+                if use_youtube_charts and chart_entries:
+                    record_chart_source_audit(
+                        conn,
+                        job_name=args.job_name,
+                        expected=fetched_expected_period,
+                        fetched_chart_period_start=fetched_chart_period_start,
+                        fetched_chart_period_end=fetched_chart_period_end,
+                        status="published",
+                        entry_count=len(chart_entries),
+                        source=str(chart_entries[0].get("source") or "youtube_charts_weekly"),
+                        message="YouTube Charts weekly chart fetched.",
+                    )
+                conn.commit()
+                LOG.info("Persisted raw chart order for %s to playlist_order table.", args.job_name)
+            except Exception as exc:
+                LOG.error("Failed to persist raw chart order to DB: %s", exc)
+                raise exc
 
-        # Validate official relationships while preserving verified recordings.
-        # The raw chart's IDs and rank slots remain unchanged.
+        # Preserve official relationships and repair identities before old caches
+        # can hide them. The raw chart's IDs and rank slots remain unchanged.
         relation_cache = preflight_chart_relations(
             conn, effective_entries, ytmusic if not args.no_resolve else None,
             reference_period, dry_run=args.dry_run,
@@ -1066,21 +1104,15 @@ def main() -> int:
         bulk_cache = load_verified_matching_cache(
             conn, service="ytmusic", tracks=effective_entries,
             ytmusic=None if args.no_resolve else ytmusic,
-            read_only=True,
+            read_only=args.dry_run,
         )
         # A manual decision may have changed while metadata was fetched.
-        for song_id, cached in relation_cache.items():
-            existing = bulk_cache.get(song_id, {})
-            if existing.get("status") in {"manual_blocked", "manual_override"} or existing.get("manual_action"):
-                continue
-            excluded = cached.get("excluded_video_ids", [])
-            if excluded and existing.get("video_id") and existing["video_id"] not in excluded:
-                continue
-            bulk_cache[song_id] = cached
+        bulk_cache.update({
+            song_id: cached for song_id, cached in relation_cache.items()
+            if bulk_cache.get(song_id, {}).get("status") not in {"manual_blocked", "manual_override"}
+            and not bulk_cache.get(song_id, {}).get("manual_action")
+        })
         conn.commit()
-
-        if verifier is not None:
-            bulk_cache = playable_cache(bulk_cache, verifier)
 
         resolved_rows: list[dict[str, Any]] = []
         video_ids: list[str] = []
@@ -1167,8 +1199,6 @@ def main() -> int:
                 duration_seconds=int(row.get("duration_seconds_original") or 0),
                 threshold=args.resolve_threshold,
                 search_limit=args.search_limit,
-                excluded_video_ids=set(relation_cache.get(original_id, {}).get("excluded_video_ids", [])) | set((cached or {}).get("excluded_video_ids", [])),
-                playability_verifier=verifier,
             )
             out = {**row, **resolution, "duration_seconds_resolved": 0}
             if not out.get("resolved_title") and out.get("resolved_video_id") == original_id:
@@ -1204,76 +1234,52 @@ def main() -> int:
         playlist_name = args.playlist_name or args.job_name
         from hype_db import reference_period_for_date
         reference_period = reference_period_for_date(args.job_name, chart_date)
-        tracks = []
-        matches = []
-        for row in resolved_rows:
-            song_id = row.get("original_video_id") or row.get("resolved_video_id") or ""
-            tracks.append({
-                "rank": row.get("rank"),
-                "service": "ytmusic",
-                "song_id": song_id,
-                "title": row.get("original_title") or row.get("resolved_title") or "",
-                "artist": row.get("original_artist_or_channel") or row.get("resolved_artist") or "",
-                "album": (row.get("album", "") if row.get("source") == "youtube_charts_weekly_browse_api"
-                          else row.get("album") or row.get("resolved_album", "")),
-                "source": row.get("source", "youtube_music_playlist"),
-                "title_en": row.get("title_en", ""),
-                "artist_en": row.get("artist_en", ""),
-                "album_en": row.get("album_en", ""),
-                "title_ko": row.get("title_ko", ""),
-                "artist_ko": row.get("artist_ko", ""),
-                "album_ko": row.get("album_ko", ""),
-                "artwork_url": row.get("artwork_url", ""),
-            })
-            matches.append({
-                "rank": row.get("rank"),
-                "service": "ytmusic",
-                "song_id": song_id,
-                "title": row.get("original_title") or row.get("resolved_title") or "",
-                "artist": row.get("original_artist_or_channel") or row.get("resolved_artist") or "",
-                "album": (row.get("album", "") if row.get("source") == "youtube_charts_weekly_browse_api"
-                          else row.get("album") or row.get("resolved_album", "")),
-                "title_en": row.get("title_en", ""),
-                "artist_en": row.get("artist_en", ""),
-                "album_en": row.get("album_en", ""),
-                "title_ko": row.get("title_ko", ""),
-                "artist_ko": row.get("artist_ko", ""),
-                "album_ko": row.get("album_ko", ""),
-                "artwork_url": row.get("artwork_url", ""),
-                "video_id": (row.get("resolved_video_id") or "") if row.get("mapping_status") in ACCEPTED_MAPPING_STATUSES else "",
-                "yt_title": row.get("resolved_title") or row.get("original_title") or "",
-                "yt_artist": row.get("resolved_artist") or row.get("original_artist_or_channel") or "",
-                "yt_album": row.get("resolved_album") or row.get("album", ""),
-                "score": row.get("mapping_score", 1.0),
-                "status": ("manual_override" if row.get("mapping_status") == "manual_override" else
-                           "matched" if row.get("mapping_status") in ACCEPTED_MAPPING_STATUSES else row.get("mapping_status", "failed")),
-                "query": row.get("mapping_reason", "ytmusic_chart"),
-            })
-        if verifier is None:
-            raise RuntimeError("Playback validation requires an authenticated client")
-        matches = validate_matches(conn, service="ytmusic", sources=tracks, matches=matches,
-                                   client=ytmusic, verifier=verifier)
-        video_ids = list(dict.fromkeys(m["video_id"] for m in matches if m.get("video_id")))
         if not args.dry_run:
             try:
-                from hype_db_store import record_source_song_relation
-                persist_crawled_tracks(
-                    db_path, service="ytmusic", job_name=args.job_name, source_variant="default",
-                    chart_date=chart_date, reference_period=reference_period, tracks=raw_tracks,
-                    conn=conn, commit=False,
-                )
-                for row in effective_entries:
-                    source_id = row.get("original_video_id") or ""
-                    target_id = row.get("atv_external_video_id") or ""
-                    if row.get("source") == "youtube_charts_weekly_browse_api" and all(
-                        re.fullmatch(r"[A-Za-z0-9_-]{11}", value) for value in (source_id, target_id)
-                    ):
-                        record_source_song_relation(
-                            conn, service="ytmusic", source_song_id=source_id,
-                            relation_type="youtube_charts_atv_external_video_id", related_service="ytmusic",
-                            related_song_id=target_id, evidence_source=row["source"],
-                            reference_period=reference_period, payload=row,
-                        )
+                tracks = []
+                matches = []
+                for row in resolved_rows:
+                    song_id = row.get("original_video_id") or row.get("resolved_video_id") or ""
+                    tracks.append({
+                        "rank": row.get("rank"),
+                        "service": "ytmusic",
+                        "song_id": song_id,
+                        "title": row.get("original_title") or row.get("resolved_title") or "",
+                        "artist": row.get("original_artist_or_channel") or row.get("resolved_artist") or "",
+                        "album": (row.get("album", "") if row.get("source") == "youtube_charts_weekly_browse_api"
+                                  else row.get("album") or row.get("resolved_album", "")),
+                        "source": row.get("source", "youtube_music_playlist"),
+                        "title_en": row.get("title_en", ""),
+                        "artist_en": row.get("artist_en", ""),
+                        "album_en": row.get("album_en", ""),
+                        "title_ko": row.get("title_ko", ""),
+                        "artist_ko": row.get("artist_ko", ""),
+                        "album_ko": row.get("album_ko", ""),
+                        "artwork_url": row.get("artwork_url", ""),
+                    })
+                    matches.append({
+                        "rank": row.get("rank"),
+                        "service": "ytmusic",
+                        "song_id": song_id,
+                        "title": row.get("original_title") or row.get("resolved_title") or "",
+                        "artist": row.get("original_artist_or_channel") or row.get("resolved_artist") or "",
+                        "album": (row.get("album", "") if row.get("source") == "youtube_charts_weekly_browse_api"
+                                  else row.get("album") or row.get("resolved_album", "")),
+                        "title_en": row.get("title_en", ""),
+                        "artist_en": row.get("artist_en", ""),
+                        "album_en": row.get("album_en", ""),
+                        "title_ko": row.get("title_ko", ""),
+                        "artist_ko": row.get("artist_ko", ""),
+                        "album_ko": row.get("album_ko", ""),
+                        "artwork_url": row.get("artwork_url", ""),
+                        "video_id": (row.get("resolved_video_id") or "") if row.get("mapping_status") in ACCEPTED_MAPPING_STATUSES else "",
+                        "yt_title": row.get("resolved_title") or row.get("original_title") or "",
+                        "yt_artist": row.get("resolved_artist") or row.get("original_artist_or_channel") or "",
+                        "yt_album": row.get("resolved_album") or row.get("album", ""),
+                        "score": row.get("mapping_score", 1.0),
+                        "status": "matched" if row.get("mapping_status") in ACCEPTED_MAPPING_STATUSES else row.get("mapping_status", "failed"),
+                        "query": row.get("mapping_reason", "ytmusic_chart"),
+                    })
                 persist_crawl_run(
                     db_path,
                     service="ytmusic",
@@ -1286,24 +1292,14 @@ def main() -> int:
                     matches=matches,
                     conn=conn,
                     skip_playlist_order=True,
-                    commit=False,
                 )
-                if use_youtube_charts and chart_entries:
-                    record_chart_source_audit(
-                        conn, job_name=args.job_name, expected=fetched_expected_period,
-                        fetched_chart_period_start=fetched_chart_period_start,
-                        fetched_chart_period_end=fetched_chart_period_end, status="published",
-                        entry_count=len(chart_entries), source=chart_entries[0].get("source", "youtube_charts_weekly"),
-                        message="YouTube Charts source and matching validated together.",
-                    )
-                conn.commit()
                 if os.environ.get("HYPE_DEFER_HISTORY_EXPORT") not in {"1", "true", "TRUE"}:
                     export_frontend_history(db_path, args.history_json)
             except Exception as exc:
                 LOG.error("Failed to persist YouTube Music chart run to DB: %s", exc)
                 raise
 
-    if args.db_only or args.defer_publish:
+    if args.db_only:
         LOG.info("Skipped YouTube Music playlist update because --db-only is set")
         LOG.info("Done. db_only=%s dry_run=%s audit=%s", args.db_only, args.dry_run, audit)
         return 0
@@ -1329,9 +1325,8 @@ def main() -> int:
 
 
 if __name__ == "__main__":
-    from sync_validation import run_locked_cli
     try:
-        raise SystemExit(run_locked_cli(main))
+        raise SystemExit(main())
     except KeyboardInterrupt:
         print("Interrupted", file=sys.stderr)
         raise SystemExit(130)

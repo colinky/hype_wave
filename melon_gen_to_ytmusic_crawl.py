@@ -367,7 +367,6 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--search-limit", type=int, default=DEFAULT_SEARCH_LIMIT)
     parser.add_argument("--album-cache-ttl", type=int, default=31, help="TTL in days for album name cache")
     parser.add_argument("--shuffle", action="store_true", help="Shuffle the tracks before saving them to the YouTube Music playlist")
-    parser.add_argument("--defer-publish", action="store_true", help="Match, validate, and persist tracks without updating the target playlist")
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--db-only", action="store_true", help="Only parse and save raw tracks to DB, skip matching and playlist updates")
     return parser.parse_args()
@@ -437,9 +436,8 @@ def main() -> int:
                 else:
                     time.sleep(2)
 
-    # Raw-only collection deliberately bypasses matching; normal runs save all
-    # variants together through the shared pipeline after validation succeeds.
-    if args.db_only and not args.dry_run:
+    # Persist raw crawled tracks for split gen10/gen20 immediately to playlist_order
+    if not args.dry_run:
         try:
             from hype_db import persist_crawled_tracks
             job_name = args.job_name or "Gen-Z-Daily"
@@ -492,12 +490,6 @@ def main() -> int:
     args.job_name = args.job_name or "Gen-Z-Daily"
     args.playlist_name = args.playlist_name or "mel_zdc_to_ytm"
     chart_date = args.chart_date or datetime.now(timezone.utc).astimezone(timezone(timedelta(hours=9))).strftime("%Y-%m-%d")
-    extra_raw_snapshots = [
-        {"source_variant": source_variant, "chart_date": chart_date,
-         "reference_period": chart_date, "tracks": gen_tracks_map[gen_id]}
-        for gen_id, source_variant in ((1, "gen10"), (2, "gen20"))
-        if gen_tracks_map.get(gen_id)
-    ]
     result = run_tracks_pipeline(
         args,
         all_tracks,
@@ -505,15 +497,35 @@ def main() -> int:
         log_prefix="melon_gen",
         empty_message="No tracks collected from any of the provided Melon generation charts.",
         reference_period=chart_date,
-        extra_raw_snapshots=extra_raw_snapshots,
     )
+    if result == 0 and not args.no_db_cache and not args.dry_run:
+        try:
+            from hype_db import export_frontend_history, persist_crawled_tracks
+
+            job_name = args.job_name or "mel_zdc_to_ytm"
+            for gen_id, source_variant in ((1, "gen10"), (2, "gen20")):
+                tracks = gen_tracks_map.get(gen_id, [])
+                if not tracks:
+                    continue
+                persist_crawled_tracks(
+                    args.db_path,
+                    service="melon",
+                    job_name=job_name,
+                    source_variant=source_variant,
+                    chart_date=chart_date,
+                    reference_period=chart_date,
+                    tracks=tracks,
+                )
+            if os.environ.get("HYPE_DEFER_HISTORY_EXPORT") not in {"1", "true", "TRUE"}:
+                export_frontend_history(args.db_path, args.history_json)
+        except Exception as exc:
+            LOG.warning("Failed to persist split Melon Gen-Z order to DB: %s", exc)
     return result
 
 
 if __name__ == "__main__":
-    from sync_validation import run_locked_cli
     try:
-        raise SystemExit(run_locked_cli(main))
+        raise SystemExit(main())
     except KeyboardInterrupt:
         print("Interrupted", file=sys.stderr)
         raise SystemExit(130)

@@ -58,8 +58,10 @@ def load_album_cache(db_path: Path, ttl_days: int = DEFAULT_ALBUM_CACHE_TTL, *, 
     """앨범명 캐시를 DB에서 로드합니다."""
     if db_path and (db_path.exists() or os.environ.get("SUPABASE_DB_URL")):
         try:
-            from hype_db import connect
-            with connect(db_path, read_only=True) as conn:
+            from hype_db import connect, init_db
+            if not read_only:
+                init_db(db_path)
+            with connect(db_path, read_only=read_only) as conn:
                 rows = conn.execute(
                     "SELECT album_id, album_name, created_at, last_checked FROM album_metadata WHERE service = 'melon'"
                 ).fetchall()
@@ -79,7 +81,8 @@ def save_album_cache(db_path: Path):
     """현재 메모리의 캐시를 DB로 저장합니다."""
     if db_path and (db_path.exists() or os.environ.get("SUPABASE_DB_URL")) and _ALBUM_NAME_CACHE:
         try:
-            from hype_db import connect, utc_now_iso
+            from hype_db import connect, init_db, utc_now_iso
+            init_db(db_path)
             now = utc_now_iso()
             params = [
                 (
@@ -295,7 +298,6 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--search-limit", type=int, default=DEFAULT_SEARCH_LIMIT)
     parser.add_argument("--album-cache-ttl", type=int, default=DEFAULT_ALBUM_CACHE_TTL, help="TTL in days for album name cache")
     parser.add_argument("--shuffle", action="store_true", help="Shuffle the tracks before saving them to the YouTube Music playlist")
-    parser.add_argument("--defer-publish", action="store_true", help="Match, validate, and persist tracks without updating the target playlist")
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--db-only", action="store_true", help="Only parse and save raw tracks to DB, skip matching and playlist updates")
     return parser.parse_args()
@@ -337,7 +339,6 @@ def run_tracks_pipeline(
     log_prefix: str = "melon",
     empty_message: str = "No tracks collected from any of the provided URLs.",
     reference_period: str | None = None,
-    extra_raw_snapshots: list[dict[str, Any]] | None = None,
 ) -> int:
     """Run the shared Melon -> YouTube Music matching and sync pipeline.
 
@@ -351,10 +352,7 @@ def run_tracks_pipeline(
     yt_oauth_client_secret = args.yt_oauth_client_secret or os.environ.get(
         "YTMUSIC_OAUTH_CLIENT_SECRET", ""
     )
-    yt_playlist_id = env_or_arg(
-        args.yt_playlist_id, "YTMUSIC_PLAYLIST_ID",
-        required=not (getattr(args, "db_only", False) or getattr(args, "defer_publish", False)),
-    )
+    yt_playlist_id = env_or_arg(args.yt_playlist_id, "YTMUSIC_PLAYLIST_ID", required=not getattr(args, "db_only", False))
     job_name = getattr(args, "job_name", None) or "melon"
     playlist_name = getattr(args, "playlist_name", None) or job_name
     source_variant = getattr(args, "source_variant", "default")
@@ -432,12 +430,7 @@ def run_tracks_pipeline(
         dry_run=args.dry_run,
         history_json=args.history_json,
         reference_period=reference_period,
-        extra_raw_snapshots=extra_raw_snapshots,
     )
-    if getattr(args, "defer_publish", False):
-        LOG.info("Publication deferred; matching, validation, and persistence completed for %s.", job_name)
-        return 0
-
     if args.shuffle:
         LOG.info("Shuffling %d tracks before saving to playlist.", len(matched_video_ids))
         random.shuffle(matched_video_ids)
@@ -531,9 +524,8 @@ def main() -> int:
 
 
 if __name__ == "__main__":
-    from sync_validation import run_locked_cli
     try:
-        raise SystemExit(run_locked_cli(main))
+        raise SystemExit(main())
     except KeyboardInterrupt:
         print("Interrupted", file=sys.stderr)
         raise SystemExit(130)

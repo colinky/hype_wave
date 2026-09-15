@@ -46,88 +46,18 @@ def load_verified_matching_cache(
         read_only=True,
     )
     conn.commit()
-    if ytmusic is None:
+    if not pending:
         return cached
 
-    if pending:
-        metadata_cache: dict[str, Any] = {}
-        resolved = {
-            video_id: get_verified_video_metadata(ytmusic, video_id, metadata_cache=metadata_cache)
-            for video_id in pending
-        }
-        cached = get_bulk_cached_matches(
-            conn, service=service, tracks=tracks,
-            metadata_resolver=resolved.get, read_only=read_only,
-        )
-
-    from hype_db_common import normalized_service, normalize_song_id, row_dict
-    from hype_db_store import manual_override
-    from sync_validation import PlaybackBlocked, require_playable, validate_matches, verifier_for
-    from ytmusic_playlist_sync import ALIASES, normalize_text
-
-    service = normalized_service(service)
-    aliases = dict(ALIASES.overrides)
-    missing = [row_dict(row) for row in tracks if normalize_song_id(service, row_dict(row)) not in cached]
-    if not missing:
-        return cached
-
-    def binding(song_id):
-        row = conn.execute(
-            "SELECT t.* FROM platform_song_ids p JOIN tracks t ON t.track_uid=p.track_uid "
-            "WHERE p.service=? AND p.song_id=?", (service, song_id),
-        ).fetchone()
-        return dict(row) if row else {}
-
-    candidates, before = [], {}
-    for source in missing:
-        song_id = normalize_song_id(service, source)
-        # A manual choice takes precedence even when its target is not cached.
-        if manual_override(conn, service, song_id) or any(
-            aliases.get("|".join(normalize_text(source.get(field + suffix) or "")
-                                for field in ("title", "artist")))
-            for suffix in ("", "_ko", "_en")
-        ):
-            continue
-        prior = binding(song_id)
-        if prior.get("canonical_yt_video_id"):
-            before[song_id] = (prior["track_uid"], prior["canonical_yt_video_id"])
-            candidates.append({**source, "song_id": song_id, "track_uid": prior["track_uid"],
-                               "video_id": prior["canonical_yt_video_id"], "status": "cached_match",
-                               "score": float(prior.get("best_score") or 0),
-                               "query": "db_cache:validated_current_binding",
-                               "cache_origin": "validated_current_binding"})
-    conn.commit()
-    if not candidates:
-        return cached
-    verifier = verifier_for(ytmusic)
-    require_playable(verifier, [])
-    healthy = []
-    for candidate in candidates:
-        video_id = candidate["video_id"]
-        observed = verifier.verify(video_id)
-        if observed.get("state") == "unavailable":
-            cached[candidate["song_id"]] = {"status": "unavailable", "excluded_video_ids": [video_id]}
-        elif observed.get("state") == "playable":
-            healthy.append(candidate)
-        else:
-            raise PlaybackBlocked(f"Existing recording is uncertain: {video_id}")
-    if healthy:
-        # Legacy cross-source string comparisons may miss reviewed locales or
-        # releases. Only fresh exact metadata, playback and the complete normal
-        # validator can promote this already-bound ID; stored text is no proof.
-        validated = validate_matches(conn, service=service, sources=missing, matches=healthy,
-                                     client=ytmusic, verifier=verifier)
-        for match in validated:
-            cached[match["song_id"]] = match
-    conn.commit()
-    for song_id, expected in before.items():
-        current = binding(song_id)
-        if (current.get("track_uid"), current.get("canonical_yt_video_id")) != expected:
-            raise PlaybackBlocked(f"Existing binding changed during cache validation: {service}:{song_id}")
-        if manual_override(conn, service, song_id) or ALIASES.overrides != aliases:
-            raise PlaybackBlocked(f"Manual policy changed during cache validation: {service}:{song_id}")
-    conn.commit()
-    return cached
+    metadata_cache: dict[str, Any] = {}
+    resolved = {
+        video_id: get_verified_video_metadata(ytmusic, video_id, metadata_cache=metadata_cache)
+        for video_id in pending
+    }
+    return get_bulk_cached_matches(
+        conn, service=service, tracks=tracks,
+        metadata_resolver=resolved.get, read_only=read_only,
+    )
 
 
 def process_matching_pipeline(
@@ -151,16 +81,11 @@ def process_matching_pipeline(
     history_json: str = "docs/api/history.json",
     reference_period: str | None = None,
     chart_period: str | None = None,
-    extra_raw_snapshots: list[dict[str, Any]] | None = None,
 ) -> list[str]:
     """
     공통 매칭 파이프라인: 캐시 조회, 검색, 중복 체크, DB 저장 및 플레이리스트 업데이트용 비디오 ID 목록 반환.
     """
     from hype_db import connect, persist_crawled_tracks, persist_crawl_run, export_frontend_history
-    from sync_validation import verifier_for, playable_cache, validate_matches
-
-    verifier = verifier_for(ytmusic)
-    verifier.check_health()
 
     if tracks_ko_map is None:
         tracks_ko_map = {}
@@ -191,6 +116,25 @@ def process_matching_pipeline(
         bilingual_cache_read_only() if dry_run else nullcontext(),
         connect(db_path, read_only=dry_run) as conn,
     ):
+        if not dry_run:
+            try:
+                persist_crawled_tracks(
+                    db_path,
+                    service=service,
+                    job_name=job_name,
+                    source_variant=source_variant,
+                    chart_date=update_date_str,
+                    reference_period=reference_period or chart_period,
+                    tracks=[localized_row(track) for track in raw_tracks],
+                    conn=conn,
+                    commit=False,
+                )
+                conn.commit()
+                LOG.info("Persisted raw chart order for %s to playlist_order table.", job_name)
+            except Exception as exc:
+                LOG.error("Failed to persist raw chart order to DB: %s", exc)
+                raise exc
+
         # Pre-populate cache in bulk
         bulk_cache = {}
         try:
@@ -199,14 +143,13 @@ def process_matching_pipeline(
                 service=service,
                 tracks=[localized_row(track) for track in all_tracks],
                 ytmusic=None if no_db_cache else ytmusic,
-                read_only=True,
+                read_only=dry_run,
             )
             if no_db_cache:
                 # Disabling automatic cache reuse must not disable manual policy.
                 bulk_cache = {key: value for key, value in bulk_cache.items()
                               if value.get("status") in {"manual_blocked", "manual_override"}}
             conn.commit()
-            bulk_cache = playable_cache(bulk_cache, verifier)
         except Exception as exc:
             conn.rollback()
             raise RuntimeError("Unable to load matching cache/manual policy safely") from exc
@@ -247,8 +190,6 @@ def process_matching_pipeline(
                     min_title_score=min_title_score,
                     min_artist_score=min_artist_score,
                     limit=search_limit,
-                    excluded_video_ids=set((cached or {}).get("excluded_video_ids", [])),
-                    playability_verifier=verifier,
                 )
                 did_search = True
 
@@ -278,10 +219,10 @@ def process_matching_pipeline(
             if did_search:
                 time.sleep(0.2)
 
-        matches = validate_matches(conn, service=service, sources=[localized_row(track) for track in all_tracks],
-                                   matches=matches, client=ytmusic, verifier=verifier)
-        matched_video_ids = list(dict.fromkeys(match["video_id"] for match in matches if match.get("video_id")))
-        failed = [match for match in matches if not match.get("video_id")]
+        matched_video_ids = list(
+            dict.fromkeys(match.video_id for match in matches if match.video_id)
+        )
+        failed = [match for match in matches if not match.video_id]
         LOG.info(
             "Matched %d/%d source tracks. Failed %d; unique playlist items %d.",
             len(matches) - len(failed),
@@ -293,18 +234,6 @@ def process_matching_pipeline(
         # 6. Database Persistence & Exporter
         if not dry_run:
             try:
-                for snapshot in extra_raw_snapshots or ():
-                    persist_crawled_tracks(
-                        db_path, service=service, job_name=job_name,
-                        source_variant=snapshot["source_variant"], chart_date=snapshot["chart_date"],
-                        reference_period=snapshot["reference_period"], tracks=snapshot["tracks"],
-                        conn=conn, commit=False,
-                    )
-                persist_crawled_tracks(
-                    db_path, service=service, job_name=job_name, source_variant=source_variant,
-                    chart_date=update_date_str, reference_period=reference_period or chart_period,
-                    tracks=[localized_row(track) for track in raw_tracks], conn=conn, commit=False,
-                )
                 persist_crawl_run(
                     db_path,
                     service=service,
@@ -317,9 +246,7 @@ def process_matching_pipeline(
                     matches=matches,
                     conn=conn,
                     skip_playlist_order=True,
-                    commit=False,
                 )
-                conn.commit()
                 if os.environ.get("HYPE_DEFER_HISTORY_EXPORT") not in {"1", "true", "TRUE"}:
                     export_frontend_history(db_path, history_json)
             except Exception as exc:

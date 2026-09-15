@@ -13,7 +13,6 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from ytmusic_playlist_sync import (
-    PlaylistMutationUncertain,
     make_ytmusic,
     update_ytmusic_playlist,
 )
@@ -38,15 +37,6 @@ def parse_history_date(value: str) -> str:
         raise argparse.ArgumentTypeError("history date must use YYYY-MM-DD") from exc
 
 
-def playlist_description(report: list[dict], history_date: str) -> str:
-    updated = datetime.now(timezone.utc).astimezone(timezone(timedelta(hours=9))).strftime("%Y-%m-%d")
-    lines = ["Hype Wave Daily", "Based on Apple Music, Melon, and YT Music charts.",
-             "", f"Chart date: {history_date}", "", "Top 3 Hype Now:"]
-    lines.extend(f"{i}. {row['title']} - {row['artist']} (Index: {int(row.get('hype_index', 0))})"
-                 for i, row in enumerate(report[:3], 1))
-    return "\n".join([*lines, "", f"Last updated: {updated}", "- colinky.github.io/hype_wave"])
-
-
 def main() -> int:
     parser = argparse.ArgumentParser(description="Generate Hypex aggregated playlist.")
     parser.add_argument("--db-path", default="hype_wave_data.db")
@@ -62,10 +52,11 @@ def main() -> int:
         help="Generate a specific historical Hype Wave date instead of the latest date",
     )
     parser.add_argument("--dry-run", action="store_true")
-    parser.add_argument("--defer-publish", action="store_true", help="Calculate without publishing or exporting history")
     args = parser.parse_args()
 
     db_path = Path(args.db_path).expanduser()
+    
+    kst_now = datetime.now(timezone.utc).astimezone(timezone(timedelta(hours=9)))
 
     # DB source of truth만 사용합니다.
     if not os.environ.get("SUPABASE_DB_URL") and not db_path.exists():
@@ -77,21 +68,19 @@ def main() -> int:
             compact_frontend_history,
             export_frontend_history,
             hype_inputs,
+            hype_report_for_date,
             init_db,
             latest_hype_history_date,
+            previous_apple_videos_for_history,
             validate_frontend_history,
         )
         if args.limit <= 0:
             raise ValueError("Hype playlist limit must be positive")
-        if not os.environ.get("SUPABASE_DB_URL") and not args.dry_run and not db_path.exists():
-            init_db(db_path, repair_source_bindings=False)
-        report = []
-        from sync_validation import freeze_outputs, assert_no_active_repair
-        tasks = [{"service": "hypex", "job_name": args.job_name, "target_id": args.yt_playlist_id,
-                  "playlist_name": args.playlist_name, "entity_limit": args.limit}]
+        if not os.environ.get("SUPABASE_DB_URL") and not args.dry_run:
+            init_db(db_path)
+        hype_results = []
         history_date = args.history_date
-        with connect(db_path, read_only=True) as conn:
-            assert_no_active_repair(conn)
+        with connect(db_path, read_only=args.dry_run) as conn:
             apple_jobs = [
                 name for name, item in hype_inputs().items()
                 if item.get("hype_group") == "apple"
@@ -131,72 +120,74 @@ def main() -> int:
             if history_date is None:
                 history_date = latest_hype_history_date(conn)
             if history_date:
-                snapshot = freeze_outputs(conn, tasks, history_date=history_date)
-                report = snapshot["report"]
+                previous_apple_videos = previous_apple_videos_for_history(conn, {}, history_date)
+                report = hype_report_for_date(conn, history_date, previous_apple_videos=previous_apple_videos)
                 validate_frontend_history(compact_frontend_history({history_date: report}), history_date)
-        if not report:
+                hype_results = [
+                    (row["video_id"], {"metadata": row, "score": row.get("hype_index", 0), "ranks": {
+                        "Apple-Hype-Input": row.get("apple_rank") or 101,
+                        "Melon-Gen-Z": row.get("melon_genz_rank") or 101,
+                        "YTMusic-Weekly": row.get("ytmusic_rank") or 101,
+                    }})
+                    for row in report
+                ]
+        if not hype_results:
             raise RuntimeError("No songs found to aggregate")
     except Exception as exc:
         LOG.error("DB hype calculation failed: %s", exc)
         return EXIT_CALCULATION_FAILED
 
-    video_ids = snapshot["outputs"][0]["video_ids"]
-    LOG.info("Aggregated %s songs for Hypex playlist.", len(video_ids))
-    if args.dry_run or args.defer_publish:
-        LOG.info("Calculation completed; playlist and history publication are deferred.")
+    top_songs = hype_results[:args.limit]
+    video_ids = [vid for vid, stats in top_songs]
+    
+    # Prepare description
+    update_date_str = kst_now.strftime("%Y-%m-%d")
+    
+    desc = "Hype Wave Daily\n"
+    desc += "Based on Apple Music, Melon, and YT Music charts.\n\n"
+    desc += f"Chart date: {history_date}\n\n"
+    desc += "Top 3 Hype Now:\n"
+    for i, (vid, stats) in enumerate(top_songs[:3], 1):
+        m = stats["metadata"]
+        desc += f"{i}. {m['title']} - {m['artist']} (Index: {int(stats['score'])})\n"
+    
+    desc += f"\nLast updated: {update_date_str}\n- colinky.github.io/hype_wave"
+
+    LOG.info(f"Aggregated {len(video_ids)} songs for Hypex playlist.")
+    if args.dry_run:
+        LOG.info("Dry run completed from DB; no playlist authentication or mutation.")
         return 0
-
-    from sync_validation import PlaybackBlocked, assert_frozen, require_playable, verifier_for
-    from sync_all import require_healthy
-
-    publication_failed = False
-    try:
-        ytmusic = make_ytmusic(args.yt_auth)
-        verifier = verifier_for(ytmusic)
-        require_healthy(verifier)
-        all_video_ids = [row["video_id"] for row in report]
-        require_playable(verifier, all_video_ids)
-
-        def guard():
-            require_healthy(verifier)
-            with connect(db_path, read_only=True) as conn:
-                assert_frozen(conn, snapshot, tasks)
-            require_healthy(verifier)
-
-        guard()
-        try:
-            update_ytmusic_playlist(
-                ytmusic, args.yt_playlist_id, video_ids,
-                description=playlist_description(report[:args.limit], history_date),
-                dry_run=False, db_path=db_path, service="hypex", job_name=args.job_name,
-                playlist_name=args.playlist_name, playability_verifier=verifier, before_mutation=guard,
-            )
-        except (PlaybackBlocked, PlaylistMutationUncertain):
-            raise
-        except Exception as exc:
-            publication_failed = True
-            LOG.error("Hype playlist publication requires retry: %s", exc)
-            require_healthy(verifier, force=True)
-        guard()
-        require_playable(verifier, all_video_ids)
-    except Exception as exc:
-        LOG.error("Hype publication validation failed; history is blocked: %s", exc)
-        return EXIT_PUBLICATION_FAILED
 
     if os.environ.get("HYPE_DEFER_HISTORY_EXPORT") not in {"1", "true", "TRUE"}:
         try:
-            guard()
-            export_frontend_history(db_path, args.history_json, expected_date=history_date,
-                                    reports_by_date={history_date: report})
+            export_frontend_history(
+                db_path, args.history_json, full_rebuild=bool(args.history_date),
+                expected_date=history_date,
+            )
         except Exception as exc:
             LOG.error("Hype history export failed: %s", exc)
             return EXIT_HISTORY_EXPORT_FAILED
-    if publication_failed:
+    
+    # Sync to YTMusic
+    try:
+        ytmusic = make_ytmusic(args.yt_auth)
+        update_ytmusic_playlist(
+            ytmusic,
+            args.yt_playlist_id,
+            video_ids,
+            description=desc,
+            dry_run=args.dry_run,
+            db_path=db_path if (db_path.exists() or os.environ.get("SUPABASE_DB_URL")) else None,
+            service="hypex",
+            job_name=args.job_name,
+            playlist_name=args.playlist_name,
+        )
+    except Exception as exc:
+        LOG.error("Hype playlist publication failed after calculation completed: %s", exc)
         return EXIT_PUBLICATION_FAILED
-
+    
     LOG.info("Hype Moment sync completed.")
     return 0
 
 if __name__ == "__main__":
-    from sync_validation import run_locked_cli
-    raise SystemExit(run_locked_cli(main))
+    raise SystemExit(main())

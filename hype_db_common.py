@@ -207,9 +207,6 @@ def version_signature(title: str | None) -> str:
         if "remix" in normalized.split():
             remix_prefix = re.sub(r"\bremix\b.*$", "", normalized).strip()
             add(f"remix:{remix_prefix}" if remix_prefix else "remix")
-        if suffix_chunks and re.search(r"\bmix$", normalized):
-            mix_prefix = re.sub(r"\bmix$", "", normalized).strip()
-            add(f"mix:{mix_prefix}" if mix_prefix else "mix")
         if re.search(r"\bacoustic\b", normalized):
             add("acoustic")
         if re.search(r"\blive\b|\blive ver\b|\blive version\b", normalized):
