@@ -51,7 +51,7 @@ def sync_run_lock(db_path):
 def run_locked_cli(main):
     """Lock standalone writers while an actual sync_all child shares its parent's lock."""
     import argparse
-    from dotenv import load_dotenv
+    from ytmusic_playlist_sync import load_dotenv
 
     parser = argparse.ArgumentParser(add_help=False)
     parser.add_argument("--db-path", default=str(Path(__file__).with_name("hype_wave_data.db")))
