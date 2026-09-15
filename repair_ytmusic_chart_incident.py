@@ -143,10 +143,13 @@ def _case_state(conn: Any, case: Mapping[str, Any]) -> dict[str, Any]:
 def _protected(conn: Any, cases: list[dict]) -> dict[str, str]:
     corrected_sources = {(item["service"], item["song_id"])
                          for case in cases for item in case.get("source_metadata_repairs", [])}
+    manual_sources = {(case["service"], case["song_id"]) for case in cases if case.get("manual_selection")}
     return {
         table: fingerprint(sorted(
             (row for row in _rows(conn, f"SELECT * FROM {table}")
-             if table != "track_list" or (row["service"], row["song_id"]) not in corrected_sources),
+             if (table != "track_list" or (row["service"], row["song_id"]) not in corrected_sources)
+             and (table != "manual_overrides" or (row["service"], row["song_id"]) not in manual_sources)),
+            # The one explicitly reviewed new manual row is verified separately.
             key=lambda row: json.dumps(row, sort_keys=True),
         ))
         for table in PROTECTED_TABLES
@@ -196,6 +199,21 @@ def _validate_manifest(manifest: Mapping[str, Any]) -> None:
             raise ValueError("Unsupported repair action")
         if any(item.get("metadata", {}).get("identity_basis") == "exact_native_uploader" for item in _case_decisions(case)) and case.get("action") != "split_binding":
             raise ValueError("Uploader evidence is only valid for a native source split")
+        if case.get("manual_selection"):
+            manual = case["manual_selection"]
+            bindings = case.get("bindings") or []
+            if ("supersedes" not in manifest or case.get("action") != "repair_recording_identity"
+                    or case.get("service") != "ytmusic" or len(bindings) != 1
+                    or bindings[0].get("service") != case["service"] or bindings[0].get("song_id") != case["song_id"]
+                    or bindings[0].get("target_track_uid") != uid or bindings[0].get("expected_track_uid") == uid
+                    or bindings[0].get("source_metadata_verified") is True
+                    or decision.get("expected_target_uid") or decision.get("same_recording") is True
+                    or decision.get("expected_video_id") != decision["selected_video_id"]
+                    or decision["selected_video_id"] == case["song_id"]
+                    or set(manual) != {"expected_override", "reason", "evidence_ref"}
+                    or manual["expected_override"] is not None
+                    or any(not isinstance(manual[key], str) or not manual[key].strip() for key in ("reason", "evidence_ref"))):
+                raise ValueError("Manual selection requires one source, a separate existing target and an explicit new policy")
     if "supersedes" in manifest:
         link = manifest["supersedes"]
         parent = link["manifest"]
@@ -203,15 +221,26 @@ def _validate_manifest(manifest: Mapping[str, Any]) -> None:
                 or not re.fullmatch(r"[0-9a-f]{64}", str(link.get("receipt_fingerprint") or ""))):
             raise ValueError("Follow-up must name one immutable, original parent receipt")
         _validate_manifest(parent)
+        if sum(bool(case.get("manual_selection")) for case in cases) > 1:
+            raise ValueError("A follow-up may add only one explicitly reviewed manual source selection")
         parent_uids = set().union(*(_scope_uids(case) for case in parent["cases"]))
         for case in cases:
-            if (case.get("action", "restore_canonical") != "restore_canonical"
-                    or any(case.get(key) for key in ("bindings", "aliases", "alias_splits", "metadata_decisions",
+            manual = bool(case.get("manual_selection"))
+            if ((not manual and case.get("action", "restore_canonical") != "restore_canonical")
+                    or (not manual and case.get("bindings"))
+                    or any(case.get(key) for key in ("aliases", "alias_splits", "metadata_decisions",
                                                      "source_metadata_repairs", "invalidate_translations"))
                     or not _scope_uids(case) <= parent_uids):
                 raise ValueError("Follow-up may only adjust reviewed parent canonical selections")
             decision = case["decision"]
-            if not any(item["expected_track_uid"] == decision["expected_track_uid"]
+            if manual:
+                binding = case["bindings"][0]
+                if not any(original.get("service") == case["service"] and original.get("song_id") == case["song_id"]
+                           and original["decision"]["expected_track_uid"] == binding["expected_track_uid"]
+                           and original["decision"]["selected_video_id"] == case["song_id"]
+                           for original in parent["cases"]):
+                    raise ValueError("Manual selection does not reference the exact parent source recording")
+            elif not any(item["expected_track_uid"] == decision["expected_track_uid"]
                        and item["selected_video_id"] == decision["expected_video_id"]
                        for original in parent["cases"] for item in _case_decisions(original)):
                 raise ValueError("Follow-up must adjust an explicit parent selection")
@@ -238,12 +267,15 @@ def _validate_manifest(manifest: Mapping[str, Any]) -> None:
         raise ValueError("Publication counterpart adoption requires its immutable parent manifest")
 
 
-def _followup_replacements(manifest):
+def _followup_replacements(manifest, *, history=False):
     replacements = {}
     losers, winners = set(), set()
     for case in manifest["cases"]:
         decision = case["decision"]
-        old, new = decision.get("expected_video_id"), decision["selected_video_id"]
+        if history and case.get("manual_selection"):
+            continue
+        old = case["song_id"] if case.get("manual_selection") else decision.get("expected_video_id")
+        new = decision["selected_video_id"]
         if not old or old == new or old in replacements:
             raise ValueError("Follow-up needs distinct, non-overlapping canonical changes")
         replacements[old] = new
@@ -472,6 +504,33 @@ def _apply_split(conn: Any, case: Mapping[str, Any]) -> dict[str, Any]:
                                     source_row=None if native else case.get("source_row"))
 
 
+def _manual_selection_row(case):
+    manual = case["manual_selection"]
+    return {"service": case["service"], "song_id": case["song_id"], "action": "set_canonical",
+            "target_track_uid": case["decision"]["expected_track_uid"], "canonical_yt_video_id": None,
+            "reason": manual["reason"] + " [evidence: " + manual["evidence_ref"] + "]"}
+
+
+def _apply_manual_selection(conn, case):
+    binding, decision = case["bindings"][0], case["decision"]
+    current = conn.execute("SELECT * FROM manual_overrides WHERE service=? AND song_id=?",
+                           (case["service"], case["song_id"])).fetchone()
+    source_owner = conn.execute("SELECT track_uid,is_canonical FROM yt_video_ids WHERE video_id=?",
+                                (case["song_id"],)).fetchone()
+    if (current is not None or find_track_by_service_song(conn, case["service"], case["song_id"]) != binding["expected_track_uid"]
+            or not source_owner or source_owner[0] != binding["expected_track_uid"] or not source_owner[1]):
+        raise CanonicalDecisionError("Manual policy or source recording ownership changed")
+    # This selects a different rendition for one source. Neither recording's
+    # canonical or video ownership is merged, and source metadata stays intact.
+    result = apply_canonical_decision(conn, track_uid=decision["expected_track_uid"], decision=decision)
+    policy = _manual_selection_row(case)
+    conn.execute("INSERT INTO manual_overrides(service,song_id,action,target_track_uid,canonical_yt_video_id,reason,updated_at) "
+                 "VALUES (?,?,?,?,?,?,?)", (*policy.values(), utc_now_iso()))
+    conn.execute("UPDATE platform_song_ids SET track_uid=? WHERE service=? AND song_id=? AND track_uid=?",
+                 (binding["target_track_uid"], case["service"], case["song_id"], binding["expected_track_uid"]))
+    return {**result, "status": "manual_override", "query": "manual_selection"}
+
+
 def _apply_identity_repair(conn: Any, case: Mapping[str, Any]) -> dict[str, Any]:
     """Repair evidenced source/alias ownership while preserving existing canonicals.
 
@@ -479,6 +538,8 @@ def _apply_identity_repair(conn: Any, case: Mapping[str, Any]) -> dict[str, Any]
     own fresh exact metadata/player evidence; a different recording is never
     represented as an unavailable or interchangeable canonical.
     """
+    if case.get("manual_selection"):
+        return _apply_manual_selection(conn, case)
     from sync_validation import source_recording_matches
     decision = case["decision"]
     destination = decision["expected_track_uid"]
@@ -560,6 +621,8 @@ def _effective_parent_state(conn, manifest, parent_receipt):
     merges = {decision["expected_target_uid"]: uid for uid, decision in decisions.items()
               if decision.get("expected_target_uid")}
     changed_uids = set(decisions) | set(merges)
+    manual_bindings = {(case["service"], case["song_id"]): case["decision"]["expected_track_uid"]
+                       for case in manifest["cases"] if case.get("manual_selection")}
     states = {}
     for original in parent["cases"]:
         current = _case_state(conn, original)
@@ -575,10 +638,11 @@ def _effective_parent_state(conn, manifest, parent_receipt):
                 decision["expected_track_uid"] = uid
         for binding in effective.get("bindings", []):
             uid = binding.get("target_track_uid") or original["decision"]["expected_track_uid"]
-            binding["target_track_uid"] = merges.get(uid, uid)
+            binding["target_track_uid"] = manual_bindings.get((binding["service"], binding["song_id"]), merges.get(uid, uid))
         _verify_case_invariants(conn, effective, current)
         for binding in old["state"]["platform_song_ids"]:
-            expected = merges.get(binding["track_uid"], binding["track_uid"])
+            expected = manual_bindings.get((binding["service"], binding["song_id"]),
+                                           merges.get(binding["track_uid"], binding["track_uid"]))
             if find_track_by_service_song(conn, binding["service"], binding["song_id"]) != expected:
                 raise CanonicalDecisionError("Follow-up lost a parent source binding")
         for alias in old["state"]["yt_video_ids"]:
@@ -594,8 +658,9 @@ def _effective_parent_state(conn, manifest, parent_receipt):
                 raise CanonicalDecisionError("Follow-up changed retained source/manual evidence")
         states[original["case_id"]] = current
     for key in ("track_list", "manual_overrides"):
-        old_rows = {fingerprint(row) for case in parent_receipt["after"].values() for row in case["state"][key]}
-        new_rows = {fingerprint(row) for state in states.values() for row in state[key]}
+        keep = lambda row: key != "manual_overrides" or (row["service"], row["song_id"]) not in manual_bindings
+        old_rows = {fingerprint(row) for case in parent_receipt["after"].values() for row in case["state"][key] if keep(row)}
+        new_rows = {fingerprint(row) for state in states.values() for row in state[key] if keep(row)}
         if old_rows != new_rows:
             raise CanonicalDecisionError("Follow-up changed parent source/manual rows")
     for loser in merges:
@@ -681,6 +746,7 @@ def verify_repair(conn: Any, manifest: Mapping[str, Any]) -> dict[str, Any]:
         parent = _followup_parent_receipt(conn, manifest)
         expected = {"repair_id": parent["repair_id"], "manifest_hash": parent["manifest_hash"],
                     "receipt_fingerprint": fingerprint(parent), "replacements": _followup_replacements(manifest),
+                    "history_replacements": _followup_replacements(manifest, history=True),
                     "after": _effective_parent_state(conn, manifest, parent)}
         if expected != receipt.get("supersedes"):
             raise CanonicalDecisionError("Effective parent changed after follow-up")
@@ -709,6 +775,14 @@ def _verify_case_invariants(conn, case, current):
         target = binding.get("target_track_uid") or case["decision"]["expected_track_uid"]
         if find_track_by_service_song(conn, binding["service"], binding["song_id"]) != target:
             raise CanonicalDecisionError("Repaired source did not reach its reviewed recording")
+    if case.get("manual_selection"):
+        policy = conn.execute("SELECT * FROM manual_overrides WHERE service=? AND song_id=?",
+                              (case["service"], case["song_id"])).fetchone()
+        expected = _manual_selection_row(case)
+        source = conn.execute("SELECT track_uid,is_canonical FROM yt_video_ids WHERE video_id=?", (case["song_id"],)).fetchone()
+        if (not policy or any(policy[key] != value for key, value in expected.items())
+                or not source or source[0] != case["bindings"][0]["expected_track_uid"] or not source[1]):
+            raise CanonicalDecisionError("Manual selection policy or separate source recording was not preserved")
     for correction in case.get("source_metadata_repairs", []):
         source = conn.execute("SELECT * FROM track_list WHERE service=? AND song_id=?",
                               (correction["service"], correction["song_id"])).fetchone()
@@ -886,6 +960,7 @@ def apply_repair(conn: Any, manifest: Mapping[str, Any], *, evidence_refresh: Ma
                 "repair_id": parent_receipt["repair_id"], "manifest_hash": parent_receipt["manifest_hash"],
                 "receipt_fingerprint": fingerprint(parent_receipt),
                 "replacements": _followup_replacements(manifest),
+                "history_replacements": _followup_replacements(manifest, history=True),
                 "after": _effective_parent_state(conn, manifest, parent_receipt),
             }
         conn.execute(

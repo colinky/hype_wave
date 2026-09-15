@@ -510,6 +510,191 @@ class FollowupOwnershipTests(StorageFixture):
             verify_repair(wrapped, child)
 
 
+class FollowupManualSelectionTests(unittest.TestCase):
+    """A current source choice does not turn two language recordings into aliases."""
+    JP, KR = "japanese001", "korean00001"
+
+    def setUp(self):
+        self.enterContext(patch.dict(os.environ, {"SUPABASE_DB_URL": ""}))
+        for method in ("socket.socket.connect", "requests.sessions.Session.request", "psycopg2.connect"):
+            self.enterContext(patch(method, side_effect=AssertionError("No external access")))
+        self.conn = sqlite3.connect(":memory:")
+        self.conn.row_factory = sqlite3.Row
+        self.addCleanup(self.conn.close)
+        init_schema(self.conn)
+        self.folder = Path(self.enterContext(tempfile.TemporaryDirectory()))
+        self.conn.execute("CREATE TABLE ytmusic_song_translations(video_id TEXT PRIMARY KEY,updated_at TEXT)")
+        store.ensure_track(self.conn, track_uid="kr", video_id=self.KR,
+                           yt_title="Song", yt_artist="Artist", yt_album="Album")
+        for service, song in (("ytmusic", self.JP), ("apple", "kept-kr")):
+            store.upsert_track_list_metadata(self.conn, service=service, song_id=song, track_uid="kr",
+                                            row={"title": "Song (Japanese ver.)" if song == self.JP else "Song",
+                                                 "artist": "Artist", "album": "Album"})
+        self.conn.execute("INSERT INTO yt_video_ids VALUES (?, 'kr', 0)", (self.JP,))
+        self.conn.executemany("INSERT INTO manual_overrides(service,song_id,action,updated_at) VALUES ('apple',?,'block','old')",
+                              [("unrelated-1",), ("unrelated-2",)])
+        self.conn.execute("INSERT INTO match_runs(run_id,service,job_name,started_at,created_at) VALUES ('old','ytmusic','Weekly','old','old')")
+        self.conn.execute("INSERT INTO match_attempts(run_id,service,song_id,track_uid,video_id,created_at) VALUES ('old','ytmusic',?,'kr',?,'old')",
+                          (self.JP, self.KR))
+        self.conn.commit()
+        from datetime import date
+        from hype_db_reports import compact_frontend_history
+        self.days = {(date(2026, 9, 14) - timedelta(days=i)).isoformat(): [{
+            "video_id": self.JP, "identity_key": self.JP, "title": "Song (Japanese ver.)", "artist": "Artist",
+            "hype_rank": 1, "hype_index": 4.55 + i / 100, "ytmusic_rank": 49}] for i in range(31)}
+        self.preview = self.folder / "parent.json"
+        self.preview.write_text(json.dumps(compact_frontend_history(self.days), ensure_ascii=False, indent=2))
+        import hashlib
+        outputs = {"playlists": [{"playlist_id": "weekly", "video_ids": [self.JP, self.KR]}],
+                   "history": [{"path": str(self.folder / "history.json"), "preview_path": str(self.preview),
+                                "sha256": hashlib.sha256(self.preview.read_bytes()).hexdigest(),
+                                "expected_date": "2026-09-14", "public_url": "https://example.invalid/history"}]}
+        metadata = {"video_id": self.JP, "title": "Song (Japanese ver.)", "artist": "Artist", "album": "Album",
+                    "verified": True, "artist_identity_complete": True, "artist_ids": ["UC-artist"],
+                    "artist_names_by_id": {"UC-artist": ["Artist"]}, "length_seconds": 216,
+                    "music_video_type": "MUSIC_VIDEO_TYPE_OMV"}
+        for locale in ("ko", "en"):
+            metadata.update({field + "_" + locale: metadata[field] for field in ("title", "artist", "album")})
+        self.parent = plan_repair(self.conn, {"repair_id": "split-parent", "implementation_revision": "fixture",
+            "outputs": outputs, "cases": [{"case_id": "japanese", "action": "split_binding", "service": "ytmusic",
+                "song_id": self.JP, "evidence_ref": "fixture:original-native-id",
+                "decision": {"expected_track_uid": "jp", "expected_video_id": None, "selected_video_id": self.JP,
+                    "metadata": metadata, "candidate_evidence": {**evidence(self.JP), "title": metadata["title"], "artist": "Artist"}},
+                "aliases": [{"video_id": self.JP, "expected_track_uid": "kr"}],
+                "bindings": [{"service": "ytmusic", "song_id": self.JP, "expected_track_uid": "kr",
+                              "source_metadata_verified": True, "evidence_ref": "fixture:original-native-id"}]}]})
+        apply_repair(self.conn, self.parent)
+        self.conn.commit()
+
+    def spec(self):
+        outputs = copy.deepcopy(self.parent["outputs"])
+        outputs["playlists"][0]["video_ids"] = [self.KR]
+        return {"repair_id": "manual-child", "implementation_revision": "fixture", "outputs": outputs,
+            "supersedes": {"manifest": self.parent, "receipt_fingerprint": fingerprint(_receipt(self.conn, self.parent))},
+            "cases": [{"case_id": "current-selection", "action": "repair_recording_identity", "service": "ytmusic",
+                "song_id": self.JP, "manual_selection": {"expected_override": None, "reason": "User accepted a playable rendition",
+                                                          "evidence_ref": "fixture:user-current-choice"},
+                "decision": {"expected_track_uid": "kr", "expected_video_id": self.KR, "selected_video_id": self.KR,
+                    "candidate_evidence": evidence(self.KR), "metadata": {"video_id": self.KR, "verified": True,
+                        "title": "Song", "artist": "Artist", "album": "Album"}},
+                "bindings": [{"service": "ytmusic", "song_id": self.JP, "expected_track_uid": "jp", "target_track_uid": "kr"}]}]}
+
+    def rows(self, table):
+        return [dict(row) for row in self.conn.execute("SELECT * FROM " + table)]
+
+    def test_selection_changes_only_one_binding_and_nullable_policy_and_retries_without_writes(self):
+        before = {table: self.rows(table) for table in ("track_list", "match_attempts", "manual_overrides", "yt_video_ids")}
+        parent = _receipt(self.conn, self.parent)
+        child = plan_repair(self.conn, self.spec())
+        apply_repair(self.conn, child)
+        self.assertEqual(canonical(self.conn, "jp"), self.JP)
+        self.assertEqual(canonical(self.conn, "kr"), self.KR)
+        self.assertEqual(store.find_track_by_service_song(self.conn, "ytmusic", self.JP), "kr")
+        self.assertEqual(store.find_track_by_service_song(self.conn, "apple", "kept-kr"), "kr")
+        for table in ("track_list", "match_attempts", "yt_video_ids"):
+            self.assertEqual(self.rows(table), before[table])
+        self.assertEqual(self.rows("manual_overrides")[:2], before["manual_overrides"])
+        policy = self.rows("manual_overrides")[2]
+        self.assertEqual((policy["action"], policy["target_track_uid"], policy["canonical_yt_video_id"]), ("set_canonical", "kr", None))
+        self.assertIn("fixture:user-current-choice", policy["reason"])
+        self.assertEqual(_receipt(self.conn, self.parent), parent)
+        self.assertEqual(verify_repair(self.conn, child)["status"], "db_verified")
+        after = list(self.conn.iterdump())
+        self.assertEqual(apply_repair(self.conn, child)["status"], "already_applied")
+        self.assertEqual(list(self.conn.iterdump()), after)
+
+    def test_stale_source_or_new_manual_policy_blocks_without_further_changes(self):
+        for sql, params in (("UPDATE platform_song_ids SET track_uid='kr' WHERE service='ytmusic' AND song_id=?", (self.JP,)),
+                            ("INSERT INTO manual_overrides(service,song_id,action,updated_at) VALUES ('ytmusic',?,'block','new')", (self.JP,))):
+            with self.subTest(sql=sql):
+                child = plan_repair(self.conn, self.spec())
+                self.conn.execute(sql, params)
+                before = list(self.conn.iterdump())
+                with self.assertRaises(ValueError):
+                    apply_repair(self.conn, child)
+                self.assertEqual(list(self.conn.iterdump()), before)
+                self.conn.rollback()
+
+    def test_ignored_policy_insert_or_binding_update_rolls_back_the_whole_child(self):
+        for table, operation in (("manual_overrides", "INSERT"), ("platform_song_ids", "UPDATE")):
+            with self.subTest(table=table):
+                self.conn.execute(f"CREATE TEMP TRIGGER ignore_write BEFORE {operation} ON {table} BEGIN SELECT RAISE(IGNORE); END")
+                child = plan_repair(self.conn, self.spec())
+                before = list(self.conn.iterdump())
+                with self.assertRaises(ValueError):
+                    apply_repair(self.conn, child)
+                self.assertEqual(list(self.conn.iterdump()), before)
+                self.conn.execute("DROP TRIGGER ignore_write")
+
+    def test_false_recording_merge_or_expanded_source_scope_is_rejected(self):
+        for mutate in (lambda c: c["decision"].update(same_recording=True),
+                       lambda c: c["decision"].update(expected_target_uid="jp"),
+                       lambda c: c["bindings"][0].update(source_metadata_verified=True),
+                       lambda c: c["bindings"].append(dict(c["bindings"][0])),
+                       lambda c: c["manual_selection"].update(canonical_yt_video_id=self.KR),
+                       lambda c: c["manual_selection"].update(expected_override={"action": "block"})):
+            proposal = self.spec(); mutate(proposal["cases"][0])
+            before = list(self.conn.iterdump())
+            with self.assertRaises(ValueError):
+                plan_repair(self.conn, proposal)
+            self.assertEqual(list(self.conn.iterdump()), before)
+
+    def test_unknown_candidate_remains_blocked_for_an_explicit_selection(self):
+        spec = self.spec()
+        spec["cases"][0]["decision"]["candidate_evidence"]["state"] = "unknown"
+        before = list(self.conn.iterdump())
+        with self.assertRaises(ValueError):
+            plan_repair(self.conn, spec)
+        self.assertEqual(list(self.conn.iterdump()), before)
+
+    def test_publication_replaces_japanese_but_all_31_history_rows_remain_separate(self):
+        import hashlib
+        import publish_chart_repair as publish
+        from hype_db_reports import compact_frontend_history
+        from repair_ytmusic_chart_incident import _followup_replacements, covered_parent_repair_ids
+        child = plan_repair(self.conn, self.spec())
+        self.assertEqual(_followup_replacements(child), {self.JP: self.KR})
+        self.assertEqual(_followup_replacements(child, history=True), {})
+        self.assertEqual(publish._read_previews(child["outputs"], manifest=child)[1], [self.JP] * 31)
+        apply_repair(self.conn, child)
+        self.assertEqual(covered_parent_repair_ids([_receipt(self.conn, self.parent), _receipt(self.conn, child)]), set())
+        now = datetime.now(timezone.utc).isoformat()
+        mark_repair_stage(self.conn, child, "publication", {"evidence_ref": "fixture:full-publication", "playlists": [{
+            "playlist_id": "weekly", "video_ids": [self.KR], "items": [{"video_id": self.KR, "set_video_id": "owned-kr"}],
+            "observed_at": now, "readback_verified": True}]})
+        self.assertEqual(covered_parent_repair_ids([_receipt(self.conn, self.parent), _receipt(self.conn, child)]), set())
+        target = child["outputs"]["history"][0]
+        mark_repair_stage(self.conn, child, "history", {"evidence_ref": "fixture:full-history", "files": [{
+            "path": target["path"], "sha256": target["sha256"], "public_sha256": target["sha256"],
+            "public_url": target["public_url"], "observed_at": now, "readback_verified": True}]})
+        self.assertEqual(covered_parent_repair_ids([_receipt(self.conn, self.parent), _receipt(self.conn, child)]), {self.parent["repair_id"]})
+        rows = copy.deepcopy(self.days)
+        rows["2026-09-14"][0].update(video_id=self.KR, identity_key=self.JP)
+        path = self.folder / "wrong-history.json"
+        path.write_text(json.dumps(compact_frontend_history(rows), ensure_ascii=False, indent=2))
+        altered = copy.deepcopy(child)
+        altered["outputs"]["history"][0].update(preview_path=str(path), sha256=hashlib.sha256(path.read_bytes()).hexdigest())
+        with self.assertRaises(PlaybackBlocked):
+            publish._read_previews(altered["outputs"], manifest=altered)
+
+    def test_rehearsal_clock_normalizes_only_policy_timestamp_not_policy_fields(self):
+        import publish_chart_repair as publish
+        child = plan_repair(self.conn, self.spec())
+        with patch("repair_ytmusic_chart_incident.utc_now_iso", return_value="2026-09-15T00:00:00+00:00"):
+            apply_repair(self.conn, child)
+        expected = publish.business_fingerprint(self.conn)
+        self.conn.rollback()
+        with patch("repair_ytmusic_chart_incident.utc_now_iso", return_value="2026-09-15T00:00:01+00:00"):
+            apply_repair(self.conn, child)
+        self.assertEqual(publish.business_fingerprint(self.conn), expected)
+        for column, value in (("target_track_uid", "jp"), ("canonical_yt_video_id", self.KR), ("action", "block"), ("reason", "different")):
+            self.conn.execute("SAVEPOINT change_policy")
+            self.conn.execute(f"UPDATE manual_overrides SET {column}=? WHERE service='ytmusic' AND song_id=?", (value, self.JP))
+            self.assertNotEqual(publish.business_fingerprint(self.conn), expected)
+            self.conn.execute("ROLLBACK TO change_policy")
+            self.conn.execute("RELEASE change_policy")
+
+
 class MoveEvidenceTests(unittest.TestCase):
     def event(self):
         before = [{"video_id": "A", "set_video_id": "slot-a", "position": 1},

@@ -66,7 +66,7 @@ def business_fingerprint(conn, *, repair_id=None):
         for table in BUSINESS_TABLES:
             where, params = selection(table)
             records.extend((table, dict(row)) for row in conn.execute(f"SELECT r.* FROM {table} r" + where, params))
-    repair_timestamp_tables = {"tracks", "platform_song_ids", "yt_video_ids", "metadata_lookup_index"}
+    repair_timestamp_tables = {"tracks", "platform_song_ids", "yt_video_ids", "metadata_lookup_index", "manual_overrides"}
     def stable_value(table, key, value):
         if isinstance(value, float) and value.is_integer():
             return int(value)
@@ -185,7 +185,7 @@ def _read_previews(outputs, *, manifest=None):
     if manifest and manifest.get("supersedes"):
         parent, _ = _read_previews(manifest["supersedes"]["manifest"]["outputs"])
         old_by_path = {target["path"]: payload for target, payload in parent}
-        replacements = _followup_replacements(manifest)
+        replacements = _followup_replacements(manifest, history=True)
         # Reuse the existing history representation. A merge needing new scores
         # is outside this canonical-only follow-up and must be reviewed separately.
         display = {"video_id", "title", "artist", "album", "yt_title", "yt_artist", "yt_album", "artwork_url", "identity_key"}

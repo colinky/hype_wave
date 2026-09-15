@@ -41,6 +41,7 @@ MODULES = (
     "test_observed_credit_aliases", "test_catalog_duration_pair",
     "test_search_budget",
     "test_publication_counterpart_decision",
+    "test_nullable_manual_selection",
 )
 
 
