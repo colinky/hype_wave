@@ -89,4 +89,6 @@ diagnostic-artifacts/
 !tests/test_observed_credit_aliases.py
 !tests/test_catalog_duration_pair.py
 !tests/fixtures/observed_credit_identity.json
+!tests/fixtures/observed_music_video_recording.json
+!tests/test_publication_counterpart_decision.py
 !tests/test_search_budget.py

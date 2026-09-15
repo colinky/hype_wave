@@ -196,6 +196,83 @@ def _validate_manifest(manifest: Mapping[str, Any]) -> None:
             raise ValueError("Unsupported repair action")
         if any(item.get("metadata", {}).get("identity_basis") == "exact_native_uploader" for item in _case_decisions(case)) and case.get("action") != "split_binding":
             raise ValueError("Uploader evidence is only valid for a native source split")
+    if "supersedes" in manifest:
+        link = manifest["supersedes"]
+        parent = link["manifest"]
+        if ("supersedes" in parent or parent["repair_id"] == manifest["repair_id"]
+                or not re.fullmatch(r"[0-9a-f]{64}", str(link.get("receipt_fingerprint") or ""))):
+            raise ValueError("Follow-up must name one immutable, original parent receipt")
+        _validate_manifest(parent)
+        parent_uids = set().union(*(_scope_uids(case) for case in parent["cases"]))
+        for case in cases:
+            if (case.get("action", "restore_canonical") != "restore_canonical"
+                    or any(case.get(key) for key in ("bindings", "aliases", "alias_splits", "metadata_decisions",
+                                                     "source_metadata_repairs", "invalidate_translations"))
+                    or not _scope_uids(case) <= parent_uids):
+                raise ValueError("Follow-up may only adjust reviewed parent canonical selections")
+            decision = case["decision"]
+            if not any(item["expected_track_uid"] == decision["expected_track_uid"]
+                       and item["selected_video_id"] == decision["expected_video_id"]
+                       for original in parent["cases"] for item in _case_decisions(original)):
+                raise ValueError("Follow-up must adjust an explicit parent selection")
+            if (decision.get("reason") == "restore_unintended_chart_switch"
+                    and not any(row.get("track_uid") == decision["expected_track_uid"]
+                                and row.get("canonical_yt_video_id") == decision["selected_video_id"]
+                                for original in parent["cases"] for row in original["before"]["tracks"])):
+                raise ValueError("Follow-up restoration was not the parent's original canonical")
+            if decision.get("reason") == "adopt_verified_publication_counterpart":
+                incident = decision.get("incident") or {}
+                original = next((row for row in parent["cases"] if row["case_id"] == incident.get("parent_case_id")), None)
+                if (incident.get("repair_id") != manifest["repair_id"] or incident.get("case_id") != case["case_id"]
+                        or incident.get("parent_repair_id") != parent["repair_id"]
+                        or incident.get("parent_manifest_hash") != parent["manifest_hash"]
+                        or incident.get("parent_receipt_fingerprint") != link["receipt_fingerprint"]
+                        or case.get("service") != "ytmusic" or case.get("song_id") != decision["expected_video_id"]
+                        or case.get("source_row", {}).get("song_id") != case["song_id"]
+                        or case.get("source_row", {}).get("service", "ytmusic") != "ytmusic"
+                        or not original or original["decision"]["expected_track_uid"] != decision["expected_track_uid"]
+                        or original["decision"]["selected_video_id"] != decision["expected_video_id"]):
+                    raise ValueError("Counterpart decision must reference its exact applied parent selection")
+        _validate_followup_outputs(parent["outputs"], manifest["outputs"], _followup_replacements(manifest))
+    elif any(case["decision"].get("reason") == "adopt_verified_publication_counterpart" for case in cases):
+        raise ValueError("Publication counterpart adoption requires its immutable parent manifest")
+
+
+def _followup_replacements(manifest):
+    replacements = {}
+    losers, winners = set(), set()
+    for case in manifest["cases"]:
+        decision = case["decision"]
+        old, new = decision.get("expected_video_id"), decision["selected_video_id"]
+        if not old or old == new or old in replacements:
+            raise ValueError("Follow-up needs distinct, non-overlapping canonical changes")
+        replacements[old] = new
+        winners.add(decision["expected_track_uid"])
+        if decision.get("expected_target_uid"):
+            if decision["expected_target_uid"] in losers:
+                raise ValueError("Follow-up merge ownership overlaps")
+            losers.add(decision["expected_target_uid"])
+    if losers & winners or set(replacements) & set(replacements.values()):
+        raise ValueError("Follow-up cannot chain or cycle selections or UID merges")
+    return replacements
+
+
+def _validate_followup_outputs(parent, child, replacements):
+    for key, identity in (("playlists", "playlist_id"), ("history", "path")):
+        before, after = parent.get(key) or [], child.get(key) or []
+        old = {row[identity]: row for row in before}
+        new = {row[identity]: row for row in after}
+        if not old or len(old) != len(before) or len(new) != len(after) or old.keys() != new.keys():
+            raise ValueError("Follow-up must retain the entire parent publication/history scope")
+        for name, original in old.items():
+            target = new[name]
+            if key == "playlists":
+                expected = list(dict.fromkeys(replacements.get(video, video) for video in original["video_ids"]))
+                if (target.get("video_ids") != expected
+                        or any(target.get(field) != original.get(field) for field in ("service", "job_name"))):
+                    raise ValueError("Follow-up playlist order may only reflect its reviewed replacements")
+            elif any(target.get(field) != original.get(field) for field in ("public_url", "expected_date")):
+                raise ValueError("Follow-up history destination/date changed")
 
 
 def plan_repair(conn: Any, spec: Mapping[str, Any]) -> dict[str, Any]:
@@ -204,6 +281,8 @@ def plan_repair(conn: Any, spec: Mapping[str, Any]) -> dict[str, Any]:
                 "implementation_revision": spec["implementation_revision"],
                 "implementation_fingerprint": implementation_fingerprint(),
                 "created_at": utc_now_iso(), "outputs": _plain(spec.get("outputs") or {}), "cases": []}
+    if "supersedes" in spec:
+        manifest["supersedes"] = _plain(spec["supersedes"])
     if not manifest["implementation_revision"]:
         raise ValueError("Repair implementation revision must be explicit")
     for supplied in spec["cases"]:
@@ -220,6 +299,9 @@ def plan_repair(conn: Any, spec: Mapping[str, Any]) -> dict[str, Any]:
     manifest["review_conflicts_before"] = _rows(conn, "SELECT * FROM review_conflicts ORDER BY conflict_id")
     manifest["manifest_hash"] = manifest_hash(manifest)
     _validate_manifest(manifest)
+    if "supersedes" in manifest:
+        _followup_parent_receipt(conn, manifest)
+        verify_repair(conn, manifest["supersedes"]["manifest"])
     return manifest
 
 
@@ -454,6 +536,137 @@ def _receipt(conn: Any, manifest: Mapping[str, Any]) -> dict[str, Any] | None:
     return json.loads(row[0]) if row else None
 
 
+def _followup_parent_receipt(conn, manifest):
+    link = manifest["supersedes"]
+    parent = link["manifest"]
+    receipt = _receipt(conn, parent)
+    if (not receipt or receipt.get("manifest_hash") != parent["manifest_hash"]
+            or fingerprint(receipt) != link["receipt_fingerprint"]
+            or receipt.get("supersedes") or receipt.get("stages", {}).get("db") != "applied"
+            or receipt.get("status") in {"surfaces_verified", "completed"}):
+        raise CanonicalDecisionError("Follow-up parent receipt changed or is not an unfinished applied repair")
+    for row in conn.execute("SELECT payload_json FROM migration_reports WHERE source='ytmusic_chart_incident'").fetchall():
+        other = json.loads(row[0])
+        if (other.get("supersedes", {}).get("repair_id") == parent["repair_id"]
+                and other.get("repair_id") != manifest["repair_id"]):
+            raise CanonicalDecisionError("Parent already has a follow-up; forks are forbidden")
+    return receipt
+
+
+def _effective_parent_state(conn, manifest, parent_receipt):
+    """Recheck every old recording/source; allow only the child's explicit UID/ID changes."""
+    parent = manifest["supersedes"]["manifest"]
+    decisions = {case["decision"]["expected_track_uid"]: case["decision"] for case in manifest["cases"]}
+    merges = {decision["expected_target_uid"]: uid for uid, decision in decisions.items()
+              if decision.get("expected_target_uid")}
+    changed_uids = set(decisions) | set(merges)
+    states = {}
+    for original in parent["cases"]:
+        current = _case_state(conn, original)
+        old = parent_receipt["after"][original["case_id"]]
+        if not _scope_uids(original) & changed_uids and fingerprint(current) != old["fingerprint"]:
+            raise CanonicalDecisionError("A retained parent case changed")
+        effective = _plain(original)
+        for decision in _case_decisions(effective):
+            uid = merges.get(decision["expected_track_uid"], decision["expected_track_uid"])
+            if uid in decisions:
+                decision.update(_plain(decisions[uid]))
+            else:
+                decision["expected_track_uid"] = uid
+        for binding in effective.get("bindings", []):
+            uid = binding.get("target_track_uid") or original["decision"]["expected_track_uid"]
+            binding["target_track_uid"] = merges.get(uid, uid)
+        _verify_case_invariants(conn, effective, current)
+        for binding in old["state"]["platform_song_ids"]:
+            expected = merges.get(binding["track_uid"], binding["track_uid"])
+            if find_track_by_service_song(conn, binding["service"], binding["song_id"]) != expected:
+                raise CanonicalDecisionError("Follow-up lost a parent source binding")
+        for alias in old["state"]["yt_video_ids"]:
+            expected = merges.get(alias["track_uid"], alias["track_uid"])
+            actual = conn.execute("SELECT track_uid FROM yt_video_ids WHERE video_id=?", (alias["video_id"],)).fetchone()
+            if not actual or actual[0] != expected:
+                raise CanonicalDecisionError("Follow-up lost parent video ownership")
+        if (current["track_list"] != old["state"]["track_list"]
+                or current["manual_overrides"] != old["state"]["manual_overrides"]):
+            # A merge may make another old scope's source rows visible. Compare
+            # their complete union below, rather than accepting missing rows.
+            if not _scope_uids(original) & changed_uids:
+                raise CanonicalDecisionError("Follow-up changed retained source/manual evidence")
+        states[original["case_id"]] = current
+    for key in ("track_list", "manual_overrides"):
+        old_rows = {fingerprint(row) for case in parent_receipt["after"].values() for row in case["state"][key]}
+        new_rows = {fingerprint(row) for state in states.values() for row in state[key]}
+        if old_rows != new_rows:
+            raise CanonicalDecisionError("Follow-up changed parent source/manual rows")
+    for loser in merges:
+        if conn.execute("SELECT 1 FROM tracks WHERE track_uid=?", (loser,)).fetchone():
+            raise CanonicalDecisionError("Follow-up merge retained a second recording owner")
+    return {key: fingerprint(value) for key, value in states.items()}
+
+
+def covered_parent_repair_ids(receipts):
+    """Only a single, fully verified child can close the normal-run parent gate.
+
+    This checks immutable receipt coverage, not current business rows: future
+    legitimate match runs must not invalidate a completed incident's evidence.
+    """
+    parents, children = {}, {}
+    for receipt in receipts:
+        repair_id = receipt.get("repair_id")
+        if repair_id in parents:
+            raise CanonicalDecisionError("Duplicate repair receipt identity")
+        parents[repair_id] = receipt
+        link = receipt.get("supersedes")
+        if link:
+            if link["repair_id"] in children:
+                raise CanonicalDecisionError("Forked repair receipts cannot close an incident")
+            children[link["repair_id"]] = receipt
+    covered = set()
+    for parent_id, child in children.items():
+        link = child["supersedes"]
+        parent = parents.get(parent_id)
+        if (not parent or parent_id == child["repair_id"] or parent.get("supersedes")
+                or parent.get("manifest_hash") != link.get("manifest_hash")
+                or fingerprint(parent) != link.get("receipt_fingerprint")
+                or set(link.get("after", {})) != set(parent.get("after", {}))):
+            raise CanonicalDecisionError("Follow-up receipt chain or complete parent coverage is invalid")
+        _validate_followup_outputs(parent["outputs"], child["outputs"], link["replacements"])
+        if (child.get("status") == "surfaces_verified"
+                and child.get("stages", {}).get("db") == "applied"
+                and all(child.get("stages", {}).get(key) == "verified" for key in ("publication", "history"))):
+            evidence = child.get("stage_evidence") or {}
+            if not all(evidence.get(key) for key in ("publication", "history")):
+                raise CanonicalDecisionError("Completed follow-up lacks full surface evidence")
+            for field, identity, stage, observed_field in (("playlists", "playlist_id", "publication", "playlists"),
+                                                          ("history", "path", "history", "files")):
+                targets = child["outputs"][field]
+                observed = evidence[stage].get(observed_field) or []
+                by_id = {row[identity]: row for row in observed}
+                if len(by_id) != len(observed) or by_id.keys() != {row[identity] for row in targets}:
+                    raise CanonicalDecisionError("Completed child does not cover every parent surface")
+                for target in targets:
+                    actual = by_id[target[identity]]
+                    if actual.get("readback_verified") is not True or not actual.get("observed_at"):
+                        raise CanonicalDecisionError("Completed child lacks observed surface proof")
+                    if field == "playlists":
+                        items = actual.get("items") or []
+                        tokens = [row.get("set_video_id") for row in items]
+                        slots = {(row.get("video_id"), row.get("set_video_id")) for row in items}
+                        if (actual.get("video_ids") != target["video_ids"]
+                                or [row.get("video_id") for row in items] != target["video_ids"]
+                                or any(not isinstance(token, str) or not token for token in tokens)
+                                or len(set(tokens)) != len(tokens)
+                                or any((row["video_id"], row["set_video_id"]) not in slots
+                                       for row in target.get("preserved_items", []))):
+                            raise CanonicalDecisionError("Completed child playlist evidence differs from its full target")
+                    elif (actual.get("sha256") != target["sha256"]
+                          or actual.get("public_sha256") != target["sha256"]
+                          or actual.get("public_url") != target["public_url"]):
+                        raise CanonicalDecisionError("Completed child history evidence differs from its full target")
+            covered.add(parent_id)
+    return covered
+
+
 def verify_repair(conn: Any, manifest: Mapping[str, Any]) -> dict[str, Any]:
     _validate_manifest(manifest)
     receipt = _receipt(conn, manifest)
@@ -463,37 +676,48 @@ def verify_repair(conn: Any, manifest: Mapping[str, Any]) -> dict[str, Any]:
         current = _case_state(conn, case)
         if fingerprint(current) != receipt["after"][case["case_id"]]["fingerprint"]:
             raise CanonicalDecisionError("Database changed after repair; resume requires review")
-        for decision in _case_decisions(case):
-            uid, selected = decision["expected_track_uid"], decision["selected_video_id"]
-            track = next((row for row in current["tracks"] if row["track_uid"] == uid), None)
-            owned = [row for row in current["yt_video_ids"] if row["track_uid"] == uid]
-            metadata = decision["metadata"]
-            expected_metadata = [metadata.get(field) or metadata.get("yt_" + field)
-                                 or metadata.get(field + "_en") or metadata.get(field + "_ko") or ""
-                                 for field in ("title", "artist", "album")]
-            if (not track or track["canonical_yt_video_id"] != selected
-                    or [row["video_id"] for row in owned if row["is_canonical"]] != [selected]
-                    or [str(track.get("yt_" + field) or "") for field in ("title", "artist", "album")] != expected_metadata):
-                raise CanonicalDecisionError("Repair canonical/alias/metadata invariant failed")
-        for binding in case.get("bindings", []):
-            target = binding.get("target_track_uid") or case["decision"]["expected_track_uid"]
-            if find_track_by_service_song(conn, binding["service"], binding["song_id"]) != target:
-                raise CanonicalDecisionError("Repaired source did not reach its reviewed recording")
-        for correction in case.get("source_metadata_repairs", []):
-            source = conn.execute("SELECT * FROM track_list WHERE service=? AND song_id=?",
-                                  (correction["service"], correction["song_id"])).fetchone()
-            if not source or any(source[key] != value for key, value in correction["values"].items()):
-                raise CanonicalDecisionError("Source metadata correction was not stored exactly")
-        for invalidation in case.get("invalidate_translations", []):
-            if _has_translations(conn) and conn.execute("SELECT 1 FROM ytmusic_song_translations WHERE video_id=?",
-                                                       (invalidation["video_id"],)).fetchone():
-                raise CanonicalDecisionError("Invalidated translation was retained")
+        _verify_case_invariants(conn, case, current)
+    if "supersedes" in manifest:
+        parent = _followup_parent_receipt(conn, manifest)
+        expected = {"repair_id": parent["repair_id"], "manifest_hash": parent["manifest_hash"],
+                    "receipt_fingerprint": fingerprint(parent), "replacements": _followup_replacements(manifest),
+                    "after": _effective_parent_state(conn, manifest, parent)}
+        if expected != receipt.get("supersedes"):
+            raise CanonicalDecisionError("Effective parent changed after follow-up")
     stages = receipt.get("stages") or {}
     return {"repair_id": manifest["repair_id"], "manifest_hash": manifest["manifest_hash"],
             "status": "db_verified", "cases": len(manifest["cases"]),
             "publication_status": stages.get("publication", "not_verified"),
             "history_status": stages.get("history", "not_verified"),
             "repair_status": receipt.get("status"), "followups": receipt.get("followups") or {}}
+
+
+def _verify_case_invariants(conn, case, current):
+    for decision in _case_decisions(case):
+        uid, selected = decision["expected_track_uid"], decision["selected_video_id"]
+        track = next((row for row in current["tracks"] if row["track_uid"] == uid), None)
+        owned = [row for row in current["yt_video_ids"] if row["track_uid"] == uid]
+        metadata = decision["metadata"]
+        expected_metadata = [metadata.get(field) or metadata.get("yt_" + field)
+                             or metadata.get(field + "_en") or metadata.get(field + "_ko") or ""
+                             for field in ("title", "artist", "album")]
+        if (not track or track["canonical_yt_video_id"] != selected
+                or [row["video_id"] for row in owned if row["is_canonical"]] != [selected]
+                or [str(track.get("yt_" + field) or "") for field in ("title", "artist", "album")] != expected_metadata):
+            raise CanonicalDecisionError("Repair canonical/alias/metadata invariant failed")
+    for binding in case.get("bindings", []):
+        target = binding.get("target_track_uid") or case["decision"]["expected_track_uid"]
+        if find_track_by_service_song(conn, binding["service"], binding["song_id"]) != target:
+            raise CanonicalDecisionError("Repaired source did not reach its reviewed recording")
+    for correction in case.get("source_metadata_repairs", []):
+        source = conn.execute("SELECT * FROM track_list WHERE service=? AND song_id=?",
+                              (correction["service"], correction["song_id"])).fetchone()
+        if not source or any(source[key] != value for key, value in correction["values"].items()):
+            raise CanonicalDecisionError("Source metadata correction was not stored exactly")
+    for invalidation in case.get("invalidate_translations", []):
+        if _has_translations(conn) and conn.execute("SELECT 1 FROM ytmusic_song_translations WHERE video_id=?",
+                                                   (invalidation["video_id"],)).fetchone():
+            raise CanonicalDecisionError("Invalidated translation was retained")
 
 
 def _validate_stage_readback(observation: Mapping[str, Any], applied_at: str) -> None:
@@ -548,6 +772,9 @@ def mark_repair_stage(conn: Any, manifest: Mapping[str, Any], stage: str, eviden
                        for item in target.get("preserved_items", [])):
                     raise CanonicalDecisionError("A preserved playlist item was deleted and re-added")
         else:
+            if "supersedes" in manifest:
+                from publish_chart_repair import _read_previews
+                _read_previews(outputs, manifest=manifest)
             expected, observed = outputs.get("history"), evidence.get("files")
             if not isinstance(expected, list) or not isinstance(observed, list):
                 raise CanonicalDecisionError("History scope and public file readbacks must be explicit")
@@ -593,6 +820,10 @@ def apply_repair(conn: Any, manifest: Mapping[str, Any], *, evidence_refresh: Ma
             result = verify_repair(conn, manifest)
             result["status"] = "already_applied"
             return result
+        parent_receipt = None
+        if "supersedes" in manifest:
+            parent_receipt = _followup_parent_receipt(conn, manifest)
+            verify_repair(conn, manifest["supersedes"]["manifest"])
         protected = _protected(conn, manifest["cases"])
         if protected != manifest["protected_before"]:
             raise CanonicalDecisionError("Protected source/audit state changed since planning")
@@ -650,6 +881,13 @@ def apply_repair(conn: Any, manifest: Mapping[str, Any], *, evidence_refresh: Ma
                    "stages": {"db": "applied", "publication": "pending", "history": "pending", "verification": "pending"},
                    "followups": {"daily": "pending", "monday": "pending", "device": "pending"},
                    "outputs": manifest.get("outputs") or {}}
+        if parent_receipt:
+            receipt["supersedes"] = {
+                "repair_id": parent_receipt["repair_id"], "manifest_hash": parent_receipt["manifest_hash"],
+                "receipt_fingerprint": fingerprint(parent_receipt),
+                "replacements": _followup_replacements(manifest),
+                "after": _effective_parent_state(conn, manifest, parent_receipt),
+            }
         conn.execute(
             "INSERT INTO migration_reports(report_id,source,rows_read,tracks_seen,conflicts_seen,created_at,payload_json) "
             "VALUES (?,?,?, ?,0,?,?)",

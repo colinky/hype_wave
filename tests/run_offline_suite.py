@@ -40,6 +40,7 @@ MODULES = (
     "test_narrator_identity", "test_spotify_locale_refresh", "test_native_recording_preservation", "test_native_source_split",
     "test_observed_credit_aliases", "test_catalog_duration_pair",
     "test_search_budget",
+    "test_publication_counterpart_decision",
 )
 
 

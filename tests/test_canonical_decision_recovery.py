@@ -13,7 +13,9 @@ from unittest.mock import patch
 from hype_db_schema import init_schema
 import hype_db_store as store
 from heal_split_tracks import _canonical_video_for_same_yt_metadata
-from repair_ytmusic_chart_incident import apply_repair, manifest_hash, mark_repair_stage, plan_repair, verify_repair
+from repair_ytmusic_chart_incident import (
+    _receipt, apply_repair, fingerprint, manifest_hash, mark_repair_stage, plan_repair, verify_repair,
+)
 from sync_validation import PlaybackBlocked, assert_no_active_repair
 
 OLD, NEW, SOURCE, UID = "old00000001", "new00000001", "src00000001", "existing-song"
@@ -338,8 +340,11 @@ class IncidentRepairTests(StorageFixture):
         with self.assertRaisesRegex(store.CanonicalDecisionError, "deleted and re-added"):
             mark_repair_stage(self.conn, manifest, "publication", wrong)
         mark_repair_stage(self.conn, manifest, "publication", publication)
-        with self.assertRaises(PlaybackBlocked):
+        with self.assertRaises(PlaybackBlocked) as blocked:
             assert_no_active_repair(self.conn)
+        self.assertIn("repair_id=incident-1; status=db_applied", str(blocked.exception))
+        self.assertIn("publication=verified; history=pending", str(blocked.exception))
+        self.assertIn("pending_playlist_updates=[none recorded for this incident]", str(blocked.exception))
         history = {"evidence_ref": "sha256:public-history", "files": [
             {"path": "history/2026-09-14.json", "sha256": digest, "public_sha256": digest,
              "public_url": "https://example.test/history/2026-09-14.json", "observed_at": observed_at,
@@ -367,6 +372,142 @@ class IncidentRepairTests(StorageFixture):
         with self.assertRaises(PlaybackBlocked):
             store.upsert_track_match(self.conn, service="ytmusic", source_row=RAW,
                                      match_row={**RAW, "video_id": NEW, "status": "matched"})
+
+    def test_active_incident_message_identifies_only_its_pending_jobs_without_writes(self):
+        spec = self.spec()
+        spec["outputs"] = {"playlists": [{"playlist_id": "playlist-1", "video_ids": [NEW]}]}
+        apply_repair(self.conn, plan_repair(self.conn, spec))
+        self.conn.executemany(
+            "INSERT INTO playlist_update_runs(update_run_id,playlist_id,job_name,status,started_at,created_at) "
+            "VALUES (?,?,?,?,?,?)",
+            [(run, playlist, job, status, "2026-09-14T12:00:00+00:00", "2026-09-14T12:00:00+00:00")
+             for run, playlist, job, status in (
+                 ("owned-pending", "playlist-1", "KR-Top-Songs", "recovery_required"),
+                 ("incident-pending", "playlist-2", "repair:incident-1:Weekly", "mutation_failed"),
+                 ("running-pending", "playlist-4", "repair:incident-1:Current-Job", "running"),
+                 ("already-published", "playlist-1", "Finished-Job", "published"),
+                 ("unrelated-pending", "playlist-3", "repair:incident-10:Other", "recovery_required"),
+             )],
+        )
+        before = list(self.conn.iterdump())
+        changes = self.conn.total_changes
+        self.conn.execute("PRAGMA query_only=ON")
+        with self.assertRaises(PlaybackBlocked) as blocked:
+            assert_no_active_repair(self.conn)
+        message = str(blocked.exception)
+        self.assertIn("repair_id=incident-1; status=db_applied", message)
+        self.assertIn("db=applied; publication=pending; history=pending; verification=pending", message)
+        self.assertIn("job=KR-Top-Songs, playlist_id=playlist-1, update_run_id=owned-pending, status=recovery_required", message)
+        self.assertIn("update_run_id=incident-pending, status=mutation_failed", message)
+        self.assertIn("update_run_id=running-pending, status=running", message)
+        self.assertNotIn("already-published", message)
+        self.assertNotIn("unrelated-pending", message)
+        self.assertEqual(self.conn.total_changes, changes)
+        self.assertEqual(list(self.conn.iterdump()), before)
+        self.assertTrue(self.conn.in_transaction)
+
+    def test_incomplete_legacy_receipt_still_blocks_and_reports_missing_stages(self):
+        self.conn.execute(
+            "INSERT INTO migration_reports(report_id,source,created_at,payload_json) VALUES (?,?,?,?)",
+            ("chart-repair:legacy", "ytmusic_chart_incident", "2026-09-14", json.dumps({"status": "db_applied"})),
+        )
+        with self.assertRaises(PlaybackBlocked) as blocked:
+            assert_no_active_repair(self.conn)
+        self.assertIn("repair_id=chart-repair:legacy; status=db_applied", str(blocked.exception))
+        self.assertIn("publication=not_verified; history=not_verified", str(blocked.exception))
+
+
+class FollowupOwnershipTests(StorageFixture):
+    def setUp(self):
+        super().setUp()
+        self.owner, self.alt, self.kept = "orphan-owner", "alt00000001", "retained001"
+        store.ensure_track(self.conn, track_uid=self.owner, video_id=self.alt,
+                           yt_title="REDRED", yt_artist="CORTIS", yt_album="GREENGREEN")
+        store.upsert_track_list_metadata(self.conn, service="apple", song_id="owner-source", track_uid=self.owner, row=RAW)
+        store.ensure_track(self.conn, track_uid="retained", video_id=self.kept,
+                           yt_title="Other Song", yt_artist="Other Artist", yt_album="Other Album")
+        store.upsert_track_list_metadata(self.conn, service="apple", song_id="retained-source", track_uid="retained",
+                                        row={"title": "Other Song", "artist": "Other Artist", "album": "Other Album"})
+        self.conn.commit()
+        self.parent = plan_repair(self.conn, {"repair_id": "parent", "implementation_revision": "fixture",
+            "outputs": {"playlists": [{"playlist_id": "all", "video_ids": [NEW, self.kept]}],
+                        "history": [{"path": "history", "public_url": "https://example.invalid/history", "expected_date": "2026-09-14"}]},
+            "cases": [{"case_id": "changed", "service": "ytmusic", "song_id": SOURCE, "source_row": RAW,
+                       "aliases": [{"video_id": self.alt, "expected_track_uid": self.owner}], "decision": decision()},
+                      {"case_id": "retained", "service": "apple", "song_id": "retained-source", "decision": {
+                          "expected_track_uid": "retained", "expected_video_id": self.kept, "selected_video_id": self.kept,
+                          "candidate_evidence": evidence(self.kept), "metadata": {"video_id": self.kept, "verified": True,
+                              "title": "Other Song", "artist": "Other Artist", "album": "Other Album"}}}]})
+        apply_repair(self.conn, self.parent)
+        self.conn.commit()
+
+    def spec(self):
+        outputs = copy.deepcopy(self.parent["outputs"])
+        outputs["playlists"][0]["video_ids"] = [self.alt, self.kept]
+        change = decision()
+        change.update(expected_video_id=NEW, selected_video_id=self.alt, expected_target_uid=self.owner,
+                      current_evidence=evidence(NEW, "unavailable"), candidate_evidence=evidence(self.alt),
+                      metadata={**META, "video_id": self.alt})
+        return {"repair_id": "child", "implementation_revision": "fixture", "outputs": outputs,
+                "supersedes": {"manifest": self.parent, "receipt_fingerprint": fingerprint(_receipt(self.conn, self.parent))},
+                "cases": [{"case_id": "changed", "service": "ytmusic", "song_id": SOURCE,
+                           "source_row": RAW, "decision": change}]}
+
+    def test_merge_preserves_all_parent_bindings_aliases_and_retained_case(self):
+        parent = _receipt(self.conn, self.parent)
+        child = plan_repair(self.conn, self.spec())
+        sources = [tuple(row) for row in self.conn.execute("SELECT service,song_id,track_uid FROM platform_song_ids ORDER BY service,song_id")]
+        apply_repair(self.conn, child)
+        self.assertEqual(canonical(self.conn), self.alt)
+        self.assertIsNone(canonical(self.conn, self.owner))
+        self.assertEqual([tuple(row) for row in self.conn.execute("SELECT service,song_id,track_uid FROM platform_song_ids ORDER BY service,song_id")],
+                         [(service, song, UID if uid == self.owner else uid) for service, song, uid in sources])
+        self.assertEqual(dict(self.conn.execute("SELECT video_id,track_uid FROM yt_video_ids")),
+                         {OLD: UID, NEW: UID, self.alt: UID, self.kept: "retained"})
+        self.assertEqual(_receipt(self.conn, self.parent), parent)
+        self.assertEqual(set(_receipt(self.conn, child)["supersedes"]["after"]), {"changed", "retained"})
+        self.assertEqual(verify_repair(self.conn, child)["status"], "db_verified")
+        self.conn.rollback()
+        self.assertEqual(canonical(self.conn), NEW)
+        self.assertEqual(canonical(self.conn, self.owner), self.alt)
+
+    def test_retained_case_drift_cannot_be_resealed_by_a_child(self):
+        child = plan_repair(self.conn, self.spec())
+        self.conn.execute("UPDATE tracks SET yt_title='unreviewed' WHERE track_uid='retained'")
+        before = list(self.conn.iterdump())
+        with self.assertRaisesRegex(ValueError, "changed after repair"):
+            apply_repair(self.conn, child)
+        self.assertEqual(list(self.conn.iterdump()), before)
+        self.assertEqual(canonical(self.conn), NEW)
+
+    def test_retained_case_drift_after_child_still_blocks_resume(self):
+        child = plan_repair(self.conn, self.spec())
+        apply_repair(self.conn, child)
+        self.conn.execute("UPDATE tracks SET yt_album='unreviewed' WHERE track_uid='retained'")
+        with self.assertRaisesRegex(ValueError, "retained parent case"):
+            verify_repair(self.conn, child)
+
+    def test_followup_reads_use_the_noniterable_postgres_cursor_protocol(self):
+        from hype_db_schema import PostgresCursorWrapper
+
+        class FetchOnlyConnection:
+            def __init__(self, conn):
+                self.conn = conn
+
+            def execute(self, query, params=()):
+                return PostgresCursorWrapper(self.conn.execute(query, params))
+
+        wrapped = FetchOnlyConnection(self.conn)
+        with self.assertRaises(TypeError):
+            iter(wrapped.execute("SELECT payload_json FROM migration_reports"))
+        child = plan_repair(wrapped, self.spec())
+        apply_repair(self.conn, child)
+        self.assertEqual(verify_repair(wrapped, child)["status"], "db_verified")
+        self.conn.execute("INSERT INTO migration_reports(report_id,source,created_at,payload_json) VALUES (?,?,?,?)",
+                          ("chart-repair:fork", "ytmusic_chart_incident", "fixture",
+                           json.dumps({"repair_id": "fork", "supersedes": {"repair_id": "parent"}})))
+        with self.assertRaisesRegex(ValueError, "forks are forbidden"):
+            verify_repair(wrapped, child)
 
 
 class MoveEvidenceTests(unittest.TestCase):

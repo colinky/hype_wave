@@ -72,11 +72,43 @@ def fingerprint(value: Any) -> str:
 
 def assert_no_active_repair(conn):
     """A partially applied incident must be resumed before ordinary synchronization."""
-    rows = conn.execute("SELECT payload_json FROM migration_reports WHERE source='ytmusic_chart_incident'").fetchall()
-    for row in rows:
-        receipt = json.loads(row["payload_json"])
+    rows = conn.execute("SELECT report_id, payload_json FROM migration_reports WHERE source='ytmusic_chart_incident'").fetchall()
+    receipts = [json.loads(row["payload_json"]) for row in rows]
+    from repair_ytmusic_chart_incident import covered_parent_repair_ids
+    from hype_db_store import CanonicalDecisionError
+    try:
+        covered = covered_parent_repair_ids(receipts)
+    except (CanonicalDecisionError, KeyError, TypeError, ValueError) as exc:
+        raise PlaybackBlocked("Incident follow-up coverage is invalid; ordinary synchronization remains blocked") from exc
+    for row, receipt in zip(rows, receipts):
+        if receipt.get("repair_id") in covered:
+            continue
         if receipt.get("status") not in {"surfaces_verified", "completed"}:
-            raise PlaybackBlocked("An incident repair has unfinished playlist or history publication")
+            from hype_db_store import ACTIVE_PLAYLIST_UPDATE_STATUSES
+
+            repair_id = receipt.get("repair_id") or row["report_id"]
+            stages = receipt.get("stages") or {}
+            playlist_ids = {item["playlist_id"] for item in (receipt.get("outputs") or {}).get("playlists", [])}
+            statuses = sorted(ACTIVE_PLAYLIST_UPDATE_STATUSES)
+            pending = conn.execute(
+                "SELECT update_run_id, playlist_id, job_name, status FROM playlist_update_runs "
+                f"WHERE status IN ({','.join('?' for _ in statuses)}) ORDER BY started_at, update_run_id",
+                statuses,
+            ).fetchall()
+            pending_details = [
+                f"job={item['job_name'] or 'unknown'}, playlist_id={item['playlist_id']}, "
+                f"update_run_id={item['update_run_id']}, status={item['status']}"
+                for item in pending
+                if item["playlist_id"] in playlist_ids or str(item["job_name"] or "").startswith(f"repair:{repair_id}:")
+            ]
+            stage_details = "; ".join(f"{key}={stages.get(key, 'not_verified')}"
+                                      for key in ("db", "publication", "history", "verification"))
+            raise PlaybackBlocked(
+                f"Active incident repair blocks ordinary synchronization: repair_id={repair_id}; "
+                f"status={receipt.get('status') or 'unknown'}; {stage_details}; "
+                f"pending_playlist_updates=[{' | '.join(pending_details) or 'none recorded for this incident'}]. "
+                "Resolve the pending repair and verify publication/history before ordinary synchronization."
+            )
 
 
 def _approved_canonical_changes(conn):
@@ -339,6 +371,57 @@ def recording_identity_matches(left, right, *, player=False):
     return False
 
 
+def _music_video_candidate_matches(proof, metadata):
+    """Match a reviewed video/audio pair literally, without selecting either ID."""
+    expected = proof.get("candidate") or {}
+    if not isinstance(expected, dict) or not isinstance(metadata, dict):
+        return False
+    lengths = proof.get("source_lengths_seconds")
+    limit = proof.get("max_duration_difference_seconds")
+    duration = expected.get("length_seconds")
+    if (proof.get("kind") != "official_music_video_recording"
+            or not isinstance(proof.get("limit"), str) or not proof["limit"].strip()
+            or not isinstance(proof.get("references"), list) or not proof["references"]
+            or any(not isinstance(ref, dict) or not ref.get("url") for ref in proof["references"])
+            or not re.fullmatch(r"[A-Za-z0-9_-]{11}", str(proof.get("source_video_id") or ""))
+            or not re.fullmatch(r"[A-Za-z0-9_-]{11}", str(expected.get("video_id") or ""))
+            or proof["source_video_id"] == expected["video_id"]
+            or not isinstance(lengths, list) or not lengths
+            or any(type(value) not in (int, float) or not math.isfinite(value) or value <= 0
+                   for value in [*lengths, duration])
+            or type(limit) not in (int, float) or not math.isfinite(limit) or limit < 0
+            or any(abs(value - duration) > limit for value in lengths)
+            or expected.get("music_video_type") != "MUSIC_VIDEO_TYPE_ATV"
+            or not isinstance(expected.get("artist_ids"), list)
+            or not isinstance(expected.get("artist_names_by_id"), dict)
+            or type(expected.get("artist_identity_complete")) is not bool
+            or type(metadata.get("artist_identity_complete")) is not bool
+            or (expected["artist_identity_complete"] and not expected["artist_ids"])
+            or any(not isinstance(artist_id, str) for artist_id in expected["artist_ids"])
+            or set(expected["artist_names_by_id"]) != set(expected["artist_ids"])
+            or any(not isinstance(artist_id, str) or not re.fullmatch(r"UC[A-Za-z0-9_-]{22}", artist_id)
+                   or not isinstance(expected["artist_names_by_id"][artist_id], list)
+                   or not expected["artist_names_by_id"][artist_id]
+                   or any(not isinstance(name, str) or not name.strip()
+                          for name in expected["artist_names_by_id"][artist_id])
+                   for artist_id in expected["artist_ids"])):
+        return False
+    for field in ("title", "artist", "album"):
+        values = [expected.get(field + suffix) for suffix in ("_ko", "_en")]
+        if (any(not isinstance(value, str) or (field != "album" and not value.strip()) for value in values)
+                or expected.get(field) not in values or metadata.get(field) not in values
+                or any(metadata.get(field + suffix) != expected[field + suffix] for suffix in ("_ko", "_en"))):
+            return False
+    fields = ("video_id", "length_seconds", "music_video_type", "artist_ids",
+              "artist_names_by_id", "artist_identity_complete")
+    return (all(metadata.get(field) == expected[field] for field in fields)
+            and (expected["artist_identity_complete"] is True
+                 or (isinstance(expected.get("unlinked_artist_names"), list)
+                     and bool(expected["unlinked_artist_names"])
+                     and all(isinstance(name, str) and name.strip() for name in expected["unlinked_artist_names"])
+                     and metadata.get("unlinked_artist_names") == expected["unlinked_artist_names"])))
+
+
 def proven_source_identity(source, service, policy):
     """Apply an explicitly reviewed source-credit omission, bound to exact metadata.
 
@@ -346,8 +429,23 @@ def proven_source_identity(source, service, policy):
     changes source rows, attempts, playback status, or canonical ownership.
     """
     proof = policy.get("source_identity_evidence", {}).get(f"{service}:{source.get('song_id')}")
-    if not proof or proof.get("kind") not in {"official_cross_service_credit", "official_cross_service_title_translation"}:
+    if not proof or proof.get("kind") not in {"official_cross_service_credit", "official_cross_service_title_translation",
+                                            "official_music_video_recording"}:
         return source
+    if proof["kind"] == "official_music_video_recording":
+        # No normalization may hide a changed caption, guest, edition or duration.
+        if (service != "ytmusic" or source.get("service", service) != service
+                or source.get("song_id") != proof.get("source_video_id")
+                or not _music_video_candidate_matches(proof, proof.get("recording") or {})
+                or any(bool(source.get("title" + suffix)) != bool(source.get("artist" + suffix))
+                       for suffix in ("", "_ko", "_en"))
+                or not _identity_variants(source)
+                or any(list(row) not in proof.get("source_variants", []) for row in _identity_variants(source))
+                or (source.get("length_seconds") is not None
+                    and (type(source["length_seconds"]) not in (int, float)
+                         or source["length_seconds"] not in proof["source_lengths_seconds"]))):
+            return source
+        return {**source, **proof["recording"]}
     def exact_text(value):
         return " ".join(unicodedata.normalize("NFKC", value).casefold().split())
     expected = {tuple(exact_text(value) for value in variant)
@@ -375,6 +473,9 @@ def source_recording_matches(source, metadata, *, service=None, policy=None):
     service = normalized_service(service or source.get("service") or "")
     proven = proven_source_identity(source, service, policy)
     proof = policy.get("source_identity_evidence", {}).get(f"{service}:{source.get('song_id')}") or {}
+    if proof.get("kind") == "official_music_video_recording":
+        return (proven != source and _music_video_candidate_matches(proof, metadata)
+                and recording_identity_matches(proven, metadata))
     if proven != source and (proof.get("kind") == "official_cross_service_title_translation" or "candidate" in proof):
         expected = proof.get("candidate") or {}
         # Any proof carrying a candidate is scoped to that exact recording.
@@ -527,6 +628,9 @@ def validate_matches(conn, *, service, sources, matches, client, verifier=None):
     def partial_credits_match(source, metadata):
         if metadata.get("artist_identity_complete") is not False:
             return True
+        proof = identity_policy.get("source_identity_evidence", {}).get(f"{service}:{source.get('song_id')}") or {}
+        if proof.get("kind") == "official_music_video_recording":
+            return source_recording_matches(source, metadata, service=service, policy=identity_policy)
         from ytmusic_playlist_sync import split_artist_names
         def names(value):
             return {normalize_text(name).replace(" ", "") for name in ALIASES.get_variants(value, "artist")}

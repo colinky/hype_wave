@@ -258,6 +258,19 @@ def validate_canonical_decision(
                     or incident.get("original_video_id") != selected
                     or incident.get("changed_video_id") != current_id):
                 raise CanonicalDecisionError("Incident restoration is outside its explicit scope")
+        elif reason == "adopt_verified_publication_counterpart":
+            incident = decision.get("incident") or {}
+            if (current_state != "playable"
+                    or not all(incident.get(key) for key in
+                               ("repair_id", "case_id", "parent_repair_id", "parent_case_id", "evidence_ref"))
+                    or incident["repair_id"] == incident["parent_repair_id"]
+                    or incident.get("source_video_id") != current_id
+                    or incident.get("selected_video_id") != selected
+                    or decision.get("source_identity_key") != "ytmusic:" + current_id
+                    or any(not re.fullmatch(r"[0-9a-f]{64}", str(value or "")) for value in
+                           (incident.get("parent_manifest_hash"), incident.get("parent_receipt_fingerprint"),
+                            decision.get("expected_identity_policy_hash")))):
+                raise CanonicalDecisionError("Publication counterpart is outside its reviewed parent/source scope")
         elif reason != "replace_unavailable_recording" or current_state != "unavailable":
             raise CanonicalDecisionError("A usable existing recording must be preserved")
     return {"selected_video_id": selected, "metadata": metadata, "switching": switching}
@@ -313,16 +326,59 @@ def apply_canonical_decision(
         expected_policy = decision.get("expected_identity_policy_hash")
         if expected_policy is not None and expected_policy != hashlib.sha256(policy_bytes).hexdigest():
             raise CanonicalDecisionError("Identity policy changed since selection")
+        adoption = decision.get("reason") == "adopt_verified_publication_counterpart"
+        if adoption:
+            from sync_validation import fingerprint, proven_source_identity
+
+            policy = json.loads(policy_bytes)
+            proof = policy.get("source_identity_evidence", {}).get(decision["source_identity_key"]) or {}
+            incident = decision["incident"]
+            parent_row = conn.execute(
+                "SELECT payload_json FROM migration_reports WHERE report_id=? AND source='ytmusic_chart_incident'",
+                ("chart-repair:" + incident["parent_repair_id"],),
+            ).fetchone()
+            parent = json.loads(parent_row[0]) if parent_row else {}
+            parent_state = parent.get("after", {}).get(incident["parent_case_id"], {}).get("state", {})
+            parent_tracks = parent_state.get("tracks", [])
+            if (not source_row or source.get("song_id") != incident["source_video_id"]
+                    or normalized_service(source.get("service") or "ytmusic") != "ytmusic"
+                    or find_track_by_service_song(conn, "ytmusic", incident["source_video_id"]) != track_uid
+                    or not any(row.get("service") == "ytmusic" and row.get("song_id") == incident["source_video_id"]
+                               and row.get("track_uid") == track_uid for row in parent_state.get("platform_song_ids", []))
+                    or proof.get("kind") != "official_music_video_recording"
+                    or proof.get("candidate", {}).get("video_id") != selected
+                    or proven_source_identity(source, "ytmusic", policy) == source
+                    or parent.get("repair_id") != incident["parent_repair_id"]
+                    or parent.get("manifest_hash") != incident["parent_manifest_hash"]
+                    or fingerprint(parent) != incident["parent_receipt_fingerprint"]
+                    or parent.get("stages", {}).get("db") != "applied"
+                    or not any(row.get("track_uid") == track_uid
+                               and row.get("canonical_yt_video_id") == decision["expected_video_id"]
+                               for row in parent_tracks)):
+                raise CanonicalDecisionError("Publication counterpart lacks its exact applied parent and identity proof")
         if source_row and not source_recording_matches(source, metadata, policy=json.loads(policy_bytes)):
             raise CanonicalDecisionError("Selected metadata does not match the source recording")
         owner = find_track_by_video(conn, selected)
         if owner and owner != track_uid:
             owner_metadata = _track_metadata_rows(conn, owner)
             owner_track = conn.execute("SELECT canonical_yt_video_id FROM tracks WHERE track_uid=?", (owner,)).fetchone()
+            orphan_reviewed = False
+            if adoption and not owner_metadata and decision.get("expected_orphan_owner"):
+                owner_row = dict(conn.execute("SELECT * FROM tracks WHERE track_uid=?", (owner,)).fetchone())
+                owner_aliases = [dict(row) for row in conn.execute(
+                    "SELECT * FROM yt_video_ids WHERE track_uid=? ORDER BY video_id", (owner,)).fetchall()]
+                owner_bindings = [dict(row) for row in conn.execute(
+                    "SELECT * FROM platform_song_ids WHERE track_uid=? ORDER BY service,song_id", (owner,)).fetchall()]
+                orphan_reviewed = (
+                    decision["expected_orphan_owner"] == {"track": owner_row, "aliases": owner_aliases,
+                                                           "bindings": owner_bindings}
+                    and {row["video_id"] for row in owner_aliases} == {selected}
+                    and owner_bindings in ([], [{"service": "ytmusic", "song_id": selected, "track_uid": owner}])
+                )
             if (decision.get("expected_target_uid") != owner
                     or decision.get("same_recording") is not True
                     or not owner_track or owner_track[0] != selected
-                    or not owner_metadata
+                    or not (owner_metadata or orphan_reviewed)
                     or not all(_metadata_rows_equivalent(row, metadata) for row in owner_metadata)
                     or _canonical_manual_rows(conn, owner, selected)):
                 raise CanonicalDecisionError("Selected video belongs to another track; explicit identity repair required")

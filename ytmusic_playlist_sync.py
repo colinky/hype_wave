@@ -2340,6 +2340,16 @@ def get_verified_video_metadata(
     lead_artist_id: str | None = None
     has_partial_artists = False
     names_by_id: dict[str, list[str]] = {}
+    reviewed_unlinked = None
+    if allow_partial_artist_ids:
+        from sync_validation import _music_video_candidate_matches
+        identity_policy = json.loads(Path(__file__).with_name("matching_alias.json").read_text())
+        proofs = [proof for proof in identity_policy.get("source_identity_evidence", {}).values()
+                  if proof.get("candidate", {}).get("video_id") == video_id
+                  and proof.get("candidate", {}).get("artist_ids") == []
+                  and _music_video_candidate_matches(proof, proof.get("candidate"))]
+        if len(proofs) == 1:
+            reviewed_unlinked = proofs[0]
     try:
         for language in ("ko", "en"):
             require_search_budget(verifier)
@@ -2405,8 +2415,14 @@ def get_verified_video_metadata(
             ):
                 return None
             unlinked = tuple(artist["name"] for artist in artists if artist.get("id") is None)
+            exact_unlinked = bool(
+                reviewed_unlinked and len(unlinked) == len(artists)
+                and title == reviewed_unlinked["candidate"][f"title_{language}"]
+                and ", ".join(unlinked) == reviewed_unlinked["candidate"][f"artist_{language}"]
+                and base["length_seconds"] == reviewed_unlinked["candidate"]["length_seconds"]
+            )
             if unlinked:
-                if not allow_partial_artist_ids or not artists[0].get("id"):
+                if not allow_partial_artist_ids or (not artists[0].get("id") and not exact_unlinked):
                     return None
                 has_partial_artists = True
                 album = track.get("album")
@@ -2428,7 +2444,9 @@ def get_verified_video_metadata(
                     return None
                 album_row = exact_album_rows[0]
                 album_title = album_payload.get("title")
-                if (album_row.get("title") != title or album_row.get("artists") != artists
+                expected_album_artists = reviewed_unlinked.get("candidate_album_artists") if exact_unlinked else artists
+                if (album_row.get("title") != title or not expected_album_artists
+                        or album_row.get("artists") != expected_album_artists
                         or album_row.get("isAvailable") is False
                         or not isinstance(album_title, str) or not album_title.strip()
                         or album_title != album_name
@@ -2489,6 +2507,9 @@ def get_verified_video_metadata(
     details["title"] = details[f"title_{language}"]
     details["artist"] = details[f"artist_{language}"]
     details["album"] = details[f"album_{language}"] or details["album_ko"] or details["album_en"]
+    if has_partial_artists and not details["artist_ids"]:
+        if not reviewed_unlinked or not _music_video_candidate_matches(reviewed_unlinked, details):
+            return None
     cache[cache_key] = {"metadata": details}
     return details
 

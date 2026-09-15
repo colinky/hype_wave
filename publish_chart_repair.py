@@ -18,7 +18,7 @@ import re
 from urllib.parse import urlsplit
 
 from repair_ytmusic_chart_incident import (
-    _receipt, _validate_manifest, _validate_stage_readback, fingerprint, incident_connection,
+    _followup_replacements, _receipt, _validate_manifest, _validate_stage_readback, fingerprint, incident_connection,
     mark_repair_stage, verify_repair,
 )
 from sync_validation import PlaybackBlocked, require_playable, sync_run_lock, verifier_for
@@ -168,7 +168,7 @@ def _mark_stage(db_path, manifest, stage, evidence):
     return {**result, "evidence": evidence}
 
 
-def _read_previews(outputs):
+def _read_previews(outputs, *, manifest=None):
     from hype_db_reports import inflate_frontend_history, validate_frontend_history
     videos, previews = [], []
     for target in outputs["history"]:
@@ -182,6 +182,33 @@ def _read_previews(outputs):
         history = inflate_frontend_history(payload)
         videos.extend(row["video_id"] for rows in history.values() for row in rows)
         previews.append((target, payload))
+    if manifest and manifest.get("supersedes"):
+        parent, _ = _read_previews(manifest["supersedes"]["manifest"]["outputs"])
+        old_by_path = {target["path"]: payload for target, payload in parent}
+        replacements = _followup_replacements(manifest)
+        # Reuse the existing history representation. A merge needing new scores
+        # is outside this canonical-only follow-up and must be reviewed separately.
+        display = {"video_id", "title", "artist", "album", "yt_title", "yt_artist", "yt_album", "artwork_url", "identity_key"}
+        for target, payload in previews:
+            original = old_by_path[target["path"]]
+            if (payload.get("dates") != original.get("dates") or payload.get("days") != original.get("days")
+                    or payload.get("identity_exclusions", []) != original.get("identity_exclusions", [])):
+                raise PlaybackBlocked("Follow-up history must preserve the full window and identity exclusions")
+            old, new = inflate_frontend_history(original), inflate_frontend_history(payload)
+            for date, rows in old.items():
+                expected_ids = [replacements.get(row["video_id"], row["video_id"]) for row in rows]
+                if len(set(expected_ids)) != len(expected_ids) or expected_ids != [row["video_id"] for row in new[date]]:
+                    raise PlaybackBlocked("Follow-up history would omit, reorder or combine recordings")
+                for before, after in zip(rows, new[date]):
+                    if before["video_id"] == after["video_id"]:
+                        valid = before == after
+                    else:
+                        valid = ({key: value for key, value in before.items() if key not in display}
+                                 == {key: value for key, value in after.items() if key not in display}
+                                 and after.get("identity_key", after["video_id"])
+                                 == before.get("identity_key", before["video_id"]))
+                    if not valid:
+                        raise PlaybackBlocked("Follow-up changed retained history fields, scores or recording identity")
     return previews, videos
 
 
@@ -204,7 +231,7 @@ def publish(manifest, db_path, client, *, verifier=None):
     outputs = _scope(manifest)
     managed_verifier = verifier is None
     verifier = verifier if verifier is not None else verifier_for(client, fresh=True)
-    _, history_videos = _read_previews(outputs)
+    _, history_videos = _read_previews(outputs, manifest=manifest)
     video_ids = list(dict.fromkeys(history_videos + [video for target in outputs["playlists"]
                                                    for video in target["video_ids"]]))
     require_playable(verifier, video_ids)
@@ -246,7 +273,7 @@ def publish(manifest, db_path, client, *, verifier=None):
 def install_history(manifest, db_path, *, client=None, verifier=None):
     from hype_db_reports import write_frontend_history
     outputs = _scope(manifest)
-    previews, _ = _read_previews(outputs)
+    previews, _ = _read_previews(outputs, manifest=manifest)
     with incident_connection(Path(db_path), read_only=True) as conn:
         state = verify_repair(conn, manifest)
     if state["publication_status"] != "verified":
@@ -281,7 +308,7 @@ def verify_public_history(manifest, db_path, client, *, verifier=None):
     with incident_connection(Path(db_path), read_only=True) as conn:
         verify_repair(conn, manifest)
     _guard(db_path, manifest, publication_required=True)
-    _, history_videos = _read_previews(outputs)
+    _, history_videos = _read_previews(outputs, manifest=manifest)
     verifier = verifier or verifier_for(client)
     require_playable(verifier, history_videos)
     evidence = {"evidence_ref": "manifest:" + manifest["manifest_hash"], "files": []}

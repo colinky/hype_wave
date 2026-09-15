@@ -15,7 +15,10 @@ import ytmusic_playlist_sync as playlist_sync
 from hype_db_reports import compact_frontend_history
 from hype_db_schema import init_schema
 from hype_db_store import ensure_track, upsert_track_list_metadata
-from repair_ytmusic_chart_incident import apply_repair, manifest_hash, plan_repair, verify_repair
+from repair_ytmusic_chart_incident import (
+    _receipt, _validate_manifest, apply_repair, covered_parent_repair_ids, fingerprint, manifest_hash,
+    mark_repair_stage, plan_repair, verify_repair,
+)
 from sync_validation import PlaybackBlocked
 
 OLD, NEW, KEEP, UID = "old00000001", "new00000001", "keep0000001", "fixture-track"
@@ -129,6 +132,146 @@ class PublishRepairTests(unittest.TestCase):
     def public_response(self, *, status=200, content=None):
         return Mock(status_code=status, content=self.preview_path.read_bytes() if content is None else content,
                     raise_for_status=Mock())
+
+    def child_spec(self):
+        """Fixture-only compensating choice; no actual provider identity approval."""
+        parent_receipt = _receipt(self.conn, self.manifest)
+        spec = copy.deepcopy(self.spec)
+        spec.update(repair_id="followup-fixture", supersedes={"manifest": self.manifest,
+                                                            "receipt_fingerprint": fingerprint(parent_receipt)})
+        change = spec["cases"][0]["decision"]
+        change.update(expected_video_id=NEW, selected_video_id=OLD, current_evidence=evidence(NEW),
+                      candidate_evidence=evidence(OLD), reason="restore_unintended_chart_switch",
+                      metadata={**change["metadata"], "video_id": OLD},
+                      incident={"repair_id": spec["repair_id"], "case_id": "redred", "evidence_ref": "fixture-only",
+                                "original_video_id": OLD, "changed_video_id": NEW})
+        spec["outputs"]["playlists"][0]["video_ids"] = [OLD, KEEP]
+        spec["outputs"]["playlists"][0]["preserved_items"] = copy.deepcopy(self.before)
+        from hype_db_reports import inflate_frontend_history
+        rows = inflate_frontend_history(json.loads(self.preview_path.read_text()))
+        rows[DAY][0].update(video_id=OLD, identity_key=NEW)
+        payload = compact_frontend_history(rows, generated_at="child-fixture")
+        path = self.folder / "child-preview.json"
+        path.write_text(json.dumps(payload, ensure_ascii=False, indent=2))
+        spec["outputs"]["history"][0].update(preview_path=str(path), sha256=hashlib.sha256(path.read_bytes()).hexdigest())
+        return spec
+
+    def test_followup_applies_once_preserves_parent_and_requires_both_full_surfaces(self):
+        parent = _receipt(self.conn, self.manifest)
+        child = plan_repair(self.conn, self.child_spec())
+        apply_repair(self.conn, child)
+        self.assertEqual(_receipt(self.conn, self.manifest), parent)
+        after = list(self.conn.iterdump())
+        self.assertEqual(apply_repair(self.conn, child)["status"], "already_applied")
+        self.assertEqual(list(self.conn.iterdump()), after)
+        receipts = lambda: [parent, _receipt(self.conn, child)]
+        self.assertEqual(covered_parent_repair_ids(receipts()), set())
+        now = datetime.now(timezone.utc).isoformat()
+        pub = {"evidence_ref": "fixture-pub", "playlists": [{"playlist_id": "playlist-1",
+               "video_ids": [OLD, KEEP], "items": self.before, "observed_at": now, "readback_verified": True}]}
+        mark_repair_stage(self.conn, child, "publication", pub)
+        self.assertEqual(covered_parent_repair_ids(receipts()), set())
+        history = child["outputs"]["history"][0]
+        mark_repair_stage(self.conn, child, "history", {"evidence_ref": "fixture-history", "files": [
+            {"path": history["path"], "sha256": history["sha256"], "public_sha256": history["sha256"],
+             "public_url": history["public_url"], "observed_at": now, "readback_verified": True}]})
+        self.assertEqual(covered_parent_repair_ids(receipts()), {self.manifest["repair_id"]})
+        self.assertEqual(_receipt(self.conn, self.manifest), parent)
+        forged = copy.deepcopy(receipts())
+        forged[1]["stage_evidence"]["publication"]["playlists"] = []
+        with self.assertRaisesRegex(ValueError, "every parent surface"):
+            covered_parent_repair_ids(forged)
+
+    def test_followup_refuses_missing_scope_reorder_and_unrelated_selection(self):
+        for mutate in (
+            lambda spec: spec["outputs"].update(playlists=[]),
+            lambda spec: spec["outputs"].update(history=[]),
+            lambda spec: spec["outputs"]["playlists"][0].update(video_ids=[KEEP, OLD]),
+            lambda spec: spec["outputs"]["playlists"][0].update(video_ids=[OLD]),
+            lambda spec: spec["cases"][0].update(source_metadata_repairs=[{"service": "ytmusic", "song_id": "source-song"}]),
+        ):
+            spec = self.child_spec()
+            mutate(spec)
+            before = list(self.conn.iterdump())
+            with self.subTest(spec=spec["outputs"]), self.assertRaises(ValueError):
+                plan_repair(self.conn, spec)
+            self.assertEqual(list(self.conn.iterdump()), before)
+
+    def test_followup_stale_parent_fork_and_grandchild_are_blocked(self):
+        child = plan_repair(self.conn, self.child_spec())
+        self.alter_receipt(lambda receipt: receipt.update(note="concurrent change"))
+        before = list(self.conn.iterdump())
+        with self.assertRaisesRegex(ValueError, "parent receipt changed"):
+            apply_repair(self.conn, child)
+        self.assertEqual(list(self.conn.iterdump()), before)
+        child = plan_repair(self.conn, self.child_spec())
+        apply_repair(self.conn, child)
+        self.conn.execute("INSERT INTO migration_reports(report_id,source,created_at,payload_json) VALUES (?,?,?,?)",
+                          ("chart-repair:fork", "ytmusic_chart_incident", "fixture",
+                           json.dumps({"repair_id": "fork", "supersedes": {"repair_id": self.manifest["repair_id"]}})))
+        with self.assertRaisesRegex(ValueError, "forks"):
+            verify_repair(self.conn, child)
+        spec = copy.deepcopy(child)
+        spec["supersedes"]["manifest"] = child
+        spec["manifest_hash"] = manifest_hash(spec)
+        with self.assertRaisesRegex(ValueError, "original parent"):
+            _validate_manifest(spec)
+
+    def test_followup_history_preserves_identity_scores_sources_and_all_dates(self):
+        from hype_db_reports import inflate_frontend_history
+        for change in (lambda rows: rows[DAY][0].update(hype_index=999),
+                       lambda rows: rows[DAY][0].update(identity_key="wrong-recording"),
+                       lambda rows: rows[DAY][0].update(apple_url="https://wrong.invalid/song"),
+                       lambda rows: rows.update({"2026-09-13": copy.deepcopy(rows[DAY])})):
+            spec = self.child_spec()
+            target = spec["outputs"]["history"][0]
+            path = Path(target["preview_path"])
+            rows = inflate_frontend_history(json.loads(path.read_text()))
+            change(rows)
+            path.write_text(json.dumps(compact_frontend_history(rows), ensure_ascii=False, indent=2))
+            target["sha256"] = hashlib.sha256(path.read_bytes()).hexdigest()
+            child = plan_repair(self.conn, spec)
+            with self.assertRaises(PlaybackBlocked):
+                publish._read_previews(child["outputs"], manifest=child)
+        child = plan_repair(self.conn, self.child_spec())
+        self.assertEqual(publish._read_previews(child["outputs"], manifest=child)[1], [OLD])
+
+    def test_followup_cannot_claim_a_new_counterpart_was_the_original_canonical(self):
+        spec = self.child_spec()
+        proposal = spec["cases"][0]["decision"]
+        proposal.update(selected_video_id=KEEP, candidate_evidence=evidence(KEEP),
+                        metadata={**proposal["metadata"], "video_id": KEEP})
+        proposal["incident"]["original_video_id"] = KEEP
+        spec["outputs"]["playlists"][0]["video_ids"] = [KEEP]
+        before = list(self.conn.iterdump())
+        with self.assertRaisesRegex(ValueError, "parent's original canonical"):
+            plan_repair(self.conn, spec)
+        self.assertEqual(list(self.conn.iterdump()), before)
+
+    def test_followup_checks_parent_before_apply_and_after_changes(self):
+        child = plan_repair(self.conn, self.child_spec())
+        ensure_track(self.conn, track_uid="unrelated", video_id=KEEP)
+        self.conn.execute("UPDATE platform_song_ids SET track_uid='unrelated' WHERE service='ytmusic'")
+        before = list(self.conn.iterdump())
+        with self.assertRaises(ValueError):
+            apply_repair(self.conn, child)
+        self.assertEqual(list(self.conn.iterdump()), before)
+        self.conn.rollback()
+        child = plan_repair(self.conn, self.child_spec())
+        apply_repair(self.conn, child)
+        self.conn.execute("DELETE FROM yt_video_ids WHERE video_id=?", (NEW,))
+        with self.assertRaises(ValueError):
+            verify_repair(self.conn, child)
+
+    def test_followup_receipt_link_cannot_be_swapped_after_apply(self):
+        child = plan_repair(self.conn, self.child_spec())
+        apply_repair(self.conn, child)
+        receipt = _receipt(self.conn, child)
+        receipt["supersedes"]["repair_id"] = "unrelated-parent"
+        self.conn.execute("UPDATE migration_reports SET payload_json=? WHERE report_id=?",
+                          (json.dumps(receipt), "chart-repair:" + child["repair_id"]))
+        with self.assertRaisesRegex(ValueError, "Effective parent"):
+            verify_repair(self.conn, child)
 
     def test_publish_resume_preserves_shared_slots_and_never_repeats_mutation(self):
         before = publish.business_fingerprint(self.conn)

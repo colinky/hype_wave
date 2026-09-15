@@ -1,0 +1,596 @@
+{
+  "description": "Exact saved public/authenticated provider metadata; offline playback health is synthetic. No fabricated artist IDs or generic video equivalence.",
+  "cases": [
+    {
+      "source": {
+        "service": "ytmusic",
+        "song_id": "GxChUrrY4bc",
+        "title_ko": "꿈꾸던 어른이 되었나요?",
+        "artist_ko": "머무르",
+        "album_ko": "",
+        "title_en": "꿈꾸던 어른이 되었나요?",
+        "artist_en": "meomuru",
+        "album_en": "",
+        "title": "꿈꾸던 어른이 되었나요?",
+        "artist": "머무르",
+        "album": ""
+      },
+      "native_source_metadata": {
+        "video_id": "GxChUrrY4bc",
+        "title": "꿈꾸던 어른이 되었나요?",
+        "artist": "meomuru",
+        "album": "",
+        "length_seconds": 204,
+        "music_video_type": "MUSIC_VIDEO_TYPE_OMV",
+        "title_ko": "꿈꾸던 어른이 되었나요?",
+        "artist_ko": "머무르",
+        "album_ko": "",
+        "title_en": "꿈꾸던 어른이 되었나요?",
+        "artist_en": "meomuru",
+        "album_en": "",
+        "artist_ids": [
+          "UCumxj48bP-H_YusbCXi7vkQ"
+        ],
+        "artist_names_by_id": {
+          "UCumxj48bP-H_YusbCXi7vkQ": [
+            "머무르",
+            "meomuru"
+          ]
+        },
+        "verified": true
+      },
+      "candidate": {
+        "video_id": "JJx_WQXOeK0",
+        "title": "꿈꾸던 어른이 되었나요?",
+        "artist": "meomuru",
+        "album": "꿈꾸던 어른이 되었나요?",
+        "length_seconds": 207,
+        "music_video_type": "MUSIC_VIDEO_TYPE_ATV",
+        "title_ko": "꿈꾸던 어른이 되었나요?",
+        "artist_ko": "머무르",
+        "album_ko": "꿈꾸던 어른이 되었나요?",
+        "title_en": "꿈꾸던 어른이 되었나요?",
+        "artist_en": "meomuru",
+        "album_en": "꿈꾸던 어른이 되었나요?",
+        "artist_ids": [
+          "UCumxj48bP-H_YusbCXi7vkQ"
+        ],
+        "artist_names_by_id": {
+          "UCumxj48bP-H_YusbCXi7vkQ": [
+            "머무르",
+            "MEOMURU"
+          ]
+        },
+        "artist_identity_complete": true
+      },
+      "player": {
+        "title": "꿈꾸던 어른이 되었나요?",
+        "artist": "머무르",
+        "length_seconds": 207,
+        "music_video_type": "MUSIC_VIDEO_TYPE_ATV"
+      },
+      "watch": {
+        "ko": {
+          "videoId": "JJx_WQXOeK0",
+          "title": "꿈꾸던 어른이 되었나요?",
+          "artists": [
+            {
+              "name": "머무르",
+              "id": "UCumxj48bP-H_YusbCXi7vkQ"
+            }
+          ],
+          "album": {
+            "name": "꿈꾸던 어른이 되었나요?",
+            "id": "MPREb_iG8rZaecLT7"
+          },
+          "videoType": "MUSIC_VIDEO_TYPE_ATV",
+          "isAvailable": true
+        },
+        "en": {
+          "videoId": "JJx_WQXOeK0",
+          "title": "꿈꾸던 어른이 되었나요?",
+          "artists": [
+            {
+              "name": "MEOMURU",
+              "id": "UCumxj48bP-H_YusbCXi7vkQ"
+            }
+          ],
+          "album": {
+            "name": "꿈꾸던 어른이 되었나요?",
+            "id": "MPREb_iG8rZaecLT7"
+          },
+          "videoType": "MUSIC_VIDEO_TYPE_ATV",
+          "isAvailable": true
+        }
+      },
+      "evidence": [
+        {
+          "url": "https://music.youtube.com/watch?v=GxChUrrY4bc",
+          "relation": "exact one-way counterpart JJx_WQXOeK0",
+          "source_duration_seconds": 205,
+          "candidate_watch_duration_seconds": 208
+        },
+        {
+          "url": "https://music.youtube.com/watch?v=JJx_WQXOeK0",
+          "artist_id": "UCumxj48bP-H_YusbCXi7vkQ",
+          "candidate_player_duration_seconds": 207
+        }
+      ]
+    },
+    {
+      "source": {
+        "service": "ytmusic",
+        "song_id": "y5Wi5kOiGAQ",
+        "title_ko": "螺旋(Acoustic)",
+        "artist_ko": "9Lana",
+        "album_ko": "",
+        "title_en": "螺旋(Acoustic)",
+        "artist_en": "9Lana",
+        "album_en": "",
+        "title": "螺旋(Acoustic)",
+        "artist": "9Lana",
+        "album": ""
+      },
+      "native_source_metadata": {
+        "video_id": "y5Wi5kOiGAQ",
+        "title": "【MV】螺旋 -Acoustic Ver.- / 9Lana | TVアニメ最終クール『BLEACH 千年血戦篇-禍進譚-』エンディングテーマ",
+        "artist": "9Lana",
+        "album": "",
+        "title_ko": "【MV】螺旋 -Acoustic Ver.- / 9Lana | TVアニメ最終クール『BLEACH 千年血戦篇-禍進譚-』エンディングテーマ",
+        "artist_ko": "9Lana",
+        "album_ko": "",
+        "title_en": "【MV】螺旋 -Acoustic Ver.- / 9Lana | TVアニメ最終クール『BLEACH 千年血戦篇-禍進譚-』エンディングテーマ",
+        "artist_en": "9Lana",
+        "album_en": "",
+        "length_seconds": 234,
+        "music_video_type": "MUSIC_VIDEO_TYPE_OMV",
+        "artist_ids": [
+          "UCZvkU-ma74UOqHbD0vebUuw"
+        ],
+        "artist_identity_complete": true,
+        "artist_names_by_id": {
+          "UCZvkU-ma74UOqHbD0vebUuw": [
+            "9Lana"
+          ]
+        },
+        "verified": true
+      },
+      "candidate": {
+        "video_id": "CTdGQIeWQM0",
+        "length_seconds": 233,
+        "music_video_type": "MUSIC_VIDEO_TYPE_ATV",
+        "artist_ids": [
+          "UClZMIQn97IcvrdGviWz-qRw"
+        ],
+        "artist_names_by_id": {
+          "UClZMIQn97IcvrdGviWz-qRw": [
+            "9Lana"
+          ]
+        },
+        "artist_identity_complete": true,
+        "title_ko": "螺旋 - RASEN - Acoustic Ver. - - RASEN Acoustic Ver",
+        "artist_ko": "9Lana",
+        "album_ko": "RASEN Acoustic Ver",
+        "title_en": "螺旋 - RASEN - Acoustic Ver. - - RASEN Acoustic Ver",
+        "artist_en": "9Lana",
+        "album_en": "RASEN Acoustic Ver",
+        "title": "螺旋 - RASEN - Acoustic Ver. - - RASEN Acoustic Ver",
+        "artist": "9Lana",
+        "album": "RASEN Acoustic Ver"
+      },
+      "player": {
+        "title": "RASEN Acoustic Ver",
+        "artist": "9Lana",
+        "length_seconds": 233,
+        "music_video_type": "MUSIC_VIDEO_TYPE_ATV"
+      },
+      "watch": {
+        "ko": {
+          "videoId": "CTdGQIeWQM0",
+          "title": "螺旋 - RASEN - Acoustic Ver. - - RASEN Acoustic Ver",
+          "length": "3:54",
+          "videoType": "MUSIC_VIDEO_TYPE_ATV",
+          "artists": [
+            {
+              "name": "9Lana",
+              "id": "UClZMIQn97IcvrdGviWz-qRw"
+            }
+          ],
+          "album": {
+            "name": "RASEN Acoustic Ver",
+            "id": "MPREb_xRxGpsujDPT"
+          },
+          "counterpart": {
+            "videoId": "y5Wi5kOiGAQ",
+            "title": "螺旋 - RASEN - Acoustic Ver. - - RASEN Acoustic Ver",
+            "length": "3:54",
+            "videoType": "MUSIC_VIDEO_TYPE_OMV",
+            "artists": [
+              {
+                "name": "9Lana",
+                "id": "UCZvkU-ma74UOqHbD0vebUuw"
+              }
+            ]
+          }
+        },
+        "en": {
+          "videoId": "CTdGQIeWQM0",
+          "title": "螺旋 - RASEN - Acoustic Ver. - - RASEN Acoustic Ver",
+          "length": "3:54",
+          "videoType": "MUSIC_VIDEO_TYPE_ATV",
+          "artists": [
+            {
+              "name": "9Lana",
+              "id": "UClZMIQn97IcvrdGviWz-qRw"
+            }
+          ],
+          "album": {
+            "name": "RASEN Acoustic Ver",
+            "id": "MPREb_xRxGpsujDPT"
+          },
+          "counterpart": {
+            "videoId": "y5Wi5kOiGAQ",
+            "title": "螺旋 - RASEN - Acoustic Ver. - - RASEN Acoustic Ver",
+            "length": "3:54",
+            "videoType": "MUSIC_VIDEO_TYPE_OMV",
+            "artists": [
+              {
+                "name": "9Lana",
+                "id": "UCZvkU-ma74UOqHbD0vebUuw"
+              }
+            ]
+          }
+        }
+      },
+      "evidence": [
+        {
+          "url": "https://www.sonymusic.co.jp/artist/9Lana/info/586163",
+          "source_video_id": "y5Wi5kOiGAQ",
+          "release_url": "https://9lana.lnk.to/RASEN_AcousticVer"
+        },
+        {
+          "url": "https://music.apple.com/us/album/rasen-acoustic-ver/6796579285?i=6796579286",
+          "catalog_song_id": "6796579286",
+          "isrc": "JPU902603223",
+          "duration_ms": 233256
+        },
+        {
+          "url": "https://music.youtube.com/watch?v=CTdGQIeWQM0",
+          "source_audio_metadata_ms": 233778,
+          "candidate_audio_metadata_ms": 233256,
+          "reciprocal_counterpart": "y5Wi5kOiGAQ"
+        }
+      ]
+    },
+    {
+      "source": {
+        "service": "ytmusic",
+        "song_id": "UsjsYMo3O1Q",
+        "title_ko": "ブレインロット (feat. Kasane Teto)",
+        "artist_ko": "Tokyo Manaka",
+        "album_ko": "",
+        "title_en": "ブレインロット (feat. Kasane Teto)",
+        "artist_en": "Tokyo Manaka",
+        "album_en": "",
+        "title": "ブレインロット (feat. Kasane Teto)",
+        "artist": "Tokyo Manaka",
+        "album": ""
+      },
+      "native_source_metadata": {
+        "video_id": "UsjsYMo3O1Q",
+        "title": "Brain Rot (feat. Kasane Teto)",
+        "artist": "Tokyo Manaka",
+        "album": "",
+        "title_ko": "Brain Rot (feat. Kasane Teto)",
+        "artist_ko": "Tokyo Manaka",
+        "album_ko": "",
+        "title_en": "Brain Rot (feat. Kasane Teto)",
+        "artist_en": "Tokyo Manaka",
+        "album_en": "",
+        "length_seconds": 125,
+        "music_video_type": "MUSIC_VIDEO_TYPE_OMV",
+        "artist_ids": [
+          "UCsukun8hQCKPJS8688sJaOg"
+        ],
+        "artist_identity_complete": true,
+        "artist_names_by_id": {
+          "UCsukun8hQCKPJS8688sJaOg": [
+            "Tokyo Manaka"
+          ]
+        },
+        "verified": true
+      },
+      "candidate": {
+        "video_id": "ljCOHKamf4Q",
+        "length_seconds": 123,
+        "music_video_type": "MUSIC_VIDEO_TYPE_ATV",
+        "artist_ids": [
+          "UCsukun8hQCKPJS8688sJaOg"
+        ],
+        "artist_names_by_id": {
+          "UCsukun8hQCKPJS8688sJaOg": [
+            "Tokyo Manaka"
+          ]
+        },
+        "artist_identity_complete": true,
+        "title_ko": "ブレインロット - Brain Rot",
+        "artist_ko": "Tokyo Manaka",
+        "album_ko": "Brain Rot",
+        "title_en": "ブレインロット - Brain Rot",
+        "artist_en": "Tokyo Manaka",
+        "album_en": "Brain Rot",
+        "title": "ブレインロット - Brain Rot",
+        "artist": "Tokyo Manaka",
+        "album": "Brain Rot"
+      },
+      "player": {
+        "title": "Brain Rot",
+        "artist": "Tokyo Manaka",
+        "length_seconds": 123,
+        "music_video_type": "MUSIC_VIDEO_TYPE_ATV"
+      },
+      "watch": {
+        "ko": {
+          "videoId": "ljCOHKamf4Q",
+          "title": "ブレインロット - Brain Rot",
+          "length": "2:03",
+          "videoType": "MUSIC_VIDEO_TYPE_ATV",
+          "artists": [
+            {
+              "name": "Tokyo Manaka",
+              "id": "UCsukun8hQCKPJS8688sJaOg"
+            }
+          ],
+          "album": {
+            "name": "Brain Rot",
+            "id": "MPREb_PCv9kMAQ9kF"
+          },
+          "counterpart": {
+            "videoId": "UsjsYMo3O1Q",
+            "title": "ブレインロット - Brain Rot (feat. Kasane Teto)",
+            "length": "2:06",
+            "videoType": "MUSIC_VIDEO_TYPE_OMV",
+            "artists": [
+              {
+                "name": "Tokyo Manaka",
+                "id": null
+              }
+            ]
+          }
+        },
+        "en": {
+          "videoId": "ljCOHKamf4Q",
+          "title": "ブレインロット - Brain Rot",
+          "length": "2:03",
+          "videoType": "MUSIC_VIDEO_TYPE_ATV",
+          "artists": [
+            {
+              "name": "Tokyo Manaka",
+              "id": "UCsukun8hQCKPJS8688sJaOg"
+            }
+          ],
+          "album": {
+            "name": "Brain Rot",
+            "id": "MPREb_PCv9kMAQ9kF"
+          },
+          "counterpart": {
+            "videoId": "UsjsYMo3O1Q",
+            "title": "ブレインロット - Brain Rot (feat. Kasane Teto)",
+            "length": "2:06",
+            "videoType": "MUSIC_VIDEO_TYPE_OMV",
+            "artists": [
+              {
+                "name": "Tokyo Manaka",
+                "id": null
+              }
+            ]
+          }
+        }
+      },
+      "evidence": [
+        {
+          "url": "https://www.shazam.com/ja-jp/song/1875880766/ブレインロット",
+          "catalog_song_id": "1875880766",
+          "vocal_credit": "重音テト",
+          "source_video_url": "https://youtu.be/UsjsYMo3O1Q"
+        },
+        {
+          "url": "https://music.apple.com/us/album/brain-rot/1875880765?i=1875880766",
+          "catalog_song_id": "1875880766",
+          "isrc": "JPG102600245",
+          "duration_ms": 122889
+        },
+        {
+          "url": "https://music.youtube.com/watch?v=ljCOHKamf4Q",
+          "source_audio_metadata_ms": 125039,
+          "candidate_audio_metadata_ms": 122888,
+          "reciprocal_counterpart": "UsjsYMo3O1Q"
+        }
+      ]
+    },
+    {
+      "source": {
+        "service": "ytmusic",
+        "song_id": "to3sjq-CAvA",
+        "title_ko": "생각을 멈추다 보면",
+        "artist_ko": "최유리, 진영",
+        "album_ko": "",
+        "title_en": "생각을 멈추다 보면",
+        "artist_en": "Choi Yu Ree, Jinyoung",
+        "album_en": "",
+        "title": "생각을 멈추다 보면",
+        "artist": "최유리, 진영",
+        "album": ""
+      },
+      "native_source_metadata": {
+        "video_id": "to3sjq-CAvA",
+        "title": "🎤진영&최유리 - 생각을 멈추다 보면 | 들어봐! 유리의 숲2 EP.01 진영 편",
+        "artist": "들어봐! 유리의 숲",
+        "album": "",
+        "verified": true,
+        "length_seconds": 206,
+        "music_video_type": "MUSIC_VIDEO_TYPE_UGC",
+        "artist_identity_complete": false,
+        "identity_basis": "exact_native_uploader",
+        "creator_channel_id": "UCz2Ck-Rz3zKqcVpMXe2h1hQ",
+        "artist_ids": [],
+        "artist_names_by_id": {},
+        "title_ko": "🎤진영&최유리 - 생각을 멈추다 보면 | 들어봐! 유리의 숲2 EP.01 진영 편",
+        "artist_ko": "들어봐! 유리의 숲",
+        "album_ko": "",
+        "title_en": "🎤진영&최유리 - 생각을 멈추다 보면 | 들어봐! 유리의 숲2 EP.01 진영 편",
+        "artist_en": "들어봐! 유리의 숲",
+        "album_en": ""
+      },
+      "candidate": {
+        "video_id": "i0zqeEAJEx8",
+        "title": "🎤진영&최유리 - 생각을 멈추다 보면 | 들어봐! 유리의 숲2 EP.01 진영 편",
+        "artist": "진영, 최유리",
+        "album": "WelcomeToForest Choi Yu Re2_01-2",
+        "length_seconds": 200,
+        "music_video_type": "MUSIC_VIDEO_TYPE_ATV",
+        "artist_ids": [],
+        "artist_names_by_id": {},
+        "artist_identity_complete": false,
+        "unlinked_artist_names": [
+          "진영, 최유리"
+        ],
+        "title_ko": "🎤진영&최유리 - 생각을 멈추다 보면 | 들어봐! 유리의 숲2 EP.01 진영 편",
+        "artist_ko": "진영, 최유리",
+        "album_ko": "WelcomeToForest Choi Yu Re2_01-2",
+        "title_en": "🎤진영&최유리 - 생각을 멈추다 보면 | 들어봐! 유리의 숲2 EP.01 진영 편",
+        "artist_en": "진영, 최유리",
+        "album_en": "WelcomeToForest Choi Yu Re2_01-2"
+      },
+      "player": {
+        "title": "🎤진영&최유리 - 생각을 멈추다 보면 | 들어봐! 유리의 숲2 EP.01 진영 편",
+        "artist": "진영, 최유리",
+        "length_seconds": 200,
+        "music_video_type": "MUSIC_VIDEO_TYPE_ATV"
+      },
+      "watch": {
+        "ko": {
+          "videoId": "i0zqeEAJEx8",
+          "title": "🎤진영&최유리 - 생각을 멈추다 보면 | 들어봐! 유리의 숲2 EP.01 진영 편",
+          "length": "3:21",
+          "videoType": "MUSIC_VIDEO_TYPE_ATV",
+          "artists": [
+            {
+              "name": "진영, 최유리",
+              "id": null
+            }
+          ],
+          "album": {
+            "name": "WelcomeToForest Choi Yu Re2_01-2",
+            "id": "MPREb_4OsUtYj6wxo"
+          }
+        },
+        "en": {
+          "videoId": "i0zqeEAJEx8",
+          "title": "🎤진영&최유리 - 생각을 멈추다 보면 | 들어봐! 유리의 숲2 EP.01 진영 편",
+          "length": "3:21",
+          "videoType": "MUSIC_VIDEO_TYPE_ATV",
+          "artists": [
+            {
+              "name": "진영, 최유리",
+              "id": null
+            }
+          ],
+          "album": {
+            "name": "WelcomeToForest Choi Yu Re2_01-2",
+            "id": "MPREb_4OsUtYj6wxo"
+          }
+        }
+      },
+      "evidence": [
+        {
+          "url": "https://www.youtube.com/watch?v=to3sjq-CAvA",
+          "source_player_duration_seconds": 206,
+          "performers": [
+            "진영",
+            "최유리"
+          ],
+          "episode": "들어봐! 유리의 숲2 EP.01 진영 편"
+        },
+        {
+          "url": "https://www.youtube.com/watch?v=i0zqeEAJEx8",
+          "candidate_player_duration_seconds": 200,
+          "performers": [
+            "진영",
+            "최유리"
+          ],
+          "phonogram_rights": "dingo music",
+          "distributor": "Collab Asia Music"
+        },
+        {
+          "url": "https://music.youtube.com/browse/MPREb_4OsUtYj6wxo",
+          "album": "WelcomeToForest Choi Yu Re2_01-2",
+          "track_count": 1,
+          "track_video_id": "i0zqeEAJEx8"
+        }
+      ],
+      "album": {
+        "ko": {
+          "title": "WelcomeToForest Choi Yu Re2_01-2",
+          "type": "싱글",
+          "year": null,
+          "description": "",
+          "duration": "3분 21초",
+          "trackCount": 1,
+          "audioPlaylistId": "OLAK5uy_lGj0D9B8Eu8ROw5mggznY_ERNxTetKN58",
+          "artists": [
+            {
+              "name": "dingo music",
+              "id": "UCb7UsOOM7dapNG-5W4aEx8Q"
+            }
+          ],
+          "tracks": [
+            {
+              "videoId": "i0zqeEAJEx8",
+              "title": "🎤진영&최유리 - 생각을 멈추다 보면 | 들어봐! 유리의 숲2 EP.01 진영 편",
+              "duration": "3:21",
+              "duration_seconds": 201,
+              "isAvailable": true,
+              "artists": [
+                {
+                  "name": "dingo music",
+                  "id": "UCb7UsOOM7dapNG-5W4aEx8Q"
+                }
+              ]
+            }
+          ]
+        },
+        "en": {
+          "title": "WelcomeToForest Choi Yu Re2_01-2",
+          "type": "싱글",
+          "year": null,
+          "description": "",
+          "duration": "3분 21초",
+          "trackCount": 1,
+          "audioPlaylistId": "OLAK5uy_lGj0D9B8Eu8ROw5mggznY_ERNxTetKN58",
+          "artists": [
+            {
+              "name": "dingo music",
+              "id": "UCb7UsOOM7dapNG-5W4aEx8Q"
+            }
+          ],
+          "tracks": [
+            {
+              "videoId": "i0zqeEAJEx8",
+              "title": "🎤진영&최유리 - 생각을 멈추다 보면 | 들어봐! 유리의 숲2 EP.01 진영 편",
+              "duration": "3:21",
+              "duration_seconds": 201,
+              "isAvailable": true,
+              "artists": [
+                {
+                  "name": "dingo music",
+                  "id": "UCb7UsOOM7dapNG-5W4aEx8Q"
+                }
+              ]
+            }
+          ]
+        }
+      }
+    }
+  ]
+}
