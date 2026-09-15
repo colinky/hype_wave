@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 import math
 import os
 import re
@@ -199,6 +200,10 @@ def playable_cache(cache, verifier):
             if observed.get("state") == "unknown":
                 raise PlaybackBlocked(f"Cached recording is uncertain: {video_id}")
             if observed.get("state") == "unavailable":
+                logging.getLogger(__name__).warning(
+                    "Cached recording excluded by player: song_id=%s video_id=%s reason=%s environment=%s",
+                    song_id, video_id, observed.get("reason_code"), observed.get("environment"),
+                )
                 if match.get("status") == "manual_override" or match.get("manual_action"):
                     raise PlaybackBlocked(f"Manual recording is unavailable: {video_id}")
                 match = {"status": "unavailable", "excluded_video_ids": [video_id]}

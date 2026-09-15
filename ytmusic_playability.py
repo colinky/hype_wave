@@ -357,6 +357,15 @@ class PlayabilityVerifier:
             if error:
                 observation.update(state="unknown", reason_code=error)
         if observation["reason_code"] == "unavailable_needs_confirmation":
+            # A burst of player requests can return a transient generic failure.
+            # Separate the confirmation from that burst and refresh the controls.
+            if self.deadline - self.clock() <= 1:
+                observation.update(state="unknown", reason_code="budget_exhausted")
+                result = self._stamp(observation)
+                self._memo[video_id] = dict(result)
+                return result
+            self.sleep(1)
+            self.check_health(force=True)
             repeated, error = self._call("get_song", video_id)
             second = classify_playability(video_id, repeated, run_health=self.health["run_health"],
                                           availability=availability, confirmed_unavailable=True)
@@ -364,6 +373,17 @@ class PlayabilityVerifier:
                 observation.update(state="unknown", reason_code=error)
             elif second["state"] == "unavailable":
                 observation = second
+            elif second["state"] == "playable" and self.deadline - self.clock() > 1:
+                # A recovered response needs a second exact-ID audio response;
+                # a single positive in a contradictory pair remains inconclusive.
+                self.sleep(1)
+                recovered, error = self._call("get_song", video_id)
+                third = classify_playability(video_id, recovered, run_health=self.health["run_health"],
+                                             availability=availability)
+                if not error and third["state"] == "playable":
+                    observation = third
+                else:
+                    observation.update(state="unknown", reason_code=error or "inconsistent_player_responses")
             else:
                 observation.update(state="unknown", reason_code="inconsistent_player_responses")
         # Count distinct successive failing IDs; a successful observation resets it.
