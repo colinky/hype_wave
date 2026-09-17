@@ -1,6 +1,6 @@
 {
   "schema_version": 2,
-  "generated_at": "2026-09-17T09:36:02+00:00",
+  "generated_at": "2026-09-17T13:06:36+00:00",
   "days": 31,
   "dates": [
     "2026-09-17",
@@ -1655,9 +1655,9 @@
       "album": "또 사랑이라니 (Prod. 윤종신)",
       "yt_title": "사계, 그리고 너",
       "yt_artist": "이창섭",
+      "yt_album": "Lee;Make (Fragmenta Amoris)",
       "artwork_url": "https://kkoimg.melon.co.kr/cm2/album/images/144/74/257/14474257_20260914185038_500.jpg?b2a125d8343d9a39057d1fd159d1a7fa/melon/resize/96/quality/80/optimize",
       "melon_url": "https://www.melon.com/song/detail.htm?songId=603097474",
-      "yt_album": "",
       "apple_url": "",
       "spotify_url": ""
     },
