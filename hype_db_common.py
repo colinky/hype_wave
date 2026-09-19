@@ -1,10 +1,13 @@
 from __future__ import annotations
 
+import atexit
 import hashlib
 import json
 import logging
 import os
 import re
+import ssl
+import tempfile
 import unicodedata
 from dataclasses import asdict, is_dataclass
 from datetime import datetime, timedelta, timezone
@@ -49,6 +52,9 @@ __all__ = [
     "load_sync_config",
     "hype_inputs",
     "postgres_connect_config",
+    "database_backend",
+    "postgres_url",
+    "postgres_connect_kwargs",
     "match_method_for_status",
     "playlist_job_mappings",
     "normalize_job_name",
@@ -105,6 +111,71 @@ def postgres_connect_config() -> dict[str, int | float]:
         "retry_delay": _env_float("HYPE_PG_CONNECT_RETRY_DELAY", 2.0, minimum=0.0),
         "connect_timeout": _env_int("HYPE_PG_CONNECT_TIMEOUT", 20, minimum=1),
     }
+
+
+def database_backend() -> str:
+    """Keep legacy selection unless the operator explicitly selects a backend."""
+    backend = os.environ.get("HYPE_DB_BACKEND", "").strip().lower()
+    if not backend:
+        return "supabase" if os.environ.get("SUPABASE_DB_URL") else "sqlite"
+    if backend not in {"supabase", "aiven", "sqlite"}:
+        raise ValueError("HYPE_DB_BACKEND must be supabase, aiven, or sqlite")
+    return backend
+
+
+def postgres_url() -> str | None:
+    backend = database_backend()
+    if backend == "sqlite":
+        return None
+    name = "AIVEN_DB_URI" if backend == "aiven" else "SUPABASE_DB_URL"
+    url = os.environ.get(name, "").strip()
+    if not url:
+        raise ValueError(f"{name} is required for HYPE_DB_BACKEND={backend}")
+    return url
+
+
+_AIVEN_CA_FILES: dict[str, str] = {}
+
+
+@atexit.register
+def _cleanup_aiven_ca_files() -> None:
+    # Registered before the cache's exit hook, so the CA outlives cache flushing.
+    for path in _AIVEN_CA_FILES.values():
+        Path(path).unlink(missing_ok=True)
+
+
+def postgres_connect_kwargs(pg_url: str | None = None) -> dict[str, Any]:
+    """Connect with the selected settings; explicit utility URLs stay explicit."""
+    url = postgres_url() if pg_url is None else pg_url
+    kwargs: dict[str, Any] = {
+        "connect_timeout": int(postgres_connect_config()["connect_timeout"]),
+    }
+    if not url or url != os.environ.get("AIVEN_DB_URI", "").strip():
+        return kwargs
+    from psycopg2.extensions import parse_dsn
+
+    try:
+        params = parse_dsn(url)
+    except Exception:
+        raise ValueError("AIVEN_DB_URI is not a valid PostgreSQL connection URI") from None
+    host = os.environ.get("AIVEN_DB_HOST", "").strip()
+    if not host or params.get("host") != host or params.get("hostaddr"):
+        raise ValueError("AIVEN_DB_HOST must match the single host in AIVEN_DB_URI")
+    if params.get("sslmode") != "require":
+        raise ValueError("AIVEN_DB_URI must retain sslmode=require")
+    certificate = os.environ.get("AIVEN_DB_CA_CERTIFICATE", "").replace("\\n", "\n").strip()
+    if not certificate:
+        raise ValueError("AIVEN_DB_CA_CERTIFICATE must contain the PEM certificate")
+    if certificate not in _AIVEN_CA_FILES:
+        try:
+            ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT).load_verify_locations(cadata=certificate)
+        except (ssl.SSLError, ValueError):
+            raise ValueError("AIVEN_DB_CA_CERTIFICATE is not a valid PEM certificate") from None
+        with tempfile.NamedTemporaryFile(mode="w", prefix="hype-aiven-ca-", suffix=".pem", delete=False) as f:
+            f.write(certificate + "\n")
+            _AIVEN_CA_FILES[certificate] = f.name
+    kwargs.update(host=host, sslrootcert=_AIVEN_CA_FILES[certificate])
+    return kwargs
 
 
 def normalize_text(value: str | None) -> str:

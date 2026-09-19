@@ -22,6 +22,7 @@ import sys
 import time
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from hype_db_common import postgres_url
 from typing import Any
 
 from bs4 import BeautifulSoup
@@ -56,7 +57,7 @@ _ALBUM_NAME_CACHE: dict[str, dict[str, Any]] = {}
 
 def load_album_cache(db_path: Path, ttl_days: int = DEFAULT_ALBUM_CACHE_TTL, *, read_only: bool = False) -> None:
     """앨범명 캐시를 DB에서 로드합니다."""
-    if db_path and (db_path.exists() or os.environ.get("SUPABASE_DB_URL")):
+    if db_path and (db_path.exists() or postgres_url()):
         try:
             from hype_db import connect, init_db
             if not read_only:
@@ -79,7 +80,7 @@ def load_album_cache(db_path: Path, ttl_days: int = DEFAULT_ALBUM_CACHE_TTL, *, 
 
 def save_album_cache(db_path: Path):
     """현재 메모리의 캐시를 DB로 저장합니다."""
-    if db_path and (db_path.exists() or os.environ.get("SUPABASE_DB_URL")) and _ALBUM_NAME_CACHE:
+    if db_path and (db_path.exists() or postgres_url()) and _ALBUM_NAME_CACHE:
         try:
             from hype_db import connect, init_db, utc_now_iso
             init_db(db_path)
@@ -524,8 +525,9 @@ def main() -> int:
 
 
 if __name__ == "__main__":
+    from sync_validation import run_locked_cli
     try:
-        raise SystemExit(main())
+        raise SystemExit(run_locked_cli(main))
     except KeyboardInterrupt:
         print("Interrupted", file=sys.stderr)
         raise SystemExit(130)

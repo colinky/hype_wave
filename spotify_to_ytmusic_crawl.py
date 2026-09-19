@@ -28,6 +28,7 @@ import time
 from datetime import datetime, timedelta, timezone
 from functools import lru_cache
 from pathlib import Path
+from hype_db_common import postgres_url
 from typing import Any
 
 from ytmusic_playlist_sync import (
@@ -491,7 +492,7 @@ def load_targeted_spotify_cache(
 ) -> dict[str, dict[str, Any]]:
     if no_db_cache or not tracks:
         return {}
-    if not db_path.exists() and not os.environ.get("SUPABASE_DB_URL"):
+    if not db_path.exists() and not postgres_url():
         return {}
     try:
         from hype_db import connect, get_bulk_cached_matches
@@ -762,8 +763,9 @@ def main() -> int:
 
 
 if __name__ == "__main__":
+    from sync_validation import run_locked_cli
     try:
-        raise SystemExit(main())
+        raise SystemExit(run_locked_cli(main))
     except KeyboardInterrupt:
         print("Interrupted", file=sys.stderr)
         raise SystemExit(130)

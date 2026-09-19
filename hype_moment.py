@@ -3,14 +3,15 @@
 hype_moment.py
 --------------
 Aggregates the daily Hype Index metrics and updates the Hypex playlist on YouTube Music.
-If SUPABASE_DB_URL is set in the environment, it queries and updates audits directly in
-the remote Supabase PostgreSQL database instead of the local SQLite database.
+When a PostgreSQL backend is selected, it queries and updates audits directly in
+the selected PostgreSQL database instead of the local SQLite database.
 """
 import argparse
 import logging
 import os
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from hype_db_common import postgres_url
 
 from ytmusic_playlist_sync import (
     make_ytmusic,
@@ -59,7 +60,7 @@ def main() -> int:
     kst_now = datetime.now(timezone.utc).astimezone(timezone(timedelta(hours=9)))
 
     # DB source of truth만 사용합니다.
-    if not os.environ.get("SUPABASE_DB_URL") and not db_path.exists():
+    if not postgres_url() and not db_path.exists():
         LOG.error("DB not found: %s", db_path)
         return EXIT_CALCULATION_FAILED
     try:
@@ -76,7 +77,7 @@ def main() -> int:
         )
         if args.limit <= 0:
             raise ValueError("Hype playlist limit must be positive")
-        if not os.environ.get("SUPABASE_DB_URL") and not args.dry_run:
+        if not postgres_url() and not args.dry_run:
             init_db(db_path)
         hype_results = []
         history_date = args.history_date
@@ -177,7 +178,7 @@ def main() -> int:
             video_ids,
             description=desc,
             dry_run=args.dry_run,
-            db_path=db_path if (db_path.exists() or os.environ.get("SUPABASE_DB_URL")) else None,
+            db_path=db_path if (db_path.exists() or postgres_url()) else None,
             service="hypex",
             job_name=args.job_name,
             playlist_name=args.playlist_name,
@@ -190,4 +191,5 @@ def main() -> int:
     return 0
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    from sync_validation import run_locked_cli
+    raise SystemExit(run_locked_cli(main))

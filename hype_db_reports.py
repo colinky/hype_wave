@@ -10,6 +10,7 @@ import sqlite3
 import tempfile
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from hype_db_common import postgres_url
 from typing import Any, Iterable
 
 from hype_scoring import calculate_rank_score
@@ -266,9 +267,9 @@ def export_frontend_history(
     expected_date: str | None = None,
 ) -> dict[str, Any]:
     path = Path(db_path)
-    if not path.exists() and not os.environ.get("SUPABASE_DB_URL"):
+    if not path.exists() and not postgres_url():
         raise RuntimeError(f"History database not found: {path}")
-    if not os.environ.get("SUPABASE_DB_URL"):
+    if not postgres_url():
         init_db(path)
     out = Path(output_path)
     existing_payload: Any = {}

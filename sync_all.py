@@ -6,6 +6,7 @@ import subprocess
 import sys
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from hype_db_common import postgres_url
 
 
 logging.basicConfig(
@@ -16,7 +17,7 @@ logging.basicConfig(
 """
 모든 동기화 작업을 순차적으로 실행하는 통합 스크립트입니다.
 1. sync_config.json을 읽어 실행할 작업을 결정합니다.
-2. 데이터베이스 캐시(Supabase PostgreSQL 또는 SQLite 로컬 폴백) 연쇄 효과를 활용하여 동기화를 극대화합니다.
+2. 데이터베이스 캐시(Aiven/Supabase PostgreSQL 또는 SQLite) 연쇄 효과를 활용하여 동기화를 극대화합니다.
 """
 LOG = logging.getLogger("sync_all")
 KST = timezone(timedelta(hours=9))
@@ -212,17 +213,18 @@ def main():
     anchor_dates = {}
     expected_history_date = None
     task_env = os.environ.copy()
+    task_env["HYPE_SYNC_PARENT_PID"] = str(os.getpid())
     task_env["HYPE_DEFER_HISTORY_EXPORT"] = "1"
-    if os.environ.get("SUPABASE_DB_URL"):
+    if postgres_url():
         try:
             from hype_db import connect
 
             with connect(script_dir / "hype_wave_data.db"):
                 pass
             task_env["HYPE_SKIP_POSTGRES_INDEX_CHECK"] = "1"
-            LOG.info("Verified Supabase indexes once before running child sync tasks.")
+            LOG.info("Verified PostgreSQL schema once before running child sync tasks.")
         except Exception as exc:
-            LOG.error("Failed to verify Supabase indexes: %s", exc)
+            LOG.error("Failed to verify PostgreSQL schema: %s", exc)
             sys.exit(1)
     
 
@@ -395,7 +397,7 @@ def main():
         if task_type == "ytmusic" and data_ready and failure_phase in {"", "publish"}:
             heal_script = script_dir / "heal_split_tracks.py"
             db_path = script_dir / "hype_wave_data.db"
-            if heal_script.exists() and (db_path.exists() or os.environ.get("SUPABASE_DB_URL")):
+            if heal_script.exists() and (db_path.exists() or postgres_url()):
                 try:
                     heal_cmd = [sys.executable, str(heal_script), "--db-path", str(db_path)]
                     LOG.info(f"Running heal_split_tracks after '{job_name}'...")
@@ -442,4 +444,5 @@ def main():
         sys.exit(1)
     
 if __name__ == "__main__":
-    main()
+    from sync_validation import run_locked_cli
+    raise SystemExit(run_locked_cli(main))

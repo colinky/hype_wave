@@ -12,7 +12,7 @@ This repairs the "split track UID" problem where:
   - But `소문의 낙원` is already in tracks via Apple → canonical_yt_video_id 6Xa1VDLACPo
   - After healing, the ytmusic rank is properly aggregated in hype_report_for_date.
 
-If SUPABASE_DB_URL is set in the environment, it automatically connects to the hosted
+When a PostgreSQL backend is selected, it automatically connects to the hosted
 PostgreSQL database instead of the local SQLite database.
 
 Usage:
@@ -23,6 +23,7 @@ from __future__ import annotations
 import argparse
 import logging
 from pathlib import Path
+from hype_db_common import postgres_url
 from typing import Any
 
 from hype_db_common import clean_track_title, compact_metadata_key, metadata_key, strip_parens_from_title
@@ -435,7 +436,7 @@ def main() -> int:
     args = p.parse_args()
 
     db_path = Path(args.db_path).expanduser()
-    if not os.environ.get("SUPABASE_DB_URL") and not db_path.exists():
+    if not postgres_url() and not db_path.exists():
         LOG.error("DB not found: %s", db_path)
         return 1
 
@@ -444,4 +445,5 @@ def main() -> int:
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    from sync_validation import run_locked_cli
+    raise SystemExit(run_locked_cli(main))

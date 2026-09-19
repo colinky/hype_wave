@@ -11,11 +11,14 @@ from pathlib import Path
 from typing import Any
 
 from hype_db_common import (
+    postgres_url,
     _source_variant_from_legacy,
     job_frequency,
     legacy_to_job_name,
     normalized_service,
     postgres_connect_config,
+    postgres_connect_kwargs,
+    database_backend,
 )
 from hype_db_common import (
     reference_period_for_date,
@@ -152,8 +155,10 @@ class PostgresConnectionWrapper:
 
 
 def ensure_postgres_indexes(raw_conn: Any) -> None:
-    """Create missing Supabase/PostgreSQL indexes used by the hot read/write paths."""
+    """Legacy index bootstrap; Aiven indexes are installed by the schema owner."""
     global _POSTGRES_INDEXES_CHECKED
+    if database_backend() == "aiven":
+        return
     if os.environ.get("HYPE_SKIP_POSTGRES_INDEX_CHECK") in {"1", "true", "TRUE"}:
         _POSTGRES_INDEXES_CHECKED = True
         return
@@ -396,24 +401,19 @@ def verify_postgres_schema(raw_conn: Any) -> None:
 
 @contextmanager
 def connect(db_path: str | Path, *, read_only: bool = False):
-    """Database connection context manager supporting dual engines.
-
-    Prioritizes Supabase PostgreSQL connection if `SUPABASE_DB_URL` environment
-    variable is set, returning a wrapped connection mimicking sqlite3.
-    Otherwise, falls back to a local SQLite database connection at `db_path`.
-    """
-    pg_url = os.environ.get("SUPABASE_DB_URL")
+    """Use the selected backend; PostgreSQL failures never fall back to SQLite."""
+    pg_url = postgres_url()
     if pg_url:
         import psycopg2
         import time
         pg_config = postgres_connect_config()
         retries = int(pg_config["retries"])
         delay = float(pg_config["retry_delay"])
-        connect_timeout = int(pg_config["connect_timeout"])
+        connect_kwargs = postgres_connect_kwargs(pg_url)
         raw_conn = None
         for i in range(retries):
             try:
-                raw_conn = psycopg2.connect(pg_url, connect_timeout=connect_timeout)
+                raw_conn = psycopg2.connect(pg_url, **connect_kwargs)
                 if read_only:
                     raw_conn.set_session(readonly=True)
                 with raw_conn.cursor() as cursor:
@@ -432,10 +432,10 @@ def connect(db_path: str | Path, *, read_only: bool = False):
                     raw_conn.close()
                     raw_conn = None
                 if i == retries - 1:
-                    LOG.error("Failed to connect to Supabase PostgreSQL after %d attempts: %s", retries, exc)
+                    LOG.error("Failed to connect to PostgreSQL after %d attempts: %s", retries, exc)
                     raise exc
                 wait_time = delay * (2 ** i)
-                LOG.warning("Supabase connection failed. Retrying in %.1fs... (%d/%d): %s", wait_time, i + 1, retries, exc)
+                LOG.warning("PostgreSQL connection failed. Retrying in %.1fs... (%d/%d): %s", wait_time, i + 1, retries, exc)
                 time.sleep(wait_time)
             except BaseException:
                 if raw_conn is not None:
@@ -479,7 +479,7 @@ def init_db(
     *,
     repair_source_bindings: bool = True,
 ) -> None:
-    if os.environ.get("SUPABASE_DB_URL"):
+    if postgres_url():
         return
     path = Path(db_path)
     path.parent.mkdir(parents=True, exist_ok=True)
