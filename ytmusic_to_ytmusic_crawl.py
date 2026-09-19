@@ -25,6 +25,8 @@ from contextlib import nullcontext
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
+
+from hype_db_common import database_backend
 from urllib.parse import parse_qs, urlencode, urljoin, urlparse
 
 import requests
@@ -168,6 +170,8 @@ def default_week_start(chart_period_end: str | None) -> str:
 
 
 def ensure_chart_source_audit_table(conn) -> None:
+    if database_backend() == "aiven":
+        return  # Provisioned by the schema owner, never by the runtime role.
     conn.execute(
         """
         CREATE TABLE IF NOT EXISTS chart_source_audit (
@@ -765,6 +769,7 @@ def preflight_chart_relations(conn, entries, ytmusic, reference_period, *, dry_r
             if status == "conflict":
                 continue
         override = manual_override(conn, "ytmusic", source_id)
+        conn.commit()  # Do not hold a transaction during external metadata calls.
         if override:
             if override["action"] == "block":
                 resolved[source_id] = {"status": "manual_blocked"}
@@ -795,6 +800,7 @@ def preflight_chart_relations(conn, entries, ytmusic, reference_period, *, dry_r
                 related_service="ytmusic", related_song_id=target_id,
                 source_row=row, related_row=target, dry_run=dry_run,
             )
+            conn.commit()
             if result["status"] == "manual_blocked":
                 resolved[source_id] = {"status": "manual_blocked"}
                 continue
@@ -1325,8 +1331,9 @@ def main() -> int:
 
 
 if __name__ == "__main__":
+    from sync_validation import run_locked_cli
     try:
-        raise SystemExit(main())
+        raise SystemExit(run_locked_cli(main))
     except KeyboardInterrupt:
         print("Interrupted", file=sys.stderr)
         raise SystemExit(130)

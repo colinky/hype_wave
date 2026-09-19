@@ -2,6 +2,11 @@ name: Daily Unified Music Sync
 
 on:
   workflow_dispatch:
+    inputs:
+      preflight_only:
+        description: "Check Aiven connectivity without modifying charts or playlists"
+        type: boolean
+        default: false
   schedule:
     # 17:02 KST every day. GitHub Actions cron uses UTC.
     - cron: "2 8 * * *"
@@ -16,6 +21,11 @@ jobs:
     timeout-minutes: 120
     permissions:
       contents: write
+    env:
+      HYPE_DB_BACKEND: aiven
+      AIVEN_DB_URI: ${{ secrets.AIVEN_DB_URI }}
+      AIVEN_DB_HOST: ${{ secrets.AIVEN_DB_HOST }}
+      AIVEN_DB_CA_CERTIFICATE: ${{ secrets.AIVEN_DB_CA_CERTIFICATE }}
 
     steps:
       - name: Check out repository
@@ -31,22 +41,27 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
 
+      - name: Verify Aiven connection and runtime permissions
+        run: python check_aiven_connection.py
+
       - name: Restore YouTube Music browser auth file from secret
+        if: ${{ inputs.preflight_only != true }}
         shell: bash
         env:
           YTMUSIC_BROWSER_JSON: ${{ secrets.YTMUSIC_BROWSER_JSON }}
         run: |
           set -euo pipefail
+          umask 077
           mkdir -p .secrets
           printf '%s' "$YTMUSIC_BROWSER_JSON" > .secrets/browser.json
           chmod 600 .secrets/browser.json
 
       - name: Run Enabled Sync Tasks
+        if: ${{ inputs.preflight_only != true }}
         id: sync
         shell: bash
         env:
           YTMUSIC_AUTH_FILE: .secrets/browser.json
-          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
         run: |
           set -euo pipefail
           python sync_all.py
@@ -66,3 +81,7 @@ jobs:
           else
             echo "No changes to commit"
           fi
+
+      - name: Remove browser authentication
+        if: always()
+        run: rm -f .secrets/browser.json

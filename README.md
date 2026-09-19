@@ -15,7 +15,7 @@ Apple Music · Spotify · Melon · YouTube Music 차트를 통합 분석하여 �
   - **프록시 데이터**: 선행 작업에서 검증된 Video ID를 후속 작업에서 우선 활용합니다.
   - **수동 오버라이드**: `matching_alias.json`의 `overrides` 필드로 특정 곡을 강제 매칭할 수 있습니다.
 - **DB 기반 아키텍처**:
-  - 운영 환경에서는 `SUPABASE_DB_URL`로 Supabase PostgreSQL에 직접 연결합니다.
+  - 운영 환경에서는 `HYPE_DB_BACKEND=aiven`으로 전용 `hype_sync` 계정의 Aiven PostgreSQL에 연결합니다.
   - 로컬에서는 `hype_wave_data.db` SQLite 파일을 fallback으로 사용할 수 있습니다.
   - 트랙 정규화, 플랫폼별 순위, 매칭 이력, Hype 리포트를 DB에 누적합니다.
 - **화제성 분석 (Hype Wave)**: Apple Music · Melon Gen-Z · YouTube Music 3개 차트를 통합한 Hype Index로 급상승 곡을 발굴합니다.
@@ -130,9 +130,9 @@ sync_config.json                      ← 작업 정의 (v2 스키마)
 
 | 항목 | 용도 |
 | :--- | :--- |
-| Supabase PostgreSQL | 운영 DB. `SUPABASE_DB_URL`이 있으면 모든 크롤러가 이 DB를 우선 사용 |
+| Aiven PostgreSQL | 운영 DB. `HYPE_DB_BACKEND=aiven`과 Aiven URI·호스트·CA 사용 |
 | `hype_wave_data.db` | 로컬 SQLite fallback DB |
-| `ytmusic_cache.db` | YouTube Music 보조 캐시. `SUPABASE_DB_URL`이 있으면 Postgres cache table을 사용하고, 없으면 로컬 SQLite fallback으로 사용 |
+| `ytmusic_cache.db` | YouTube Music 보조 캐시. 선택한 PostgreSQL 백엔드의 캐시 테이블을 사용하며, SQLite 선택 시 로컬 캐시 사용 |
 
 주요 테이블:
 
@@ -177,7 +177,9 @@ Supabase PostgreSQL 사용 시 `hype_db.py`가 hot path에 필요한 index를 1�
 | Secret 이름 | 설명 |
 | :--- | :--- |
 | `YTMUSIC_BROWSER_JSON` | YouTube Music 인증 정보 (`browser.json` 전체 내용) |
-| `SUPABASE_DB_URL` | Supabase PostgreSQL connection string |
+| `AIVEN_DB_URI` | `hype_sync` 계정의 PostgreSQL URI. `sslmode=require` 유지 |
+| `AIVEN_DB_HOST` | URI와 동일한 Aiven 호스트 |
+| `AIVEN_DB_CA_CERTIFICATE` | CA 인증서 내용. 여러 줄 PEM 또는 `\n`을 포함한 한 줄 문자열 |
 
 ### 2. GitHub Actions 권한 설정
 
@@ -291,12 +293,12 @@ python heal_split_tracks.py --db-path hype_wave_data.db # split track UID 정리
 
 ## ⚙️ GitHub Actions 워크플로우
 
-`daily-sync.yml` — 매일 KST 16:02에 자동 실행 (수동 트리거 가능)
+`daily-sync.yml` — 매일 KST 17:02에 자동 실행 (수동 트리거 가능)
 
 ```
 1. Checkout → Python 3.11 설정 → 의존성 설치
-2. YouTube Music 인증 파일 복원
-3. SUPABASE_DB_URL로 Supabase PostgreSQL에 연결
+2. Aiven 연결·TLS·전용 계정·RLS 확인
+3. YouTube Music 인증 파일 복원
 4. sync_all.py 실행 (sync_config.json 기반 전체 작업)
 5. docs/api/history.json 변경 시 자동 커밋 & 푸시 (GitHub Pages 업데이트)
 ```
@@ -345,3 +347,14 @@ hype_wave/
 │       └── history.json           # 최근 31일 Hype 차트 이력 (자동 생성)
 └── logs/                          # 작업별 매칭 로그 (자동 생성, gitignore)
 ```
+
+
+### Aiven 운영 연결과 테스트
+
+`daily-sync.yml`은 GitHub Secrets의 AIVEN_DB_URI, AIVEN_DB_HOST, AIVEN_DB_CA_CERTIFICATE를 전달합니다. 인증서 파일은 코드가 실행 중 생성하므로 로컬 파일 경로를 Secret에 저장하지 않습니다. URI에는 관리자 대신 제한된 `hype_sync` 계정을 사용하고 `sslmode=require`를 유지합니다.
+
+Run workflow의 `preflight_only`를 켜면 연결·TLS·실행 계정·스키마·RLS만 읽기 전용으로 검증하며 플레이리스트와 차트를 수정하지 않습니다. 일반 실행도 같은 검증을 통과한 뒤 동기화를 시작합니다. 테이블과 인덱스는 관리자가 설치하며 실행 중 자동 생성하지 않습니다.
+
+`database-tests.yml`은 PR과 main 변경 시 DB 관련 오프라인 테스트를 실행합니다. 테스트는 `HYPE_DB_BACKEND=sqlite`를 사용하며 운영 Secrets를 받지 않습니다. 단독 실행 명령은 `python tests/test_aiven_backend.py`입니다.
+
+기존 SUPABASE_DB_URL은 명시적인 복구·원본 백업용으로만 보관합니다. Aiven 선택 후 설정·연결·캐시 오류가 나면 다른 DB로 대체하지 않고 실패 처리합니다. Supabase와 Aiven에 서로 다른 쓰기가 발생했다면 단순 URL 변경 대신 양쪽 데이터를 백업·대조한 뒤 복구합니다.

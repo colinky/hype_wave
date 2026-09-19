@@ -11,7 +11,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from hype_db_common import postgres_connect_config
+from hype_db_common import postgres_connect_config, postgres_connect_kwargs, postgres_url as selected_postgres_url
 
 
 ARTIST_TABLE_SQL = """
@@ -38,7 +38,7 @@ CREATE TABLE IF NOT EXISTS ytmusic_song_translations (
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Migrate local ytmusic_cache.db SQLite cache into Supabase PostgreSQL."
+        description="Migrate local ytmusic_cache.db SQLite cache into PostgreSQL."
     )
     parser.add_argument(
         "--cache-db",
@@ -47,10 +47,16 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--postgres-url",
-        default=os.environ.get("SUPABASE_DB_URL"),
-        help="PostgreSQL connection URL. Defaults to SUPABASE_DB_URL.",
+        default=None,
+        help="PostgreSQL connection URL. Defaults to the selected HYPE_DB_BACKEND connection.",
     )
-    return parser.parse_args()
+    args = parser.parse_args()
+    if args.postgres_url is None:
+        from ytmusic_playlist_sync import load_dotenv
+        load_dotenv(".env")
+        load_dotenv(str(Path(__file__).with_name(".secrets") / ".env"))
+        args.postgres_url = selected_postgres_url()
+    return args
 
 
 def parse_updated_at(value: str) -> datetime:
@@ -112,10 +118,10 @@ def connect_postgres(postgres_url: str):
     pg_config = postgres_connect_config()
     retries = int(pg_config["retries"])
     retry_delay = float(pg_config["retry_delay"])
-    connect_timeout = int(pg_config["connect_timeout"])
+    connect_kwargs = postgres_connect_kwargs(postgres_url)
     for attempt in range(retries):
         try:
-            return psycopg2.connect(postgres_url, connect_timeout=connect_timeout)
+            return psycopg2.connect(postgres_url, **connect_kwargs)
         except psycopg2.OperationalError:
             if attempt == retries - 1:
                 raise
@@ -142,7 +148,8 @@ def migrate(cache_db: Path, postgres_url: str) -> tuple[int, int]:
 
     pg_conn = connect_postgres(postgres_url)
     try:
-        ensure_postgres_schema(pg_conn)
+        if postgres_url != os.environ.get("AIVEN_DB_URI"):
+            ensure_postgres_schema(pg_conn)
         with pg_conn.cursor() as cursor:
             if artist_rows:
                 execute_values(
@@ -188,7 +195,7 @@ def migrate(cache_db: Path, postgres_url: str) -> tuple[int, int]:
 def main() -> int:
     args = parse_args()
     if not args.postgres_url:
-        print("SUPABASE_DB_URL or --postgres-url is required.", file=sys.stderr)
+        print("A PostgreSQL backend or --postgres-url is required.", file=sys.stderr)
         return 2
 
     artist_count, song_count = migrate(Path(args.cache_db), args.postgres_url)

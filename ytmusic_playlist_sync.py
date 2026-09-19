@@ -23,8 +23,10 @@ from urllib3.util import Retry
 from ytmusicapi import YTMusic
 
 from hype_db_common import (
+    postgres_url,
     has_version_mismatch,
-    postgres_connect_config,
+    postgres_connect_kwargs,
+    database_backend,
     strip_content_rating_version_markers,
     version_signature,
 )
@@ -465,13 +467,15 @@ def _normalize_cached_song(row: dict[str, Any]) -> dict[str, str]:
 
 
 class PostgresBilingualCache:
-    """Buffered Supabase PostgreSQL-backed cache with SQLite fallback."""
+    """Buffered PostgreSQL cache; only the legacy Supabase backend may fall back."""
 
     def __init__(self, pg_url: str, fallback_path: Path):
         self.pg_url = pg_url
+        self.strict = database_backend() == "aiven"
         self.fallback_path = fallback_path
         self.fallback: SQLiteBilingualCache | None = None
         self.loaded = False
+        self.load_error: Exception | None = None
         self.fallback_active = False
         self.artists: dict[str, list[str]] = {}
         self.songs: dict[str, dict[str, str]] = {}
@@ -486,15 +490,21 @@ class PostgresBilingualCache:
     def _connect(self):
         import psycopg2
 
-        pg_config = postgres_connect_config()
-        conn = psycopg2.connect(self.pg_url, connect_timeout=int(pg_config["connect_timeout"]))
-        with conn.cursor() as cursor:
-            cursor.execute("SET statement_timeout = '180s'")
-            cursor.execute("SET idle_in_transaction_session_timeout = '180s'")
-        conn.commit()
+        conn = psycopg2.connect(self.pg_url, **postgres_connect_kwargs(self.pg_url))
+        try:
+            with conn.cursor() as cursor:
+                cursor.execute("SET search_path TO public")
+                cursor.execute("SET statement_timeout = '180s'")
+                cursor.execute("SET idle_in_transaction_session_timeout = '180s'")
+            conn.commit()
+        except BaseException:
+            conn.close()
+            raise
         return conn
 
     def _init_db(self, conn):
+        if self.strict:
+            return  # Aiven tables are installed by the schema owner.
         with conn.cursor() as cursor:
             cursor.execute(
                 """
@@ -560,12 +570,16 @@ class PostgresBilingualCache:
                 len(self.songs),
             )
         except Exception as exc:
+            if self.strict:
+                self.load_error = exc
+                raise RuntimeError("Aiven bilingual cache could not be loaded") from exc
             LOG.warning("Failed to load PostgreSQL bilingual cache; using SQLite fallback: %s", exc)
             self.fallback_active = True
         finally:
             if conn is not None:
                 conn.close()
-            self.loaded = True
+        self.loaded = True
+        self.load_error = None
 
     def get_artist(self, artist_id: str) -> list[str] | None:
         self._ensure_loaded()
@@ -599,6 +613,9 @@ class PostgresBilingualCache:
         self.dirty_songs[video_id] = (normalized, now_str)
 
     def flush(self):
+        if self.strict and self.load_error is not None:
+            # Matching callers may catch lookup errors; saving must still fail.
+            raise RuntimeError("Aiven bilingual cache could not be loaded") from self.load_error
         if self.fallback_active or not (self.dirty_artists or self.dirty_songs):
             return
         conn = None
@@ -667,6 +684,8 @@ class PostgresBilingualCache:
         except Exception as exc:
             if conn is not None:
                 conn.rollback()
+            if self.strict:
+                raise RuntimeError("Aiven bilingual cache could not be saved") from exc
             LOG.warning("Failed to flush PostgreSQL bilingual cache: %s", exc)
         finally:
             if conn is not None:
@@ -682,7 +701,7 @@ class BilingualCache:
     def _backend(self) -> SQLiteBilingualCache | PostgresBilingualCache:
         if self.backend is not None:
             return self.backend
-        pg_url = os.environ.get("SUPABASE_DB_URL")
+        pg_url = postgres_url()
         if pg_url:
             self.backend = PostgresBilingualCache(pg_url, self.db_path)
         else:
