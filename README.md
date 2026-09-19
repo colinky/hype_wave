@@ -297,10 +297,9 @@ python heal_split_tracks.py --db-path hype_wave_data.db # split track UID 정리
 
 ```
 1. Checkout → Python 3.11 설정 → 의존성 설치
-2. Aiven 연결·TLS·전용 계정·RLS 확인
-3. YouTube Music 인증 파일 복원
-4. sync_all.py 실행 (sync_config.json 기반 전체 작업)
-5. docs/api/history.json 변경 시 자동 커밋 & 푸시 (GitHub Pages 업데이트)
+2. YouTube Music 인증 파일 복원
+3. sync_all.py 실행 (sync_config.json 기반 전체 작업)
+4. docs/api/history.json 변경 시 자동 커밋 & 푸시 (GitHub Pages 업데이트)
 ```
 
 ---
@@ -348,13 +347,12 @@ hype_wave/
 └── logs/                          # 작업별 매칭 로그 (자동 생성, gitignore)
 ```
 
+### Aiven 운영 연결
 
-### Aiven 운영 연결과 테스트
+`daily-sync.yml`은 GitHub Secrets의 AIVEN_DB_URI, AIVEN_DB_HOST, AIVEN_DB_CA_CERTIFICATE를 전달합니다. Secret에는 변수 이름과 `=`, 바깥 따옴표를 제외한 값만 저장합니다. 인증서 파일은 코드가 실행 중 생성하므로 로컬 파일 경로를 Secret에 저장하지 않습니다. URI에는 관리자 대신 제한된 `hype_sync` 계정을 사용하고 `sslmode=require`를 유지합니다.
 
-`daily-sync.yml`은 GitHub Secrets의 AIVEN_DB_URI, AIVEN_DB_HOST, AIVEN_DB_CA_CERTIFICATE를 전달합니다. 인증서 파일은 코드가 실행 중 생성하므로 로컬 파일 경로를 Secret에 저장하지 않습니다. URI에는 관리자 대신 제한된 `hype_sync` 계정을 사용하고 `sslmode=require`를 유지합니다.
-
-Run workflow의 `preflight_only`를 켜면 연결·TLS·실행 계정·스키마·RLS만 읽기 전용으로 검증하며 플레이리스트와 차트를 수정하지 않습니다. 일반 실행도 같은 검증을 통과한 뒤 동기화를 시작합니다. 테이블과 인덱스는 관리자가 설치하며 실행 중 자동 생성하지 않습니다.
-
-`database-tests.yml`은 PR과 main 변경 시 DB 관련 오프라인 테스트를 실행합니다. 테스트는 `HYPE_DB_BACKEND=sqlite`를 사용하며 운영 Secrets를 받지 않습니다. 단독 실행 명령은 `python tests/test_aiven_backend.py`입니다.
+테이블과 인덱스는 관리자가 설치하며 실행 중 자동 생성하지 않습니다.
 
 기존 SUPABASE_DB_URL은 명시적인 복구·원본 백업용으로만 보관합니다. Aiven 선택 후 설정·연결·캐시 오류가 나면 다른 DB로 대체하지 않고 실패 처리합니다. Supabase와 Aiven에 서로 다른 쓰기가 발생했다면 단순 URL 변경 대신 양쪽 데이터를 백업·대조한 뒤 복구합니다.
+
+운영 전환은 2026-09-19 전체 동기화 및 Pages 배포로 확인했습니다. 이후 연결 점검 전용 코드와 테스트 워크플로를 제거했으며, 수동 실행과 예약 실행은 모두 동기화를 수행합니다.

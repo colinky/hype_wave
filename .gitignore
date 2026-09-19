@@ -23,15 +23,8 @@ db_migrations/*
 *.lock
 diagnostic-artifacts/
 
-
-
-
 /YTMusic_ID_Stability_Final_Verification.md
 /YTMusic_ID_Stability_Roadmap.md
-
-!tests/test_aiven_backend.py
-
-!.github/workflows/database-tests.yml
 
 !db_migrations/20260918_restrict_public_api.sql
 

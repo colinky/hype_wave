@@ -2,11 +2,6 @@ name: Daily Unified Music Sync
 
 on:
   workflow_dispatch:
-    inputs:
-      preflight_only:
-        description: "Check Aiven connectivity without modifying charts or playlists"
-        type: boolean
-        default: false
   schedule:
     # 17:02 KST every day. GitHub Actions cron uses UTC.
     - cron: "2 8 * * *"
@@ -41,11 +36,7 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
 
-      - name: Verify Aiven connection and runtime permissions
-        run: python check_aiven_connection.py
-
       - name: Restore YouTube Music browser auth file from secret
-        if: ${{ inputs.preflight_only != true }}
         shell: bash
         env:
           YTMUSIC_BROWSER_JSON: ${{ secrets.YTMUSIC_BROWSER_JSON }}
@@ -57,7 +48,6 @@ jobs:
           chmod 600 .secrets/browser.json
 
       - name: Run Enabled Sync Tasks
-        if: ${{ inputs.preflight_only != true }}
         id: sync
         shell: bash
         env:
