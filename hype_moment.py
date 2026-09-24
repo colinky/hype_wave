@@ -1,0 +1,195 @@
+#!/usr/bin/env python3
+"""
+hype_moment.py
+--------------
+Aggregates the daily Hype Index metrics and updates the Hypex playlist on YouTube Music.
+When a PostgreSQL backend is selected, it queries and updates audits directly in
+the selected PostgreSQL database instead of the local SQLite database.
+"""
+import argparse
+import logging
+import os
+from datetime import datetime, timedelta, timezone
+from pathlib import Path
+from hype_db_common import postgres_url
+
+from ytmusic_playlist_sync import (
+    make_ytmusic,
+    update_ytmusic_playlist,
+)
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
+)
+LOG = logging.getLogger("hypex_aggregator")
+# Parent orchestration must not infer calculation success from a publish audit:
+# authentication and a pending-run guard can fail before that audit exists.
+EXIT_CALCULATION_FAILED = 2
+EXIT_HISTORY_EXPORT_FAILED = 3
+EXIT_PUBLICATION_FAILED = 4
+
+
+def parse_history_date(value: str) -> str:
+    try:
+        return datetime.strptime(value, "%Y-%m-%d").strftime("%Y-%m-%d")
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError("history date must use YYYY-MM-DD") from exc
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description="Generate Hypex aggregated playlist.")
+    parser.add_argument("--db-path", default="hype_wave_data.db")
+    parser.add_argument("--history-json", default="docs/api/history.json")
+    parser.add_argument("--yt-playlist-id", required=True, help="Target YouTube Music Playlist ID")
+    parser.add_argument("--job-name", default="Hype-Wave-Daily")
+    parser.add_argument("--playlist-name", default="Hype Wave Daily")
+    parser.add_argument("--limit", type=int, default=100, help="Number of songs to include")
+    parser.add_argument("--yt-auth", default=".secrets/browser.json")
+    parser.add_argument(
+        "--history-date",
+        type=parse_history_date,
+        help="Generate a specific historical Hype Wave date instead of the latest date",
+    )
+    parser.add_argument("--dry-run", action="store_true")
+    args = parser.parse_args()
+
+    db_path = Path(args.db_path).expanduser()
+    
+    kst_now = datetime.now(timezone.utc).astimezone(timezone(timedelta(hours=9)))
+
+    # DB source of truth만 사용합니다.
+    if not postgres_url() and not db_path.exists():
+        LOG.error("DB not found: %s", db_path)
+        return EXIT_CALCULATION_FAILED
+    try:
+        from hype_db import (
+            connect,
+            compact_frontend_history,
+            export_frontend_history,
+            hype_inputs,
+            hype_report_for_date,
+            init_db,
+            latest_hype_history_date,
+            previous_apple_videos_for_history,
+            validate_frontend_history,
+        )
+        if args.limit <= 0:
+            raise ValueError("Hype playlist limit must be positive")
+        if not postgres_url() and not args.dry_run:
+            init_db(db_path)
+        hype_results = []
+        history_date = args.history_date
+        with connect(db_path, read_only=args.dry_run) as conn:
+            apple_jobs = [
+                name for name, item in hype_inputs().items()
+                if item.get("hype_group") == "apple"
+            ] or ["KR-Top-100"]
+            placeholders = ",".join("?" for _ in apple_jobs)
+            if args.history_date:
+                anchor_period = (
+                    datetime.strptime(args.history_date, "%Y-%m-%d")
+                    - timedelta(days=1)
+                ).strftime("%Y-%m-%d")
+                ready_rows = conn.execute(
+                    f"""
+                    SELECT DISTINCT p.job_name
+                    FROM playlist_order p
+                    WHERE p.job_name IN ({placeholders})
+                      AND p.reference_period = ?
+                      AND EXISTS (
+                          SELECT 1
+                          FROM match_runs mr
+                          WHERE mr.service = p.service
+                            AND mr.job_name = p.job_name
+                            AND mr.source_variant = p.source_variant
+                            AND mr.reference_period = p.reference_period
+                            AND mr.status = 'completed'
+                            AND mr.completed_at IS NOT NULL
+                      )
+                    """,
+                    (*apple_jobs, anchor_period),
+                ).fetchall()
+                ready_jobs = {row["job_name"] for row in ready_rows}
+                missing_jobs = sorted(set(apple_jobs) - ready_jobs)
+                if missing_jobs:
+                    raise RuntimeError(
+                        f"Historical Hype date {args.history_date} requires completed Apple "
+                        f"snapshot {anchor_period}; missing: {', '.join(missing_jobs)}"
+                    )
+            if history_date is None:
+                history_date = latest_hype_history_date(conn)
+            if history_date:
+                previous_apple_videos = previous_apple_videos_for_history(conn, {}, history_date)
+                report = hype_report_for_date(conn, history_date, previous_apple_videos=previous_apple_videos)
+                validate_frontend_history(compact_frontend_history({history_date: report}), history_date)
+                hype_results = [
+                    (row["video_id"], {"metadata": row, "score": row.get("hype_index", 0), "ranks": {
+                        "Apple-Hype-Input": row.get("apple_rank") or 101,
+                        "Melon-Gen-Z": row.get("melon_genz_rank") or 101,
+                        "YTMusic-Weekly": row.get("ytmusic_rank") or 101,
+                    }})
+                    for row in report
+                ]
+        if not hype_results:
+            raise RuntimeError("No songs found to aggregate")
+    except Exception as exc:
+        LOG.error("DB hype calculation failed: %s", exc)
+        return EXIT_CALCULATION_FAILED
+
+    top_songs = hype_results[:args.limit]
+    video_ids = [vid for vid, stats in top_songs]
+    
+    # Prepare description
+    update_date_str = kst_now.strftime("%Y-%m-%d")
+    
+    desc = "Hype Wave Daily\n"
+    desc += "Based on Apple Music, Melon, and YT Music charts.\n\n"
+    desc += f"Chart date: {history_date}\n\n"
+    desc += "Top 3 Hype Now:\n"
+    for i, (vid, stats) in enumerate(top_songs[:3], 1):
+        m = stats["metadata"]
+        desc += f"{i}. {m['title']} - {m['artist']} (Index: {int(stats['score'])})\n"
+    
+    desc += f"\nLast updated: {update_date_str}\n- colinky.github.io/hype_wave"
+
+    LOG.info(f"Aggregated {len(video_ids)} songs for Hypex playlist.")
+    if args.dry_run:
+        LOG.info("Dry run completed from DB; no playlist authentication or mutation.")
+        return 0
+
+    if os.environ.get("HYPE_DEFER_HISTORY_EXPORT") not in {"1", "true", "TRUE"}:
+        try:
+            export_frontend_history(
+                db_path, args.history_json, full_rebuild=bool(args.history_date),
+                expected_date=history_date,
+            )
+        except Exception as exc:
+            LOG.error("Hype history export failed: %s", exc)
+            return EXIT_HISTORY_EXPORT_FAILED
+    
+    # Sync to YTMusic
+    try:
+        ytmusic = make_ytmusic(args.yt_auth)
+        update_ytmusic_playlist(
+            ytmusic,
+            args.yt_playlist_id,
+            video_ids,
+            description=desc,
+            dry_run=args.dry_run,
+            db_path=db_path if (db_path.exists() or postgres_url()) else None,
+            service="hypex",
+            job_name=args.job_name,
+            playlist_name=args.playlist_name,
+        )
+    except Exception as exc:
+        LOG.error("Hype playlist publication failed after calculation completed: %s", exc)
+        return EXIT_PUBLICATION_FAILED
+    
+    LOG.info("Hype Moment sync completed.")
+    return 0
+
+if __name__ == "__main__":
+    from sync_validation import run_locked_cli
+    raise SystemExit(run_locked_cli(main))
