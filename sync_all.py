@@ -20,7 +20,6 @@ logging.basicConfig(
 2. 데이터베이스 캐시(Aiven/Supabase PostgreSQL 또는 SQLite) 연쇄 효과를 활용하여 동기화를 극대화합니다.
 """
 LOG = logging.getLogger("sync_all")
-KST = timezone(timedelta(hours=9))
 DAY_MAP = {
     "monday": 0,
     "tuesday": 1,
@@ -43,27 +42,62 @@ def load_env_file(path: Path) -> None:
         os.environ.setdefault(key.strip(), value.strip().strip('"').strip("'"))
 
 
-def kst_now() -> datetime:
-    return datetime.now(timezone.utc).astimezone(KST)
+def utc_now() -> datetime:
+    return datetime.now(timezone.utc)
 
 
 def schedule_window(task: dict, now: datetime | None = None) -> tuple[bool, str, datetime | None]:
     schedule = str(task.get("schedule") or "").strip()
     if not schedule:
         return True, "", None
-    current = now or kst_now()
+    current = (now or utc_now()).astimezone(timezone.utc)
     schedule_wd = DAY_MAP.get(schedule.lower())
     if schedule_wd is None:
         return False, f"Unknown schedule day '{schedule}'.", None
     days_since = (current.weekday() - schedule_wd) % 7
-    anchor = current - timedelta(days=days_since)
+    anchor = (current - timedelta(days=days_since)).replace(hour=0, minute=0, second=0, microsecond=0)
     if days_since == 0:
         return True, "", anchor
     current_day = current.strftime("%A")
-    return False, f"Task schedule '{schedule}' does not match current KST day '{current_day}'.", anchor
+    return False, f"Task schedule '{schedule}' does not match current UTC day '{current_day}'.", anchor
 
 
-def task_enabled(task, now: datetime | None = None):
+def scheduled_task_completed(conn, task: dict, anchor: datetime) -> bool:
+    """Only a verified source snapshot and its latest successful publication complete a cycle."""
+    from hype_db_common import normalized_service, reference_period_for_date
+
+    job_name = task.get("job_name") or task.get("name") or ""
+    service = normalized_service(task.get("service") or task.get("type"))
+    variant = "combined" if task.get("service") == "melon_gen" else "default"
+    audit = conn.execute(
+        """SELECT job_name, service, status, dry_run, completed_at, match_started_at
+           FROM playlist_update_runs WHERE playlist_id = ?
+           ORDER BY started_at DESC, created_at DESC LIMIT 1""",
+        (task.get("target_id") or "",),
+    ).fetchone()
+    if (not audit or audit["job_name"] != job_name
+            or normalized_service(audit["service"]) != service
+            or audit["status"] not in {"published", "skipped_current"}
+            or audit["dry_run"] or not audit["completed_at"] or not audit["match_started_at"]):
+        return False
+    started_at = audit["match_started_at"]
+    started = datetime.fromisoformat(started_at).astimezone(timezone.utc)
+    if not anchor <= started < anchor + timedelta(days=7):
+        return False
+    run = conn.execute(
+        """SELECT reference_period FROM match_runs
+           WHERE service = ? AND job_name = ? AND source_variant = ? AND started_at = ?
+           ORDER BY created_at DESC LIMIT 1""", (service, job_name, variant, started_at),
+    ).fetchone()
+    # Weekly charts describe the preceding week; playlists use their scheduled date.
+    minimum_date = anchor - timedelta(days=1) if task.get("list_type") == "chart" else anchor
+    minimum_period = reference_period_for_date(job_name, minimum_date.date().isoformat())
+    return bool(run and run["reference_period"] >= minimum_period and data_snapshot_ready(
+        conn, service=service, job_name=job_name, started_at=started_at, source_variant=variant,
+    ))
+
+
+def task_enabled(task, now: datetime | None = None, *, db_path: Path | None = None):
     # 1. Check basic enabled/disabled toggle
     value = task.get("enabled", True)
     if isinstance(value, str):
@@ -74,8 +108,21 @@ def task_enabled(task, now: datetime | None = None):
     if not is_enabled:
         return False
 
-    # 2. Check day-of-week schedule (e.g. "Monday")
-    ok, reason, _ = schedule_window(task, now)
+    # A delayed/missed weekly run remains due until its source and publication complete.
+    ok, reason, anchor = schedule_window(task, now)
+    if anchor is not None and db_path is not None:
+        from hype_db import connect
+
+        if postgres_url() or Path(db_path).exists():
+            with connect(db_path, read_only=True) as conn:
+                if scheduled_task_completed(conn, task, anchor):
+                    LOG.info("Weekly task '%s' already completed for UTC cycle %s.",
+                             task.get("job_name"), anchor.date())
+                    return False
+        if not ok:
+            LOG.info("Catching up weekly task '%s' for UTC cycle %s.",
+                     task.get("job_name"), anchor.date())
+        return True
     if not ok:
         LOG.info(reason)
         return False
@@ -143,6 +190,10 @@ def data_snapshot_ready(conn, *, service: str, job_name: str, started_at: str,
 
 def classify_task_failure(conn, task: dict, started_at: str, *, returncode: int | None = None) -> str:
     """Identify the failure phase independently of source data eligibility."""
+    from sync_validation import EXIT_PUBLICATION_BLOCKED
+
+    if returncode == EXIT_PUBLICATION_BLOCKED:
+        return "publish"
     job_name = task.get("job_name") or task.get("name") or ""
     service = str(task.get("service") or task.get("type") or "")
     if service == "hypex":
@@ -175,6 +226,7 @@ def mark_history_ready() -> None:
 
 
 def main():
+    current_utc = utc_now()
     script_dir = Path(__file__).parent
     load_env_file(script_dir / ".env")
     load_env_file(script_dir / ".secrets" / ".env")
@@ -215,6 +267,7 @@ def main():
     task_env = os.environ.copy()
     task_env["HYPE_SYNC_PARENT_PID"] = str(os.getpid())
     task_env["HYPE_DEFER_HISTORY_EXPORT"] = "1"
+    task_env["HYPE_SYNC_DATE"] = current_utc.date().isoformat()
     if postgres_url():
         try:
             from hype_db import connect
@@ -230,7 +283,6 @@ def main():
 
 
 
-    current_kst = kst_now()
     for task in tasks:
         job_name = task.get("job_name") or task.get("name") or "Unknown-Job"
         playlist_name = task.get("playlist_name") or job_name
@@ -238,8 +290,15 @@ def main():
         source_urls = task.get("source_urls", [])
         target_id = task.get("target_id")
 
-        if not task_enabled(task, current_kst):
-            LOG.info(f"Skipping disabled task '{job_name}'.")
+        try:
+            enabled = task_enabled(task, current_utc, db_path=script_dir / "hype_wave_data.db")
+        except Exception as exc:
+            LOG.error("Cannot verify weekly task completion for '%s': %s", job_name, exc)
+            failed_tasks.append(job_name)
+            data_unready_tasks.append(job_name)
+            continue
+        if not enabled:
+            LOG.info(f"Skipping task '{job_name}' (disabled or not due).")
             skipped_count += 1
             continue
         
@@ -372,7 +431,9 @@ def main():
                         ).strftime("%Y-%m-%d")
                     if failure_phase:
                         try:
-                            failure_phase = classify_task_failure(conn, task, execution_started_at)
+                            failure_phase = classify_task_failure(
+                                conn, task, execution_started_at, returncode=returncode,
+                            )
                         except Exception as exc:
                             LOG.error("Could not determine task failure phase: %s", exc)
             except Exception as exc:

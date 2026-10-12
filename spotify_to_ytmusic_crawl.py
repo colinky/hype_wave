@@ -25,7 +25,7 @@ import random
 import re
 import sys
 import time
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from functools import lru_cache
 from pathlib import Path
 from hype_db_common import postgres_url
@@ -43,7 +43,7 @@ from ytmusic_playlist_sync import (
     get_resilient_session,
 )
 from crawler_common import process_matching_pipeline
-from hype_db_common import dedupe_source_tracks
+from hype_db_common import dedupe_source_tracks, sync_date
 
 http_session = get_resilient_session()
 
@@ -610,8 +610,7 @@ def main() -> int:
     )
     started_at = os.environ.get("HYPE_MATCH_STARTED_AT") or datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
 
-    kst_now = datetime.now(timezone.utc).astimezone(timezone(timedelta(hours=9)))
-    update_date_str = kst_now.strftime("%Y-%m-%d")
+    update_date_str = sync_date()
 
     raw_tracks: list[SourceTrack] = []
     tracks_ko_map: dict[str, SourceTrack] = {}

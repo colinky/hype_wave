@@ -25,6 +25,7 @@ __all__ = [
     "DEFAULT_HYPE_WEIGHTS",
     "utc_now_iso",
     "kst_today",
+    "sync_date",
     "normalize_text",
     "metadata_key",
     "compact_metadata_key",
@@ -68,6 +69,19 @@ def utc_now_iso() -> str:
 
 def kst_today() -> str:
     return datetime.now(timezone.utc).astimezone(KST).strftime("%Y-%m-%d")
+
+
+def sync_date() -> str:
+    """UTC date fixed by the parent run; standalone crawlers use UTC today."""
+    value = os.environ.get("HYPE_SYNC_DATE")
+    if value is None:
+        return datetime.now(timezone.utc).date().isoformat()
+    try:
+        if datetime.strptime(value, "%Y-%m-%d").date().isoformat() == value:
+            return value
+    except ValueError:
+        pass
+    raise ValueError("HYPE_SYNC_DATE must be a valid YYYY-MM-DD UTC date")
 
 
 def _env_int(name: str, default: int, *, minimum: int | None = None) -> int:
@@ -441,7 +455,7 @@ def reference_period_for_date(job_name: str, chart_date: str, reference_period: 
             return value
         if re.match(r"\d{4}-\d{2}-\d{2}$", value):
             return value
-    date_value = parse_crawl_date(chart_date) or kst_today()
+    date_value = parse_crawl_date(chart_date) or sync_date()
     if list_type == "playlist":
         schedule_day = None
         for task in load_sync_config():
@@ -497,7 +511,7 @@ def parse_crawl_date(value: str | None) -> str:
     match = re.search(r"(\d{8})T(\d{6})Z", value)
     if match:
         dt = datetime.strptime("".join(match.groups()), "%Y%m%d%H%M%S").replace(tzinfo=timezone.utc)
-        return dt.astimezone(KST).strftime("%Y-%m-%d")
+        return dt.strftime("%Y-%m-%d")
     return value[:10] if len(value) >= 10 else ""
 
 

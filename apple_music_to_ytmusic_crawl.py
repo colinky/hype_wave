@@ -23,14 +23,14 @@ import random
 import re
 import sys
 import time
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 from urllib.parse import parse_qsl, urlencode, urljoin, urlparse, urlunparse
 
 from bs4 import BeautifulSoup
 
-from hype_db_common import dedupe_source_tracks
+from hype_db_common import dedupe_source_tracks, sync_date
 from ytmusic_playlist_sync import (
     SourceTrack,
     env_or_arg,
@@ -911,8 +911,7 @@ def main() -> int:
     search_limit = int(os.environ.get("SEARCH_LIMIT", args.search_limit))
     started_at = os.environ.get("HYPE_MATCH_STARTED_AT") or datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
 
-    kst_now = datetime.now(timezone.utc).astimezone(timezone(timedelta(hours=9)))
-    update_date_str = kst_now.strftime("%Y-%m-%d")
+    update_date_str = sync_date()
     # Preserve the normal Apple daily -1 day rule unless an explicit backfill date is supplied.
     reference_period = args.reference_period
 

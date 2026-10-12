@@ -35,6 +35,7 @@ from melon_to_ytmusic_crawl import (
 )
 from ytmusic_playlist_sync import SourceTrack, load_dotenv, unique_values
 from hype_scoring import calculate_combined_genz_score
+from hype_db_common import sync_date
 
 
 DEFAULT_MELON_GEN_URL = "https://kkosvc.melon.com/mwk/chart/gen.htm?gen={gen}"
@@ -91,7 +92,7 @@ def parse_melon_generation_tracks(html: str, gen: str, *, limit: int = 100, ttl_
     soup = BeautifulSoup(html, "html.parser")
 
     # Parse date from DOM (e.g. "05.29 기준") with year-end boundary correction
-    chart_date = datetime.now(timezone.utc).astimezone(timezone(timedelta(hours=9))).strftime("%Y-%m-%d")
+    chart_date = sync_date()
     date_el = soup.select_one(".btn-box__date label")
     if date_el:
         text = date_el.get_text(strip=True)
@@ -441,7 +442,7 @@ def main() -> int:
         try:
             from hype_db import persist_crawled_tracks
             job_name = args.job_name or "Gen-Z-Daily"
-            chart_date = args.chart_date or datetime.now(timezone.utc).astimezone(timezone(timedelta(hours=9))).strftime("%Y-%m-%d")
+            chart_date = args.chart_date or sync_date()
             
             for gen_id, source_variant in ((1, "gen10"), (2, "gen20")):
                 tracks = gen_tracks_map.get(gen_id, [])
@@ -489,7 +490,7 @@ def main() -> int:
     args.source_variant = "combined"
     args.job_name = args.job_name or "Gen-Z-Daily"
     args.playlist_name = args.playlist_name or "mel_zdc_to_ytm"
-    chart_date = args.chart_date or datetime.now(timezone.utc).astimezone(timezone(timedelta(hours=9))).strftime("%Y-%m-%d")
+    chart_date = args.chart_date or sync_date()
     result = run_tracks_pipeline(
         args,
         all_tracks,

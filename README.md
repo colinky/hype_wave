@@ -25,6 +25,8 @@ Apple Music · Spotify · Melon · YouTube Music 차트를 통합 분석하여 �
 
 ## 📋 현재 동기화 작업 (11개)
 
+예정 실행 요일과 내부 실행 기준일은 UTC 기준입니다. 원본에 명시된 차트 날짜와 집계 기간은 그대로 사용합니다.
+
 ### Apple Music (4개)
 
 | Job Name | Source | Target | Frequency | Limit |
@@ -57,7 +59,7 @@ Apple Music · Spotify · Melon · YouTube Music 차트를 통합 분석하여 �
 
 | Job Name | Source | Target | Frequency |
 | :--- | :--- | :--- | :--- |
-| **Weekly-Hot-100** ★ | [YouTube Charts: KR Weekly](https://charts.youtube.com/charts/TopSongs/kr/weekly) | [YTM](https://music.youtube.com/playlist?list=PLtawHGpcUVZWJV93R_C0xb8rnW1wx79Yx) | Sunday |
+| **Weekly-Hot-100** ★ | [YouTube Charts: KR Weekly](https://charts.youtube.com/charts/TopSongs/kr/weekly) | [YTM](https://music.youtube.com/playlist?list=PLtawHGpcUVZWJV93R_C0xb8rnW1wx79Yx) | Monday |
 
 > ★ = Hype Wave 입력 소스 (`hype_group: ytmusic`, 가중치 0.2)
 
@@ -248,7 +250,7 @@ Aiven에는 `db_migrations/20260919_aiven_runtime_access.sql`을 적용했습니
 | `enabled` | - | 작업 활성화 여부 (기본: `true`) |
 | `frequency` | - | 실행 빈도 (`daily` / `weekly`) |
 | `entity_limit` | - | 수집할 곡 수 제한 |
-| `schedule` | - | 특정 요일에만 실행 (KST 기준, 예: `"Friday"`) |
+| `schedule` | - | 예정 실행 요일 (UTC 기준, 예: `"Friday"`). 미완료 주간 작업은 이후 일일 실행에서 재시도 |
 | `shuffle` | - | 플레이리스트 저장 시 곡 순서 랜덤화 |
 | `include_in_hype` | - | Hype Wave 계산 입력 소스 여부 |
 | `hype_group` | - | Hype 그룹 식별자 |
@@ -303,21 +305,49 @@ python melon_to_ytmusic_crawl.py \
 # 드라이 런 (실제 업데이트 없음)
 python apple_music_to_ytmusic_crawl.py --apple-playlist-urls "URL" --yt-playlist-id "ID" --dry-run
 
+# 다운로드한 YouTube 주간 CSV를 DB에만 반영 (집계 종료일 명시)
+HYPE_DEFER_HISTORY_EXPORT=1 python ytmusic_to_ytmusic_crawl.py \
+    --youtube-charts-csv youtube-charts-top-songs-kr-weekly-20261001.csv \
+    --chart-period-end 2026-10-01 --yt-auth .secrets/browser.json --db-only
+
 # DB 수동 관리
 HYPE_DB_BACKEND=sqlite python heal_split_tracks.py --db-path hype_wave_data.db --dry-run
 python heal_split_tracks.py --db-path hype_wave_data.db # split track UID 정리
 ```
 
+누락된 YouTube 주차가 여러 개면 오래된 주차부터 가져옵니다. CSV의 영상 URL이 `n/a`인 곡도 순위·제목·가수는 보존하며, 내부 `fallback:` 식별자로 저장하고 영상 매칭은 미확정으로 남깁니다. 원본에 없는 영상 ID를 생성하지 않습니다.
+
 ---
+
+### 게시 차단 및 복구
+
+`pending recovery`는 이전 플레이리스트 변경의 복구가 끝나지 않아 **게시만 차단**된 상태입니다. 현재 실행의 수집·매칭 완료 여부는 별도로 검증하며, 차단 시 종료 코드 `5`를 사용해 `sync_all.py`가 게시 실패로 분류합니다. 과거 복구 기록이 있다는 이유만으로 다른 오류를 게시 실패로 바꾸지는 않습니다.
+
+먼저 오류에 표시된 실행 ID와 플레이리스트 ID로 현재 상태를 조회합니다. 기본 실행은 DB와 플레이리스트를 변경하지 않습니다.
+
+```bash
+python reconcile_playlist_update.py \
+    --run-id RUN_ID \
+    --playlist-id PLAYLIST_ID \
+    --yt-auth .secrets/browser.json
+```
+
+결과가 `blocked`라면 복구 기록을 삭제하거나 성공 상태로 바꾸지 않습니다. 응답의 `reason`을 확인하고, 현재 상태와 변경 이력 및 곡 식별 정보의 검증을 충족한 뒤 명시적으로 복구해야 합니다. 복구 가능한 결과를 적용할 때는 예약·수동 동기화 작업을 모두 멈춘 뒤 같은 명령에 `--apply --workers-quiescent`를 추가합니다.
+
+변경 직후 `trackCount`와 실제 목록 길이가 다르면 전체 목록을 최대 3회 조회합니다(1초·2초 대기). 추가·삭제 요청은 재전송하지 않으며, 불일치가 지속되거나 항목 식별 정보가 유효하지 않으면 게시를 중단합니다.
 
 ## ⚙️ GitHub Actions 워크플로우
 
 2026-09-19 전환 완료: main 반영, 실제 러너 연결 점검, 전체 동기화 #196 및 GitHub Pages 배포가 모두 성공했습니다. 제한 계정 `hype_sync`, TLS 1.3, 20개 테이블 RLS를 확인했고 예약 실행을 재개했습니다. 30초 간격 관측에서 실행 계정 연결은 최대 2개(제한 5개)였습니다.
 
-`daily-sync.yml` — 매일 KST 16:05에 자동 실행 (수동 트리거 가능)
+`daily-sync.yml` — 매일 UTC 07:05(KST 16:05)에 실행 예약 (수동 트리거 가능)
+
+실행 요일은 UTC로 판단하므로 시작이 지연되어 KST 자정을 지나도 UTC 예정 요일의 작업을 실행합니다. 가장 최근 예정 요일부터 수집·매칭과 게시를 모두 마친 기록이 없는 주간 작업은 다음 일일 실행에서 재시도합니다. 이 재시도는 최근 예정 회차를 대상으로 하며, 과거 여러 누락 주차의 복원은 별도 수동 작업으로 수행합니다.
+
+`sync_all.py`는 시작 시 UTC 날짜를 한 번 정하고 `HYPE_SYNC_DATE`로 모든 하위 작업에 전달합니다. 처리 중 자정을 넘어도 이 실행의 내부 기준일은 같습니다. 독립 실행은 UTC 오늘을 사용합니다. Apple 일간 차트의 기준일은 이 날짜에서 하루를 뺀 값이고, Hype 표시 날짜는 다시 하루를 더한 값입니다. 예를 들어 UTC 10월 5일 15:46 실행은 Apple 기준일 10월 4일, Hype 날짜 10월 5일로 기록합니다. 원본에 날짜가 없는 경우의 기준일도 이 UTC 날짜를 사용하며, YouTube·멜론 원본에 명시된 집계 날짜와 Apple의 `--reference-period`는 바꾸지 않습니다. 기존 DB 날짜를 일괄 이동하지 않습니다.
 
 ```
-1. Checkout → Python 3.11 설정 → 의존성 설치
+1. Checkout → Python 3.11 설정 → 의존성 설치 → 회귀 테스트
 2. YouTube Music 인증 파일 복원
 3. sync_all.py 실행 (sync_config.json 기반 전체 작업)
 4. docs/api/history.json 변경 시 자동 커밋 & 푸시 (GitHub Pages 업데이트)

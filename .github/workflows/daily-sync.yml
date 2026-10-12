@@ -3,7 +3,8 @@ name: Daily Unified Music Sync
 on:
   workflow_dispatch:
   schedule:
-    # 16:05 KST every day. GitHub Actions cron uses UTC.
+    # Daily at 07:05 UTC (16:05 KST); sync_all uses UTC scheduling weekdays.
+    # Incomplete weekly tasks retry on later daily runs; official source periods are preserved.
     - cron: "5 7 * * *"
 
 concurrency:
@@ -35,6 +36,11 @@ jobs:
 
       - name: Install dependencies
         run: pip install -r requirements.txt
+
+      - name: Run regression tests
+        env:
+          HYPE_DB_BACKEND: sqlite
+        run: python -m unittest discover -s tests -v
 
       - name: Restore YouTube Music browser auth file from secret
         shell: bash

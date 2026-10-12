@@ -2096,40 +2096,48 @@ def chunked(values: list[Any], size: int) -> list[list[Any]]:
 
 
 def get_existing_playlist_items(ytmusic: YTMusic, playlist_id: str) -> list[dict[str, str]]:
-    try:
-        playlist = ytmusic.get_playlist(playlist_id, limit=None)
-    except Exception as exc:
-        if "404" in str(exc):
-            LOG.error(f"Playlist {playlist_id} not found (404). Please verify the ID is correct and the playlist is Public or Unlisted.")
-        else:
-            LOG.error(f"Failed to fetch playlist items for {playlist_id}: {exc}")
-        raise RuntimeError(f"Failed to fetch YouTube Music playlist {playlist_id}") from exc
+    for attempt in range(3):
+        try:
+            playlist = ytmusic.get_playlist(playlist_id, limit=None)
+        except Exception as exc:
+            if "404" in str(exc):
+                LOG.error(f"Playlist {playlist_id} not found (404). Please verify the ID is correct and the playlist is Public or Unlisted.")
+            else:
+                LOG.error(f"Failed to fetch playlist items for {playlist_id}: {exc}")
+            raise RuntimeError(f"Failed to fetch YouTube Music playlist {playlist_id}") from exc
 
-    if not isinstance(playlist, dict) or not isinstance(playlist.get("tracks"), list):
-        raise RuntimeError(
-            f"Playlist {playlist_id} response is missing a tracks list"
-        )
-    tracks = playlist["tracks"]
-    reported_count = playlist.get("trackCount")
-    if (
-        isinstance(reported_count, int)
-        or isinstance(reported_count, str) and reported_count.isdigit()
-    ) and int(reported_count) != len(tracks):
-        raise RuntimeError(
-            f"Playlist {playlist_id} returned {len(tracks)} tracks but reports "
-            f"trackCount={reported_count}"
-        )
-
-    items: list[dict[str, str]] = []
-    for index, track in enumerate(tracks, 1):
-        video_id = track.get("videoId")
-        set_video_id = track.get("setVideoId")
-        if not video_id or not set_video_id:
+        if not isinstance(playlist, dict) or not isinstance(playlist.get("tracks"), list):
             raise RuntimeError(
-                f"Playlist {playlist_id} item {index} is missing videoId or setVideoId"
+                f"Playlist {playlist_id} response is missing a tracks list"
             )
-        items.append({"videoId": video_id, "setVideoId": set_video_id})
-    return items
+        tracks = playlist["tracks"]
+        items: list[dict[str, str]] = []
+        for index, track in enumerate(tracks, 1):
+            video_id = track.get("videoId") if isinstance(track, dict) else None
+            set_video_id = track.get("setVideoId") if isinstance(track, dict) else None
+            if (not isinstance(video_id, str) or not video_id.strip()
+                    or not isinstance(set_video_id, str) or not set_video_id.strip()):
+                raise RuntimeError(
+                    f"Playlist {playlist_id} item {index} is missing videoId or setVideoId"
+                )
+            items.append({"videoId": video_id, "setVideoId": set_video_id})
+        _playlist_slots(items)
+        reported_count = playlist.get("trackCount")
+        if (
+            isinstance(reported_count, int)
+            or isinstance(reported_count, str) and reported_count.isdigit()
+        ) and int(reported_count) != len(tracks):
+            message = (
+                f"Playlist {playlist_id} returned {len(tracks)} tracks but reports "
+                f"trackCount={reported_count}"
+            )
+            if attempt == 2:
+                raise RuntimeError(message)
+            # The count header can lag acknowledged edits; retry only the read.
+            LOG.warning("%s; retrying playlist read (%d/3)", message, attempt + 2)
+            time.sleep(attempt + 1)
+            continue
+        return items
 
 
 def _require_playlist_mutation_success(result: Any, operation: str) -> None:
@@ -2486,6 +2494,10 @@ class PlaylistMutationUncertain(RuntimeError):
     """An attempted mutation lacks durable, complete acknowledgement. Never replay it."""
 
 
+class PlaylistPublicationBlocked(RuntimeError):
+    """An earlier recovery claim prevents publication before a new audit exists."""
+
+
 def _playlist_slots(items: list[dict[str, str]]) -> list[str]:
     slots = [item["setVideoId"] for item in items]
     if len(set(slots)) != len(slots):
@@ -2750,7 +2762,7 @@ def update_ytmusic_playlist(
     # Source crawl/matching has already completed. Only publication is blocked.
     pending = get_pending_playlist_recovery(db_path, playlist_id)
     if pending:
-        raise RuntimeError(
+        raise PlaylistPublicationBlocked(
             f"Playlist {playlist_id} has pending recovery "
             f"(run_id={pending.get('update_run_id')}, status={pending.get('status')}, "
             f"started_at={pending.get('started_at')}); publication is blocked. "

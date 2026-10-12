@@ -6,6 +6,9 @@ from contextlib import contextmanager
 from hype_db_common import postgres_url
 
 
+EXIT_PUBLICATION_BLOCKED = 5
+
+
 class PlaybackBlocked(RuntimeError):
     """An uncertain/unavailable selection must not become a completed snapshot."""
 
@@ -45,7 +48,7 @@ def sync_run_lock(db_path):
 def run_locked_cli(main):
     """Lock standalone writers while an actual sync_all child shares its parent's lock."""
     import argparse
-    from ytmusic_playlist_sync import BILINGUAL_CACHE, load_dotenv
+    from ytmusic_playlist_sync import BILINGUAL_CACHE, LOG, PlaylistPublicationBlocked, load_dotenv
 
     parser = argparse.ArgumentParser(add_help=False)
     parser.add_argument("--db-path", default=str(Path(__file__).with_name("hype_wave_data.db")))
@@ -58,8 +61,11 @@ def run_locked_cli(main):
     if args.dry_run:
         return main()
     with sync_run_lock(args.db_path):
-        result = main()
+        try:
+            result = main()
+        except PlaylistPublicationBlocked as exc:
+            LOG.error("%s", exc)
+            result = EXIT_PUBLICATION_BLOCKED
         # A failed save must affect the exit status, while the writer lock is held.
         BILINGUAL_CACHE.flush()
         return result
-

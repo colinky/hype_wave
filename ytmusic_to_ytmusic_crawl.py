@@ -14,6 +14,7 @@ from __future__ import annotations
 import argparse
 import copy
 import csv
+import hashlib
 import json
 import logging
 import os
@@ -300,14 +301,22 @@ def extract_chart_entries_from_csv_text(csv_text: str, *, limit: int = 100) -> l
     entries: list[dict[str, Any]] = []
     for row in csv.DictReader(csv_text.splitlines()):
         video_id = video_id_from_url(row.get("YouTube URL", "") or row.get("URL", "") or row.get("Video URL", ""))
+        title = row.get("Track Name", "") or row.get("Title", "")
+        artist = row.get("Artist Names", "") or row.get("Artist", "") or row.get("Artists", "")
+        source_id = {}
         if not video_id:
-            continue
+            if not title.strip() or not artist.strip():
+                raise ValueError("CSV row without a YouTube URL requires a title and artist")
+            # Keep the official rank without inventing a playable video ID.
+            identity = json.dumps([title, artist], ensure_ascii=False).encode("utf-8")
+            source_id["song_id"] = "fallback:ytmusic:csv:" + hashlib.sha256(identity).hexdigest()
         entries.append(
             {
+                **source_id,
                 "rank": int(row.get("Rank") or len(entries) + 1),
                 "video_id": video_id,
-                "title": row.get("Track Name", "") or row.get("Title", ""),
-                "artist": row.get("Artist Names", "") or row.get("Artist", "") or row.get("Artists", ""),
+                "title": title,
+                "artist": artist,
                 "source": "youtube_charts_weekly_csv",
                 "views": row.get("Views", ""),
                 "previous_rank": row.get("Previous Rank", ""),
@@ -1001,6 +1010,7 @@ def main() -> int:
             {
                 "source": row.get("source", "youtube_charts_weekly"),
                 "rank": row.get("rank"),
+                "song_id": row.get("song_id") or row.get("video_id", ""),
                 "original_video_id": row.get("video_id", ""),
                 "atv_external_video_id": row.get("atv_external_video_id", ""),
                 "original_title": row.get("title", ""),
@@ -1030,7 +1040,7 @@ def main() -> int:
         [
             {
                 **row,
-                "song_id": row.get("original_video_id") or "",
+                "song_id": row.get("song_id") or row.get("original_video_id") or "",
                 "title": row.get("original_title") or "",
                 "artist": row.get("original_artist_or_channel") or "",
             }
@@ -1054,7 +1064,7 @@ def main() -> int:
             try:
                 raw_tracks = []
                 for row in entries:
-                    song_id = row.get("original_video_id") or ""
+                    song_id = row.get("song_id") or row.get("original_video_id") or ""
                     raw_tracks.append({
                         "rank": row.get("rank"),
                         "service": "ytmusic",
@@ -1108,7 +1118,7 @@ def main() -> int:
         )
         conn.commit()
         bulk_cache = load_verified_matching_cache(
-            conn, service="ytmusic", tracks=effective_entries,
+            conn, service="ytmusic", tracks=[row for row in effective_entries if row.get("original_video_id")],
             ytmusic=None if args.no_resolve else ytmusic,
             read_only=args.dry_run,
         )
@@ -1127,7 +1137,8 @@ def main() -> int:
         for row in effective_entries:
             original_id = row.get("original_video_id", "")
             if not original_id:
-                row.update({"mapping_status": "failed", "mapping_reason": "missing_original_video_id"})
+                row.update({"mapping_status": "failed", "mapping_reason": "missing_original_video_id",
+                            "mapping_score": 0.0, "resolved_video_id": ""})
                 resolved_rows.append(row)
                 continue
             cached = bulk_cache.get(original_id)
@@ -1245,7 +1256,7 @@ def main() -> int:
                 tracks = []
                 matches = []
                 for row in resolved_rows:
-                    song_id = row.get("original_video_id") or row.get("resolved_video_id") or ""
+                    song_id = row["song_id"]
                     tracks.append({
                         "rank": row.get("rank"),
                         "service": "ytmusic",

@@ -36,7 +36,7 @@ from ytmusic_playlist_sync import (
     get_resilient_session,
 )
 from crawler_common import process_matching_pipeline
-from hype_db_common import dedupe_source_tracks
+from hype_db_common import dedupe_source_tracks, sync_date
 
 http_session = get_resilient_session()
 
@@ -366,8 +366,7 @@ def run_tracks_pipeline(
     search_limit = int(os.environ.get("SEARCH_LIMIT", args.search_limit))
     started_at = os.environ.get("HYPE_MATCH_STARTED_AT") or datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
 
-    kst_now = datetime.now(timezone.utc).astimezone(timezone(timedelta(hours=9)))
-    update_date_str = kst_now.strftime("%Y-%m-%d")
+    update_date_str = sync_date()
 
     if not all_tracks:
         LOG.error(empty_message)
