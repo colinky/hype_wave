@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import atexit
+from bisect import bisect_left
 import json
 import logging
 import os
@@ -2510,6 +2511,12 @@ class PlaylistPublicationBlocked(RuntimeError):
     """An earlier recovery claim prevents publication before a new audit exists."""
 
 
+class PlaylistIdentityRejected(RuntimeError):
+    def __init__(self, comparison: dict[str, Any], actual: list[dict[str, str]]):
+        super().__init__("Playlist song identity verification failed")
+        self.comparison, self.actual = comparison, actual
+
+
 def _playlist_slots(items: list[dict[str, str]]) -> list[str]:
     slots = [item["setVideoId"] for item in items]
     if len(set(slots)) != len(slots):
@@ -2543,6 +2550,73 @@ def _addition_receipts(result: Any, requested: list[str]) -> list[dict[str, str]
     return items
 
 
+def _observe_playlist_transition(ytmusic: YTMusic, playlist_id: str, expected: list[dict[str, str]],
+                                 *, previous: list[dict[str, str]] | None = None) -> list[dict[str, str]]:
+    for attempt in range(3):
+        actual = get_existing_playlist_items(ytmusic, playlist_id, expected_items=expected)
+        if _same_owned_slots(actual, expected):
+            return actual
+        if previous is None or not _same_owned_slots(actual, previous):
+            raise RuntimeError("Playlist slots changed outside the audited mutation; refusing further mutation")
+        if attempt < 2:
+            time.sleep(0.5 * (attempt + 1))
+    raise RuntimeError("Playlist slots/order differ from the acknowledged mutation")
+
+
+def _moved_playlist_items(items: list[dict[str, str]], slot: str, successor: str) -> list[dict[str, str]]:
+    slots = _playlist_slots(items)
+    if slot not in slots or successor == slot or successor and successor not in slots:
+        raise RuntimeError("Move must reference distinct owned playlist slots")
+    moved = items[slots.index(slot)]
+    after = [item for item in items if item["setVideoId"] != slot]
+    position = _playlist_slots(after).index(successor) if successor else len(after)
+    return after[:position] + [moved] + after[position:]
+
+
+def _stationary_playlist_slots(current: list[str], target: list[str]) -> set[str]:
+    # Keep a longest ordered subsequence so a rank rotation needs only one move.
+    positions = {slot: index for index, slot in enumerate(target)}
+    tails, indices, previous = [], [], [-1] * len(current)
+    for index, slot in enumerate(current):
+        position = bisect_left(tails, positions[slot])
+        if position:
+            previous[index] = indices[position - 1]
+        if position == len(tails):
+            tails.append(positions[slot])
+            indices.append(index)
+        else:
+            tails[position], indices[position] = positions[slot], index
+    kept = set()
+    index = indices[-1] if indices else -1
+    while index >= 0:
+        kept.add(current[index])
+        index = previous[index]
+    return kept
+
+
+def _move_playlist_item(ytmusic: YTMusic, playlist_id: str, expected: list[dict[str, str]],
+                        slot: str, successor: str, *, evidence: Any, phase: str, order: int) -> list[dict[str, str]]:
+    before = _observe_playlist_transition(ytmusic, playlist_id, expected)
+    after = _moved_playlist_items(before, slot, successor)
+    item = next(item for item in before if item["setVideoId"] == slot)
+    event = {"phase": phase, "operation": "move", "chunk_order": order, "attempt": 1,
+             "items": [item], "successor_set_video_id": successor}
+    intent = evidence({**event, "state": "intent", "before_items": before})
+    try:
+        result = ytmusic.edit_playlist(playlist_id, moveItem=(slot, successor) if successor else slot)
+        _require_playlist_mutation_success(result, "move")
+        evidence({**event, "state": "ack", "intent_seq": intent["seq"], "after_items": after})
+    except Exception as exc:
+        try:
+            evidence({**event, "state": "ambiguous", "intent_seq": intent["seq"],
+                      "error": f"{type(exc).__name__}: {exc}"})
+        except Exception:
+            LOG.error("Unable to record ambiguous move; durable intent remains unresolved")
+        raise PlaylistMutationUncertain("Move acknowledgement is uncertain; automatic retry/restore is forbidden") from exc
+    LOG.info("Acknowledged playlist move before %s", successor or "end")
+    return _observe_playlist_transition(ytmusic, playlist_id, after, previous=before)
+
+
 def _replace_playlist_contents(
     ytmusic: YTMusic,
     playlist_id: str,
@@ -2569,7 +2643,7 @@ def _replace_playlist_contents(
         ("add", chunked(target_video_ids, 50)),
     ):
         for chunk_order, chunk in enumerate(chunks, 1):
-            before = get_existing_playlist_items(ytmusic, playlist_id, expected_items=expected)
+            before = _observe_playlist_transition(ytmusic, playlist_id, expected)
             if not _same_owned_slots(before, expected):
                 raise RuntimeError("Playlist slots changed outside the audited mutation; refusing further mutation")
             if require_exact_items and before != expected:
@@ -2616,7 +2690,106 @@ def _replace_playlist_contents(
                 ) from exc
             expected = after
             LOG.info("Acknowledged %s of %d playlist items", operation, len(chunk))
+            expected = _observe_playlist_transition(ytmusic, playlist_id, expected, previous=before)
     return expected
+
+
+def _sync_playlist_contents(
+    ytmusic: YTMusic, playlist_id: str, current_items: list[dict[str, str]], target_video_ids: list[str],
+    *, evidence: Any, phase: str, metadata_cache: dict[str, Any] | None = None,
+    allow_partial: bool = False, preferred_items: list[dict[str, str]] | None = None,
+) -> tuple[list[dict[str, str]], dict[str, Any]]:
+    """Verify additions before removing obsolete owned slots, then move only changed ranks."""
+    if len(set(target_video_ids)) != len(target_video_ids):
+        raise RuntimeError("Cannot prove delta order for duplicate requested IDs")
+    cache = metadata_cache if metadata_cache is not None else {}
+    expected = _audit_playlist_items(current_items)
+    preferred = set(_playlist_slots(preferred_items or []))
+    candidates = sorted(expected, key=lambda item: item["setVideoId"] not in preferred)
+    selected, used = {}, set()
+    for video_id in target_video_ids:
+        item = next((item for item in candidates if item["videoId"] == video_id and item["setVideoId"] not in used), None)
+        if item is not None:
+            selected[video_id] = item["setVideoId"]
+            used.add(item["setVideoId"])
+    for video_id in target_video_ids:
+        if video_id in selected:
+            continue
+        # Consider aliases only among unused items, preserving every exact-ID match.
+        wanted = _playlist_video_details(ytmusic, video_id, cache)
+        for item in candidates:
+            if item["setVideoId"] in used or wanted["error"]:
+                continue
+            actual = _playlist_video_details(ytmusic, item["videoId"], cache)
+            if wanted["normalized_title"] != actual["normalized_title"] or actual["error"]:
+                continue
+            comparison = _compare_playlist_video_ids(ytmusic, [video_id], [item["videoId"]], metadata_cache=cache)
+            if comparison["matches"]:
+                selected[video_id] = item["setVideoId"]
+                used.add(item["setVideoId"])
+                break
+    missing = [video_id for video_id in target_video_ids if video_id not in selected]
+    policy, excluded = {}, []
+    for chunk in chunked(missing, 50):
+        prefix = len(expected)
+        receipts = _replace_playlist_contents(ytmusic, playlist_id, expected, chunk,
+            evidence=evidence, phase=phase, remove_items=[], allow_duplicates=phase == "restore")
+        expected = _observe_playlist_transition(ytmusic, playlist_id, receipts)
+        additions = expected[prefix:]
+        comparison = _compare_playlist_video_ids(ytmusic, chunk, [item["videoId"] for item in additions], metadata_cache=cache)
+        rejected = [row for row in comparison["differences"] if not row["accepted"]]
+        if rejected:
+            allowed = {"title_mismatch", "author_mismatch", "version_mismatch", "duration_mismatch", "metadata_error"}
+            if not allow_partial or any(row["reason"] not in allowed for row in rejected):
+                raise PlaylistIdentityRejected(comparison, expected)
+            for row in rejected:
+                excluded.append({"position": target_video_ids.index(row["expected_id"]) + 1,
+                    "requested_video_id": row["expected_id"], "actual_video_id": row["actual_id"], "reason": row["reason"]})
+            excluded.sort(key=lambda row: row["position"])
+            excluded_ids = {row["requested_video_id"] for row in excluded}
+            effective = [video_id for video_id in target_video_ids if video_id not in excluded_ids]
+            if not effective:
+                raise PlaylistIdentityRejected(comparison, expected)
+            policy = {"publication_mode": "partial", "effective_video_ids": effective, "excluded_items": excluded}
+            evidence({"phase": phase, "operation": "observe", "state": "verified", "chunk_order": 0, "attempt": 1,
+                "items": expected, "verification_matches": False, "observation_complete": True,
+                "differences": comparison["differences"], **policy})
+            rejected_positions = {row["position"] - 1 for row in rejected}
+            removals = [item for index, item in enumerate(additions) if index in rejected_positions]
+            receipts = _replace_playlist_contents(ytmusic, playlist_id, expected, [],
+                evidence=evidence, phase=phase, remove_items=removals, require_exact_items=True)
+            expected = _observe_playlist_transition(ytmusic, playlist_id, receipts)
+        else:
+            rejected_positions = set()
+        for index, (video_id, item) in enumerate(zip(chunk, additions)):
+            if index not in rejected_positions:
+                selected[video_id] = item["setVideoId"]
+    effective = policy.get("effective_video_ids", target_video_ids)
+    current = _observe_playlist_transition(ytmusic, playlist_id, expected)
+    by_slot = {item["setVideoId"]: item for item in current}
+    target_slots = [selected[video_id] for video_id in effective]
+    comparison = _compare_playlist_video_ids(ytmusic, effective,
+        [by_slot[slot]["videoId"] for slot in target_slots], metadata_cache=cache)
+    if not comparison["matches"]:
+        raise PlaylistIdentityRejected(comparison, current)
+    kept = set(target_slots)
+    obsolete = [item for item in current if item["setVideoId"] not in kept]
+    receipts = _replace_playlist_contents(ytmusic, playlist_id, current, [],
+        evidence=evidence, phase=phase, remove_items=obsolete)
+    expected = _observe_playlist_transition(ytmusic, playlist_id, receipts)
+    stationary = _stationary_playlist_slots(_playlist_slots(expected), target_slots)
+    successor, moves = "", 0
+    for slot in reversed(target_slots):
+        if slot not in stationary:
+            moves += 1
+            expected = _move_playlist_item(ytmusic, playlist_id, expected, slot, successor,
+                evidence=evidence, phase=phase, order=moves)
+        successor = slot
+    if _playlist_slots(expected) != target_slots:
+        raise RuntimeError("Delta publication did not reach the requested slot order")
+    LOG.info("Delta playlist update: retained=%d added=%d removed=%d moved=%d",
+             len(used), len(missing), len(obsolete), moves)
+    return expected, policy
 
 
 def _publish_without_unverified_substitutions(
@@ -2704,7 +2877,7 @@ def _recoverable_playlist_items(run: dict[str, Any]) -> list[dict[str, str]]:
     seen_slots = set(_playlist_slots(expected))
     pending: dict[int, dict[str, Any]] = {}
     for event in payload.get("events", []):
-        if event.get("operation") not in {"remove", "add"}:
+        if event.get("operation") not in {"remove", "add", "move"}:
             continue
         if event.get("state") == "intent":
             if pending or not _same_owned_slots(_audit_playlist_items(event.get("before_items")), expected):
@@ -2722,7 +2895,7 @@ def _recoverable_playlist_items(run: dict[str, Any]) -> list[dict[str, str]]:
                     raise RuntimeError("Removal receipt does not match the requested slots")
                 removed = set(_playlist_slots(items))
                 expected = [item for item in expected if item["setVideoId"] not in removed]
-            else:
+            elif event["operation"] == "add":
                 requested = [item.get("videoId") or item.get("video_id") for item in intent["items"]]
                 validated = _addition_receipts(
                     {"status": "STATUS_SUCCEEDED", "playlistEditResults": items}, requested
@@ -2731,6 +2904,14 @@ def _recoverable_playlist_items(run: dict[str, Any]) -> list[dict[str, str]]:
                     raise RuntimeError("Addition receipt reuses a previously observed playlist slot")
                 seen_slots.update(_playlist_slots(validated))
                 expected += validated
+            else:
+                before = _audit_playlist_items(intent.get("before_items"))
+                if items != _audit_playlist_items(intent.get("items")) or len(items) != 1:
+                    raise RuntimeError("Move receipt does not match its requested item")
+                successor = intent.get("successor_set_video_id")
+                if not isinstance(successor, str) or event.get("successor_set_video_id") != successor:
+                    raise RuntimeError("Move receipt does not match its requested successor")
+                expected = _moved_playlist_items(before, items[0]["setVideoId"], successor)
             _playlist_slots(expected)
             after_items = _audit_playlist_items(event.get("after_items"))
             if expected != after_items:
@@ -2847,23 +3028,31 @@ def update_ytmusic_playlist(
     publication_verified = False
     comparison: dict[str, Any] = {"matches": False, "differences": []}
     try:
-        expected_items = _replace_playlist_contents(
+        expected_items, policy = _sync_playlist_contents(
             ytmusic, playlist_id, current, video_ids, evidence=evidence, phase="publish",
+            metadata_cache=metadata_cache, allow_partial=True,
         )
+        effective_ids = policy.get("effective_video_ids", video_ids)
         for attempt in range(3):
             actual = get_existing_playlist_items(ytmusic, playlist_id, expected_items=expected_items)
             if not _same_owned_slots(actual, expected_items):
                 raise RuntimeError("Playlist item ownership/order differs from acknowledged additions")
             comparison = _compare_playlist_video_ids(
-                ytmusic, video_ids, [item["videoId"] for item in actual], metadata_cache=metadata_cache,
+                ytmusic, effective_ids, [item["videoId"] for item in actual], metadata_cache=metadata_cache,
             )
             if comparison["matches"]:
+                if policy:
+                    evidence({"phase": "publish", "operation": "observe", "state": "verified",
+                        "chunk_order": 0, "attempt": 1, "items": actual,
+                        "verification_matches": True, "observation_complete": True, **policy})
+                    LOG.warning("Partial delta publication completed: requested=%d published=%d excluded=%s",
+                                len(video_ids), len(actual), json.dumps(policy["excluded_items"], ensure_ascii=False))
                 publication_verified = True
                 finish("published", actual, comparison)
                 return
             if attempt < 2:
                 time.sleep(2)
-        partial = _publish_without_unverified_substitutions(
+        partial = None if policy else _publish_without_unverified_substitutions(
             ytmusic, playlist_id, video_ids, actual, comparison, evidence=evidence,
         )
         if partial is not None:
@@ -2880,6 +3069,8 @@ def update_ytmusic_playlist(
         failure = RuntimeError("Playlist verification failed: " + json.dumps(comparison["differences"], ensure_ascii=False))
     except Exception as exc:
         failure = exc
+        if isinstance(exc, PlaylistIdentityRejected):
+            comparison, actual = exc.comparison, exc.actual
 
     if _identity_review_required(comparison["differences"]):
         # Persist the rejection BEFORE rollback: a crash after a restore ACK
@@ -2907,9 +3098,9 @@ def update_ytmusic_playlist(
             ytmusic, existing_ids, [item["videoId"] for item in current], metadata_cache=metadata_cache,
         )
         if not previous["matches"]:
-            expected = _replace_playlist_contents(
+            expected, _ = _sync_playlist_contents(
                 ytmusic, playlist_id, current, existing_ids, evidence=evidence,
-                phase="restore", allow_duplicates=True,
+                phase="restore", metadata_cache=metadata_cache, preferred_items=existing,
             )
             current = get_existing_playlist_items(ytmusic, playlist_id, expected_items=expected)
             if not _same_owned_slots(current, expected):

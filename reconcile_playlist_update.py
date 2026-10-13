@@ -18,8 +18,8 @@ from ytmusic_playlist_sync import (
     _compare_playlist_video_ids,
     _identity_review_required,
     _recoverable_playlist_items,
-    _replace_playlist_contents,
     _same_owned_slots,
+    _sync_playlist_contents,
     bilingual_cache_read_only,
     get_existing_playlist_items,
     make_ytmusic,
@@ -49,7 +49,11 @@ def reconcile_playlist_update(
             raise RuntimeError("Partial publication is missing a valid ordered effective target")
         partial_policy = {"publication_mode": "partial", "effective_video_ids": requested,
                           "excluded_items": run.get("excluded_items") or []}
-    current = _audit_playlist_items(get_existing_playlist_items(ytmusic, playlist_id))
+    try:
+        expected_current = _recoverable_playlist_items(run)
+    except (ValueError, KeyError, RuntimeError):
+        expected_current = None
+    current = _audit_playlist_items(get_existing_playlist_items(ytmusic, playlist_id, expected_items=expected_current))
     actual_ids = [item["videoId"] for item in current]
     requested_comparison = _compare_playlist_video_ids(ytmusic, requested, actual_ids)
     existing_comparison = _compare_playlist_video_ids(ytmusic, existing, actual_ids)
@@ -57,7 +61,7 @@ def reconcile_playlist_update(
     tail_attempted = any(event.get("phase") == "reconcile_tail" and event.get("operation") == "add"
                          for event in payload.get("events", []))
     mutations = [event for event in payload.get("events", [])
-                 if event.get("operation") in {"add", "remove"}]
+                 if event.get("operation") in {"add", "remove", "move"}]
     acknowledged_intents = {event.get("intent_seq") for event in mutations if event.get("state") == "ack"}
     unresolved_mutation = any(
         event.get("state") == "ambiguous"
@@ -90,7 +94,7 @@ def reconcile_playlist_update(
         if _same_owned_slots(current, candidate):
             owned = candidate
             mutations = [event for event in payload.get("events", [])
-                         if event.get("operation") in {"add", "remove"}]
+                         if event.get("operation") in {"add", "remove", "move"}]
             last = mutations[-1] if mutations else {}
             owned_ids = [item["videoId"] for item in owned]
             newly_observed_rejection = bool(
@@ -200,7 +204,7 @@ def reconcile_playlist_update(
 
     comparison = requested_comparison
     try:
-        fresh = _audit_playlist_items(get_existing_playlist_items(ytmusic, playlist_id))
+        fresh = _audit_playlist_items(get_existing_playlist_items(ytmusic, playlist_id, expected_items=current))
         if fresh != current:
             raise RuntimeError("Playlist changed after recovery planning; refusing reconciliation")
         if newly_observed_rejection:
@@ -211,9 +215,9 @@ def reconcile_playlist_update(
                 "differences": requested_comparison["differences"],
             })
         if action == "restore_owned_items":
-            expected = _replace_playlist_contents(
+            expected, _ = _sync_playlist_contents(
                 ytmusic, playlist_id, fresh, existing, evidence=evidence,
-                phase="restore", allow_duplicates=True,
+                phase="restore", preferred_items=_audit_playlist_items(run["existing_items"]),
             )
             fresh = get_existing_playlist_items(ytmusic, playlist_id, expected_items=expected)
             if not _same_owned_slots(fresh, expected):
@@ -247,7 +251,7 @@ def reconcile_playlist_update(
                 except Exception:
                     pass  # The durable unresolved intent remains a no-retry barrier.
                 raise PlaylistMutationUncertain("Tail append acknowledgement is uncertain; retry is forbidden") from exc
-            fresh = _audit_playlist_items(get_existing_playlist_items(ytmusic, playlist_id))
+            fresh = _audit_playlist_items(get_existing_playlist_items(ytmusic, playlist_id, expected_items=expected))
             if not _same_owned_slots(fresh, expected):
                 raise RuntimeError("Tail append changed existing slots/order or lacks the acknowledged final slot")
             report["item_mutations"] = 1

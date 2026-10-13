@@ -8,6 +8,9 @@ on:
     paths:
       - ytmusic_playlist_sync.py
       - tests/test_playlist_count_retry.py
+      - tests/test_playlist_delta.py
+      - hype_db_store.py
+      - reconcile_playlist_update.py
       - ytmusic_to_ytmusic_crawl.py
       - requirements.txt
       - tests/test_youtube_charts*.py
