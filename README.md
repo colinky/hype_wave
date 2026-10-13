@@ -317,6 +317,12 @@ python heal_split_tracks.py --db-path hype_wave_data.db # split track UID 정리
 
 누락된 YouTube 주차가 여러 개면 오래된 주차부터 가져옵니다. CSV의 영상 URL이 `n/a`인 곡도 순위·제목·가수는 보존하며, 내부 `fallback:` 식별자로 저장하고 영상 매칭은 미확정으로 남깁니다. 원본에 없는 영상 ID를 생성하지 않습니다.
 
+YouTube Charts 조회는 `429` 및 일시적인 서버 오류에 최대 3회 재시도하며, `Retry-After`가 있으면 그 대기 시간을 따릅니다. 영어·한국어 중 한 요청이 실패해도 다른 요청의 유효한 차트는 유지하고, 실패 이유는 언어와 함께 경고 로그에 남깁니다.
+
+HTTP/API 수집이 실패하거나 주간 데이터가 불완전하면 Playwright WebKit으로 공식 대한민국 주간 차트를 조회합니다. 공식 응답의 국가·곡 차트 유형, 중복·누락 없는 1–100위, 7일 집계 기간, 화면에 표시된 기간과 요청 기간의 일치를 검증한 뒤 기존 저장·매칭 경로로 넘깁니다. 브라우저도 실패하면 기존 차트와 플레이리스트를 보존합니다. 브라우저는 최신 주차만 수집하며 과거 주차는 날짜를 명시한 CSV를 사용합니다.
+
+로컬에서는 `python -m playwright install webkit`으로 브라우저를 설치합니다. `python tests/check_youtube_charts_browser.py`는 HTTP 실패를 강제로 발생시켜 실제 브라우저 수집을 검증하며 DB·플레이리스트를 변경하지 않습니다. Actions는 `python -m playwright install --with-deps webkit`으로 브라우저와 Linux 의존성을 설치하고, 별도의 `YouTube Charts Browser Check` 작업으로 같은 검증을 수행합니다.
+
 ---
 
 ### 게시 차단 및 복구

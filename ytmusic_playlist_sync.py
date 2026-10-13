@@ -40,7 +40,10 @@ except ImportError:  # pragma: no cover - compatibility with older ytmusicapi.
 LOG = logging.getLogger("ytmusic_playlist_sync")
 
 
-def get_resilient_session(retries: int = 3, backoff_factor: float = 0.3) -> requests.Session:
+def get_resilient_session(
+    retries: int = 3, backoff_factor: float = 0.3, *,
+    allowed_methods: frozenset[str] = Retry.DEFAULT_ALLOWED_METHODS,
+) -> requests.Session:
     """
     자동 재시도와 백오프가 탑재된 HTTP Session 객체 생성.
     """
@@ -50,6 +53,7 @@ def get_resilient_session(retries: int = 3, backoff_factor: float = 0.3) -> requ
         read=retries,
         connect=retries,
         backoff_factor=backoff_factor,
+        allowed_methods=allowed_methods,
         status_forcelist=(429, 500, 502, 503, 504),
         raise_on_status=False,
     )

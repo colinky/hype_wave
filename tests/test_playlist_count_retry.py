@@ -2,7 +2,9 @@
 from copy import deepcopy
 from contextlib import ExitStack
 from pathlib import Path
+import os
 import sys
+import tempfile
 import unittest
 from unittest.mock import Mock, call, patch
 
@@ -145,6 +147,55 @@ class PlaylistCountRetryTests(unittest.TestCase):
     def test_persistent_count_between_chunks_preserves_ack_and_stops(self):
         self.replace_after_stale_count(persistent=True)
         self.assertEqual(self.sleep.call_args_list, [call(1), call(2)])
+
+    def test_durable_recovery_restores_two_hundred_items_after_first_chunk_count_failure(self):
+        import hype_db
+        from reconcile_playlist_update import reconcile_playlist_update
+
+        original = playlist_items("old", 200)
+        ids = [item["videoId"] for item in original]
+        state = deepcopy(original)
+        client = Mock()
+        stale = True
+
+        def read(*args, **kwargs):
+            return {"tracks": deepcopy(state), "trackCount": 0 if stale and len(state) == 50 else len(state)}
+
+        def remove(_playlist, items):
+            slots = {item["setVideoId"] for item in items}
+            state[:] = [item for item in state if item["setVideoId"] not in slots]
+            return {"status": "STATUS_SUCCEEDED"}
+
+        def add(_playlist, values, **kwargs):
+            added = [{"videoId": value, "setVideoId": f"new-{client.add_playlist_items.call_count}-{value}"}
+                     for value in values]
+            state.extend(added)
+            return {"status": "STATUS_SUCCEEDED", "playlistEditResults": deepcopy(added)}
+
+        client.get_playlist.side_effect = read
+        client.remove_playlist_items.side_effect = remove
+        client.add_playlist_items.side_effect = add
+        with tempfile.TemporaryDirectory() as directory, patch.dict(os.environ, {"HYPE_DB_BACKEND": "sqlite"}):
+            db = Path(directory) / "recovery.db"
+            run_id = hype_db.record_playlist_update(
+                db, playlist_id="fixture", service="apple", job_name="KR-Top-Songs",
+                existing_items=original, requested_video_ids=ids, claim_token="publisher",
+            )
+
+            def evidence(event):
+                return hype_db.append_playlist_update_evidence(db, run_id, event, claim_token="publisher")
+
+            with self.assertRaisesRegex(RuntimeError, "trackCount=0"):
+                sync._replace_playlist_contents(client, "fixture", original, ids, evidence=evidence, phase="publish")
+            hype_db.finish_playlist_update(db, run_id, status="recovery_required", claim_token="publisher")
+            self.assertEqual(len(state), 50)
+            stale = False
+            plan = reconcile_playlist_update(client, db, run_id, "fixture")
+            self.assertEqual(plan["action"], "restore_owned_items")
+            result = reconcile_playlist_update(client, db, run_id, "fixture", apply=True, workers_quiescent=True)
+            self.assertTrue(result["applied"])
+            self.assertEqual([item["videoId"] for item in state], ids)
+            self.assertEqual(hype_db.get_playlist_update_run(db, run_id)["status"], "restored")
 
 
 if __name__ == "__main__":

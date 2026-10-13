@@ -31,12 +31,12 @@ from hype_db_common import database_backend
 from urllib.parse import parse_qs, urlencode, urljoin, urlparse
 
 import requests
-from bs4 import BeautifulSoup
 
 from ytmusic_playlist_sync import (
     duration_to_seconds,
     bilingual_cache_read_only,
     env_or_arg,
+    get_resilient_session,
     load_dotenv,
     make_ytmusic,
     resolve_video_to_song,
@@ -49,6 +49,8 @@ from hype_db_common import dedupe_source_tracks
 from crawler_common import load_verified_matching_cache
 
 LOG = logging.getLogger("ytmusic_to_ytmusic_crawl")
+# Browse POSTs only read chart data; playlist mutations never use this session.
+http_session = get_resilient_session(backoff_factor=2, allowed_methods=frozenset({"GET", "POST"}))
 DEFAULT_PLAYLIST_URL = "https://music.youtube.com/playlist?list=PL4fGSI1pDJn6jXS_Tv_N9B8Z0HTRVJE0m"
 DEFAULT_YOUTUBE_CHARTS_URL = "https://charts.youtube.com/charts/TopSongs/kr/weekly"
 ACCEPTED_MAPPING_STATUSES = {"resolved_to_song", "already_song", "cached_match", "proxy_matched", "manual_override", "kept_original_video"}
@@ -136,7 +138,7 @@ def discover_youtube_charts_source_info(
     candidates: list[str] = []
     error = ""
     try:
-        response = requests.get(fetch_url, headers=headers, timeout=30)
+        response = http_session.get(fetch_url, headers=headers, timeout=30)
         response.raise_for_status()
         candidates = find_csv_urls(response.text, fetch_url)
     except Exception as exc:
@@ -565,6 +567,7 @@ def extract_chart_entries_from_browse_api(
     config = extract_ytcfg_from_html(html)
     context = config.get("INNERTUBE_CONTEXT")
     if not isinstance(context, dict):
+        LOG.warning("YouTube Charts page is missing INNERTUBE_CONTEXT; browse API is unavailable")
         return []
     end_date = compact_date(chart_period_end)
     if not end_date:
@@ -578,20 +581,25 @@ def extract_chart_entries_from_browse_api(
         localized_context = copy.deepcopy(context)
         localized_context.setdefault("client", {})["hl"] = locale
         localized_context.setdefault("client", {})["gl"] = "KR"
-        response = requests.post(
-            "https://charts.youtube.com/youtubei/v1/browse?prettyPrint=false",
-            headers={
-                "User-Agent": "Mozilla/5.0",
-                "Accept-Language": accept_language,
-                "Content-Type": "application/json",
-                "Origin": "https://charts.youtube.com",
-                "Referer": page_url,
-            },
-            json={"context": localized_context, "browseId": "FEmusic_analytics_charts_home", "query": query},
-            timeout=30,
-        )
-        response.raise_for_status()
-        locale_rows[locale] = extract_chart_entries_from_browse_json(response.json(), limit=limit, locale=locale)
+        try:
+            response = http_session.post(
+                "https://charts.youtube.com/youtubei/v1/browse?prettyPrint=false",
+                headers={
+                    "User-Agent": "Mozilla/5.0",
+                    "Accept-Language": accept_language,
+                    "Content-Type": "application/json",
+                    "Origin": "https://charts.youtube.com",
+                    "Referer": page_url,
+                },
+                json={"context": localized_context, "browseId": "FEmusic_analytics_charts_home", "query": query},
+                timeout=30,
+            )
+            response.raise_for_status()
+            locale_rows[locale] = extract_chart_entries_from_browse_json(response.json(), limit=limit, locale=locale)
+            if not locale_rows[locale]:
+                LOG.warning("YouTube Charts browse API returned no tracks (locale=%s)", locale)
+        except (requests.RequestException, ValueError) as exc:
+            LOG.warning("YouTube Charts browse API failed (locale=%s): %s", locale, exc)
     primary = locale_rows.get("en") or locale_rows.get("ko") or []
     merged = merge_localized_chart_entries(primary, locale_rows.get("en", []), "en")
     merged = merge_localized_chart_entries(merged, locale_rows.get("ko", []), "ko")
@@ -654,22 +662,24 @@ def extract_chart_entries_from_youtube_charts(
     chart_period_start: str | None = None,
     chart_period_end: str | None = None,
 ) -> list[dict[str, Any]]:
-    """charts.youtube.com의 정적 HTML/내장 JSON에서 가능한 chart metadata를 best-effort로 추출합니다."""
+    """Read the official weekly chart, using a browser when HTTP/API collection fails."""
     headers = {"User-Agent": "Mozilla/5.0", "Accept-Language": "ko-KR,ko;q=0.9,en-US;q=0.8"}
     fetch_url = youtube_charts_period_url(url, chart_period_start, chart_period_end)
     try:
-        response = requests.get(fetch_url, headers=headers, timeout=30)
+        response = http_session.get(fetch_url, headers=headers, timeout=30)
         response.raise_for_status()
     except Exception as exc:
         LOG.warning("Failed to fetch YouTube Charts page: %s", exc)
-        return []
+        return extract_chart_entries_from_browser(
+            fetch_url, limit=limit, chart_period_start=chart_period_start, chart_period_end=chart_period_end,
+        )
     html = response.text
     if looks_like_youtube_charts_csv(html):
         return extract_chart_entries_from_csv_text(html, limit=limit)
 
     for csv_url in find_csv_urls(html, fetch_url):
         try:
-            csv_response = requests.get(csv_url, headers=headers, timeout=30)
+            csv_response = http_session.get(csv_url, headers=headers, timeout=30)
             csv_response.raise_for_status()
         except Exception as exc:
             LOG.debug("Failed to fetch candidate CSV %s: %s", csv_url, exc)
@@ -684,50 +694,98 @@ def extract_chart_entries_from_youtube_charts(
         browse_entries = extract_chart_entries_from_browse_api(
             html,
             fetch_url,
-            limit=limit,
+            limit=101,
             chart_period_end=chart_period_end,
         )
         if browse_entries:
-            return browse_entries
+            validate_weekly_chart(browse_entries, chart_period_start=chart_period_start, chart_period_end=chart_period_end)
+            return browse_entries[:limit]
     except Exception as exc:
-        LOG.debug("Failed to fetch YouTube Charts browse API: %s", exc)
+        LOG.warning("Failed to fetch YouTube Charts browse API: %s", exc)
 
-    embedded = extract_chart_entries_from_embedded_json(html, limit=limit)
-    if embedded:
-        return embedded
+    return extract_chart_entries_from_browser(
+        fetch_url, limit=limit, chart_period_start=chart_period_start, chart_period_end=chart_period_end,
+    )
 
-    entries: list[dict[str, Any]] = []
-    # Best-effort: videoId/title/artist가 JSON blob에 노출되는 경우를 처리
-    for match in re.finditer(r'"videoId"\s*:\s*"(?P<video_id>[^"]+)"', html):
-        start = max(0, match.start() - 800)
-        end = min(len(html), match.end() + 1200)
-        blob = html[start:end]
-        title_match = re.search(r'"title"\s*:\s*"(?P<title>(?:\\.|[^"])*)"', blob)
-        artist_match = re.search(r'"name"\s*:\s*"(?P<artist>(?:\\.|[^"])*)"', blob)
-        video_id = match.group("video_id")
-        if not video_id or any(e["video_id"] == video_id for e in entries):
-            continue
-        entries.append({
-            "rank": len(entries) + 1,
-            "video_id": video_id,
-            "title": json.loads(f'"{title_match.group("title")}"') if title_match else "",
-            "artist": json.loads(f'"{artist_match.group("artist")}"') if artist_match else "",
-            "source": "youtube_charts_weekly",
-        })
-        if len(entries) >= limit:
-            break
-    if entries:
-        return entries
 
-    # HTML fallback
-    soup = BeautifulSoup(html, "html.parser")
-    for idx, a in enumerate(soup.select('a[href*="watch?v="]')[:limit], 1):
-        href = a.get("href", "")
-        m = re.search(r"v=([A-Za-z0-9_-]{6,})", href)
-        if not m:
-            continue
-        entries.append({"rank": idx, "video_id": m.group(1), "title": a.get_text(" ", strip=True), "artist": "", "source": "youtube_charts_weekly"})
-    return entries
+def validate_weekly_chart(entries, *, chart_period_start=None, chart_period_end=None):
+    if (len(entries) != 100 or any(type(row.get("rank")) is not int for row in entries)
+            or [row.get("rank") for row in entries] != list(range(1, 101))):
+        raise ValueError("Official weekly chart must contain each rank from 1 to 100 exactly once")
+    start, end = fetched_period_from_entries(entries)
+    start_date = datetime.strptime(start, "%Y-%m-%d").date()
+    end_date = datetime.strptime(end, "%Y-%m-%d").date()
+    if (end_date - start_date).days != 6 or end_date > datetime.now(timezone.utc).date():
+        raise ValueError("Official weekly chart period must span seven days and must not be in the future")
+    if ((chart_period_start and dashed_date(chart_period_start) != start)
+            or (chart_period_end and dashed_date(chart_period_end) != end)):
+        raise ValueError(f"Official weekly chart period {start}..{end} differs from the requested period")
+    for row in entries:
+        if (row.get("chart_period_start") != start or row.get("chart_period_end") != end
+                or not str(row.get("title") or "").strip() or not str(row.get("artist") or "").strip()
+                or not re.fullmatch(r"[A-Za-z0-9_-]{11}", str(row.get("video_id") or ""))):
+            raise ValueError("Official weekly chart has inconsistent periods or incomplete track metadata")
+
+
+def extract_chart_entries_from_browser_json(data):
+    params = [node["chartParams"] for node in walk_json(data) if isinstance(node.get("chartParams"), dict)]
+    if len(params) != 1 or params[0].get("countryCode") != "kr" or params[0].get("chartType") != "CHART_TYPE_TRACKS":
+        raise ValueError("Browser response is not the official South Korea songs chart")
+    weekly = [node for node in walk_json(data) if node.get("listType") == "TOP_VIEWS_CHART"
+              and node.get("chartPeriodType") == "CHART_PERIOD_TYPE_WEEKLY" and "trackViews" in node]
+    if (len(weekly) != 1 or not isinstance(weekly[0]["trackViews"], list) or len(weekly[0]["trackViews"]) != 100
+            or params[0].get("chartPeriodType") != "CHART_PERIOD_TYPE_WEEKLY"):
+        raise ValueError("Browser response does not contain one complete weekly Top 100")
+    ranks = [item.get("chartEntryMetadata", {}).get("currentPosition") for item in weekly[0]["trackViews"]]
+    if any(type(rank) is not int for rank in ranks) or sorted(ranks) != list(range(1, 101)):
+        raise ValueError("Browser response has missing or duplicate source ranks")
+    entries = extract_chart_entries_from_browse_json({
+        "chartParams": {**params[0], "endDate": weekly[0].get("endDate")},
+        "trackViews": weekly[0]["trackViews"],
+    }, limit=101, locale="en")
+    validate_weekly_chart(entries)
+    return merge_localized_chart_entries(entries, entries, "en")
+
+
+def extract_chart_entries_from_browser(url, *, limit=100, chart_period_start=None, chart_period_end=None):
+    # shortcut: browser loads the latest week only; use dated CSVs for historical imports.
+    LOG.info("Trying browser fallback for the official YouTube weekly chart")
+    try:
+        from playwright.sync_api import sync_playwright
+
+        parsed = urlparse(url)
+        if parsed.scheme != "https" or parsed.netloc != "charts.youtube.com" or parsed.path != "/charts/TopSongs/kr/weekly":
+            raise ValueError("Browser fallback only accepts the official South Korea weekly songs URL")
+        with sync_playwright() as playwright:
+            browser = playwright.webkit.launch(headless=True)
+            try:
+                page = browser.new_page(locale="en-US")
+                page.set_default_timeout(45000)
+                with page.expect_response(lambda response: urlparse(response.url).netloc == "charts.youtube.com"
+                                          and urlparse(response.url).path == "/youtubei/v1/browse") as result:
+                    page.goto(url, wait_until="domcontentloaded")
+                response = result.value
+                if response.status != 200:
+                    raise ValueError(f"Browser chart request returned HTTP {response.status}")
+                entries = extract_chart_entries_from_browser_json(response.json())
+                validate_weekly_chart(entries, chart_period_start=chart_period_start, chart_period_end=chart_period_end)
+                start, end = fetched_period_from_entries(entries)
+                start_date, end_date = datetime.fromisoformat(start), datetime.fromisoformat(end)
+                label = start_date.strftime("%b %-d")
+                if start_date.year != end_date.year:
+                    label += f", {start_date.year}"
+                last = end_date.strftime("%b %-d") if start_date.month != end_date.month else str(end_date.day)
+                expected = f"{label}–{last}, {end_date.year}"
+                actual = page.locator(".weekly-chart-calendar-selector #paper-button-container").inner_text()
+                if re.sub(r"\s", "", actual) != re.sub(r"\s", "", expected):
+                    raise ValueError("Browser's displayed weekly period differs from its chart response")
+            finally:
+                browser.close()
+        LOG.info("Browser fallback verified 100 ranks for %s..%s", start, end)
+        return entries[:limit]
+    except Exception as exc:
+        LOG.warning("YouTube Charts browser fallback failed: %s", exc)
+        return []
 
 
 def fetch_ytmusic_playlist_entries(ytmusic, playlist_url_or_id: str, *, limit: int = 100) -> list[dict[str, Any]]:

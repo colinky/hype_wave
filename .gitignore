@@ -10,6 +10,9 @@ tests/*
 !tests/test_ytmusic_csv_missing_url.py
 !tests/test_ytmusic_monday_schedule.py
 !tests/test_utc_chart_dates.py
+!tests/test_youtube_charts_fetch.py
+!tests/test_youtube_charts_browser.py
+!tests/check_youtube_charts_browser.py
 utils/
 rules/
 scratch/
@@ -25,6 +28,7 @@ docs/
 db_migrations/*
 .github/workflows/*
 !.github/workflows/daily-sync.yml
+!.github/workflows/youtube-charts-browser-check.yml
 *.lock
 diagnostic-artifacts/
 
