@@ -1,0 +1,37 @@
+name: YouTube Charts Browser Check
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [codex/youtube-browser-fallback]
+  pull_request:
+    paths:
+      - ytmusic_to_ytmusic_crawl.py
+      - requirements.txt
+      - tests/test_youtube_charts*.py
+      - tests/check_youtube_charts_browser.py
+      - .github/workflows/youtube-charts-browser-check.yml
+
+permissions:
+  contents: read
+
+jobs:
+  browser-check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      HYPE_DB_BACKEND: sqlite
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - name: Install dependencies and WebKit
+        run: |
+          pip install -r requirements.txt
+          python -m playwright install --with-deps webkit
+      - name: Run offline regressions
+        run: python -m unittest discover -s tests -v
+      - name: Verify live browser fallback without database or playlist writes
+        run: python tests/check_youtube_charts_browser.py

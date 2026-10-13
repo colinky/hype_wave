@@ -37,6 +37,9 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
 
+      - name: Install chart fallback browser
+        run: python -m playwright install --with-deps webkit
+
       - name: Run regression tests
         env:
           HYPE_DB_BACKEND: sqlite
