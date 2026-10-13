@@ -215,7 +215,7 @@ def reconcile_playlist_update(
                 ytmusic, playlist_id, fresh, existing, evidence=evidence,
                 phase="restore", allow_duplicates=True,
             )
-            fresh = get_existing_playlist_items(ytmusic, playlist_id)
+            fresh = get_existing_playlist_items(ytmusic, playlist_id, expected_items=expected)
             if not _same_owned_slots(fresh, expected):
                 raise RuntimeError("Restored playlist differs from acknowledged item ownership")
             report["item_mutations"] = 1

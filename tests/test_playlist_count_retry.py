@@ -116,9 +116,8 @@ class PlaylistCountRetryTests(unittest.TestCase):
         client.get_playlist.side_effect = read
         client.remove_playlist_items.side_effect = remove
         client.add_playlist_items.side_effect = add
-        if foreign_slot or persistent:
-            message = "slots changed" if foreign_slot else "trackCount=0"
-            with self.assertRaisesRegex(RuntimeError, message):
+        if foreign_slot:
+            with self.assertRaisesRegex(RuntimeError, "slots changed"):
                 sync._replace_playlist_contents(client, "fixture", original, target,
                                                 evidence=evidence, phase="publish")
         else:
@@ -129,7 +128,7 @@ class PlaylistCountRetryTests(unittest.TestCase):
         self.assertEqual(client.remove_playlist_items.call_args_list,
                          [call("fixture", original[:50]), call("fixture", original[50:])])
         expected_adds = [call("fixture", target[:50], duplicates=False)]
-        if not (foreign_slot or persistent):
+        if not foreign_slot:
             expected_adds.append(call("fixture", target[50:], duplicates=False))
         self.assertEqual(client.add_playlist_items.call_args_list, expected_adds)
         self.assertEqual([row["state"] for row in events],
@@ -144,11 +143,11 @@ class PlaylistCountRetryTests(unittest.TestCase):
         self.replace_after_stale_count(foreign_slot=True)
         self.sleep.assert_called_once_with(1)
 
-    def test_persistent_count_between_chunks_preserves_ack_and_stops(self):
+    def test_persistent_count_between_chunks_uses_complete_receipts_without_replaying_edits(self):
         self.replace_after_stale_count(persistent=True)
         self.assertEqual(self.sleep.call_args_list, [call(1), call(2)])
 
-    def test_durable_recovery_restores_two_hundred_items_after_first_chunk_count_failure(self):
+    def test_durable_recovery_restores_two_hundred_items_after_incomplete_first_chunk_read(self):
         import hype_db
         from reconcile_playlist_update import reconcile_playlist_update
 
@@ -159,7 +158,8 @@ class PlaylistCountRetryTests(unittest.TestCase):
         stale = True
 
         def read(*args, **kwargs):
-            return {"tracks": deepcopy(state), "trackCount": 0 if stale and len(state) == 50 else len(state)}
+            incomplete = stale and len(state) == 50
+            return {"tracks": deepcopy(state[:-1] if incomplete else state), "trackCount": 0 if incomplete else len(state)}
 
         def remove(_playlist, items):
             slots = {item["setVideoId"] for item in items}
@@ -196,6 +196,27 @@ class PlaylistCountRetryTests(unittest.TestCase):
             self.assertTrue(result["applied"])
             self.assertEqual([item["videoId"] for item in state], ids)
             self.assertEqual(hype_db.get_playlist_update_run(db, run_id)["status"], "restored")
+
+    def test_count_fallback_requires_exact_complete_receipts(self):
+        expected = playlist_items("new", 50)
+        for case in ("exact", "missing", "extra", "foreign_slot", "changed_video", "reordered"):
+            actual = deepcopy(expected)
+            if case == "missing": actual.pop()
+            elif case == "extra": actual += playlist_items("other", 1)
+            elif case == "foreign_slot": actual[0]["setVideoId"] = "foreign-slot"
+            elif case == "changed_video": actual[0]["videoId"] = "different-video"
+            elif case == "reordered": actual.reverse()
+            client = Mock()
+            client.get_playlist.return_value = {"tracks": actual, "trackCount": 0}
+            with self.subTest(case=case):
+                if case == "exact":
+                    self.assertEqual(sync.get_existing_playlist_items(client, "fixture", expected_items=expected), actual)
+                else:
+                    with self.assertRaisesRegex(RuntimeError, "trackCount=0"):
+                        sync.get_existing_playlist_items(client, "fixture", expected_items=expected)
+            self.assertEqual(client.get_playlist.call_count, 3)
+            client.add_playlist_items.assert_not_called()
+            client.remove_playlist_items.assert_not_called()
 
 
 if __name__ == "__main__":
