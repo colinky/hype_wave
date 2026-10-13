@@ -6,6 +6,8 @@ on:
     branches: [codex/youtube-browser-fallback]
   pull_request:
     paths:
+      - ytmusic_playlist_sync.py
+      - tests/test_playlist_count_retry.py
       - ytmusic_to_ytmusic_crawl.py
       - requirements.txt
       - tests/test_youtube_charts*.py

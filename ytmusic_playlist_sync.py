@@ -2102,6 +2102,7 @@ def chunked(values: list[Any], size: int) -> list[list[Any]]:
 def get_existing_playlist_items(
     ytmusic: YTMusic, playlist_id: str, *, expected_items: list[dict[str, str]] | None = None,
 ) -> list[dict[str, str]]:
+    """Prove complete item ownership; callers still verify song identity separately."""
     expected_items = _audit_playlist_items(expected_items) if expected_items is not None else None
     for attempt in range(3):
         try:
@@ -2139,9 +2140,9 @@ def get_existing_playlist_items(
                 f"trackCount={reported_count}"
             )
             if attempt == 2:
-                # Complete receipts prove the count only when every ID/slot/order agrees.
-                if expected_items is not None and items == expected_items:
-                    LOG.warning("%s; complete item receipts verify all %d tracks", message, len(items))
+                # Provider aliases can change video IDs without changing item ownership.
+                if expected_items is not None and _same_owned_slots(items, expected_items):
+                    LOG.warning("%s; complete ordered ownership receipts verify all %d tracks", message, len(items))
                     return items
                 raise RuntimeError(message)
             # The count header can lag acknowledged edits; retry only the read.
@@ -2640,7 +2641,7 @@ def _publish_without_unverified_substitutions(
     excluded = [{"position": row["position"], "requested_video_id": row["expected_id"],
                  "actual_video_id": row["actual_id"], "reason": row["reason"]} for row in rejected]
     policy = {"publication_mode": "partial", "effective_video_ids": effective, "excluded_items": excluded}
-    fresh = get_existing_playlist_items(ytmusic, playlist_id)
+    fresh = get_existing_playlist_items(ytmusic, playlist_id, expected_items=actual)
     if fresh != actual:
         raise RuntimeError("Playlist changed after fallback planning; refusing omission")
     # Preserve the approved reduced target before deleting anything, including
@@ -2654,7 +2655,7 @@ def _publish_without_unverified_substitutions(
         ytmusic, playlist_id, fresh, [], evidence=evidence, phase="publish",
         remove_items=removed, require_exact_items=True,
     )
-    remaining = get_existing_playlist_items(ytmusic, playlist_id)
+    remaining = get_existing_playlist_items(ytmusic, playlist_id, expected_items=expected)
     if remaining != expected:
         raise RuntimeError("Partial publication differs from the acknowledged retained items")
     verified = _compare_playlist_video_ids(ytmusic, effective, [item["videoId"] for item in remaining])
