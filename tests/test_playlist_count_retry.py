@@ -197,7 +197,7 @@ class PlaylistCountRetryTests(unittest.TestCase):
             self.assertEqual([item["videoId"] for item in state], ids)
             self.assertEqual(hype_db.get_playlist_update_run(db, run_id)["status"], "restored")
 
-    def test_count_fallback_requires_exact_complete_receipts(self):
+    def test_count_fallback_requires_complete_owned_slots_in_order(self):
         expected = playlist_items("new", 50)
         for case in ("exact", "missing", "extra", "foreign_slot", "changed_video", "reordered"):
             actual = deepcopy(expected)
@@ -209,7 +209,7 @@ class PlaylistCountRetryTests(unittest.TestCase):
             client = Mock()
             client.get_playlist.return_value = {"tracks": actual, "trackCount": 0}
             with self.subTest(case=case):
-                if case == "exact":
+                if case in {"exact", "changed_video"}:
                     self.assertEqual(sync.get_existing_playlist_items(client, "fixture", expected_items=expected), actual)
                 else:
                     with self.assertRaisesRegex(RuntimeError, "trackCount=0"):
@@ -217,6 +217,76 @@ class PlaylistCountRetryTests(unittest.TestCase):
             self.assertEqual(client.get_playlist.call_count, 3)
             client.add_playlist_items.assert_not_called()
             client.remove_playlist_items.assert_not_called()
+
+    def test_stale_count_with_substitutions_still_requires_strict_publication_identity(self):
+        import hype_db
+
+        requested = [f"new-{index}" for index in range(200)]
+        aliases = {"new-8": "alias-8", "new-41": "alias-41"}
+        canonical = {alias: video for video, alias in aliases.items()}
+        for case in ("equivalent", "wrong_title", "wrong_artist", "missing_metadata"):
+            with self.subTest(case=case), tempfile.TemporaryDirectory() as directory, \
+                    patch.dict(os.environ, {"HYPE_DB_BACKEND": "sqlite"}):
+                state = playlist_items("old", 200)
+                client = Mock()
+                client.language = "en"
+
+                def read(*args, **kwargs):
+                    return {"tracks": deepcopy(state),
+                            "trackCount": 0 if client.add_playlist_items.called else len(state)}
+
+                def remove(_playlist, items):
+                    slots = {item["setVideoId"] for item in items}
+                    state[:] = [item for item in state if item["setVideoId"] not in slots]
+                    return {"status": "STATUS_SUCCEEDED"}
+
+                def add(_playlist, values, **kwargs):
+                    receipts = [{"videoId": value, "setVideoId": f"added-{value}"} for value in values]
+                    state.extend({**item, "videoId": aliases.get(item["videoId"], item["videoId"])}
+                                 for item in receipts)
+                    return {"status": "STATUS_SUCCEEDED", "playlistEditResults": receipts}
+
+                def song(video_id):
+                    if case == "missing_metadata" and video_id == "alias-8":
+                        return {}
+                    title = canonical.get(video_id, video_id)
+                    if case == "wrong_title" and video_id == "alias-8":
+                        title = "Unrelated song"
+                    return {"videoDetails": {"videoId": video_id, "title": title,
+                            "author": "Fixture Artist", "lengthSeconds": "200",
+                            "musicVideoType": "MUSIC_VIDEO_TYPE_ATV"}}
+
+                def watch(videoId, *args, **kwargs):
+                    artist_id = "UC-other" if case == "wrong_artist" and videoId == "alias-8" else "UC-fixture"
+                    return {"tracks": [{"videoId": videoId, "title": canonical.get(videoId, videoId),
+                            "artists": [{"name": "Fixture Artist", "id": artist_id}]}]}
+
+                client.get_playlist.side_effect = read
+                client.remove_playlist_items.side_effect = remove
+                client.add_playlist_items.side_effect = add
+                client.get_song.side_effect = song
+                client.get_watch_playlist.side_effect = watch
+                client.get_artist.return_value = {"name": "Fixture Artist"}
+                db = Path(directory) / "publication.db"
+                with patch.object(sync, "make_ytmusic", return_value=client):
+                    sync.update_ytmusic_playlist(client, "fixture", requested, dry_run=False,
+                                                db_path=db, service="apple", job_name="KR-Top-Songs")
+                with hype_db.connect(db, read_only=True) as conn:
+                    run_id = conn.execute("SELECT update_run_id FROM playlist_update_runs").fetchone()[0]
+                run = hype_db.get_playlist_update_run(db, run_id, read_only=True)
+                self.assertEqual(run["status"], "published")
+                self.assertFalse(hype_db.get_pending_playlist_recovery(db, "fixture"))
+                expected = [aliases.get(video, video) for video in requested
+                            if case == "equivalent" or video != "new-8"]
+                self.assertEqual([item["videoId"] for item in state], expected)
+                self.assertEqual(len(state), 200 if case == "equivalent" else 199)
+                self.assertEqual(client.add_playlist_items.call_count, 4)
+                self.assertEqual(client.remove_playlist_items.call_count, 4 if case == "equivalent" else 5)
+                if case != "equivalent":
+                    reason = {"wrong_title": "title_mismatch", "wrong_artist": "author_mismatch",
+                              "missing_metadata": "metadata_error"}[case]
+                    self.assertEqual(run["publication_mode"], "partial")
+                    self.assertEqual(run["excluded_items"][0]["reason"], reason)
 
 
 if __name__ == "__main__":
