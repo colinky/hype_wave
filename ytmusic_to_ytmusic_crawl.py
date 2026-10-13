@@ -940,7 +940,8 @@ def main() -> int:
     yt_playlist_id = env_or_arg(args.yt_playlist_id, "YTMUSIC_PLAYLIST_ID", required=not args.db_only)
     yt_client_id = args.yt_oauth_client_id or os.environ.get("YTMUSIC_OAUTH_CLIENT_ID", "")
     yt_client_secret = args.yt_oauth_client_secret or os.environ.get("YTMUSIC_OAUTH_CLIENT_SECRET", "")
-    ytmusic = make_ytmusic(yt_auth, yt_client_id, yt_client_secret, language="ko") if needs_ytmusic else None
+    # Verify provider substitutions in one locale; bilingual metadata is fetched separately.
+    ytmusic = make_ytmusic(yt_auth, yt_client_id, yt_client_secret, language="en") if needs_ytmusic else None
 
     if args.youtube_charts_csv:
         chart_entries = extract_chart_entries_from_csv(args.youtube_charts_csv, limit=args.track_limit)
