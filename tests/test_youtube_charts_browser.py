@@ -115,6 +115,16 @@ class YouTubeChartsBrowserTests(unittest.TestCase):
             browser.close.assert_called_once()
             playwright.webkit.launch.assert_called_once_with(headless=True)
 
+    def test_main_uses_one_verification_locale_without_changing_bilingual_source_collection(self):
+        with (patch.object(sys, "argv", ["crawl", "--yt-auth", "unused.json", "--yt-playlist-id", "fixture", "--dry-run"]),
+              patch.object(crawl, "load_dotenv"),
+              patch.object(crawl, "make_ytmusic") as client,
+              patch.object(crawl, "extract_chart_entries_from_youtube_charts", return_value=[]),
+              patch.object(crawl, "discover_youtube_charts_source_info", return_value={}),
+              self.assertLogs(crawl.LOG, "WARNING")):
+            self.assertEqual(crawl.main(), 1)
+        self.assertEqual(client.call_args.kwargs["language"], "en")
+
 
 if __name__ == "__main__":
     unittest.main()
