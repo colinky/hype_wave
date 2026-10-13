@@ -133,7 +133,7 @@ class PlaylistCountRetryTests(unittest.TestCase):
         self.assertEqual(client.add_playlist_items.call_args_list, expected_adds)
         self.assertEqual([row["state"] for row in events],
                          ["intent", "ack"] * (len(expected_adds) + 2))
-        self.assertEqual(stale_reads, [50] * (3 if persistent else 1))
+        self.assertEqual(stale_reads, [50] * (6 if persistent else 1))
 
     def test_stale_count_between_add_chunks_never_replays_mutation(self):
         self.replace_after_stale_count()
@@ -145,7 +145,7 @@ class PlaylistCountRetryTests(unittest.TestCase):
 
     def test_persistent_count_between_chunks_uses_complete_receipts_without_replaying_edits(self):
         self.replace_after_stale_count(persistent=True)
-        self.assertEqual(self.sleep.call_args_list, [call(1), call(2)])
+        self.assertEqual(self.sleep.call_args_list, [call(1), call(2)] * 2)
 
     def test_durable_recovery_restores_two_hundred_items_after_incomplete_first_chunk_read(self):
         import hype_db
@@ -172,9 +172,18 @@ class PlaylistCountRetryTests(unittest.TestCase):
             state.extend(added)
             return {"status": "STATUS_SUCCEEDED", "playlistEditResults": deepcopy(added)}
 
+        def edit(_playlist, *, moveItem):
+            slot, successor = moveItem if isinstance(moveItem, tuple) else (moveItem, "")
+            item = next(item for item in state if item["setVideoId"] == slot)
+            state.remove(item)
+            position = next((i for i, item in enumerate(state) if item["setVideoId"] == successor), len(state))
+            state.insert(position, item)
+            return {"status": "STATUS_SUCCEEDED"}
+
         client.get_playlist.side_effect = read
         client.remove_playlist_items.side_effect = remove
         client.add_playlist_items.side_effect = add
+        client.edit_playlist.side_effect = edit
         with tempfile.TemporaryDirectory() as directory, patch.dict(os.environ, {"HYPE_DB_BACKEND": "sqlite"}):
             db = Path(directory) / "recovery.db"
             run_id = hype_db.record_playlist_update(
@@ -195,6 +204,7 @@ class PlaylistCountRetryTests(unittest.TestCase):
             result = reconcile_playlist_update(client, db, run_id, "fixture", apply=True, workers_quiescent=True)
             self.assertTrue(result["applied"])
             self.assertEqual([item["videoId"] for item in state], ids)
+            self.assertEqual(state[-50:], original[-50:])
             self.assertEqual(hype_db.get_playlist_update_run(db, run_id)["status"], "restored")
 
     def test_count_fallback_requires_complete_owned_slots_in_order(self):
