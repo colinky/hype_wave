@@ -2099,7 +2099,10 @@ def chunked(values: list[Any], size: int) -> list[list[Any]]:
     return [values[i : i + size] for i in range(0, len(values), size)]
 
 
-def get_existing_playlist_items(ytmusic: YTMusic, playlist_id: str) -> list[dict[str, str]]:
+def get_existing_playlist_items(
+    ytmusic: YTMusic, playlist_id: str, *, expected_items: list[dict[str, str]] | None = None,
+) -> list[dict[str, str]]:
+    expected_items = _audit_playlist_items(expected_items) if expected_items is not None else None
     for attempt in range(3):
         try:
             playlist = ytmusic.get_playlist(playlist_id, limit=None)
@@ -2136,6 +2139,10 @@ def get_existing_playlist_items(ytmusic: YTMusic, playlist_id: str) -> list[dict
                 f"trackCount={reported_count}"
             )
             if attempt == 2:
+                # Complete receipts prove the count only when every ID/slot/order agrees.
+                if expected_items is not None and items == expected_items:
+                    LOG.warning("%s; complete item receipts verify all %d tracks", message, len(items))
+                    return items
                 raise RuntimeError(message)
             # The count header can lag acknowledged edits; retry only the read.
             LOG.warning("%s; retrying playlist read (%d/3)", message, attempt + 2)
@@ -2561,7 +2568,7 @@ def _replace_playlist_contents(
         ("add", chunked(target_video_ids, 50)),
     ):
         for chunk_order, chunk in enumerate(chunks, 1):
-            before = get_existing_playlist_items(ytmusic, playlist_id)
+            before = get_existing_playlist_items(ytmusic, playlist_id, expected_items=expected)
             if not _same_owned_slots(before, expected):
                 raise RuntimeError("Playlist slots changed outside the audited mutation; refusing further mutation")
             if require_exact_items and before != expected:
@@ -2843,7 +2850,7 @@ def update_ytmusic_playlist(
             ytmusic, playlist_id, current, video_ids, evidence=evidence, phase="publish",
         )
         for attempt in range(3):
-            actual = get_existing_playlist_items(ytmusic, playlist_id)
+            actual = get_existing_playlist_items(ytmusic, playlist_id, expected_items=expected_items)
             if not _same_owned_slots(actual, expected_items):
                 raise RuntimeError("Playlist item ownership/order differs from acknowledged additions")
             comparison = _compare_playlist_video_ids(
@@ -2891,7 +2898,7 @@ def update_ytmusic_playlist(
     try:
         run = get_playlist_update_run(db_path, run_id, read_only=True)
         expected = _recoverable_playlist_items(run)
-        current = get_existing_playlist_items(ytmusic, playlist_id)
+        current = get_existing_playlist_items(ytmusic, playlist_id, expected_items=expected)
         if not _same_owned_slots(current, expected):
             raise RuntimeError("Current slots are not owned by this execution; refusing destructive restore")
         # Even a same raw-ID list with new/unowned tokens must not enter this path.
@@ -2903,7 +2910,7 @@ def update_ytmusic_playlist(
                 ytmusic, playlist_id, current, existing_ids, evidence=evidence,
                 phase="restore", allow_duplicates=True,
             )
-            current = get_existing_playlist_items(ytmusic, playlist_id)
+            current = get_existing_playlist_items(ytmusic, playlist_id, expected_items=expected)
             if not _same_owned_slots(current, expected):
                 raise RuntimeError("Restored item ownership/order differs from durable receipts")
             previous = _compare_playlist_video_ids(
