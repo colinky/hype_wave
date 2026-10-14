@@ -84,7 +84,7 @@ ACTIVE_PLAYLIST_UPDATE_STATUSES = {
     "recovery_required",
 }
 PLAYLIST_EVIDENCE_PHASES = {"publish", "restore", "reconcile", "reconcile_tail"}
-PLAYLIST_EVIDENCE_OPERATIONS = {"remove", "add", "move", "observe", "finalize"}
+PLAYLIST_EVIDENCE_OPERATIONS = {"remove", "add", "move", "move_batch", "observe", "finalize"}
 PLAYLIST_EVIDENCE_STATES = {"intent", "ack", "ambiguous", "verified"}
 
 
@@ -3203,6 +3203,19 @@ def _append_payload_entry(
     return stored
 
 
+def _playlist_items_after_moves(items: list[dict[str, Any]], moves: list[dict[str, str]]) -> list[dict[str, Any]]:
+    after = list(items)
+    for move in moves:
+        slot, successor = move["set_video_id"], move["successor_set_video_id"]
+        slots = [item["set_video_id"] for item in after]
+        if slot not in slots or successor == slot or successor and successor not in slots:
+            raise ValueError("Move batch refers to an unowned item or successor")
+        moved = after.pop(slots.index(slot))
+        position = next((i for i, item in enumerate(after) if item["set_video_id"] == successor), len(after))
+        after.insert(position, moved)
+    return after
+
+
 def _normalize_playlist_evidence_event(event: Mapping[str, Any]) -> dict[str, Any]:
     phase = str(event.get("phase") or "")
     operation = str(event.get("operation") or "")
@@ -3225,7 +3238,7 @@ def _normalize_playlist_evidence_event(event: Mapping[str, Any]) -> dict[str, An
         event.get("items") or (),
         require_set_video_id=(operation == "remove" and state == "intent")
         or (operation == "add" and state == "ack")
-        or operation == "move"
+        or operation in {"move", "move_batch"}
         or (
             operation == "observe"
             and state == "verified"
@@ -3246,6 +3259,17 @@ def _normalize_playlist_evidence_event(event: Mapping[str, Any]) -> dict[str, An
         if state not in {"intent", "ack", "ambiguous"} or len(items) != 1 or not isinstance(successor, str) or successor == items[0]["set_video_id"]:
             raise ValueError("Move evidence needs one owned item and a distinct successor")
         normalized["successor_set_video_id"] = successor
+    if operation == "move_batch":
+        moves = event.get("moves")
+        slots = [item["set_video_id"] for item in items]
+        if (state not in {"intent", "ack", "ambiguous"} or not 1 <= len(items) <= 50
+                or len(set(slots)) != len(slots) or not isinstance(moves, list) or len(moves) != len(items)
+                or any(not isinstance(move, Mapping) or move.get("set_video_id") != slot
+                       or not isinstance(move.get("successor_set_video_id"), str)
+                       or move["successor_set_video_id"] == slot for move, slot in zip(moves, slots))):
+            raise ValueError("Move batch evidence needs 1–50 distinct owned items and their exact ordered plan")
+        normalized["moves"] = [{"set_video_id": move["set_video_id"],
+                                "successor_set_video_id": move["successor_set_video_id"]} for move in moves]
     for key in ("before_items", "after_items"):
         if key in event:
             normalized[key] = _normalize_playlist_items(
@@ -3261,6 +3285,12 @@ def _normalize_playlist_evidence_event(event: Mapping[str, Any]) -> dict[str, An
         moved = before[slots.index(items[0]["set_video_id"])]
         if moved["video_id"] != items[0]["video_id"]:
             raise ValueError("Move intent item does not match its before snapshot")
+    if operation == "move_batch" and state == "intent":
+        before = normalized.get("before_items") or []
+        _playlist_items_after_moves(before, normalized["moves"])
+        by_slot = {item["set_video_id"]: item["video_id"] for item in before}
+        if any(by_slot[item["set_video_id"]] != item["video_id"] for item in items):
+            raise ValueError("Move batch items do not match their before snapshot")
     if state in {"ack", "ambiguous"}:
         if intent_seq < 1:
             raise ValueError("Playlist evidence receipt needs intent_seq")
@@ -3391,6 +3421,15 @@ def _assert_receipt_matches_intent(payload: Mapping[str, Any], event: Mapping[st
                 (item["video_id"], item["set_video_id"]) for item in expected
             ]:
                 raise ValueError("Move receipt does not prove the intended complete order")
+    if event.get("operation") == "move_batch":
+        if event["items"] != intent["items"] or event["moves"] != intent["moves"]:
+            raise ValueError("Move batch receipt does not match its intent plan/items")
+        if event["state"] == "ack":
+            expected = _playlist_items_after_moves(intent["before_items"], intent["moves"])
+            if [(item["video_id"], item["set_video_id"]) for item in event.get("after_items") or []] != [
+                (item["video_id"], item["set_video_id"]) for item in expected
+            ]:
+                raise ValueError("Move batch receipt does not prove the intended complete order")
     if event.get("operation") == "add" and event.get("state") == "ack":
         if len(event.get("items", [])) != len(intent.get("items", [])):
             raise ValueError("Add receipt item count does not match its intent")

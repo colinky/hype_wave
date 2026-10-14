@@ -19,6 +19,9 @@ class Playlist:
         self.aliases, self.canonical = {}, {}
         self.artist_ids = {}
         self.adds, self.removes, self.moves, self.timeline = [], [], [], []
+        self.move_batches = []
+        self.partial_batch = False
+        self.intermediate_read = False
         self.pending_reads = []
         self.lag, self.zero_count, self.lose_move, self.lose_add, self.foreign_after_add = 0, False, False, False, False
         self.lose_remove = False
@@ -86,6 +89,23 @@ class Playlist:
                 raise TimeoutError("move applied but response lost")
         return {"status": "STATUS_SUCCEEDED"}
 
+    def _check_auth(self):
+        pass
+
+    def _send_request(self, endpoint, body):
+        assert endpoint == "browse/edit_playlist" and body["playlistId"] == "fixture"
+        before = deepcopy(self.items)
+        self.move_batches.append(deepcopy(body["actions"]))
+        for index, action in enumerate(body["actions"]):
+            assert action["action"] == "ACTION_MOVE_VIDEO_BEFORE"
+            self.edit_playlist("fixture", moveItem=(action["setVideoId"], action.get("movedSetVideoIdSuccessor", "")))
+            if self.partial_batch:
+                break  # An overall success cannot authorize a partially applied batch.
+            if index == 0 and self.intermediate_read:
+                before = deepcopy(self.items)
+        self.delay(before)
+        return {"status": "STATUS_SUCCEEDED"}
+
 
 class PlaylistDeltaTests(unittest.TestCase):
     def setUp(self):
@@ -115,6 +135,7 @@ class PlaylistDeltaTests(unittest.TestCase):
         self.assertEqual(client.adds, [["new"]])
         self.assertEqual(client.removes, [[client.original[0]]])
         self.assertEqual(len(client.moves), 1)
+        self.assertEqual(len(client.move_batches), 1)
         self.assertEqual(client.timeline, ["add", "remove", "move"])
         self.assertEqual(self.latest()["status"], "published")
 
@@ -132,6 +153,36 @@ class PlaylistDeltaTests(unittest.TestCase):
         self.publish(client, ["a", "b", "c"])
         self.assertEqual(client.timeline, [])
         self.assertEqual(self.latest()["status"], "skipped_current")
+
+    def test_reverse_100_items_uses_two_requests_and_retains_every_original(self):
+        videos = [f"song-{i}" for i in range(100)]
+        client = Playlist(videos)
+        self.publish(client, list(reversed(videos)))
+        self.assertEqual(client.items, list(reversed(client.original)))
+        self.assertEqual(len(client.moves), 99)
+        self.assertEqual([len(batch) for batch in client.move_batches], [50, 49])
+        self.assertEqual((client.adds, client.removes), ([], []))
+        self.assertEqual(sync._recoverable_playlist_items(self.latest()), client.items)
+
+    def test_known_intermediate_batch_read_settles_without_replay(self):
+        client = Playlist(["a", "b", "c", "d"])
+        client.lag, client.intermediate_read = 2, True
+        self.publish(client, ["d", "c", "b", "a"])
+        self.assertEqual(client.items, list(reversed(client.original)))
+        self.assertEqual(len(client.move_batches), 1)
+
+    def test_partial_batch_success_cannot_acknowledge_or_replay(self):
+        client = Playlist(["a", "b", "c", "d"])
+        client.partial_batch = True
+        with self.assertRaises(sync.PlaylistMutationUncertain):
+            self.publish(client, ["d", "c", "b", "a"])
+        self.assertEqual(len(client.move_batches), 1)
+        self.assertEqual(len(client.moves), 1)
+        with self.assertRaises(RuntimeError):
+            sync._recoverable_playlist_items(self.latest())
+        with self.assertRaises(sync.PlaylistPublicationBlocked):
+            self.publish(client, ["d", "c", "b", "a"])
+        self.assertEqual(len(client.move_batches), 1)
 
     def test_equivalent_alias_is_retained_and_moved_with_strict_artist_proof(self):
         client = Playlist(["alias", "b", "obsolete"])
@@ -213,7 +264,7 @@ class PlaylistDeltaTests(unittest.TestCase):
                 client = Playlist(["a", "b", "c"])
                 client.lose_move = failure == "response"
                 def evidence(*args, **kwargs):
-                    if failure == "ack_commit" and args[2]["operation"] == "move" and args[2]["state"] == "ack":
+                    if failure == "ack_commit" and args[2]["operation"] == "move_batch" and args[2]["state"] == "ack":
                         raise RuntimeError("ACK commit failed")
                     return append(*args, **kwargs)
                 with patch("hype_db.append_playlist_update_evidence", side_effect=evidence), \
@@ -240,7 +291,7 @@ class PlaylistDeltaTests(unittest.TestCase):
         client = Playlist(["a", "b"])
         append = hype_db.append_playlist_update_evidence
         def fail_intent(*args, **kwargs):
-            if args[2]["operation"] == "move" and args[2]["state"] == "intent":
+            if args[2]["operation"] == "move_batch" and args[2]["state"] == "intent":
                 raise RuntimeError("intent commit failed")
             return append(*args, **kwargs)
         with patch("hype_db.append_playlist_update_evidence", side_effect=fail_intent), self.assertRaises(RuntimeError):
@@ -250,15 +301,16 @@ class PlaylistDeltaTests(unittest.TestCase):
         self.assertEqual(self.latest()["status"], "restored")
 
     def test_crash_after_move_ack_reconciles_by_moving_original_slots_only(self):
-        client = Playlist(["a", "b", "c", "d"])
+        videos = [f"song-{i}" for i in range(60)]
+        client = Playlist(videos)
         append = hype_db.append_playlist_update_evidence
         def crash(*args, **kwargs):
             event = append(*args, **kwargs)
-            if args[2]["operation"] == "move" and args[2]["state"] == "ack":
+            if args[2]["operation"] == "move_batch" and args[2]["state"] == "ack":
                 raise SystemExit("crash after durable ACK")
             return event
         with patch("hype_db.append_playlist_update_evidence", side_effect=crash), self.assertRaises(SystemExit):
-            self.publish(client, ["d", "c", "b", "a"])
+            self.publish(client, list(reversed(videos)))
         run = self.latest()
         self.assertEqual(sync._recoverable_playlist_items(run), client.items)
         plan = reconcile_playlist_update(client, self.db, run["update_run_id"], "fixture")
@@ -306,6 +358,26 @@ class PlaylistDeltaTests(unittest.TestCase):
                 hype_db.append_playlist_update_evidence(self.db, run_id, {"phase": "publish", "operation": "move",
                     "state": "ack", "items": [client.items[0]], "after_items": after,
                     "successor_set_video_id": successor, "intent_seq": intent["seq"]}, claim_token="owner")
+
+    def test_batch_receipt_requires_exact_plan_items_and_complete_order(self):
+        client = Playlist(["a", "b", "c"])
+        run_id = hype_db.record_playlist_update(self.db, playlist_id="fixture", service="apple", job_name="Delta-Fixture",
+            requested_video_ids=["c", "b", "a"], existing_items=client.items, claim_token="owner")
+        moves = [{"set_video_id": "original-1", "successor_set_video_id": "original-0"},
+                 {"set_video_id": "original-2", "successor_set_video_id": "original-1"}]
+        event = {"phase": "publish", "operation": "move_batch", "items": client.items[1:], "moves": moves}
+        intent = hype_db.append_playlist_update_evidence(self.db, run_id,
+            {**event, "state": "intent", "before_items": client.items}, claim_token="owner")
+        correct = list(reversed(client.items))
+        wrong_plan = [moves[0], {**moves[1], "successor_set_video_id": ""}]
+        for changes in ({"after_items": correct[:-1]}, {"after_items": client.items}, {"moves": wrong_plan},
+                        {"items": list(reversed(client.items[1:]))}):
+            with self.assertRaises(ValueError):
+                hype_db.append_playlist_update_evidence(self.db, run_id,
+                    {**event, "state": "ack", "intent_seq": intent["seq"], "after_items": correct, **changes}, claim_token="owner")
+        hype_db.append_playlist_update_evidence(self.db, run_id,
+            {**event, "state": "ack", "intent_seq": intent["seq"], "after_items": correct}, claim_token="owner")
+        self.assertEqual(sync._recoverable_playlist_items(hype_db.get_playlist_update_run(self.db, run_id)), correct)
 
     def test_minimum_moves_reach_every_six_item_permutation(self):
         baseline = [str(i) for i in range(6)]

@@ -39,4 +39,10 @@ jobs:
       - name: Run offline regressions
         run: python -m unittest discover -s tests -v
       - name: Verify live browser fallback without database or playlist writes
-        run: python tests/check_youtube_charts_browser.py
+        run: python tests/check_youtube_charts_browser.py browser-chart.json
+      - name: Save verified official weekly chart
+        uses: actions/upload-artifact@v4
+        with:
+          name: official-kr-weekly-chart
+          path: browser-chart.json
+          retention-days: 1

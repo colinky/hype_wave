@@ -61,7 +61,7 @@ def reconcile_playlist_update(
     tail_attempted = any(event.get("phase") == "reconcile_tail" and event.get("operation") == "add"
                          for event in payload.get("events", []))
     mutations = [event for event in payload.get("events", [])
-                 if event.get("operation") in {"add", "remove", "move"}]
+                 if event.get("operation") in {"add", "remove", "move", "move_batch"}]
     acknowledged_intents = {event.get("intent_seq") for event in mutations if event.get("state") == "ack"}
     unresolved_mutation = any(
         event.get("state") == "ambiguous"
@@ -94,7 +94,7 @@ def reconcile_playlist_update(
         if _same_owned_slots(current, candidate):
             owned = candidate
             mutations = [event for event in payload.get("events", [])
-                         if event.get("operation") in {"add", "remove", "move"}]
+                         if event.get("operation") in {"add", "remove", "move", "move_batch"}]
             last = mutations[-1] if mutations else {}
             owned_ids = [item["videoId"] for item in owned]
             newly_observed_rejection = bool(
