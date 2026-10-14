@@ -319,6 +319,8 @@ python heal_split_tracks.py --db-path hype_wave_data.db # split track UID 정리
 
 YouTube Charts 조회는 `429` 및 일시적인 서버 오류에 최대 3회 재시도하며, `Retry-After`가 있으면 그 대기 시간을 따릅니다. 영어·한국어 중 한 요청이 실패해도 다른 요청의 유효한 차트는 유지하고, 실패 이유는 언어와 함께 경고 로그에 남깁니다.
 
+차트 페이지가 빈 `INNERTUBE_API_KEY`를 배포하면 키 없는 데이터 요청은 실제 브라우저에서도 `RESOURCE_EXHAUSTED` 429를 받을 수 있습니다. 수집기는 공식 YouTube 페이지의 공개 설정을 매 실행마다 읽어 API 요청과 브라우저의 차트 요청에 적용합니다. 키를 고정하거나 개인 인증정보·제3자 키를 사용하지 않습니다. API와 브라우저 모두 한국 노래 주간 차트, 원본 1~100위, 7일 집계 기간을 검증하며, 브라우저는 실제 화면의 집계 날짜도 대조합니다. 공개 설정을 읽을 수 없거나 검증이 실패하면 기존 차트를 보존하고 수집 실패로 처리합니다.
+
 HTTP/API 수집이 실패하거나 주간 데이터가 불완전하면 Playwright WebKit으로 공식 대한민국 주간 차트를 조회합니다. 공식 응답의 국가·곡 차트 유형, 중복·누락 없는 1–100위, 7일 집계 기간, 화면에 표시된 기간과 요청 기간의 일치를 검증한 뒤 기존 저장·매칭 경로로 넘깁니다. 브라우저도 실패하면 기존 차트와 플레이리스트를 보존합니다. 브라우저는 최신 주차만 수집하며 과거 주차는 날짜를 명시한 CSV를 사용합니다.
 
 로컬에서는 `python -m playwright install webkit`으로 브라우저를 설치합니다. `python tests/check_youtube_charts_browser.py`는 HTTP 실패를 강제로 발생시켜 실제 브라우저 수집을 검증하며 DB·플레이리스트를 변경하지 않습니다. Actions는 `python -m playwright install --with-deps webkit`으로 브라우저와 Linux 의존성을 설치하고, 별도의 `YouTube Charts Browser Check` 작업으로 같은 검증을 수행합니다.

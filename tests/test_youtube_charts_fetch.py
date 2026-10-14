@@ -17,12 +17,15 @@ import ytmusic_to_ytmusic_crawl as crawl
 from ytmusic_playlist_sync import get_resilient_session
 
 
-HTML = 'ytcfg.set(' + json.dumps({"INNERTUBE_CONTEXT": {"client": {"hl": "ko", "gl": "KR"}}}) + ');'
+HTML = 'ytcfg.set(' + json.dumps({"INNERTUBE_API_KEY": "fixture-public-key",
+    "INNERTUBE_CONTEXT": {"client": {"clientName": "WEB_MUSIC_ANALYTICS", "clientVersion": "2.0", "hl": "ko", "gl": "KR"}}}) + ');'
 DATA = {
-    "chartParams": {"chartType": "CHART_TYPE_TRACKS", "chartPeriodType": "CHART_PERIOD_TYPE_WEEKLY",
+    "chartParams": {"countryCode": "kr", "chartType": "CHART_TYPE_TRACKS", "chartPeriodType": "CHART_PERIOD_TYPE_WEEKLY",
                     "endDate": "20261008"},
-    "trackViews": [{"encryptedVideoId": "video000001", "name": "Song",
-                    "artists": [{"name": "Artist"}], "chartEntryMetadata": {"currentPosition": 1}}],
+    "listType": "TOP_VIEWS_CHART", "chartPeriodType": "CHART_PERIOD_TYPE_WEEKLY", "endDate": "2026-10-08",
+    "trackViews": [{"encryptedVideoId": f"video{i:06d}", "name": "Song" if i == 1 else f"Song {i}",
+                    "artists": [{"name": "Artist"}], "chartEntryMetadata": {"currentPosition": i}}
+                   for i in range(1, 101)],
 }
 
 
@@ -62,7 +65,7 @@ class YouTubeChartsFetchTests(unittest.TestCase):
                 with self.subTest(locale=failed_locale, error=error), patch.object(
                         crawl.http_session, "post", side_effect=replies) as post, self.assertLogs(crawl.LOG, "WARNING"):
                     rows = crawl.extract_chart_entries_from_browse_api(HTML, crawl.DEFAULT_YOUTUBE_CHARTS_URL)
-                self.assertEqual(len(rows), 1)
+                self.assertEqual(len(rows), 100)
                 self.assertEqual((rows[0]["rank"], rows[0]["video_id"], rows[0]["chart_period_end"]),
                                  (1, "video000001", "2026-10-08"))
                 self.assertEqual(post.call_count, 2)
@@ -84,6 +87,62 @@ class YouTubeChartsFetchTests(unittest.TestCase):
         post.assert_not_called()
         with patch.object(crawl.http_session, "post", return_value=response({})), self.assertLogs(crawl.LOG, "WARNING"):
             self.assertEqual(crawl.extract_chart_entries_from_browse_api(HTML, crawl.DEFAULT_YOUTUBE_CHARTS_URL), [])
+
+    def test_public_configuration_merges_json_calls_without_truncating_text(self):
+        html = 'ytcfg.set({"text":"embedded }); text"});ytcfg.set(broken);ytcfg.set({"INNERTUBE_API_KEY":"rotated"});'
+        self.assertEqual(crawl.extract_public_innertube_key(html), "rotated")
+        for html in ('', 'ytcfg.set({"INNERTUBE_API_KEY":""});', 'ytcfg.set({"INNERTUBE_API_KEY":null});'):
+            with self.assertRaises(ValueError):
+                crawl.extract_public_innertube_key(html)
+
+    def test_empty_chart_key_loads_official_config_once_for_both_locales(self):
+        chart = HTML.replace('"fixture-public-key"', '""')
+        with patch.object(crawl.http_session, "get", return_value=Mock(text=HTML)) as get, \
+                patch.object(crawl.http_session, "post", return_value=response()) as post:
+            rows = crawl.extract_chart_entries_from_browse_api(chart, crawl.DEFAULT_YOUTUBE_CHARTS_URL)
+        self.assertEqual(len(rows), 100)
+        get.assert_called_once_with(crawl.YOUTUBE_PUBLIC_CONFIG_URL, timeout=30)
+        self.assertEqual([call.kwargs["params"] for call in post.call_args_list], [{"key": "fixture-public-key"}] * 2)
+
+    def test_existing_chart_key_needs_no_bootstrap_and_missing_config_prevents_posts(self):
+        with patch.object(crawl.http_session, "get") as get, patch.object(crawl.http_session, "post", return_value=response()):
+            self.assertEqual(len(crawl.extract_chart_entries_from_browse_api(HTML, crawl.DEFAULT_YOUTUBE_CHARTS_URL)), 100)
+        get.assert_not_called()
+        with patch.object(crawl.http_session, "get", return_value=Mock(text="")), patch.object(crawl.http_session, "post") as post:
+            with self.assertRaises(ValueError):
+                crawl.extract_chart_entries_from_browse_api(HTML.replace('"fixture-public-key"', '""'), crawl.DEFAULT_YOUTUBE_CHARTS_URL)
+        post.assert_not_called()
+
+    def test_public_configuration_key_is_redacted_from_failed_request_logs(self):
+        with patch.object(crawl.http_session, "post", side_effect=requests.HTTPError("429 https://charts.youtube.com/?key=fixture-public-key")), \
+                self.assertLogs(crawl.LOG, "WARNING") as logs:
+            self.assertEqual(crawl.extract_chart_entries_from_browse_api(HTML, crawl.DEFAULT_YOUTUBE_CHARTS_URL), [])
+        self.assertNotIn("fixture-public-key", "\n".join(logs.output))
+        self.assertIn("429", "\n".join(logs.output))
+
+    def test_api_uses_browser_request_context_without_bootstrap_visitor_fields(self):
+        config = crawl.extract_ytcfg_from_html(HTML)
+        config["INNERTUBE_CONTEXT"]["client"].update(visitorData="bootstrap-visitor", remoteHost="bootstrap-host")
+        config["INNERTUBE_CONTEXT"]["clickTracking"] = {"clickTrackingParams": "bootstrap-only"}
+        with patch.object(crawl.http_session, "post", return_value=response()) as post:
+            crawl.extract_chart_entries_from_browse_api('ytcfg.set('+json.dumps(config)+');', crawl.DEFAULT_YOUTUBE_CHARTS_URL)
+        for call in post.call_args_list:
+            context = call.kwargs["json"]["context"]
+            self.assertNotIn("visitorData", context["client"])
+            self.assertNotIn("remoteHost", context["client"])
+            self.assertNotIn("clickTracking", context)
+            self.assertEqual(context["client"]["clientName"], "WEB_MUSIC_ANALYTICS")
+
+    def test_api_rejects_foreign_chart_type_country_and_incomplete_source_ranks(self):
+        for case in ("country", "videos", "99_rows", "missing_rank", "wrong_week"):
+            data = json.loads(json.dumps(DATA))
+            if case == "country": data["chartParams"]["countryCode"] = "us"
+            elif case == "videos": data["chartParams"]["chartType"] = "CHART_TYPE_VIDEOS"
+            elif case == "99_rows": data["trackViews"].pop()
+            elif case == "missing_rank": del data["trackViews"][-1]["chartEntryMetadata"]["currentPosition"]
+            else: data["chartPeriodType"] = "CHART_PERIOD_TYPE_DAILY"
+            with self.subTest(case=case), patch.object(crawl.http_session, "post", return_value=response(data)), self.assertLogs(crawl.LOG, "WARNING"):
+                self.assertEqual(crawl.extract_chart_entries_from_browse_api(HTML, crawl.DEFAULT_YOUTUBE_CHARTS_URL), [])
 
     def test_exhausted_api_preserves_existing_chart_and_blocks_publication(self):
         page = Mock(text=HTML)

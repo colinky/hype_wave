@@ -12,7 +12,6 @@ YouTube Music chart/playlist 항목을 YouTube Music 플레이리스트로 동�
 from __future__ import annotations
 
 import argparse
-import copy
 import csv
 import hashlib
 import json
@@ -28,7 +27,7 @@ from pathlib import Path
 from typing import Any
 
 from hype_db_common import database_backend
-from urllib.parse import parse_qs, urlencode, urljoin, urlparse
+from urllib.parse import parse_qs, parse_qsl, urlencode, urljoin, urlparse
 
 import requests
 
@@ -53,6 +52,7 @@ LOG = logging.getLogger("ytmusic_to_ytmusic_crawl")
 http_session = get_resilient_session(backoff_factor=2, allowed_methods=frozenset({"GET", "POST"}))
 DEFAULT_PLAYLIST_URL = "https://music.youtube.com/playlist?list=PL4fGSI1pDJn6jXS_Tv_N9B8Z0HTRVJE0m"
 DEFAULT_YOUTUBE_CHARTS_URL = "https://charts.youtube.com/charts/TopSongs/kr/weekly"
+YOUTUBE_PUBLIC_CONFIG_URL = "https://www.youtube.com/?hl=en"
 ACCEPTED_MAPPING_STATUSES = {"resolved_to_song", "already_song", "cached_match", "proxy_matched", "manual_override", "kept_original_video"}
 KST = timezone(timedelta(hours=9))
 
@@ -440,13 +440,30 @@ def extract_json_objects_from_html(html: str) -> list[Any]:
 
 
 def extract_ytcfg_from_html(html: str) -> dict[str, Any]:
-    match = re.search(r"ytcfg\.set\((\{.*?\})\);", html, flags=re.DOTALL)
-    if not match:
-        return {}
-    try:
-        return json.loads(match.group(1))
-    except Exception:
-        return {}
+    config = {}
+    for match in re.finditer(r"ytcfg\.set\(\s*", html):
+        try:
+            value, _ = json.JSONDecoder().raw_decode(html[match.end():])
+            if isinstance(value, dict):
+                config.update(value)
+        except ValueError:
+            continue
+    return config
+
+
+def extract_public_innertube_key(html: str) -> str:
+    key = extract_ytcfg_from_html(html).get("INNERTUBE_API_KEY")
+    if not isinstance(key, str) or not key.strip():
+        raise ValueError("Official YouTube public configuration is missing its API key")
+    return key.strip()
+
+
+def chart_request_with_key(url: str, key: str) -> str:
+    parsed = urlparse(url)
+    if (parsed.scheme, parsed.netloc, parsed.path) != ("https", "charts.youtube.com", "/youtubei/v1/browse"):
+        raise ValueError("Public chart configuration may only be applied to the official browse endpoint")
+    query = dict(parse_qsl(parsed.query, keep_blank_values=True))
+    return parsed._replace(query=urlencode({**query, "key": key})).geturl()
 
 
 def extract_youtube_charts_period(data: dict[str, Any]) -> tuple[str, str]:
@@ -569,6 +586,14 @@ def extract_chart_entries_from_browse_api(
     if not isinstance(context, dict):
         LOG.warning("YouTube Charts page is missing INNERTUBE_CONTEXT; browse API is unavailable")
         return []
+    try:
+        api_key = extract_public_innertube_key(html)
+    except ValueError:
+        # Charts currently publishes an empty key; use YouTube's own public config.
+        bootstrap = http_session.get(YOUTUBE_PUBLIC_CONFIG_URL, timeout=30)
+        bootstrap.raise_for_status()
+        api_key = extract_public_innertube_key(bootstrap.text)
+        LOG.info("Loaded official YouTube public configuration for chart API collection")
     end_date = compact_date(chart_period_end)
     if not end_date:
         end_date = ""
@@ -578,12 +603,19 @@ def extract_chart_entries_from_browse_api(
         ("en", "en-US,en;q=0.9,ko;q=0.8"),
         ("ko", "ko-KR,ko;q=0.9,en-US;q=0.8"),
     ):
-        localized_context = copy.deepcopy(context)
-        localized_context.setdefault("client", {})["hl"] = locale
-        localized_context.setdefault("client", {})["gl"] = "KR"
+        # Match the page's actual browse payload, not its visitor/bootstrap metadata.
+        page_client = context.get("client") or {}
+        localized_context = {
+            "client": {"clientName": page_client.get("clientName"),
+                       "clientVersion": page_client.get("clientVersion"),
+                       "hl": locale, "gl": "KR", "theme": "MUSIC",
+                       "experimentIds": [], "experimentsToken": ""},
+            "capabilities": {}, "request": {"internalExperimentFlags": []},
+        }
         try:
             response = http_session.post(
                 "https://charts.youtube.com/youtubei/v1/browse?prettyPrint=false",
+                params={"key": api_key},
                 headers={
                     "User-Agent": "Mozilla/5.0",
                     "Accept-Language": accept_language,
@@ -595,11 +627,12 @@ def extract_chart_entries_from_browse_api(
                 timeout=30,
             )
             response.raise_for_status()
-            locale_rows[locale] = extract_chart_entries_from_browse_json(response.json(), limit=limit, locale=locale)
+            locale_rows[locale] = extract_chart_entries_from_browser_json(response.json(), locale=locale)[:limit]
             if not locale_rows[locale]:
                 LOG.warning("YouTube Charts browse API returned no tracks (locale=%s)", locale)
         except (requests.RequestException, ValueError) as exc:
-            LOG.warning("YouTube Charts browse API failed (locale=%s): %s", locale, exc)
+            LOG.warning("YouTube Charts browse API failed (locale=%s): %s", locale,
+                        str(exc).replace(api_key, "<public-config-key>"))
     primary = locale_rows.get("en") or locale_rows.get("ko") or []
     merged = merge_localized_chart_entries(primary, locale_rows.get("en", []), "en")
     merged = merge_localized_chart_entries(merged, locale_rows.get("ko", []), "ko")
@@ -727,7 +760,7 @@ def validate_weekly_chart(entries, *, chart_period_start=None, chart_period_end=
             raise ValueError("Official weekly chart has inconsistent periods or incomplete track metadata")
 
 
-def extract_chart_entries_from_browser_json(data):
+def extract_chart_entries_from_browser_json(data, *, locale="en"):
     params = [node["chartParams"] for node in walk_json(data) if isinstance(node.get("chartParams"), dict)]
     if len(params) != 1 or params[0].get("countryCode") != "kr" or params[0].get("chartType") != "CHART_TYPE_TRACKS":
         raise ValueError("Browser response is not the official South Korea songs chart")
@@ -742,14 +775,15 @@ def extract_chart_entries_from_browser_json(data):
     entries = extract_chart_entries_from_browse_json({
         "chartParams": {**params[0], "endDate": weekly[0].get("endDate")},
         "trackViews": weekly[0]["trackViews"],
-    }, limit=101, locale="en")
+    }, limit=101, locale=locale)
     validate_weekly_chart(entries)
-    return merge_localized_chart_entries(entries, entries, "en")
+    return merge_localized_chart_entries(entries, entries, locale)
 
 
 def extract_chart_entries_from_browser(url, *, limit=100, chart_period_start=None, chart_period_end=None):
     # shortcut: browser loads the latest week only; use dated CSVs for historical imports.
     LOG.info("Trying browser fallback for the official YouTube weekly chart")
+    api_key = ""
     try:
         from playwright.sync_api import sync_playwright
 
@@ -761,6 +795,13 @@ def extract_chart_entries_from_browser(url, *, limit=100, chart_period_start=Non
             try:
                 page = browser.new_page(locale="en-US")
                 page.set_default_timeout(45000)
+                bootstrap = page.context.request.get(YOUTUBE_PUBLIC_CONFIG_URL, timeout=30000, max_redirects=0)
+                if bootstrap.status != 200:
+                    raise ValueError(f"Official YouTube public configuration returned HTTP {bootstrap.status}")
+                api_key = extract_public_innertube_key(bootstrap.text())
+                # Keep the browser's own payload and render its actual official response.
+                page.route("https://charts.youtube.com/youtubei/v1/browse*",
+                           lambda route: route.continue_(url=chart_request_with_key(route.request.url, api_key)))
                 with page.expect_response(lambda response: urlparse(response.url).netloc == "charts.youtube.com"
                                           and urlparse(response.url).path == "/youtubei/v1/browse") as result:
                     page.goto(url, wait_until="domcontentloaded")
@@ -784,7 +825,8 @@ def extract_chart_entries_from_browser(url, *, limit=100, chart_period_start=Non
         LOG.info("Browser fallback verified 100 ranks for %s..%s", start, end)
         return entries[:limit]
     except Exception as exc:
-        LOG.warning("YouTube Charts browser fallback failed: %s", exc)
+        LOG.warning("YouTube Charts browser fallback failed: %s",
+                    str(exc).replace(api_key, "<public-config-key>") if api_key else exc)
         return []
 
 
