@@ -777,19 +777,19 @@ def resolve_bilingual_artist(yt_ko: YTMusic, artist_id: str) -> list[str]:
 
     names = []
     try:
-        a_ko = yt_ko.get_artist(artist_id)
-        if a_ko.get("name"):
-            names.append(a_ko["name"])
-            names.extend(_extract_parentheses_variants(a_ko["name"]))
+        name = _artist_name_for_metadata(yt_ko, artist_id)
+        if name:
+            names.append(name)
+            names.extend(_extract_parentheses_variants(name))
     except Exception as e:
         LOG.debug("Failed to get KO artist for %s: %s", artist_id, e)
 
     try:
         yt_en = get_ytmusic_en(yt_ko)
-        a_en = yt_en.get_artist(artist_id)
-        if a_en.get("name"):
-            names.append(a_en["name"])
-            names.extend(_extract_parentheses_variants(a_en["name"]))
+        name = _artist_name_for_metadata(yt_en, artist_id)
+        if name:
+            names.append(name)
+            names.extend(_extract_parentheses_variants(name))
     except Exception as e:
         LOG.debug("Failed to get EN artist for %s: %s", artist_id, e)
 
@@ -797,6 +797,34 @@ def resolve_bilingual_artist(yt_ko: YTMusic, artist_id: str) -> list[str]:
     if unique_names:
         BILINGUAL_CACHE.set_artist(artist_id, unique_names)
     return unique_names
+
+
+def _artist_name_for_metadata(client: YTMusic, artist_id: str) -> str | None:
+    try:
+        artist = client.get_artist(artist_id)
+        name = artist.get("name") if isinstance(artist, dict) else None
+    except KeyError:
+        # Topic channels and empty music tabs break the SDK's full-page parser.
+        payload = client._send_request("browse", {"browseId": artist_id})
+        header = payload.get("header") if isinstance(payload, dict) else None
+        if not isinstance(header, dict):
+            raise
+        visual = header.get("musicVisualHeaderRenderer")
+        profile = visual if visual is not None else header.get("musicImmersiveHeaderRenderer")
+        if not isinstance(profile, dict):
+            raise
+        if visual is not None:
+            channel = profile.get("subscriptionButton", {}).get("subscribeButtonRenderer", {}).get("channelId")
+            if channel != artist_id:
+                raise ValueError("Topic channel header does not identify the requested artist ID")
+        title = profile.get("title") or {}
+        runs = title.get("runs")
+        name = "".join(row["text"] for row in runs) if (
+            isinstance(runs, list) and runs and all(isinstance(row, dict) and isinstance(row.get("text"), str) for row in runs)
+        ) else title.get("simpleText")
+        if visual is not None and isinstance(name, str):
+            name = re.sub(r"\s+-\s+(?:Topic|주제)\s*$", "", name, flags=re.IGNORECASE)
+    return name.strip() if isinstance(name, str) and name.strip() else None
 
 
 def _watch_playlist_for_metadata(client: YTMusic, video_id: str) -> dict[str, Any]:
@@ -2302,8 +2330,7 @@ def get_verified_video_metadata(
             for artist in artists:
                 artist_key = f"verified_artist:{language}:{artist['id']}"
                 if artist_key not in cache:
-                    artist_payload = client.get_artist(artist["id"])
-                    name = artist_payload.get("name") if isinstance(artist_payload, dict) else None
+                    name = _artist_name_for_metadata(client, artist["id"])
                     if not isinstance(name, str) or not name.strip():
                         return None
                     cache[artist_key] = {"name": name}

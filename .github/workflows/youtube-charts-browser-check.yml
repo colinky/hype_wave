@@ -9,6 +9,8 @@ on:
       - ytmusic_playlist_sync.py
       - tests/test_playlist_count_retry.py
       - tests/test_playlist_delta.py
+      - tests/test_artist_metadata_layout.py
+      - tests/check_artist_metadata.py
       - hype_db_store.py
       - reconcile_playlist_update.py
       - ytmusic_to_ytmusic_crawl.py
@@ -38,6 +40,8 @@ jobs:
           python -m playwright install --with-deps webkit
       - name: Run offline regressions
         run: python -m unittest discover -s tests -v
+      - name: Verify live artist metadata without database or playlist writes
+        run: python tests/check_artist_metadata.py
       - name: Verify live browser fallback without database or playlist writes
         run: python tests/check_youtube_charts_browser.py browser-chart.json
       - name: Save verified official weekly chart
