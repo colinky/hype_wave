@@ -53,6 +53,7 @@ http_session = get_resilient_session(backoff_factor=2, allowed_methods=frozenset
 DEFAULT_PLAYLIST_URL = "https://music.youtube.com/playlist?list=PL4fGSI1pDJn6jXS_Tv_N9B8Z0HTRVJE0m"
 DEFAULT_YOUTUBE_CHARTS_URL = "https://charts.youtube.com/charts/TopSongs/kr/weekly"
 YOUTUBE_PUBLIC_CONFIG_URL = "https://www.youtube.com/?hl=en"
+SNAPSHOT_DIR = Path(__file__).resolve().parent / "snapshots" / "youtube-charts"
 ACCEPTED_MAPPING_STATUSES = {"resolved_to_song", "already_song", "cached_match", "proxy_matched", "manual_override", "kept_original_video"}
 KST = timezone(timedelta(hours=9))
 
@@ -466,6 +467,81 @@ def chart_request_with_key(url: str, key: str) -> str:
     return parsed._replace(query=urlencode({**query, "key": key})).geturl()
 
 
+def weekly_snapshot_hash(snapshot: dict[str, Any]) -> str:
+    content = {key: value for key, value in snapshot.items() if key != "sha256"}
+    return hashlib.sha256(json.dumps(content, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode()).hexdigest()
+
+
+def save_weekly_snapshot(entries: list[dict[str, Any]]) -> None:
+    validate_weekly_chart(entries)
+    if any(row.get("collection_method") == "verified_snapshot" or row.get("source") != "youtube_charts_weekly_browse_api" for row in entries):
+        return  # Reusing a snapshot never refreshes its original capture time.
+    _, end = fetched_period_from_entries(entries)
+    snapshot = {"schema_version": 1, "source_url": DEFAULT_YOUTUBE_CHARTS_URL,
+                "collected_at": datetime.now(timezone.utc).isoformat(),
+                "locale": entries[0].get("locale") or "en",
+                "payload": {"chartParams": {"countryCode": "kr", "chartType": "CHART_TYPE_TRACKS",
+                    "chartPeriodType": "CHART_PERIOD_TYPE_WEEKLY"},
+                    "chart": {"listType": "TOP_VIEWS_CHART", "chartPeriodType": "CHART_PERIOD_TYPE_WEEKLY", "endDate": end,
+                    "trackViews": [{"encryptedVideoId": row["video_id"], "name": row["title"],
+                        "artists": [{"name": row["artist"]}], "atvExternalVideoId": row.get("atv_external_video_id", ""),
+                        "thumbnail": {"thumbnails": [{"url": row.get("artwork_url", "")}]},
+                        "viewCount": row.get("views", ""), "chartEntryMetadata": {"currentPosition": row["rank"],
+                        "previousPosition": row.get("previous_rank", "")}} for row in entries]}}}
+    snapshot["sha256"] = weekly_snapshot_hash(snapshot)
+    SNAPSHOT_DIR.mkdir(parents=True, exist_ok=True)
+    target = SNAPSHOT_DIR / f"kr-weekly-{end}.json"
+    temporary = target.with_suffix(".tmp")
+    try:
+        temporary.write_text(json.dumps(snapshot, ensure_ascii=False, indent=2), encoding="utf-8")
+        temporary.replace(target)
+    finally:
+        temporary.unlink(missing_ok=True)
+
+
+def load_weekly_snapshot(*, limit=100, chart_period_start=None, chart_period_end=None):
+    # A provider-verified reporting week may be reused; never relabel an older week.
+    if chart_period_end:
+        end = dashed_date(chart_period_end)
+    elif chart_period_start:
+        end = (datetime.fromisoformat(dashed_date(chart_period_start)).date() + timedelta(days=6)).isoformat()
+    else:
+        completed_day = datetime.now(timezone.utc).date() - timedelta(days=1)
+        end = (completed_day - timedelta(days=(completed_day.weekday() - 3) % 7)).isoformat()
+    path = SNAPSHOT_DIR / f"kr-weekly-{end}.json"
+    if not path.exists():
+        return []
+    try:
+        snapshot = json.loads(path.read_text(encoding="utf-8"))
+        if (not isinstance(snapshot, dict) or type(snapshot.get("schema_version")) is not int
+                or snapshot.get("schema_version") != 1 or snapshot.get("source_url") != DEFAULT_YOUTUBE_CHARTS_URL
+                or snapshot.get("locale") not in {"en", "ko"} or snapshot.get("sha256") != weekly_snapshot_hash(snapshot)):
+            raise ValueError("Snapshot provenance or checksum is invalid")
+        captured = datetime.fromisoformat(snapshot["collected_at"])
+        if captured.tzinfo is None or captured > datetime.now(timezone.utc) or captured.date().isoformat() < end:
+            raise ValueError("Snapshot capture time is invalid")
+        if not isinstance(snapshot.get("payload"), dict):
+            raise ValueError("Snapshot chart payload is invalid")
+        entries = extract_chart_entries_from_browser_json(snapshot["payload"], locale=snapshot["locale"])
+        validate_weekly_chart(entries, chart_period_start=chart_period_start, chart_period_end=end)
+        for row in entries:
+            row.update(collection_method="verified_snapshot", source_collected_at=snapshot["collected_at"],
+                       snapshot_sha256=snapshot["sha256"])
+        LOG.warning("Using verified official weekly snapshot: period=%s..%s ranks=1..100 captured_at=%s sha256=%s",
+                    *fetched_period_from_entries(entries), snapshot["collected_at"], snapshot["sha256"])
+        return entries[:limit]
+    except (OSError, ValueError, KeyError, TypeError) as exc:
+        LOG.warning("Official weekly snapshot rejected: %s", exc)
+        return []
+
+
+def browser_or_snapshot(url, *, limit=100, chart_period_start=None, chart_period_end=None):
+    rows = extract_chart_entries_from_browser(url, limit=limit, chart_period_start=chart_period_start, chart_period_end=chart_period_end)
+    if urlparse(url)._replace(query="", fragment="").geturl() != DEFAULT_YOUTUBE_CHARTS_URL:
+        return rows
+    return rows or load_weekly_snapshot(limit=limit, chart_period_start=chart_period_start, chart_period_end=chart_period_end)
+
+
 def extract_youtube_charts_period(data: dict[str, Any]) -> tuple[str, str]:
     request_end = ""
     latest_end = ""
@@ -703,7 +779,7 @@ def extract_chart_entries_from_youtube_charts(
         response.raise_for_status()
     except Exception as exc:
         LOG.warning("Failed to fetch YouTube Charts page: %s", exc)
-        return extract_chart_entries_from_browser(
+        return browser_or_snapshot(
             fetch_url, limit=limit, chart_period_start=chart_period_start, chart_period_end=chart_period_end,
         )
     html = response.text
@@ -732,11 +808,13 @@ def extract_chart_entries_from_youtube_charts(
         )
         if browse_entries:
             validate_weekly_chart(browse_entries, chart_period_start=chart_period_start, chart_period_end=chart_period_end)
+            for row in browse_entries:
+                row["collection_method"] = "api"
             return browse_entries[:limit]
     except Exception as exc:
         LOG.warning("Failed to fetch YouTube Charts browse API: %s", exc)
 
-    return extract_chart_entries_from_browser(
+    return browser_or_snapshot(
         fetch_url, limit=limit, chart_period_start=chart_period_start, chart_period_end=chart_period_end,
     )
 
@@ -823,6 +901,8 @@ def extract_chart_entries_from_browser(url, *, limit=100, chart_period_start=Non
             finally:
                 browser.close()
         LOG.info("Browser fallback verified 100 ranks for %s..%s", start, end)
+        for row in entries:
+            row["collection_method"] = "browser"
         return entries[:limit]
     except Exception as exc:
         LOG.warning("YouTube Charts browser fallback failed: %s",
@@ -1009,6 +1089,12 @@ def main() -> int:
             chart_period_end = str(chart_entries[0].get("chart_period_end") or "")
         if not chart_period_start:
             chart_period_start = str(chart_entries[0].get("chart_period_start") or default_week_start(chart_period_end))
+        if (not args.dry_run and not args.youtube_charts_csv and len(chart_entries) == 100
+                and all(row.get("source") == "youtube_charts_weekly_browse_api" for row in chart_entries)):
+            try:
+                save_weekly_snapshot(chart_entries)
+            except OSError as exc:
+                LOG.warning("Unable to save verified public chart snapshot: %s", exc)
 
     source_report: dict[str, Any] = {}
     if use_youtube_charts and not args.youtube_charts_csv:
@@ -1203,7 +1289,11 @@ def main() -> int:
                         status="published",
                         entry_count=len(chart_entries),
                         source=str(chart_entries[0].get("source") or "youtube_charts_weekly"),
-                        message="YouTube Charts weekly chart fetched.",
+                        message="YouTube Charts weekly chart collected; " + json.dumps({
+                            "collection_method": chart_entries[0].get("collection_method", "api"),
+                            "source_collected_at": chart_entries[0].get("source_collected_at", started_at),
+                            "snapshot_sha256": chart_entries[0].get("snapshot_sha256", ""),
+                        }, ensure_ascii=False),
                     )
                 conn.commit()
                 LOG.info("Persisted raw chart order for %s to playlist_order table.", args.job_name)

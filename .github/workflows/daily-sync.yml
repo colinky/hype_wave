@@ -65,17 +65,22 @@ jobs:
           set -euo pipefail
           python sync_all.py
 
-      - name: Commit and Push Historical Web Data
-        if: ${{ !cancelled() && steps.sync.outputs.history_ready == 'true' }}
+      - name: Commit and Push Verified Chart Snapshots and Historical Web Data
+        if: ${{ !cancelled() }}
+        env:
+          HISTORY_READY: ${{ steps.sync.outputs.history_ready }}
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           
-          # 프론트엔드 차트 데이터인 history.json만 추적하여 GitHub Pages 업데이트
-          git add docs/api/history.json 2>/dev/null || true
+          if [ "$HISTORY_READY" = "true" ]; then
+            git add docs/api/history.json
+          fi
+          # Preserve complete source captures even if another sync task failed.
+          git add snapshots/youtube-charts/*.json
           
           if ! git diff --cached --quiet; then
-            git commit -m "chore: auto-update history.json [$(date +'%Y-%m-%d')]"
+            git commit -m "chore: update verified chart snapshots and history [$(date +'%Y-%m-%d')]"
             git push origin HEAD:${{ github.ref_name }}
           else
             echo "No changes to commit"

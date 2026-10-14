@@ -38,6 +38,7 @@ def response(data=DATA):
 class YouTubeChartsFetchTests(unittest.TestCase):
     def setUp(self):
         self.enterContext(patch("socket.socket.connect", side_effect=AssertionError("offline test")))
+        self.enterContext(patch.object(crawl, "SNAPSHOT_DIR", Path(self.enterContext(tempfile.TemporaryDirectory()))))
 
     def test_only_chart_session_retries_read_only_post_with_bounded_backoff(self):
         with get_resilient_session() as default:

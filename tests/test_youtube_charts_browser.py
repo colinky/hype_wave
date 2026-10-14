@@ -3,6 +3,7 @@ from copy import deepcopy
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 import sys
+import tempfile
 import unittest
 from unittest.mock import MagicMock, Mock, patch
 
@@ -29,6 +30,7 @@ def chart_payload():
 class YouTubeChartsBrowserTests(unittest.TestCase):
     def setUp(self):
         self.enterContext(patch("socket.socket.connect", side_effect=AssertionError("offline test")))
+        self.enterContext(patch.object(crawl, "SNAPSHOT_DIR", Path(self.enterContext(tempfile.TemporaryDirectory()))))
 
     def test_browser_payload_preserves_official_ids_audio_links_and_source_period(self):
         payload = chart_payload()
@@ -90,7 +92,7 @@ class YouTubeChartsBrowserTests(unittest.TestCase):
                                side_effect=requests.HTTPError("429") if case == "429" else None),
                   patch.object(crawl, "extract_chart_entries_from_browser", return_value=rows) as fallback):
                 result = crawl.extract_chart_entries_from_youtube_charts(crawl.DEFAULT_YOUTUBE_CHARTS_URL)
-            self.assertEqual(result, rows)
+            self.assertEqual([{key: value for key, value in row.items() if key != "collection_method"} for row in result], rows)
             self.assertEqual(fallback.call_count, 0 if case == "success" else 1)
 
     def test_browser_checks_displayed_period_and_closes_on_success_or_failure(self):
