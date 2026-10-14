@@ -172,18 +172,20 @@ class PlaylistCountRetryTests(unittest.TestCase):
             state.extend(added)
             return {"status": "STATUS_SUCCEEDED", "playlistEditResults": deepcopy(added)}
 
-        def edit(_playlist, *, moveItem):
-            slot, successor = moveItem if isinstance(moveItem, tuple) else (moveItem, "")
-            item = next(item for item in state if item["setVideoId"] == slot)
-            state.remove(item)
-            position = next((i for i, item in enumerate(state) if item["setVideoId"] == successor), len(state))
-            state.insert(position, item)
+        def edit(endpoint, body):
+            self.assertEqual(endpoint, "browse/edit_playlist")
+            for action in body["actions"]:
+                slot, successor = action["setVideoId"], action.get("movedSetVideoIdSuccessor", "")
+                item = next(item for item in state if item["setVideoId"] == slot)
+                state.remove(item)
+                position = next((i for i, item in enumerate(state) if item["setVideoId"] == successor), len(state))
+                state.insert(position, item)
             return {"status": "STATUS_SUCCEEDED"}
 
         client.get_playlist.side_effect = read
         client.remove_playlist_items.side_effect = remove
         client.add_playlist_items.side_effect = add
-        client.edit_playlist.side_effect = edit
+        client._send_request.side_effect = edit
         with tempfile.TemporaryDirectory() as directory, patch.dict(os.environ, {"HYPE_DB_BACKEND": "sqlite"}):
             db = Path(directory) / "recovery.db"
             run_id = hype_db.record_playlist_update(

@@ -2551,12 +2551,14 @@ def _addition_receipts(result: Any, requested: list[str]) -> list[dict[str, str]
 
 
 def _observe_playlist_transition(ytmusic: YTMusic, playlist_id: str, expected: list[dict[str, str]],
-                                 *, previous: list[dict[str, str]] | None = None) -> list[dict[str, str]]:
+                                 *, previous: list[dict[str, str]] | None = None,
+                                 intermediate: list[list[dict[str, str]]] | None = None) -> list[dict[str, str]]:
     for attempt in range(3):
         actual = get_existing_playlist_items(ytmusic, playlist_id, expected_items=expected)
         if _same_owned_slots(actual, expected):
             return actual
-        if previous is None or not _same_owned_slots(actual, previous):
+        known = [*(intermediate or []), *([previous] if previous is not None else [])]
+        if not any(_same_owned_slots(actual, state) for state in known):
             raise RuntimeError("Playlist slots changed outside the audited mutation; refusing further mutation")
         if attempt < 2:
             time.sleep(0.5 * (attempt + 1))
@@ -2594,27 +2596,42 @@ def _stationary_playlist_slots(current: list[str], target: list[str]) -> set[str
     return kept
 
 
-def _move_playlist_item(ytmusic: YTMusic, playlist_id: str, expected: list[dict[str, str]],
-                        slot: str, successor: str, *, evidence: Any, phase: str, order: int) -> list[dict[str, str]]:
+def _move_playlist_batch(ytmusic: YTMusic, playlist_id: str, expected: list[dict[str, str]],
+                         moves: list[tuple[str, str]], *, evidence: Any, phase: str, order: int) -> list[dict[str, str]]:
+    if not 1 <= len(moves) <= 50 or len({slot for slot, _ in moves}) != len(moves):
+        raise ValueError("Move batch must contain 1–50 distinct owned items")
     before = _observe_playlist_transition(ytmusic, playlist_id, expected)
-    after = _moved_playlist_items(before, slot, successor)
-    item = next(item for item in before if item["setVideoId"] == slot)
-    event = {"phase": phase, "operation": "move", "chunk_order": order, "attempt": 1,
-             "items": [item], "successor_set_video_id": successor}
+    after, intermediate, actions = before, [], []
+    for slot, successor in moves:
+        after = _moved_playlist_items(after, slot, successor)
+        intermediate.append(after)
+        action = {"action": "ACTION_MOVE_VIDEO_BEFORE", "setVideoId": slot}
+        if successor:
+            action["movedSetVideoIdSuccessor"] = successor
+        actions.append(action)
+    by_slot = {item["setVideoId"]: item for item in before}
+    event = {"phase": phase, "operation": "move_batch", "chunk_order": order, "attempt": 1,
+             "items": [by_slot[slot] for slot, _ in moves],
+             "moves": [{"set_video_id": slot, "successor_set_video_id": successor} for slot, successor in moves]}
     intent = evidence({**event, "state": "intent", "before_items": before})
     try:
-        result = ytmusic.edit_playlist(playlist_id, moveItem=(slot, successor) if successor else slot)
+        ytmusic._check_auth()
+        # The SDK exposes one move, while the same endpoint accepts an actions list.
+        result = ytmusic._send_request("browse/edit_playlist", {"playlistId": playlist_id, "actions": actions})
         _require_playlist_mutation_success(result, "move")
+        observed = _observe_playlist_transition(ytmusic, playlist_id, after,
+            previous=before, intermediate=intermediate[:-1])
+        # Overall status alone cannot prove that every action in a batch applied.
         evidence({**event, "state": "ack", "intent_seq": intent["seq"], "after_items": after})
     except Exception as exc:
         try:
             evidence({**event, "state": "ambiguous", "intent_seq": intent["seq"],
                       "error": f"{type(exc).__name__}: {exc}"})
         except Exception:
-            LOG.error("Unable to record ambiguous move; durable intent remains unresolved")
-        raise PlaylistMutationUncertain("Move acknowledgement is uncertain; automatic retry/restore is forbidden") from exc
-    LOG.info("Acknowledged playlist move before %s", successor or "end")
-    return _observe_playlist_transition(ytmusic, playlist_id, after, previous=before)
+            LOG.error("Unable to record ambiguous move batch; durable intent remains unresolved")
+        raise PlaylistMutationUncertain("Move batch acknowledgement is uncertain; automatic retry/restore is forbidden") from exc
+    LOG.info("Acknowledged playlist move batch: %d moves in one request; complete order verified", len(moves))
+    return observed
 
 
 def _replace_playlist_contents(
@@ -2778,17 +2795,19 @@ def _sync_playlist_contents(
         evidence=evidence, phase=phase, remove_items=obsolete)
     expected = _observe_playlist_transition(ytmusic, playlist_id, receipts)
     stationary = _stationary_playlist_slots(_playlist_slots(expected), target_slots)
-    successor, moves = "", 0
+    successor, moves = "", []
     for slot in reversed(target_slots):
         if slot not in stationary:
-            moves += 1
-            expected = _move_playlist_item(ytmusic, playlist_id, expected, slot, successor,
-                evidence=evidence, phase=phase, order=moves)
+            moves.append((slot, successor))
         successor = slot
+    move_requests = 0
+    for move_requests, batch in enumerate(chunked(moves, 50), 1):
+        expected = _move_playlist_batch(ytmusic, playlist_id, expected, batch,
+            evidence=evidence, phase=phase, order=move_requests)
     if _playlist_slots(expected) != target_slots:
         raise RuntimeError("Delta publication did not reach the requested slot order")
-    LOG.info("Delta playlist update: retained=%d added=%d removed=%d moved=%d",
-             len(used), len(missing), len(obsolete), moves)
+    LOG.info("Delta playlist update: retained=%d added=%d removed=%d moved=%d move_requests=%d",
+             len(used), len(missing), len(obsolete), len(moves), move_requests)
     return expected, policy
 
 
@@ -2877,7 +2896,7 @@ def _recoverable_playlist_items(run: dict[str, Any]) -> list[dict[str, str]]:
     seen_slots = set(_playlist_slots(expected))
     pending: dict[int, dict[str, Any]] = {}
     for event in payload.get("events", []):
-        if event.get("operation") not in {"remove", "add", "move"}:
+        if event.get("operation") not in {"remove", "add", "move", "move_batch"}:
             continue
         if event.get("state") == "intent":
             if pending or not _same_owned_slots(_audit_playlist_items(event.get("before_items")), expected):
@@ -2904,7 +2923,7 @@ def _recoverable_playlist_items(run: dict[str, Any]) -> list[dict[str, str]]:
                     raise RuntimeError("Addition receipt reuses a previously observed playlist slot")
                 seen_slots.update(_playlist_slots(validated))
                 expected += validated
-            else:
+            elif event["operation"] == "move":
                 before = _audit_playlist_items(intent.get("before_items"))
                 if items != _audit_playlist_items(intent.get("items")) or len(items) != 1:
                     raise RuntimeError("Move receipt does not match its requested item")
@@ -2912,6 +2931,15 @@ def _recoverable_playlist_items(run: dict[str, Any]) -> list[dict[str, str]]:
                 if not isinstance(successor, str) or event.get("successor_set_video_id") != successor:
                     raise RuntimeError("Move receipt does not match its requested successor")
                 expected = _moved_playlist_items(before, items[0]["setVideoId"], successor)
+            else:
+                moves = intent.get("moves")
+                if (not isinstance(moves, list) or not moves or event.get("moves") != moves
+                        or items != _audit_playlist_items(intent.get("items"))
+                        or _playlist_slots(items) != [move.get("set_video_id") for move in moves]):
+                    raise RuntimeError("Move batch receipt does not match its requested plan/items")
+                expected = _audit_playlist_items(intent.get("before_items"))
+                for move in moves:
+                    expected = _moved_playlist_items(expected, move["set_video_id"], move["successor_set_video_id"])
             _playlist_slots(expected)
             after_items = _audit_playlist_items(event.get("after_items"))
             if expected != after_items:
