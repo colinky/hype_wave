@@ -12,7 +12,6 @@ YouTube Music chart/playlist 항목을 YouTube Music 플레이리스트로 동�
 from __future__ import annotations
 
 import argparse
-import copy
 import csv
 import hashlib
 import json
@@ -28,7 +27,7 @@ from pathlib import Path
 from typing import Any
 
 from hype_db_common import database_backend
-from urllib.parse import parse_qs, urlencode, urljoin, urlparse
+from urllib.parse import parse_qs, parse_qsl, urlencode, urljoin, urlparse
 
 import requests
 
@@ -53,6 +52,8 @@ LOG = logging.getLogger("ytmusic_to_ytmusic_crawl")
 http_session = get_resilient_session(backoff_factor=2, allowed_methods=frozenset({"GET", "POST"}))
 DEFAULT_PLAYLIST_URL = "https://music.youtube.com/playlist?list=PL4fGSI1pDJn6jXS_Tv_N9B8Z0HTRVJE0m"
 DEFAULT_YOUTUBE_CHARTS_URL = "https://charts.youtube.com/charts/TopSongs/kr/weekly"
+YOUTUBE_PUBLIC_CONFIG_URL = "https://www.youtube.com/?hl=en"
+SNAPSHOT_DIR = Path(__file__).resolve().parent / "snapshots" / "youtube-charts"
 ACCEPTED_MAPPING_STATUSES = {"resolved_to_song", "already_song", "cached_match", "proxy_matched", "manual_override", "kept_original_video"}
 KST = timezone(timedelta(hours=9))
 
@@ -440,13 +441,105 @@ def extract_json_objects_from_html(html: str) -> list[Any]:
 
 
 def extract_ytcfg_from_html(html: str) -> dict[str, Any]:
-    match = re.search(r"ytcfg\.set\((\{.*?\})\);", html, flags=re.DOTALL)
-    if not match:
-        return {}
+    config = {}
+    for match in re.finditer(r"ytcfg\.set\(\s*", html):
+        try:
+            value, _ = json.JSONDecoder().raw_decode(html[match.end():])
+            if isinstance(value, dict):
+                config.update(value)
+        except ValueError:
+            continue
+    return config
+
+
+def extract_public_innertube_key(html: str) -> str:
+    key = extract_ytcfg_from_html(html).get("INNERTUBE_API_KEY")
+    if not isinstance(key, str) or not key.strip():
+        raise ValueError("Official YouTube public configuration is missing its API key")
+    return key.strip()
+
+
+def chart_request_with_key(url: str, key: str) -> str:
+    parsed = urlparse(url)
+    if (parsed.scheme, parsed.netloc, parsed.path) != ("https", "charts.youtube.com", "/youtubei/v1/browse"):
+        raise ValueError("Public chart configuration may only be applied to the official browse endpoint")
+    query = dict(parse_qsl(parsed.query, keep_blank_values=True))
+    return parsed._replace(query=urlencode({**query, "key": key})).geturl()
+
+
+def weekly_snapshot_hash(snapshot: dict[str, Any]) -> str:
+    content = {key: value for key, value in snapshot.items() if key != "sha256"}
+    return hashlib.sha256(json.dumps(content, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode()).hexdigest()
+
+
+def save_weekly_snapshot(entries: list[dict[str, Any]]) -> None:
+    validate_weekly_chart(entries)
+    if any(row.get("collection_method") == "verified_snapshot" or row.get("source") != "youtube_charts_weekly_browse_api" for row in entries):
+        return  # Reusing a snapshot never refreshes its original capture time.
+    _, end = fetched_period_from_entries(entries)
+    snapshot = {"schema_version": 1, "source_url": DEFAULT_YOUTUBE_CHARTS_URL,
+                "collected_at": datetime.now(timezone.utc).isoformat(),
+                "locale": entries[0].get("locale") or "en",
+                "payload": {"chartParams": {"countryCode": "kr", "chartType": "CHART_TYPE_TRACKS",
+                    "chartPeriodType": "CHART_PERIOD_TYPE_WEEKLY"},
+                    "chart": {"listType": "TOP_VIEWS_CHART", "chartPeriodType": "CHART_PERIOD_TYPE_WEEKLY", "endDate": end,
+                    "trackViews": [{"encryptedVideoId": row["video_id"], "name": row["title"],
+                        "artists": [{"name": row["artist"]}], "atvExternalVideoId": row.get("atv_external_video_id", ""),
+                        "thumbnail": {"thumbnails": [{"url": row.get("artwork_url", "")}]},
+                        "viewCount": row.get("views", ""), "chartEntryMetadata": {"currentPosition": row["rank"],
+                        "previousPosition": row.get("previous_rank", "")}} for row in entries]}}}
+    snapshot["sha256"] = weekly_snapshot_hash(snapshot)
+    SNAPSHOT_DIR.mkdir(parents=True, exist_ok=True)
+    target = SNAPSHOT_DIR / f"kr-weekly-{end}.json"
+    temporary = target.with_suffix(".tmp")
     try:
-        return json.loads(match.group(1))
-    except Exception:
-        return {}
+        temporary.write_text(json.dumps(snapshot, ensure_ascii=False, indent=2), encoding="utf-8")
+        temporary.replace(target)
+    finally:
+        temporary.unlink(missing_ok=True)
+
+
+def load_weekly_snapshot(*, limit=100, chart_period_start=None, chart_period_end=None):
+    # A provider-verified reporting week may be reused; never relabel an older week.
+    if chart_period_end:
+        end = dashed_date(chart_period_end)
+    elif chart_period_start:
+        end = (datetime.fromisoformat(dashed_date(chart_period_start)).date() + timedelta(days=6)).isoformat()
+    else:
+        completed_day = datetime.now(timezone.utc).date() - timedelta(days=1)
+        end = (completed_day - timedelta(days=(completed_day.weekday() - 3) % 7)).isoformat()
+    path = SNAPSHOT_DIR / f"kr-weekly-{end}.json"
+    if not path.exists():
+        return []
+    try:
+        snapshot = json.loads(path.read_text(encoding="utf-8"))
+        if (not isinstance(snapshot, dict) or type(snapshot.get("schema_version")) is not int
+                or snapshot.get("schema_version") != 1 or snapshot.get("source_url") != DEFAULT_YOUTUBE_CHARTS_URL
+                or snapshot.get("locale") not in {"en", "ko"} or snapshot.get("sha256") != weekly_snapshot_hash(snapshot)):
+            raise ValueError("Snapshot provenance or checksum is invalid")
+        captured = datetime.fromisoformat(snapshot["collected_at"])
+        if captured.tzinfo is None or captured > datetime.now(timezone.utc) or captured.date().isoformat() < end:
+            raise ValueError("Snapshot capture time is invalid")
+        if not isinstance(snapshot.get("payload"), dict):
+            raise ValueError("Snapshot chart payload is invalid")
+        entries = extract_chart_entries_from_browser_json(snapshot["payload"], locale=snapshot["locale"])
+        validate_weekly_chart(entries, chart_period_start=chart_period_start, chart_period_end=end)
+        for row in entries:
+            row.update(collection_method="verified_snapshot", source_collected_at=snapshot["collected_at"],
+                       snapshot_sha256=snapshot["sha256"])
+        LOG.warning("Using verified official weekly snapshot: period=%s..%s ranks=1..100 captured_at=%s sha256=%s",
+                    *fetched_period_from_entries(entries), snapshot["collected_at"], snapshot["sha256"])
+        return entries[:limit]
+    except (OSError, ValueError, KeyError, TypeError) as exc:
+        LOG.warning("Official weekly snapshot rejected: %s", exc)
+        return []
+
+
+def browser_or_snapshot(url, *, limit=100, chart_period_start=None, chart_period_end=None):
+    rows = extract_chart_entries_from_browser(url, limit=limit, chart_period_start=chart_period_start, chart_period_end=chart_period_end)
+    if urlparse(url)._replace(query="", fragment="").geturl() != DEFAULT_YOUTUBE_CHARTS_URL:
+        return rows
+    return rows or load_weekly_snapshot(limit=limit, chart_period_start=chart_period_start, chart_period_end=chart_period_end)
 
 
 def extract_youtube_charts_period(data: dict[str, Any]) -> tuple[str, str]:
@@ -569,6 +662,14 @@ def extract_chart_entries_from_browse_api(
     if not isinstance(context, dict):
         LOG.warning("YouTube Charts page is missing INNERTUBE_CONTEXT; browse API is unavailable")
         return []
+    try:
+        api_key = extract_public_innertube_key(html)
+    except ValueError:
+        # Charts currently publishes an empty key; use YouTube's own public config.
+        bootstrap = http_session.get(YOUTUBE_PUBLIC_CONFIG_URL, timeout=30)
+        bootstrap.raise_for_status()
+        api_key = extract_public_innertube_key(bootstrap.text)
+        LOG.info("Loaded official YouTube public configuration for chart API collection")
     end_date = compact_date(chart_period_end)
     if not end_date:
         end_date = ""
@@ -578,12 +679,19 @@ def extract_chart_entries_from_browse_api(
         ("en", "en-US,en;q=0.9,ko;q=0.8"),
         ("ko", "ko-KR,ko;q=0.9,en-US;q=0.8"),
     ):
-        localized_context = copy.deepcopy(context)
-        localized_context.setdefault("client", {})["hl"] = locale
-        localized_context.setdefault("client", {})["gl"] = "KR"
+        # Match the page's actual browse payload, not its visitor/bootstrap metadata.
+        page_client = context.get("client") or {}
+        localized_context = {
+            "client": {"clientName": page_client.get("clientName"),
+                       "clientVersion": page_client.get("clientVersion"),
+                       "hl": locale, "gl": "KR", "theme": "MUSIC",
+                       "experimentIds": [], "experimentsToken": ""},
+            "capabilities": {}, "request": {"internalExperimentFlags": []},
+        }
         try:
             response = http_session.post(
                 "https://charts.youtube.com/youtubei/v1/browse?prettyPrint=false",
+                params={"key": api_key},
                 headers={
                     "User-Agent": "Mozilla/5.0",
                     "Accept-Language": accept_language,
@@ -595,11 +703,12 @@ def extract_chart_entries_from_browse_api(
                 timeout=30,
             )
             response.raise_for_status()
-            locale_rows[locale] = extract_chart_entries_from_browse_json(response.json(), limit=limit, locale=locale)
+            locale_rows[locale] = extract_chart_entries_from_browser_json(response.json(), locale=locale)[:limit]
             if not locale_rows[locale]:
                 LOG.warning("YouTube Charts browse API returned no tracks (locale=%s)", locale)
         except (requests.RequestException, ValueError) as exc:
-            LOG.warning("YouTube Charts browse API failed (locale=%s): %s", locale, exc)
+            LOG.warning("YouTube Charts browse API failed (locale=%s): %s", locale,
+                        str(exc).replace(api_key, "<public-config-key>"))
     primary = locale_rows.get("en") or locale_rows.get("ko") or []
     merged = merge_localized_chart_entries(primary, locale_rows.get("en", []), "en")
     merged = merge_localized_chart_entries(merged, locale_rows.get("ko", []), "ko")
@@ -670,7 +779,7 @@ def extract_chart_entries_from_youtube_charts(
         response.raise_for_status()
     except Exception as exc:
         LOG.warning("Failed to fetch YouTube Charts page: %s", exc)
-        return extract_chart_entries_from_browser(
+        return browser_or_snapshot(
             fetch_url, limit=limit, chart_period_start=chart_period_start, chart_period_end=chart_period_end,
         )
     html = response.text
@@ -699,11 +808,13 @@ def extract_chart_entries_from_youtube_charts(
         )
         if browse_entries:
             validate_weekly_chart(browse_entries, chart_period_start=chart_period_start, chart_period_end=chart_period_end)
+            for row in browse_entries:
+                row["collection_method"] = "api"
             return browse_entries[:limit]
     except Exception as exc:
         LOG.warning("Failed to fetch YouTube Charts browse API: %s", exc)
 
-    return extract_chart_entries_from_browser(
+    return browser_or_snapshot(
         fetch_url, limit=limit, chart_period_start=chart_period_start, chart_period_end=chart_period_end,
     )
 
@@ -727,7 +838,7 @@ def validate_weekly_chart(entries, *, chart_period_start=None, chart_period_end=
             raise ValueError("Official weekly chart has inconsistent periods or incomplete track metadata")
 
 
-def extract_chart_entries_from_browser_json(data):
+def extract_chart_entries_from_browser_json(data, *, locale="en"):
     params = [node["chartParams"] for node in walk_json(data) if isinstance(node.get("chartParams"), dict)]
     if len(params) != 1 or params[0].get("countryCode") != "kr" or params[0].get("chartType") != "CHART_TYPE_TRACKS":
         raise ValueError("Browser response is not the official South Korea songs chart")
@@ -742,14 +853,15 @@ def extract_chart_entries_from_browser_json(data):
     entries = extract_chart_entries_from_browse_json({
         "chartParams": {**params[0], "endDate": weekly[0].get("endDate")},
         "trackViews": weekly[0]["trackViews"],
-    }, limit=101, locale="en")
+    }, limit=101, locale=locale)
     validate_weekly_chart(entries)
-    return merge_localized_chart_entries(entries, entries, "en")
+    return merge_localized_chart_entries(entries, entries, locale)
 
 
 def extract_chart_entries_from_browser(url, *, limit=100, chart_period_start=None, chart_period_end=None):
     # shortcut: browser loads the latest week only; use dated CSVs for historical imports.
     LOG.info("Trying browser fallback for the official YouTube weekly chart")
+    api_key = ""
     try:
         from playwright.sync_api import sync_playwright
 
@@ -761,6 +873,13 @@ def extract_chart_entries_from_browser(url, *, limit=100, chart_period_start=Non
             try:
                 page = browser.new_page(locale="en-US")
                 page.set_default_timeout(45000)
+                bootstrap = page.context.request.get(YOUTUBE_PUBLIC_CONFIG_URL, timeout=30000, max_redirects=0)
+                if bootstrap.status != 200:
+                    raise ValueError(f"Official YouTube public configuration returned HTTP {bootstrap.status}")
+                api_key = extract_public_innertube_key(bootstrap.text())
+                # Keep the browser's own payload and render its actual official response.
+                page.route("https://charts.youtube.com/youtubei/v1/browse*",
+                           lambda route: route.continue_(url=chart_request_with_key(route.request.url, api_key)))
                 with page.expect_response(lambda response: urlparse(response.url).netloc == "charts.youtube.com"
                                           and urlparse(response.url).path == "/youtubei/v1/browse") as result:
                     page.goto(url, wait_until="domcontentloaded")
@@ -782,9 +901,12 @@ def extract_chart_entries_from_browser(url, *, limit=100, chart_period_start=Non
             finally:
                 browser.close()
         LOG.info("Browser fallback verified 100 ranks for %s..%s", start, end)
+        for row in entries:
+            row["collection_method"] = "browser"
         return entries[:limit]
     except Exception as exc:
-        LOG.warning("YouTube Charts browser fallback failed: %s", exc)
+        LOG.warning("YouTube Charts browser fallback failed: %s",
+                    str(exc).replace(api_key, "<public-config-key>") if api_key else exc)
         return []
 
 
@@ -967,6 +1089,12 @@ def main() -> int:
             chart_period_end = str(chart_entries[0].get("chart_period_end") or "")
         if not chart_period_start:
             chart_period_start = str(chart_entries[0].get("chart_period_start") or default_week_start(chart_period_end))
+        if (not args.dry_run and not args.youtube_charts_csv and len(chart_entries) == 100
+                and all(row.get("source") == "youtube_charts_weekly_browse_api" for row in chart_entries)):
+            try:
+                save_weekly_snapshot(chart_entries)
+            except OSError as exc:
+                LOG.warning("Unable to save verified public chart snapshot: %s", exc)
 
     source_report: dict[str, Any] = {}
     if use_youtube_charts and not args.youtube_charts_csv:
@@ -1161,7 +1289,11 @@ def main() -> int:
                         status="published",
                         entry_count=len(chart_entries),
                         source=str(chart_entries[0].get("source") or "youtube_charts_weekly"),
-                        message="YouTube Charts weekly chart fetched.",
+                        message="YouTube Charts weekly chart collected; " + json.dumps({
+                            "collection_method": chart_entries[0].get("collection_method", "api"),
+                            "source_collected_at": chart_entries[0].get("source_collected_at", started_at),
+                            "snapshot_sha256": chart_entries[0].get("snapshot_sha256", ""),
+                        }, ensure_ascii=False),
                     )
                 conn.commit()
                 LOG.info("Persisted raw chart order for %s to playlist_order table.", args.job_name)

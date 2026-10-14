@@ -1,7 +1,9 @@
 """Browser source validation and fail-closed fallback orchestration, without network."""
 from copy import deepcopy
 from pathlib import Path
+from urllib.parse import parse_qs, urlparse
 import sys
+import tempfile
 import unittest
 from unittest.mock import MagicMock, Mock, patch
 
@@ -28,6 +30,7 @@ def chart_payload():
 class YouTubeChartsBrowserTests(unittest.TestCase):
     def setUp(self):
         self.enterContext(patch("socket.socket.connect", side_effect=AssertionError("offline test")))
+        self.enterContext(patch.object(crawl, "SNAPSHOT_DIR", Path(self.enterContext(tempfile.TemporaryDirectory()))))
 
     def test_browser_payload_preserves_official_ids_audio_links_and_source_period(self):
         payload = chart_payload()
@@ -89,15 +92,20 @@ class YouTubeChartsBrowserTests(unittest.TestCase):
                                side_effect=requests.HTTPError("429") if case == "429" else None),
                   patch.object(crawl, "extract_chart_entries_from_browser", return_value=rows) as fallback):
                 result = crawl.extract_chart_entries_from_youtube_charts(crawl.DEFAULT_YOUTUBE_CHARTS_URL)
-            self.assertEqual(result, rows)
+            self.assertEqual([{key: value for key, value in row.items() if key != "collection_method"} for row in result], rows)
             self.assertEqual(fallback.call_count, 0 if case == "success" else 1)
 
     def test_browser_checks_displayed_period_and_closes_on_success_or_failure(self):
-        for case in ("success", "wrong_label", "http_error", "historical_request", "cross_month", "cross_year"):
+        for case in ("success", "wrong_label", "http_error", "historical_request", "cross_month", "cross_year", "missing_config", "config_429"):
             manager = MagicMock()
             playwright = manager.__enter__.return_value
             browser = playwright.webkit.launch.return_value
             page = browser.new_page.return_value
+            bootstrap = page.context.request.get.return_value
+            bootstrap.status = 200
+            bootstrap.text.return_value = 'ytcfg.set({"INNERTUBE_API_KEY":"fixture-public-key"});'
+            if case == "missing_config": bootstrap.text.return_value = 'ytcfg.set({"INNERTUBE_API_KEY":""});'
+            if case == "config_429": bootstrap.status = 429
             response = page.expect_response.return_value.__enter__.return_value.value
             payload = chart_payload()
             label = "Oct 2\u2009–\u20098, 2026"
@@ -114,6 +122,19 @@ class YouTubeChartsBrowserTests(unittest.TestCase):
             self.assertEqual(len(rows), 10 if case in {"success", "cross_month", "cross_year"} else 0)
             browser.close.assert_called_once()
             playwright.webkit.launch.assert_called_once_with(headless=True)
+            if case == "success":
+                route = Mock()
+                route.request.url = "https://charts.youtube.com/youtubei/v1/browse?alt=json&key=old"
+                page.route.call_args.args[1](route)
+                self.assertEqual(parse_qs(urlparse(route.continue_.call_args.kwargs["url"]).query),
+                                 {"alt": ["json"], "key": ["fixture-public-key"]})
+                self.assertEqual(set(route.continue_.call_args.kwargs), {"url"})
+
+    def test_public_configuration_is_never_applied_to_other_hosts_or_endpoints(self):
+        for url in ("http://charts.youtube.com/youtubei/v1/browse", "https://example.com/youtubei/v1/browse",
+                    "https://charts.youtube.com/youtubei/v1/player"):
+            with self.assertRaises(ValueError):
+                crawl.chart_request_with_key(url, "fixture-key")
 
     def test_main_uses_one_verification_locale_without_changing_bilingual_source_collection(self):
         with (patch.object(sys, "argv", ["crawl", "--yt-auth", "unused.json", "--yt-playlist-id", "fixture", "--dry-run"]),

@@ -15,6 +15,7 @@ tests/*
 !tests/test_utc_chart_dates.py
 !tests/test_youtube_charts_fetch.py
 !tests/test_youtube_charts_browser.py
+!tests/test_youtube_charts_snapshot.py
 !tests/check_youtube_charts_browser.py
 utils/
 rules/
