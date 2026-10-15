@@ -74,7 +74,7 @@ jobs:
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           
           if [ "$HISTORY_READY" = "true" ]; then
-            git add docs/api/history.json
+            git add -f -- docs/api/history.json
           fi
           # Preserve complete source captures even if another sync task failed.
           git add snapshots/youtube-charts/*.json
