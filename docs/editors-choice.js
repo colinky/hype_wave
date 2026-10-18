@@ -50,7 +50,7 @@
         pauseUntil = 0;
         motionButton.textContent = motionPaused ? '▶' : 'Ⅱ';
         motionButton.setAttribute('aria-pressed', String(!motionPaused));
-        motionButton.title = motionPaused ? '자동 흐름 재생' : '자동 흐름 일시정지';
+        motionButton.title = motionPaused ? 'Play Auto-Flow' : 'Pause Auto-Flow';
     });
     previewTracks.addEventListener('pointerdown', () => { dragging = true; });
     const releasePreview = () => { dragging = false; };
@@ -124,22 +124,22 @@
         document.getElementById('editors-link').href = path;
         const viewAll = document.getElementById('editor-view-all');
         viewAll.href = path;
-        viewAll.textContent = '전체 보기 →';
-        viewAll.setAttribute('aria-label', `${edition.year}년 선정 ${edition.tracks.length}개 전체 보기`);
-        const status = edition.status === 'final' ? 'FINAL' : '선정 중';
+        viewAll.textContent = 'View All →';
+        viewAll.setAttribute('aria-label', `${edition.year} year's selection · ${edition.tracks.length} tracks`);
+        const status = edition.status === 'final' ? 'FINAL' : 'IN PROGRESS';
         document.getElementById('preview-status').textContent = status;
         document.getElementById('editor-status').textContent = status;
         document.getElementById('editor-year-display').textContent = edition.year;
-        document.getElementById('editor-meta').textContent = `${edition.tracks.length}개 선정 · yule의 컴필레이션 · ${edition.published_at} 발행`;
+        document.getElementById('editor-meta').textContent = `${edition.tracks.length} tracks selected · editor's compilation · ${edition.published_at} published`;
         document.getElementById('editor-actions').replaceChildren(
-            externalLink('플레이리스트 듣기 ↗', edition.playlist_url),
-            externalLink('선정글 원문 읽기 ↗', edition.source_url)
+            externalLink('Listen to Playlist ↗', edition.playlist_url),
+            externalLink('Read Original Article ↗', edition.source_url)
         );
         const orderedTracks = [...edition.tracks.filter(track => track.highlight), ...edition.tracks.filter(track => !track.highlight)];
         const teasers = orderedTracks.map(track => {
             const link = node('a', `editor-preview-track${track.highlight ? ' is-highlight' : ''}`);
             link.href = path;
-            link.setAttribute('aria-label', `${track.highlight ? '올해의 곡 · ' : ''}${track.title} · ${track.artist} 선정 이유 보기`);
+            link.setAttribute('aria-label', `${track.highlight ? "This Year's Pick · " : ""}${track.title} · ${track.artist} Selection Reason`);
             const text = node('span', '');
             text.append(node('strong', '', track.title), node('small', '', track.artist));
             link.append(cover(track), text);
@@ -162,15 +162,15 @@
         const cards = edition.tracks.map(track => {
             const card = node('article', `editor-pick${track.highlight ? ' is-highlight' : ''}`);
             const body = node('div', 'editor-pick-body');
-            if (track.highlight) body.append(node('p', 'editor-highlight', '★ 올해의 곡'));
+            if (track.highlight) body.append(node('p', 'editor-highlight', "★ This Year's Pick"));
             body.append(node('h3', '', track.title), node('p', 'editor-artist', track.artist));
-            body.append(node('p', `editor-reason${track.reason ? '' : ' is-missing'}`, track.reason || '원문에 개별 선정평 없이 수록된 곡입니다.'));
+            body.append(node('p', `editor-reason${track.reason ? '' : ' is-missing'}`, track.reason || 'No individual selection reason available.'));
             const links = node('div', 'editor-track-links');
             for (const video of track.videos) {
                 links.append(externalLink(`${video.label} ↗`, `https://www.youtube.com/watch?v=${video.id}`));
             }
             if (!track.videos.length) {
-                links.append(externalLink('YouTube에서 검색 ↗', `https://www.youtube.com/results?search_query=${encodeURIComponent(`${track.title} ${track.artist}`)}`));
+                links.append(externalLink('Search on YouTube ↗', `https://www.youtube.com/results?search_query=${encodeURIComponent(`${track.title} ${track.artist}`)}`));
             }
             body.append(links);
             card.append(cover(track), body);
@@ -210,7 +210,7 @@
     async function load() {
         retry.hidden = true;
         message.hidden = false;
-        message.textContent = '선정곡을 불러오는 중입니다.';
+        message.textContent = 'Loading selected tracks...';
         try {
             const response = await fetch('api/editors-choice.json');
             if (!response.ok) throw new Error(`HTTP ${response.status}`);
@@ -227,7 +227,7 @@
             route();
         } catch (error) {
             console.error('Failed to load editorial collection:', error);
-            message.textContent = '선정곡을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.';
+            message.textContent = 'Failed to load selected tracks. Please try again later.';
             retry.hidden = false;
         }
     }
