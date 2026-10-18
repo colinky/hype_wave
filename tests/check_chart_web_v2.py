@@ -82,6 +82,17 @@ def verify_archive_sources():
     }
     assert [edition["year"] for edition in DATA["editions"]] == list(sources)
     editions = {edition["year"]: edition for edition in DATA["editions"]}
+    service_ids = {
+        2017: ("3NPNIY7G9g4hPJtJQB0Zss", "456769740"),
+        2018: ("6R7FeLMBMnRLAY34OVZ20V", "467578689"),
+        2019: ("1FbVFuqG1V3CsnlpuejGv2", "469245173"),
+        2020: ("0QcTFeZPvsqvoiSMw7tMmr", "490733966"),
+        2021: ("6GvkLoXi3T9YZ8TMqb4EE5", "503436353"),
+        2022: ("04GZqMdQlIMQYdFbA4DLsS", "518439119"),
+        2023: ("6BbCiuh9G3WWbtwMRWGRJG", "533134415"),
+        2024: ("0OQzPYQbo3ehfpoJ9g3AqL", "542919902"),
+        2025: ("2IyutgKnRbfAJXLOT5chiS", "552178556"),
+    }
     for year, (count, article, playlist) in sources.items():
         edition = editions[year]
         assert len(edition["tracks"]) == count, year
@@ -92,6 +103,9 @@ def verify_archive_sources():
         assert parse_qs(urlsplit(edition["playlist_url"]).query) == {"list": [playlist]}
         assert len({track["title"] for track in edition["tracks"]}) == count
         assert sum(bool(track.get("highlight")) for track in edition["tracks"]) == 1
+        spotify, melon = service_ids[year]
+        assert edition["spotify_url"] == f"https://open.spotify.com/playlist/{spotify}"
+        assert edition["melon_url"] == f"https://www.melon.com/mymusic/playlist/mymusicplaylistview_inform.htm?plylstSeq={melon}"
     assert editions[2020]["published_at"] == "2021-03-07"
     remix = editions[2023]["tracks"][6]
     assert "BIBI, CAMO, MIRANI" in remix["title"] and remix["videos"][0]["id"] == "V6d2Uv0oylo"
@@ -276,11 +290,16 @@ def verify(browser_name, output, base_url=None, baseline_ref="HEAD"):
                     assert page.locator(".editor-pick h3").all_text_contents() == [track["title"] for track in edition["tracks"]]
                     assert page.locator(".editor-reason").all_text_contents() == [track["reason"] or "No individual selection reason available." for track in edition["tracks"] if "reason" in track]
                     expect(page.locator("#editor-actions a").first).to_have_attribute("href", edition["playlist_url"])
+                    for label, field in (("Spotify ↗", "spotify_url"), ("Melon ↗", "melon_url")):
+                        link = page.locator("#editor-actions").get_by_role("link", name=label, exact=True)
+                        expect(link).to_have_attribute("href", edition[field])
+                        expect(link).to_have_attribute("target", "_blank")
+                        expect(link).to_have_attribute("rel", "noopener noreferrer")
                     if "source_url" in edition:
-                        expect(page.locator("#editor-actions a")).to_have_count(2)
+                        expect(page.locator("#editor-actions a")).to_have_count(4)
                         expect(page.locator("#editor-actions a").last).to_have_attribute("href", edition["source_url"])
                     else:
-                        expect(page.locator("#editor-actions a")).to_have_count(1)
+                        expect(page.locator("#editor-actions a")).to_have_count(3)
                         expect(page.locator(".editor-reason")).to_have_count(0)
                     if edition["published_at"] is None:
                         expect(page.locator("#editor-meta")).to_contain_text("Playlist archive")
@@ -317,7 +336,11 @@ def verify(browser_name, output, base_url=None, baseline_ref="HEAD"):
             invalid_source["editions"][-1]["source_url"] = "https://example.com/article"
             invalid_reason = json.loads(json.dumps(DATA))
             invalid_reason["editions"][-1]["tracks"][0]["reason"] = {"invalid": True}
-            for invalid in (None, {"editions": []}, invalid_source, invalid_reason):
+            invalid_spotify = json.loads(json.dumps(DATA))
+            invalid_spotify["editions"][-1]["spotify_url"] = "https://example.com/playlist/3NPNIY7G9g4hPJtJQB0Zss"
+            invalid_melon = json.loads(json.dumps(DATA))
+            invalid_melon["editions"][-1]["melon_url"] = "https://www.melon.com/song/detail.htm?songId=456769740"
+            for invalid in (None, {"editions": []}, invalid_source, invalid_reason, invalid_spotify, invalid_melon):
                 page = browser.new_page(locale="ko-KR")
                 recovered = [False]
 
@@ -339,6 +362,21 @@ def verify(browser_name, output, base_url=None, baseline_ref="HEAD"):
                 page.locator("#editor-retry").click()
                 expect(page.locator(".editor-pick")).to_have_count(16)
                 page.close()
+
+            # Cached data without the new service links must still render during deployment.
+            legacy = json.loads(json.dumps(DATA))
+            for edition in legacy["editions"]:
+                edition.pop("spotify_url")
+                edition.pop("melon_url")
+            page = browser.new_page(locale="ko-KR")
+            page.route("**/api/editors-choice.json", lambda route: route.fulfill(json=legacy))
+            ready(page, base)
+            page.locator("#editors-link").click()
+            expect(page.locator("#editor-actions a")).to_have_count(2)
+            page.locator("#editor-year").select_option("2017")
+            expect(page.locator("#editor-actions a")).to_have_count(1)
+            expect(page.locator(".editor-reason")).to_have_count(0)
+            page.close()
 
             page = browser.new_page(locale="ko-KR")
             page.route("**/api/history.json", lambda route: route.fulfill(status=503, json={}))

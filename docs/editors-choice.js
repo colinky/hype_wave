@@ -93,6 +93,15 @@
             if ((source && (source.protocol !== 'https:' || source.hostname !== 'brunch.co.kr'))
                 || playlist.protocol !== 'https:' || !['www.youtube.com', 'music.youtube.com'].includes(playlist.hostname)
                 || playlist.pathname !== '/playlist' || !/^PL[\w-]+$/.test(playlist.searchParams.get('list') || '')) throw new Error('Invalid source');
+            if (edition.spotify_url != null) {
+                const spotify = new URL(edition.spotify_url);
+                if (spotify.origin !== 'https://open.spotify.com' || !/^\/playlist\/[A-Za-z0-9]{22}$/.test(spotify.pathname)) throw new Error('Invalid Spotify playlist');
+            }
+            if (edition.melon_url != null) {
+                const melon = new URL(edition.melon_url);
+                if (melon.origin !== 'https://www.melon.com' || melon.pathname !== '/mymusic/playlist/mymusicplaylistview_inform.htm'
+                    || !/^\d+$/.test(melon.searchParams.get('plylstSeq') || '')) throw new Error('Invalid Melon playlist');
+            }
             for (const track of edition.tracks) {
                 if (typeof track.title !== 'string' || !track.title.trim() || typeof track.artist !== 'string' || !track.artist.trim()
                     || !(track.reason == null || (typeof track.reason === 'string' && track.reason.trim()))
@@ -132,7 +141,9 @@
         document.getElementById('editor-year-display').textContent = edition.year;
         document.getElementById('editor-meta').textContent = `${edition.tracks.length} tracks selected · editor's compilation · ${edition.published_at ? `${edition.published_at} published` : 'Playlist archive'}`;
         const actions = document.getElementById('editor-actions');
-        actions.replaceChildren(externalLink('Listen to Playlist ↗', edition.playlist_url));
+        actions.replaceChildren(externalLink('YouTube Music ↗', edition.playlist_url));
+        if (edition.spotify_url) actions.append(externalLink('Spotify ↗', edition.spotify_url));
+        if (edition.melon_url) actions.append(externalLink('Melon ↗', edition.melon_url));
         if (edition.source_url) actions.append(externalLink('Read Original Article ↗', edition.source_url));
         const orderedTracks = [...edition.tracks.filter(track => track.highlight), ...edition.tracks.filter(track => !track.highlight)];
         const teasers = orderedTracks.map(track => {
