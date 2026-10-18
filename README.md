@@ -18,8 +18,8 @@ Apple Music · Spotify · Melon · YouTube Music 차트를 통합 분석하여 �
   - `HYPE_DB_BACKEND=aiven`으로 Aiven PostgreSQL을 사용합니다. GitHub Actions도 같은 전용 계정·연결 설정을 사용합니다.
   - `HYPE_DB_BACKEND=sqlite`로 로컬 SQLite를 명시적으로 선택할 수 있습니다. Aiven 연결 실패 시 다른 DB로 전환하지 않습니다.
   - 트랙 정규화, 플랫폼별 순위, 매칭 이력, Hype 리포트를 DB에 누적합니다.
-- **화제성 분석 (Hype Wave)**: Apple Music · Melon Gen-Z · YouTube Music 3개 차트를 통합한 Hype Index로 급상승 곡을 발굴합니다.
-- **프론트엔드 대시보드**: `docs/api/history.json`에 최근 31일 이력을 누적하여 GitHub Pages에서 시각화합니다.
+- **화제성 분석 (Hype Wave)**: Apple Music · Melon Gen-Z · YouTube Music 3개 차트의 순위 점수를 가중 합산한 Hype Index를 계산합니다.
+- **프론트엔드 대시보드**: 완료된 DB 기록으로 최근 31일 범위의 `docs/api/history.json`을 생성하고 GitHub Pages에서 시각화합니다.
 - **차트 웹 v2**: 높이 116px(모바일 120px)의 연간 Editor's Choice 미리보기와 연도별 전체 보기를 제공합니다. 2019~2025년 7개 연도의 선정 항목 110개와 선정 이유는 브런치 원문을 바탕으로 `docs/api/editors-choice.json`에서 관리합니다.
 
 ---
@@ -33,9 +33,9 @@ Apple Music · Spotify · Melon · YouTube Music 차트를 통합 분석하여 �
 | Job Name | Source | Target | Frequency | Limit |
 | :--- | :--- | :--- | :--- | :--- |
 | **KR-Top-Songs** | [오늘의 TOP: 대한민국](https://music.apple.com/kr/new/top-charts/songs) | [YTM](https://music.youtube.com/playlist?list=PLtawHGpcUVZXESVtlr4-HkbpRJQhhYZnr) | Daily | 200 |
-| **KR-Top-100** ★ | [Top 100: South Korea](https://music.apple.com/us/playlist/top-100-south-korea/pl.d3d10c32fbc540b38e266367dc8cb00c) | [YTM](https://music.youtube.com/playlist?list=PLtawHGpcUVZWeko8ek3LWy9gav1sg9FFw) | Daily | 100 |
-| **Seoul-Top-25** | [Top 25: Seoul](https://music.apple.com/us/playlist/top-25-seoul/pl.d6f003a501da4b3c9d33b0c7b8cfa0ae) | [YTM](https://music.youtube.com/playlist?list=PLtawHGpcUVZWrHIqj-huLBKgOiKVFkNLJ) | Daily | 25 |
-| **Busan-Top-25** | [Top 25: Busan](https://music.apple.com/us/playlist/top-25-busan/pl.b4a7b0c2558941f68b329cde7774139a) | [YTM](https://music.youtube.com/playlist?list=PLtawHGpcUVZUUiQ122rfx-_OFMJNgPlFT) | Daily | 25 |
+| **KR-Top-100** ★ | [Top 100: South Korea](https://music.apple.com/kr/playlist/top-100-south-korea/pl.d3d10c32fbc540b38e266367dc8cb00c) | [YTM](https://music.youtube.com/playlist?list=PLtawHGpcUVZWeko8ek3LWy9gav1sg9FFw) | Daily | 100 |
+| **Seoul-Top-25** | [Top 25: Seoul](https://music.apple.com/kr/playlist/top-25-seoul/pl.d6f003a501da4b3c9d33b0c7b8cfa0ae) | [YTM](https://music.youtube.com/playlist?list=PLtawHGpcUVZWrHIqj-huLBKgOiKVFkNLJ) | Daily | 25 |
+| **Busan-Top-25** | [Top 25: Busan](https://music.apple.com/kr/playlist/top-25-busan/pl.b4a7b0c2558941f68b329cde7774139a) | [YTM](https://music.youtube.com/playlist?list=PLtawHGpcUVZUUiQ122rfx-_OFMJNgPlFT) | Daily | 25 |
 
 > ★ = Hype Wave 입력 소스 (`hype_group: apple`, 가중치 0.4)
 
@@ -85,25 +85,29 @@ Apple Music · Spotify · Melon · YouTube Music 차트를 통합 분석하여 �
 | Melon Gen-Z 차트 | `melon_genz` | 0.4 | 10·20대 중심 트렌드 |
 | YouTube Music Weekly Hot 100 | `ytmusic` | 0.2 | 숏폼, 알고리즘 효과 |
 
-Hype Wave는 “이미 가장 대중적인 곡”을 다시 나열하는 차트가 아닙니다. Apple Music의 빠른 진입 신호, Melon Gen-Z의 트렌드, YouTube Music의 확산도를 함께 보면서 **지금 커지고 있지만 아직 완전히 대중 차트로 굳어지지 않은 곡**을 찾기 위한 차트입니다.
+같은 곡이 여러 입력 차트에 포함되면 소스별 점수를 합산합니다. 현재 점수는 각 차트의 순위를 기준으로 계산하며, 일별 순위 변화량을 추가 점수로 사용하지 않습니다.
 
 ### 지수 계산 방식
 
-각 소스 차트의 순위(1~100)를 `hype_scoring.py`의 `calculate_rank_score()`로 점수화합니다:
+각 소스 차트의 순위(1~100)를 `hype_scoring.py`의 `calculate_rank_score()`로 점수화합니다. 이 범위를 벗어나거나 순위가 없으면 0점입니다.
+
 - **Power Score**: `1.1 × (100 / √rank − 10) + 1` — 상위권 파급력 강조
 - **Exponential Score**: 지수 감쇠 함수 — 순위 구간별 차등 반영
 - 두 점수의 평균을 최종 랭크 점수로 사용합니다.
 
 가중치(`apple: 0.4`, `melon_genz: 0.4`, `ytmusic: 0.2`)를 곱한 후 합산하여 **Hype Index**를 산출합니다.
 
-### 모멘텀 지표
+### 출력 지표
 
-- **WAVE (🌊)**: Apple Music Top 100에 진입했으나 Melon에는 아직 없는 곡. 대중적 인기 폭발 직전 상태.
-- **NEW WAVE (✨)**: 전날 차트에 없었으나 오늘 새로 진입하며 WAVE 조건도 만족하는 '가장 신선한' 트렌드 곡.
+- `hype_index` / `hype_rank`: 통합 점수와 그에 따른 순위
+- `apple_rank` / `melon_rank` / `melon_genz_rank` / `ytmusic_rank`: 소스별 순위. 해당 차트에 없으면 `null`
+
+현재 `history.json` 내보내기는 이 점수·순위 필드를 저장합니다. 대시보드에 남아 있는 WAVE·NEW WAVE 표시용 `is_wave`, `is_new_wave` 플래그는 생성하지 않습니다.
 
 ### 데이터 활용
 
-- 모든 결과가 `docs/api/history.json`에 최근 31일간 누적됩니다.
+- `docs/api/history.json`은 곡 메타데이터(`tracks`)와 날짜별 순위(`rankings`)를 분리한 `schema_version: 2` 형식입니다.
+- DB의 최신 완료된 Apple 기준일에서 계산한 Hype 표시 날짜를 기준으로 31일을 보관합니다. 완료된 원본 기록이 없는 날짜는 비어 있을 수 있으므로 항상 31개 날짜가 생기는 것은 아닙니다.
 - [HYPE WAVE Dashboard](https://colinky.github.io/hype_wave)에서 시각화된 차트를 확인할 수 있습니다.
 
 ---
@@ -122,7 +126,10 @@ sync_config.json                      ← 작업 정의 (v2 스키마)
        ├── ytmusic_to_ytmusic_crawl.py        ← YouTube Music 차트 크롤러
        └── hype_moment.py                     ← Hype Wave 생성기
               │
-              ├── hype_db.py           ← DB 스키마 · 트랙 정규화 · 리포트
+              ├── hype_db.py           ← DB 기능의 공통 진입점
+              ├── hype_db_schema.py    ← 연결 · 스키마 검증
+              ├── hype_db_store.py     ← 원본 · 매칭 · 게시 감사 기록 저장
+              ├── hype_db_reports.py   ← Hype 조회 · history 생성
               └── hype_scoring.py      ← 순위 점수 계산 함수
        │
    ytmusic_playlist_sync.py           ← 공통 유틸 (매칭 엔진, 플레이리스트 동기화)
@@ -133,7 +140,7 @@ sync_config.json                      ← 작업 정의 (v2 스키마)
 
 | 항목 | 용도 |
 | :--- | :--- |
-| Aiven PostgreSQL | 운영 및 로컬 기본 DB. `HYPE_DB_BACKEND=aiven`과 Aiven URI·호스트·CA 사용 |
+| Aiven PostgreSQL | 운영 DB. 로컬에서도 `HYPE_DB_BACKEND=aiven`과 Aiven URI·호스트·CA로 선택 |
 | Supabase PostgreSQL | 원본 백업·명시적인 복구 작업에서만 사용 |
 | `hype_wave_data.db` | `HYPE_DB_BACKEND=sqlite`에서 사용하는 로컬 DB |
 | 번역 캐시 | 선택한 PostgreSQL의 번역 테이블을 사용. SQLite 모드에서는 `ytmusic_cache.db` 사용 |
@@ -150,6 +157,8 @@ sync_config.json                      ← 작업 정의 (v2 스키마)
 | `match_runs` / `match_attempts` / `match_candidates` | 매칭 실행 이력과 후보 |
 | `metadata_lookup_index` | 제목/아티스트/앨범 기반 bulk cache lookup |
 | `playlist_update_runs` / `playlist_update_items` | YouTube Music playlist 업데이트 audit |
+| `source_song_relations` | 공식 차트의 원본 영상과 공식 오디오 연결 근거 |
+| `chart_source_audit` | YouTube 차트 집계 기간 · 수집 방식 · 검증 결과 |
 
 Aiven의 테이블·인덱스·RLS·권한은 관리자 계정으로 미리 설치합니다. 실행 계정 `hype_sync`는 업무 데이터만 수정하며 스키마 생성·변경을 하지 않습니다. Supabase PostgreSQL 사용 시 `hype_db.py`가 hot path에 필요한 index를 1회 확인하고 누락된 index를 생성합니다. `sync_all.py`는 부모 프로세스에서 index를 먼저 확인한 뒤 child 작업에는 `HYPE_SKIP_POSTGRES_INDEX_CHECK=1`을 전달해 중복 원격 확인을 줄입니다.
 
@@ -162,13 +171,15 @@ Aiven의 테이블·인덱스·RLS·권한은 관리자 계정으로 미리 설�
    - `get_bulk_cached_matches()`가 현재 작업 tracks만 대상으로 `manual_overrides`, `platform_song_ids`, `metadata_lookup_index`, `yt_video_ids`, `tracks`, `track_list`를 bulk 조회합니다.
    - Spotify도 전체 cache load 없이 현재 playlist tracks만 targeted 조회합니다.
 3. **매칭 루프**
-   - DB 왕복 없이 메모리 cache와 YouTube Music 검색 결과를 사용합니다.
+   - 미리 읽은 cache와 YouTube Music 검색·메타데이터 조회 결과를 사용합니다.
+   - 공식 차트의 오디오 연결 확인이나 곡 식별 정보 복구에는 추가 DB 조회·갱신이 필요할 수 있습니다.
 4. **매칭 후 결과 저장**
    - `match_runs`, `tracks`, `yt_video_ids`, `platform_song_ids`, `track_list`, `metadata_lookup_index`, `match_attempts`, `match_candidates`를 bulk upsert합니다.
    - 오래된 `match_attempts` / `match_candidates`는 DB별 SQL로 정리합니다.
 5. **프론트엔드 history export**
    - `sync_all.py`에서는 각 child 작업마다 export하지 않고, 전체 작업 완료 후 `docs/api/history.json`을 1회 갱신합니다.
-   - 기본 동작은 최신 날짜만 갱신하고 31일을 초과한 history를 pruning합니다.
+   - Hype 입력의 수집·매칭 완료와 Apple 기준일의 일치를 확인하고, 내보낸 파일의 날짜·순위·메타데이터를 검증합니다.
+   - 기본 동작은 최신 날짜만 갱신하고 31일 범위를 벗어난 이력을 제거합니다. 과거 기간 전체 재계산은 `full_rebuild=True`로 별도 실행합니다.
 
 ---
 
@@ -178,7 +189,7 @@ Aiven의 테이블·인덱스·RLS·권한은 관리자 계정으로 미리 설�
 
 `.env.example`의 형식으로 `.secrets/.env`에 `HYPE_DB_BACKEND=aiven`, `AIVEN_DB_URI`, `AIVEN_DB_HOST`, `AIVEN_DB_CA_CERTIFICATE`를 설정합니다. URI는 `hype_sync` 계정과 `sslmode=require`를 사용합니다. 인증서는 한 줄 문자열에 `\n`으로 줄바꿈을 표현하며 실행 중 권한 600의 임시 PEM 파일로 생성됩니다. 로컬 절대 경로를 Secret에 저장하지 않습니다.
 
-`sync_all.py`와 개별 크롤러는 환경 파일을 읽습니다. 이미 설정된 셸 환경변수가 우선하므로 이전 `HYPE_DB_BACKEND` 값이 남아 있으면 실행 시 명시적으로 지정합니다. 선택값이 없으면 기존 Supabase/SQLite 동작을 유지합니다.
+`sync_all.py`는 저장소 루트의 `.env`, `.secrets/.env` 순서로 읽으며 이미 설정된 값은 덮어쓰지 않습니다. 개별 크롤러의 기본 환경 파일은 `.env`이므로 단독 실행 예제처럼 `--env-file .secrets/.env`를 지정합니다. 셸 환경변수가 가장 우선하므로 사용할 `HYPE_DB_BACKEND`를 명시하는 것이 좋습니다. 선택값이 없으면 `SUPABASE_DB_URL`이 있을 때 Supabase, 그 외에는 SQLite를 사용합니다.
 
 2026-09-19 이전 백업과 검증 기록은 `backups/aiven_migration_20260919/`에 보관하며 Git에서 제외합니다. 관리자 접속 정보는 `.secrets/aiven-migration-admin.env`에 별도 보관하고 앱에는 제공하지 않습니다. 상세 기록: [Aiven 이전 기록](AIVEN_MIGRATION_PLAN.md).
 
@@ -200,11 +211,20 @@ Aiven의 테이블·인덱스·RLS·권한은 관리자 계정으로 미리 설�
 ### 3. YouTube Music 인증 (browser.json 생성)
 
 ```bash
-pip install -r requirements.txt
-ytmusicapi browser
+python -m venv .venv
+source .venv/bin/activate
+python -m pip install -r requirements.txt
+python -m playwright install webkit
+
+mkdir -p .secrets
+if [ ! -f .secrets/.env ]; then
+    cp .env.example .secrets/.env
+fi
+# .secrets/.env의 Aiven 설정을 실제 값으로 작성한 뒤 인증 파일 생성
+ytmusicapi browser --file .secrets/browser.json
 ```
 
-생성된 `browser.json`의 내용을 `YTMUSIC_BROWSER_JSON` Secret에 저장합니다.
+기존 환경 파일은 유지합니다. 생성된 `.secrets/browser.json`의 전체 내용을 `YTMUSIC_BROWSER_JSON` Secret에 저장합니다. `.secrets/`는 Git에서 제외하며 인증 파일과 DB 접속 정보는 커밋하지 않습니다. GitHub Actions는 Python 3.11을 사용합니다.
 
 #### Supabase 공개 접근 차단
 
@@ -224,18 +244,14 @@ Aiven에는 `db_migrations/20260919_aiven_runtime_access.sql`을 적용했습니
 {
     "job_name": "My-Chart",
     "enabled": true,
-    "service": "apple | spotify | melon | melon_gen | ytmusic | hypex",
-    "frequency": "daily | weekly",
-    "list_type": "chart | playlist",
+    "service": "apple",
+    "frequency": "daily",
+    "list_type": "chart",
     "playlist_name": "my_chart_to_ytm",
-    "source_urls": ["https://..."],
+    "source_urls": ["https://music.apple.com/kr/playlist/top-100-south-korea/pl.d3d10c32fbc540b38e266367dc8cb00c"],
     "target_id": "YouTube-Playlist-ID",
     "entity_limit": 100,
-    "schedule": "Monday",
-    "shuffle": true,
-    "include_in_hype": true,
-    "hype_group": "apple | melon_genz | ytmusic",
-    "hype_weight": 0.4
+    "include_in_hype": false
 }
 ```
 
@@ -246,7 +262,7 @@ Aiven에는 `db_migrations/20260919_aiven_runtime_access.sql`을 적용했습니
 | `job_name` | ✅ | 작업 고유 이름 (로그 디렉토리명으로도 사용) |
 | `service` | ✅ | 소스 서비스 (`apple`, `spotify`, `melon`, `melon_gen`, `ytmusic`, `hypex`) |
 | `playlist_name` | ✅ | 내부 플레이리스트 식별자 |
-| `source_urls` | ✅ | 소스 URL 배열 (`melon_gen`의 경우 `{gen, url, weight}` 객체 배열) |
+| `source_urls` | 소스 작업 | 소스 URL 배열 (`melon_gen`의 경우 `{gen, url, weight}` 객체 배열). DB 입력으로 계산하는 `hypex`는 생략 |
 | `target_id` | ✅ | 대상 YouTube Music 플레이리스트 ID |
 | `enabled` | - | 작업 활성화 여부 (기본: `true`) |
 | `frequency` | - | 실행 빈도 (`daily` / `weekly`) |
@@ -283,40 +299,69 @@ Aiven에는 `db_migrations/20260919_aiven_runtime_access.sql`을 적용했습니
 
 ## 💻 로컬 실행
 
+아래 명령은 저장소 루트와 활성화된 가상환경을 기준으로 합니다.
+
 ```bash
 # 전체 작업 순차 실행 (실제 플레이리스트 업데이트 포함)
 HYPE_DB_BACKEND=aiven python sync_all.py
 
 # 개별 크롤러 실행
-python apple_music_to_ytmusic_crawl.py \
-    --apple-playlist-urls "URL" \
+HYPE_DB_BACKEND=aiven python apple_music_to_ytmusic_crawl.py \
+    --env-file .secrets/.env \
+    --apple-playlist-urls "https://music.apple.com/kr/new/top-charts/songs" \
     --yt-playlist-id "PLAYLIST_ID" \
     --yt-auth .secrets/browser.json \
     --job-name "KR-Top-Songs" \
-    --playlist-name "app_krcc_to_ytm" \
+    --playlist-name "apl_krcc_to_ytm" \
     --apple-chart-limit 200
 
-python melon_to_ytmusic_crawl.py \
-    --melon-urls "URL" \
+HYPE_DB_BACKEND=aiven python melon_to_ytmusic_crawl.py \
+    --env-file .secrets/.env \
+    --melon-urls "https://www.melon.com/chart/day/index.htm" \
     --yt-playlist-id "PLAYLIST_ID" \
     --yt-auth .secrets/browser.json \
     --job-name "Top-100-Daily" \
-    --playlist-name "mel_krdc_to_ytm"
+    --playlist-name "mln_krdc_to_ytm"
 
 # 드라이 런 (실제 업데이트 없음)
-python apple_music_to_ytmusic_crawl.py --apple-playlist-urls "URL" --yt-playlist-id "ID" --dry-run
+HYPE_DB_BACKEND=aiven python apple_music_to_ytmusic_crawl.py \
+    --env-file .secrets/.env \
+    --apple-playlist-urls "https://music.apple.com/kr/new/top-charts/songs" \
+    --yt-auth .secrets/browser.json --job-name "KR-Top-Songs" \
+    --playlist-name "apl_krcc_to_ytm" --apple-chart-limit 200 \
+    --yt-playlist-id "PLAYLIST_ID" --dry-run
+
+# YouTube 공식 주간 차트 수집 및 플레이리스트 동기화
+HYPE_DB_BACKEND=aiven python ytmusic_to_ytmusic_crawl.py \
+    --env-file .secrets/.env \
+    --youtube-charts-url "https://charts.youtube.com/charts/TopSongs/kr/weekly" \
+    --yt-auth .secrets/browser.json --yt-playlist-id "PLAYLIST_ID" \
+    --job-name "Weekly-Hot-100" --playlist-name "yt_krwc_to_ytm"
 
 # 다운로드한 YouTube 주간 CSV를 DB에만 반영 (집계 종료일 명시)
-HYPE_DEFER_HISTORY_EXPORT=1 python ytmusic_to_ytmusic_crawl.py \
+HYPE_DB_BACKEND=aiven HYPE_DEFER_HISTORY_EXPORT=1 python ytmusic_to_ytmusic_crawl.py \
+    --env-file .secrets/.env \
     --youtube-charts-csv youtube-charts-top-songs-kr-weekly-20261001.csv \
     --chart-period-end 2026-10-01 --yt-auth .secrets/browser.json --db-only
 
-# DB 수동 관리
+# 로컬 SQLite의 split track UID 점검 (변경 없음)
 HYPE_DB_BACKEND=sqlite python heal_split_tracks.py --db-path hype_wave_data.db --dry-run
-python heal_split_tracks.py --db-path hype_wave_data.db # split track UID 정리
 ```
 
 누락된 YouTube 주차가 여러 개면 오래된 주차부터 가져옵니다. CSV의 영상 URL이 `n/a`인 곡도 순위·제목·가수는 보존하며, 내부 `fallback:` 식별자로 저장하고 영상 매칭은 미확정으로 남깁니다. 원본에 없는 영상 ID를 생성하지 않습니다.
+
+### YouTube 주간 차트 수집 순서와 429 처리
+
+`Weekly-Hot-100`의 자동 수집 순서는 다음과 같습니다.
+
+| 순서 | 경로 | 다음 경로로 넘어가는 조건 |
+| :--- | :--- | :--- |
+| 1 | 공식 페이지가 CSV를 반환하거나 페이지에 노출한 CSV 다운로드 링크 | 사용 가능한 CSV가 없음 |
+| 2 | 공식 browse API의 영어·한국어 응답 | 요청 실패 또는 주간 차트 검증 실패 |
+| 3 | Playwright WebKit으로 공식 차트 조회 | 요청 실패, 화면 기간 불일치 또는 데이터 검증 실패 |
+| 4 | `snapshots/youtube-charts/kr-weekly-YYYY-MM-DD.json` | 요청 주차와 일치하는 유효한 파일이 없으면 수집 실패 |
+
+`--youtube-charts-csv`를 지정하면 해당 파일을 우선 사용합니다. 공식 YouTube Music 플레이리스트를 읽는 `--use-source-playlist`는 별도 수동 모드이며, 날짜가 없는 플레이리스트를 주간 차트의 자동 대체 소스로 사용하지 않습니다.
 
 YouTube Charts 조회는 `429` 및 일시적인 서버 오류에 최대 3회 재시도하며, `Retry-After`가 있으면 그 대기 시간을 따릅니다. 영어·한국어 중 한 요청이 실패해도 다른 요청의 유효한 차트는 유지하고, 실패 이유는 언어와 함께 경고 로그에 남깁니다.
 
@@ -326,7 +371,35 @@ HTTP/API 수집이 실패하거나 주간 데이터가 불완전하면 Playwrigh
 
 둘 다 실패하면 `snapshots/youtube-charts/`의 검증된 공식 응답을 재사용합니다. 명시한 집계 주 또는 최신 완료된 목요일(UTC)의 주차와 정확히 일치해야 하며, 국가·유형·100위·원본 영상 ID·집계 기간·수집 시각·SHA-256을 다시 검증합니다. 이전 주차를 새 주차로 바꾸지 않습니다. 로그와 DB 원본 수집 기록에 `collection_method=verified_snapshot`, 원래 `source_collected_at`, 체크섬을 남기며 재사용 시 수집 시각을 갱신하지 않습니다. 새로운 공식 응답을 검증한 운영 실행은 공개 차트 스냅샷을 저장하고 Actions가 다른 작업의 성공 여부와 관계없이 이를 커밋합니다. 해당 주차의 유효한 스냅샷도 없으면 수집 실패로 처리하고 기존 차트와 플레이리스트를 보존합니다. 과거 주차는 기간을 명시한 스냅샷 또는 CSV를 사용합니다.
 
+초기 파일 `kr-weekly-2026-10-08.json`은 2026-10-14 21:43:51(KST)에 성공한 공식 API 응답에서 필요한 필드를 추려 저장한 자료입니다. 원본 집계 기간은 2026-10-02~2026-10-08이며 파일명은 집계 종료일을 뜻합니다. `collected_at`은 응답을 저장한 시각이고 SHA-256은 저장 내용의 무결성 검사에 사용합니다.
+
+API와 브라우저가 모두 429인 상황에서 새 주차를 가져오는 독립적인 추가 수집 경로는 현재 없습니다. 예를 들어 집계 종료일이 `2026-10-15`인 요청에 `kr-weekly-2026-10-08.json`을 재사용하지 않습니다.
+
 로컬에서는 `python -m playwright install webkit`으로 브라우저를 설치합니다. `python tests/check_youtube_charts_browser.py`는 정상 수집과 강제 HTTP 장애의 대체 수집을 실행하고, 동일한 집계 기간·100위 영상 순서를 검증하며 실제 사용한 수집 방식과 원래 수집 시각을 출력합니다. DB·플레이리스트를 변경하지 않습니다. Actions는 `python -m playwright install --with-deps webkit`으로 브라우저와 Linux 의존성을 설치하고, 별도의 `YouTube Charts Browser Check` 작업으로 같은 검증을 수행합니다.
+
+검증 작업의 성공 여부와 함께 로그의 `method` 및 결과 파일을 확인합니다. `verified_snapshot`으로 통과한 결과는 해당 스냅샷의 검증·재사용 결과입니다.
+
+### DB에서 최근 31일 이력 재작성
+
+기본 일일 실행은 최신 날짜만 갱신합니다. 최근 보관 기간 전체를 현재 DB의 곡 식별 정보와 점수 규칙으로 다시 계산하려면 기존 파일을 백업한 뒤 다음 명령을 실행합니다.
+
+```bash
+mkdir -p backups/history
+cp docs/api/history.json "backups/history/history.$(date -u +%Y%m%dT%H%M%SZ).json"
+HYPE_DB_BACKEND=aiven python - <<'PY'
+from pathlib import Path
+from sync_all import load_env_file
+from hype_db import export_frontend_history
+
+load_env_file(Path(".secrets/.env"))
+payload = export_frontend_history(
+    "hype_wave_data.db", "docs/api/history.json", days=31, full_rebuild=True,
+)
+print(payload["dates"][-1], payload["dates"][0], len(payload["dates"]))
+PY
+```
+
+완료된 DB 원본 기록이 없는 날짜는 생성하지 않습니다. 과거 이력에는 현재의 곡 정규화 정보와 예정 수집 요일을 적용하므로, 당시 실제 게시 지연까지 재현하지는 않습니다. 파일은 검증한 임시 파일로 교체하며, 로컬 재작성 결과의 Git 커밋·푸시는 별도 작업입니다.
 
 ---
 
@@ -353,20 +426,25 @@ python reconcile_playlist_update.py \
 
 ## ⚙️ GitHub Actions 워크플로우
 
-2026-09-19 전환 완료: main 반영, 실제 러너 연결 점검, 전체 동기화 #196 및 GitHub Pages 배포가 모두 성공했습니다. 제한 계정 `hype_sync`, TLS 1.3, 20개 테이블 RLS를 확인했고 예약 실행을 재개했습니다. 30초 간격 관측에서 실행 계정 연결은 최대 2개(제한 5개)였습니다.
-
-`daily-sync.yml` — 매일 UTC 07:05(KST 16:05)에 실행 예약 (수동 트리거 가능)
+[`daily-sync.yml`](.github/workflows/daily-sync.yml)은 매일 UTC 07:05(KST 16:05)에 실행되도록 예약되어 있으며 수동 실행도 지원합니다. 같은 워크플로우의 실행은 `daily-unified-music-sync` 그룹으로 직렬화합니다.
 
 실행 요일은 UTC로 판단하므로 시작이 지연되어 KST 자정을 지나도 UTC 예정 요일의 작업을 실행합니다. 가장 최근 예정 요일부터 수집·매칭과 게시를 모두 마친 기록이 없는 주간 작업은 다음 일일 실행에서 재시도합니다. 이 재시도는 최근 예정 회차를 대상으로 하며, 과거 여러 누락 주차의 복원은 별도 수동 작업으로 수행합니다.
 
 `sync_all.py`는 시작 시 UTC 날짜를 한 번 정하고 `HYPE_SYNC_DATE`로 모든 하위 작업에 전달합니다. 처리 중 자정을 넘어도 이 실행의 내부 기준일은 같습니다. 독립 실행은 UTC 오늘을 사용합니다. Apple 일간 차트의 기준일은 이 날짜에서 하루를 뺀 값이고, Hype 표시 날짜는 다시 하루를 더한 값입니다. 예를 들어 UTC 10월 5일 15:46 실행은 Apple 기준일 10월 4일, Hype 날짜 10월 5일로 기록합니다. 원본에 날짜가 없는 경우의 기준일도 이 UTC 날짜를 사용하며, YouTube·멜론 원본에 명시된 집계 날짜와 Apple의 `--reference-period`는 바꾸지 않습니다. 기존 DB 날짜를 일괄 이동하지 않습니다.
 
 ```
-1. Checkout → Python 3.11 설정 → 의존성 설치 → 회귀 테스트
+1. Checkout → Python 3.11 설정 → 의존성·WebKit 설치 → 회귀 테스트
 2. YouTube Music 인증 파일 복원
 3. sync_all.py 실행 (sync_config.json 기반 전체 작업)
-4. docs/api/history.json 변경 시 자동 커밋 & 푸시 (GitHub Pages 업데이트)
+4. 검증된 history.json과 새 공식 차트 스냅샷을 커밋·푸시
+5. 항상 인증 파일 정리
 ```
+
+`history_ready=true`가 출력된 경우에만 `history.json`을 커밋 대상으로 추가합니다. `.gitignore`는 배포에 필요한 웹 파일과 두 JSON 파일만 허용하며, Actions는 이력 파일을 명시적으로 추가하는 `git add -f -- docs/api/history.json`을 사용합니다. 검증된 차트 스냅샷은 다른 동기화 작업이 실패해도 실행이 취소되지 않았다면 커밋 대상으로 추가합니다. 변경된 파일이 없으면 새 커밋을 만들지 않습니다.
+
+수집·매칭 완료와 플레이리스트 게시 성공은 별도로 판단합니다. 게시 실패가 있어도 Hype 입력 데이터와 내보내기 검증이 완료되면 이력을 갱신할 수 있으며, 전체 워크플로우는 실패 상태로 남을 수 있습니다. 재실행은 기존 실행의 커밋을 사용하므로 워크플로우 수정 후에는 최신 main을 선택해 새 수동 실행을 시작합니다.
+
+[`youtube-charts-browser-check.yml`](.github/workflows/youtube-charts-browser-check.yml)은 관련 PR 변경 또는 수동 실행에서 오프라인 회귀 테스트, 실제 아티스트 메타데이터 조회, 주간 차트 수집·대체 경로 검증을 수행하고 결과를 아티팩트로 저장합니다. 이 검증은 DB와 플레이리스트를 수정하지 않습니다.
 
 ---
 
@@ -378,6 +456,7 @@ PyJWT[crypto]>=2.8.0
 ytmusicapi>=1.10.0
 beautifulsoup4>=4.12.0
 psycopg2-binary>=2.9.0
+playwright==1.59.0
 ```
 
 ```bash
@@ -424,14 +503,21 @@ hype_wave/
 ├── melon_gen_to_ytmusic_crawl.py
 ├── ytmusic_to_ytmusic_crawl.py
 ├── hype_moment.py                 # Hype Wave 차트 생성기
-├── hype_db.py                     # DB 스키마 · 트랙 정규화 · 리포트 쿼리
+├── hype_db.py                     # DB 공통 진입점
+├── hype_db_common.py              # DB 설정 · 공통 모델
+├── hype_db_schema.py              # 연결 · 스키마 검증
+├── hype_db_store.py               # 원본 · 매칭 · 게시 감사 기록 저장
+├── hype_db_reports.py             # Hype 조회 · history 생성
 ├── hype_scoring.py                # 순위 점수 계산 (Power + Exponential)
-├── ytmusic_playlist_sync.py       # 공통 매칭 엔진 · 플레이리스트 동기화
+├── ytmusic_playlist_sync.py        # 공통 매칭 엔진 · 플레이리스트 동기화
 ├── heal_split_tracks.py           # split track UID 정리
 ├── matching_alias.json            # 별칭 클러스터 · 수동 오버라이드
 ├── requirements.txt
 ├── .github/workflows/
-│   └── daily-sync.yml             # GitHub Actions 워크플로우
+│   ├── daily-sync.yml             # 운영 동기화 · 결과 커밋
+│   └── youtube-charts-browser-check.yml  # 수집 경로 검증
+├── snapshots/youtube-charts/      # 집계 기간별 공식 차트 스냅샷
+├── tests/                         # 회귀 테스트 · 읽기 전용 수집 점검
 ├── docs/
 │   ├── index.html                 # Hype Wave 프론트엔드 대시보드
 │   ├── editors-choice.css          # v2 연간 선정곡 화면 · 반응형 스타일
@@ -450,4 +536,4 @@ hype_wave/
 
 기존 SUPABASE_DB_URL은 명시적인 복구·원본 백업용으로만 보관합니다. Aiven 선택 후 설정·연결·캐시 오류가 나면 다른 DB로 대체하지 않고 실패 처리합니다. Supabase와 Aiven에 서로 다른 쓰기가 발생했다면 단순 URL 변경 대신 양쪽 데이터를 백업·대조한 뒤 복구합니다.
 
-운영 전환은 2026-09-19 전체 동기화 및 Pages 배포로 확인했습니다. 이후 연결 점검 전용 코드와 테스트 워크플로를 제거했으며, 수동 실행과 예약 실행은 모두 동기화를 수행합니다.
+`daily-sync.yml`의 수동·예약 실행은 실제 동기화를 수행합니다. 수집 경로만 확인할 때는 별도의 `YouTube Charts Browser Check`를 사용합니다.

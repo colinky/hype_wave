@@ -653,15 +653,15 @@
             <div class="editor-preview-intro">
                 <h2 id="preview-title"><span>YEARLY</span>EDITOR'S CHOICE</h2>
                 <div class="editor-preview-year">
-                    <select id="preview-year" aria-label="미리보기 선정 연도"></select>
+                    <select id="preview-year" aria-label="Preview Selection Year"></select>
                     <span class="editor-badge" id="preview-status"></span>
                 </div>
             </div>
             <div class="editor-preview-feed">
-                <div class="editor-preview-tracks" id="preview-tracks" aria-label="전체 선정곡, 올해의 곡 먼저"></div>
-                <button type="button" class="editor-motion" id="preview-motion" aria-label="선정곡 자동 흐름" aria-pressed="true" title="자동 흐름 일시정지">Ⅱ</button>
+                <div class="editor-preview-tracks" id="preview-tracks" aria-label="All Selected Tracks, This Year's Tracks First"></div>
+                <button type="button" class="editor-motion" id="preview-motion" aria-label="Selected Tracks Auto-Flow" aria-pressed="true" title="Pause Auto-Flow">Ⅱ</button>
             </div>
-            <a class="editor-view-all" id="editor-view-all" href="#editors-choice">전체 보기 →</a>
+            <a class="editor-view-all" id="editor-view-all" href="#editors-choice">View All →</a>
         </section>
 
         <div class="controls">
@@ -694,16 +694,16 @@
                 <h2 id="editors-title" tabindex="-1">YEARLY EDITOR'S CHOICE</h2>
                 <div class="editor-year-row">
                     <div><span id="editor-year-display"></span> <span class="editor-badge" id="editor-status"></span></div>
-                    <label class="editor-year-label">선정 연도 <select id="editor-year"></select></label>
+                    <label class="editor-year-label">Selection Year <select id="editor-year"></select></label>
                 </div>
-                <!-- <p class="editor-description">한 해를 함께한 음악, 오래 남은 순간들.</p>-->
+                <p class="editor-description">The music we shared this year, moments that lasted.</p>
                 <p class="editor-meta" id="editor-meta"></p>
                 <div class="editor-actions" id="editor-actions"></div>
             </div>
             <p class="editor-message" id="editor-message" role="status">Loading Editors' Choice...</p>
             <button type="button" class="editor-retry" id="editor-retry" hidden>Retrying Loading...</button>
             <div class="editor-grid" id="editor-grid"></div>
-            <!--<p class="editor-source-note" id="editor-source-note" hidden>순위가 아닌 원문 수록 순서입니다. 선정 이유는 원문을 요약했으며, 개별 선정평이 없는 곡은 별도로 표시했습니다.</p>-->
+            <p class="editor-source-note" id="editor-source-note" hidden>Not Ranked - This is not a ranking but a curated list. </p>
         </section>
     </main>
 
