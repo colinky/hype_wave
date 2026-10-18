@@ -17,6 +17,7 @@ tests/*
 !tests/test_youtube_charts_browser.py
 !tests/test_youtube_charts_snapshot.py
 !tests/check_youtube_charts_browser.py
+!tests/check_chart_web_v2.py
 utils/
 rules/
 scratch/
@@ -28,13 +29,22 @@ docs/api/*.backup_before_backfill
 .ruff_cache/
 backups/
 migrations/
-docs/
+docs/*
+!docs/index.html
+!docs/editors-choice.css
+!docs/editors-choice.js
+!docs/api/
+docs/api/*
+!docs/api/history.json
+!docs/api/editors-choice.json
 db_migrations/*
 .github/workflows/*
 !.github/workflows/daily-sync.yml
 !.github/workflows/youtube-charts-browser-check.yml
 *.lock
 diagnostic-artifacts/
+/design/
+/validation/
 
 /YTMusic_ID_Stability_Final_Verification.md
 /YTMusic_ID_Stability_Roadmap.md

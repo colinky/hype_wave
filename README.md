@@ -20,6 +20,7 @@ Apple Music · Spotify · Melon · YouTube Music 차트를 통합 분석하여 �
   - 트랙 정규화, 플랫폼별 순위, 매칭 이력, Hype 리포트를 DB에 누적합니다.
 - **화제성 분석 (Hype Wave)**: Apple Music · Melon Gen-Z · YouTube Music 3개 차트를 통합한 Hype Index로 급상승 곡을 발굴합니다.
 - **프론트엔드 대시보드**: `docs/api/history.json`에 최근 31일 이력을 누적하여 GitHub Pages에서 시각화합니다.
+- **차트 웹 v2**: 높이 116px(모바일 120px)의 연간 Editor's Choice 미리보기와 연도별 전체 보기를 제공합니다. 2019~2025년 7개 연도의 선정 항목 110개와 선정 이유는 브런치 원문을 바탕으로 `docs/api/editors-choice.json`에서 관리합니다.
 
 ---
 
@@ -385,6 +386,32 @@ pip install -r requirements.txt
 
 ---
 
+## 🎧 차트 웹 v2
+
+`docs/index.html`에서 일간 차트와 연간 Editor's Choice를 전환합니다. 미리보기는 116px(모바일 120px)이며, 전체 보기의 주소는 `#editors-choice-2025`처럼 연도를 포함합니다. 차트 복귀 시 날짜·서비스 선택을 유지합니다.
+
+메인 미리보기는 선택한 연도의 모든 선정곡을 천천히 순환합니다. 올해의 곡을 가장 앞에 두고 제목에만 헤더와 같은 골드 색상을 적용합니다. 일시정지 버튼, 마우스 오버·키보드 포커스 시 정지, 모바일 가로 스크롤을 지원하며 기기의 동작 줄이기 설정에서는 자동 흐름을 끕니다. 전체 보기의 원문 순서는 유지합니다.
+
+선정 목록은 [나만의 컴필레이션 앨범](https://brunch.co.kr/magazine/compilation)의 2019~2025년 원문과 연도별 플레이리스트를 바탕으로 `docs/api/editors-choice.json`에서 수동 관리합니다. `editions`에 연도를 추가하면 두 연도 선택기에 자동 반영됩니다. `reason`은 원문의 짧은 요약이며 개별 평이 없으면 `null`을 사용합니다. 원문·플레이리스트에서 확인한 영상만 `videos`에 넣고, 비어 있는 항목은 검색 링크로 표시합니다. 원문이 추천한 공연과 플레이리스트 음원을 함께 제공할 때는 링크 이름으로 구분합니다.
+
+2020년 선정글의 실제 발행일은 `2021-03-07`이며 선정 연도와 별도로 보존합니다. 원문에서 묶은 2019년의 `날 괴롭혀줘 + 못한 게 아니고`는 한 무대 영상에, 2024년의 `T + Tik Tak Tok`은 두 영상에 각각 연결합니다. 화면의 선정 개수는 원문에서 묶은 항목을 기준으로 셉니다.
+
+```bash
+python -m http.server 8765 --bind 127.0.0.1 --directory docs
+# 별도 터미널에서 브라우저 검증
+python -m playwright install webkit
+python tests/check_chart_web_v2.py
+# Chromium도 설치되어 있으면 추가 검증 가능
+python tests/check_chart_web_v2.py --browser chromium --output validation/web-v2/chromium
+# 배포된 페이지를 이전 차트 구현과 대조
+python tests/check_chart_web_v2.py --base-url https://colinky.github.io/hype_wave/ \
+    --baseline-ref HEAD~1 --output validation/web-v2/deployed
+```
+
+검증은 로컬 서버에서 320·390·768·1440px 화면, 연도 전환, 선정 이유, 뒤로 가기, 오류 후 재시도를 확인합니다. `HEAD`의 기존 화면과 두 날짜·네 서비스의 순위·점수·등락·링크를 대조하고 `validation/web-v2/`에 화면 캡처와 결과를 저장합니다. 기존 화면과 v2의 날짜 선택 형식이 유지되는 변경을 검증하는 용도이며, 초기 v2 변경을 커밋한 뒤에는 그 커밋의 화면을 기준으로 비교합니다. DB와 플레이리스트를 변경하지 않습니다. 기존 추이 그래프의 Chart.js CDN 연결이 필요합니다.
+
+---
+
 ## 📁 프로젝트 구조
 
 ```
@@ -407,8 +434,11 @@ hype_wave/
 │   └── daily-sync.yml             # GitHub Actions 워크플로우
 ├── docs/
 │   ├── index.html                 # Hype Wave 프론트엔드 대시보드
+│   ├── editors-choice.css          # v2 연간 선정곡 화면 · 반응형 스타일
+│   ├── editors-choice.js           # 연도 선택 · 전체 보기 · 차트 복귀
 │   └── api/
-│       └── history.json           # 최근 31일 Hype 차트 이력 (자동 생성)
+│       ├── history.json           # 최근 31일 Hype 차트 이력 (자동 생성)
+│       └── editors-choice.json    # 연간 선정곡 · 원문 요약 · 영상 링크 (수동 관리)
 └── logs/                          # 작업별 매칭 로그 (자동 생성, gitignore)
 ```
 
