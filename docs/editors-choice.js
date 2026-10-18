@@ -177,7 +177,7 @@
             return card;
         });
         document.getElementById('editor-grid').replaceChildren(...cards);
-        document.getElementById('editor-source-note').hidden = false;
+        document.getElementById('editor-source-note')?.removeAttribute('hidden');
         message.hidden = true;
         preview.hidden = false;
     }
