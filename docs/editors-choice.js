@@ -88,14 +88,14 @@
                 || !(edition.published_at === null || (typeof edition.published_at === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(edition.published_at)))
                 || !Array.isArray(edition.tracks) || !edition.tracks.length) throw new Error('Invalid edition');
             years.add(edition.year);
-            const source = new URL(edition.source_url);
+            const source = edition.source_url == null ? null : new URL(edition.source_url);
             const playlist = new URL(edition.playlist_url);
-            if (source.protocol !== 'https:' || source.hostname !== 'brunch.co.kr'
+            if ((source && (source.protocol !== 'https:' || source.hostname !== 'brunch.co.kr'))
                 || playlist.protocol !== 'https:' || !['www.youtube.com', 'music.youtube.com'].includes(playlist.hostname)
                 || playlist.pathname !== '/playlist' || !/^PL[\w-]+$/.test(playlist.searchParams.get('list') || '')) throw new Error('Invalid source');
             for (const track of edition.tracks) {
                 if (typeof track.title !== 'string' || !track.title.trim() || typeof track.artist !== 'string' || !track.artist.trim()
-                    || !(track.reason === null || (typeof track.reason === 'string' && track.reason.trim()))
+                    || !(track.reason == null || (typeof track.reason === 'string' && track.reason.trim()))
                     || !Array.isArray(track.videos) || track.videos.some(video => !/^[\w-]{11}$/.test(video.id) || typeof video.label !== 'string')) throw new Error('Invalid track');
             }
         }
@@ -131,15 +131,14 @@
         document.getElementById('editor-status').textContent = status;
         document.getElementById('editor-year-display').textContent = edition.year;
         document.getElementById('editor-meta').textContent = `${edition.tracks.length} tracks selected · editor's compilation · ${edition.published_at ? `${edition.published_at} published` : 'Playlist archive'}`;
-        document.getElementById('editor-actions').replaceChildren(
-            externalLink('Listen to Playlist ↗', edition.playlist_url),
-            externalLink(edition.published_at ? 'Read Original Article ↗' : 'Read Reference Note ↗', edition.source_url)
-        );
+        const actions = document.getElementById('editor-actions');
+        actions.replaceChildren(externalLink('Listen to Playlist ↗', edition.playlist_url));
+        if (edition.source_url) actions.append(externalLink('Read Original Article ↗', edition.source_url));
         const orderedTracks = [...edition.tracks.filter(track => track.highlight), ...edition.tracks.filter(track => !track.highlight)];
         const teasers = orderedTracks.map(track => {
             const link = node('a', `editor-preview-track${track.highlight ? ' is-highlight' : ''}`);
             link.href = path;
-            link.setAttribute('aria-label', `${track.highlight ? "This Year's Pick · " : ""}${track.title} · ${track.artist} Selection Reason`);
+            link.setAttribute('aria-label', `${track.highlight ? "This Year's Pick · " : ""}${track.title} · ${track.artist} ${'reason' in track ? 'Selection Reason' : 'View Selection'}`);
             const text = node('span', '');
             text.append(node('strong', '', track.title), node('small', '', track.artist));
             link.append(cover(track), text);
@@ -164,7 +163,7 @@
             const body = node('div', 'editor-pick-body');
             if (track.highlight) body.append(node('p', 'editor-highlight', "★ This Year's Pick"));
             body.append(node('h3', '', track.title), node('p', 'editor-artist', track.artist));
-            body.append(node('p', `editor-reason${track.reason ? '' : ' is-missing'}`, track.reason || 'No individual selection reason available.'));
+            if ('reason' in track) body.append(node('p', `editor-reason${track.reason ? '' : ' is-missing'}`, track.reason || 'No individual selection reason available.'));
             const links = node('div', 'editor-track-links');
             for (const video of track.videos) {
                 links.append(externalLink(`${video.label} ↗`, `https://www.youtube.com/watch?v=${video.id}`));

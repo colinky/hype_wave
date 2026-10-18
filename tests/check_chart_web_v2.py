@@ -77,15 +77,18 @@ def verify_archive_sources():
         2021: (15, 13, "PLtawHGpcUVZXeZYFVGQoc6AA7F66bvut3"),
         2020: (19, 9, "PLtawHGpcUVZUj3SFGm5jsPp4r1w5V1lMN"),
         2019: (14, 8, "PLtawHGpcUVZUeHXq2GyXqukHeE0zspirD"),
-        2018: (16, 8, "PLtawHGpcUVZU4KaAa00Nefim2Uxw9lZP6"),
-        2017: (17, 8, "PLtawHGpcUVZUnfybTrmnm0gvf3q9D0aCv"),
+        2018: (16, None, "PLtawHGpcUVZU4KaAa00Nefim2Uxw9lZP6"),
+        2017: (17, None, "PLtawHGpcUVZUnfybTrmnm0gvf3q9D0aCv"),
     }
     assert [edition["year"] for edition in DATA["editions"]] == list(sources)
     editions = {edition["year"]: edition for edition in DATA["editions"]}
     for year, (count, article, playlist) in sources.items():
         edition = editions[year]
         assert len(edition["tracks"]) == count, year
-        assert edition["source_url"] == f"https://brunch.co.kr/@atelier/{article}"
+        if article is None:
+            assert "source_url" not in edition
+        else:
+            assert edition["source_url"] == f"https://brunch.co.kr/@atelier/{article}"
         assert parse_qs(urlsplit(edition["playlist_url"]).query) == {"list": [playlist]}
         assert len({track["title"] for track in edition["tracks"]}) == count
         assert sum(bool(track.get("highlight")) for track in edition["tracks"]) == 1
@@ -94,7 +97,7 @@ def verify_archive_sources():
     assert "BIBI, CAMO, MIRANI" in remix["title"] and remix["videos"][0]["id"] == "V6d2Uv0oylo"
     assert [video["id"] for video in editions[2022]["tracks"][5]["videos"]] == ["wPsVStI1M4w", "F_mMkeYQOMs"]
     assert editions[2019]["tracks"][12]["videos"] == [{"id": "YNy2LtJwaJ4", "label": "묶음 무대 듣기"}]
-    # The 2019 essay names these earlier yearly picks; it is not a dated article for either edition.
+    # These playlist archives omit article links and selection reasons.
     playlist_videos = {
         2018: "Hj48NGuHmMQ uu8J3VC_YKY -gibBYpzZbI dk__IAfOXZE a5fCNNdmaQY -817KjHg144 fW1Cgv63naI VXdXGMWde90 DMcRIihAq9Q NhR2DSMiubw Xu56OVkwdXw awcOWsMqlnk MALHhpkwEw0 cM0lNp3RnVo rT5qaFEcZ3E JDkX8bF0MkY",
         2017: "jUSqBZNnMZ8 PkjaBCLOAec C2FVcsJpj2Q BLavT7w4R9I 9MbXeqCbS4Q 2l4M1ENOXX4 rXP9hU66i_U rIyJ6Zi4N4o WOYuBJFuz2E AXmN6lasHNg GLfFB3fCsBQ CGfa_FdihWs 0tkgGcnRNTE JSOBF_WhqEM rx16fAgz1yM NnRjwEhFU70 _ZkUb7iIOqQ",
@@ -103,7 +106,7 @@ def verify_archive_sources():
         edition = editions[year]
         assert edition["published_at"] is None
         assert edition["tracks"][0]["highlight"]
-        assert all(track["reason"] is None for track in edition["tracks"][1:])
+        assert all("reason" not in track for track in edition["tracks"])
         assert [track["videos"][0]["id"] for track in edition["tracks"]] == videos.split()
     return {str(year): count for year, (count, _, _) in sources.items()}
 
@@ -225,6 +228,8 @@ def verify(browser_name, output, base_url=None, baseline_ref="HEAD"):
                     colors = titles.evaluate_all("elements => elements.map(el => getComputedStyle(el).color)")
                     choice_color = page.locator("#preview-title").evaluate("el => getComputedStyle(el).color")
                     assert colors[0] == choice_color and all(color != choice_color for color in colors[1:])
+                    if "source_url" not in edition:
+                        assert all("Selection Reason" not in label for label in page.locator(PREVIEW_GROUP + " a").evaluate_all("links => links.map(link => link.getAttribute('aria-label'))"))
                     assert page.locator(".editor-preview-copy a").evaluate_all("links => links.every(link => link.tabIndex === -1)")
                     expect(page.locator("#editor-view-all")).to_have_attribute("href", f"#editors-choice-{edition['year']}")
                 page.locator("#preview-year").select_option("2024")
@@ -269,13 +274,17 @@ def verify(browser_name, output, base_url=None, baseline_ref="HEAD"):
                     expect(page.locator("#editor-year-display")).to_have_text(str(year))
                     expect(page).to_have_url(base + f"#editors-choice-{year}")
                     assert page.locator(".editor-pick h3").all_text_contents() == [track["title"] for track in edition["tracks"]]
-                    assert page.locator(".editor-reason").all_text_contents() == [track["reason"] or "No individual selection reason available." for track in edition["tracks"]]
+                    assert page.locator(".editor-reason").all_text_contents() == [track["reason"] or "No individual selection reason available." for track in edition["tracks"] if "reason" in track]
                     expect(page.locator("#editor-actions a").first).to_have_attribute("href", edition["playlist_url"])
-                    expect(page.locator("#editor-actions a").last).to_have_attribute("href", edition["source_url"])
+                    if "source_url" in edition:
+                        expect(page.locator("#editor-actions a")).to_have_count(2)
+                        expect(page.locator("#editor-actions a").last).to_have_attribute("href", edition["source_url"])
+                    else:
+                        expect(page.locator("#editor-actions a")).to_have_count(1)
+                        expect(page.locator(".editor-reason")).to_have_count(0)
                     if edition["published_at"] is None:
                         expect(page.locator("#editor-meta")).to_contain_text("Playlist archive")
                         expect(page.locator("#editor-meta")).not_to_contain_text("null")
-                        expect(page.locator("#editor-actions a").last).to_have_text("Read Reference Note ↗")
                     else:
                         expect(page.locator("#editor-meta")).to_contain_text(edition["published_at"])
                     expect(page.locator(".editor-track-links a")).to_have_count(sum(max(1, len(track["videos"])) for track in edition["tracks"]))
@@ -303,8 +312,12 @@ def verify(browser_name, output, base_url=None, baseline_ref="HEAD"):
             assert abs(preview_drift(page)) <= 1
             page.close()
 
-            # A failed or invalid editorial response must not break the daily chart; retry recovers.
-            for invalid in (None, {"editions": []}):
+            # Optional fields still reject invalid values; retry must leave the daily chart intact.
+            invalid_source = json.loads(json.dumps(DATA))
+            invalid_source["editions"][-1]["source_url"] = "https://example.com/article"
+            invalid_reason = json.loads(json.dumps(DATA))
+            invalid_reason["editions"][-1]["tracks"][0]["reason"] = {"invalid": True}
+            for invalid in (None, {"editions": []}, invalid_source, invalid_reason):
                 page = browser.new_page(locale="ko-KR")
                 recovered = [False]
 
