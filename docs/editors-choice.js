@@ -85,7 +85,7 @@
         for (const edition of data.editions) {
             if (!Number.isInteger(edition.year) || edition.year < 2000 || edition.year > 2100 || years.has(edition.year)
                 || !['final', 'in_progress'].includes(edition.status)
-                || typeof edition.published_at !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(edition.published_at)
+                || !(edition.published_at === null || (typeof edition.published_at === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(edition.published_at)))
                 || !Array.isArray(edition.tracks) || !edition.tracks.length) throw new Error('Invalid edition');
             years.add(edition.year);
             const source = new URL(edition.source_url);
@@ -130,10 +130,10 @@
         document.getElementById('preview-status').textContent = status;
         document.getElementById('editor-status').textContent = status;
         document.getElementById('editor-year-display').textContent = edition.year;
-        document.getElementById('editor-meta').textContent = `${edition.tracks.length} tracks selected · editor's compilation · ${edition.published_at} published`;
+        document.getElementById('editor-meta').textContent = `${edition.tracks.length} tracks selected · editor's compilation · ${edition.published_at ? `${edition.published_at} published` : 'Playlist archive'}`;
         document.getElementById('editor-actions').replaceChildren(
             externalLink('Listen to Playlist ↗', edition.playlist_url),
-            externalLink('Read Original Article ↗', edition.source_url)
+            externalLink(edition.published_at ? 'Read Original Article ↗' : 'Read Reference Note ↗', edition.source_url)
         );
         const orderedTracks = [...edition.tracks.filter(track => track.highlight), ...edition.tracks.filter(track => !track.highlight)];
         const teasers = orderedTracks.map(track => {

@@ -77,6 +77,8 @@ def verify_archive_sources():
         2021: (15, 13, "PLtawHGpcUVZXeZYFVGQoc6AA7F66bvut3"),
         2020: (19, 9, "PLtawHGpcUVZUj3SFGm5jsPp4r1w5V1lMN"),
         2019: (14, 8, "PLtawHGpcUVZUeHXq2GyXqukHeE0zspirD"),
+        2018: (16, 8, "PLtawHGpcUVZU4KaAa00Nefim2Uxw9lZP6"),
+        2017: (17, 8, "PLtawHGpcUVZUnfybTrmnm0gvf3q9D0aCv"),
     }
     assert [edition["year"] for edition in DATA["editions"]] == list(sources)
     editions = {edition["year"]: edition for edition in DATA["editions"]}
@@ -92,6 +94,17 @@ def verify_archive_sources():
     assert "BIBI, CAMO, MIRANI" in remix["title"] and remix["videos"][0]["id"] == "V6d2Uv0oylo"
     assert [video["id"] for video in editions[2022]["tracks"][5]["videos"]] == ["wPsVStI1M4w", "F_mMkeYQOMs"]
     assert editions[2019]["tracks"][12]["videos"] == [{"id": "YNy2LtJwaJ4", "label": "묶음 무대 듣기"}]
+    # The 2019 essay names these earlier yearly picks; it is not a dated article for either edition.
+    playlist_videos = {
+        2018: "Hj48NGuHmMQ uu8J3VC_YKY -gibBYpzZbI dk__IAfOXZE a5fCNNdmaQY -817KjHg144 fW1Cgv63naI VXdXGMWde90 DMcRIihAq9Q NhR2DSMiubw Xu56OVkwdXw awcOWsMqlnk MALHhpkwEw0 cM0lNp3RnVo rT5qaFEcZ3E JDkX8bF0MkY",
+        2017: "jUSqBZNnMZ8 PkjaBCLOAec C2FVcsJpj2Q BLavT7w4R9I 9MbXeqCbS4Q 2l4M1ENOXX4 rXP9hU66i_U rIyJ6Zi4N4o WOYuBJFuz2E AXmN6lasHNg GLfFB3fCsBQ CGfa_FdihWs 0tkgGcnRNTE JSOBF_WhqEM rx16fAgz1yM NnRjwEhFU70 _ZkUb7iIOqQ",
+    }
+    for year, videos in playlist_videos.items():
+        edition = editions[year]
+        assert edition["published_at"] is None
+        assert edition["tracks"][0]["highlight"]
+        assert all(track["reason"] is None for track in edition["tracks"][1:])
+        assert [track["videos"][0]["id"] for track in edition["tracks"]] == videos.split()
     return {str(year): count for year, (count, _, _) in sources.items()}
 
 
@@ -201,8 +214,8 @@ def verify(browser_name, output, base_url=None, baseline_ref="HEAD"):
 
                 if width <= 600:
                     assert page.locator("#preview-tracks").evaluate("el => { el.scrollLeft = 160; return el.scrollLeft; }") > 0
-                expect(page.locator("#preview-year option")).to_have_count(7)
-                expect(page.locator("#editor-year option")).to_have_count(7)
+                expect(page.locator("#preview-year option")).to_have_count(len(DATA["editions"]))
+                expect(page.locator("#editor-year option")).to_have_count(len(DATA["editions"]))
                 for edition in DATA["editions"]:
                     page.locator("#preview-year").select_option(str(edition["year"]))
                     ordered = sorted(edition["tracks"], key=lambda track: not track.get("highlight", False))
@@ -256,15 +269,21 @@ def verify(browser_name, output, base_url=None, baseline_ref="HEAD"):
                     expect(page.locator("#editor-year-display")).to_have_text(str(year))
                     expect(page).to_have_url(base + f"#editors-choice-{year}")
                     assert page.locator(".editor-pick h3").all_text_contents() == [track["title"] for track in edition["tracks"]]
-                    assert page.locator(".editor-reason").all_text_contents() == [track["reason"] or "원문에 개별 선정평 없이 수록된 곡입니다." for track in edition["tracks"]]
+                    assert page.locator(".editor-reason").all_text_contents() == [track["reason"] or "No individual selection reason available." for track in edition["tracks"]]
                     expect(page.locator("#editor-actions a").first).to_have_attribute("href", edition["playlist_url"])
                     expect(page.locator("#editor-actions a").last).to_have_attribute("href", edition["source_url"])
+                    if edition["published_at"] is None:
+                        expect(page.locator("#editor-meta")).to_contain_text("Playlist archive")
+                        expect(page.locator("#editor-meta")).not_to_contain_text("null")
+                        expect(page.locator("#editor-actions a").last).to_have_text("Read Reference Note ↗")
+                    else:
+                        expect(page.locator("#editor-meta")).to_contain_text(edition["published_at"])
                     expect(page.locator(".editor-track-links a")).to_have_count(sum(max(1, len(track["videos"])) for track in edition["tracks"]))
                     no_horizontal_overflow(page)
-                    if year == 2019 and width in (1440, 390):
+                    if year in (2019, 2018, 2017) and width in (1440, 390):
                         page.locator("#editor-year").blur()
                         page.evaluate("scrollTo(0, 0)")
-                        page.screenshot(path=str(output / f"{width}-editors-choice-2019.png"))
+                        page.screenshot(path=str(output / f"{width}-editors-choice-{year}.png"))
                 page.goto(base + "#editors-choice-2099", wait_until="domcontentloaded")
                 expect(page.locator("#editor-year")).to_have_value("2025")
                 expect(page).to_have_url(base + "#editors-choice-2025")
@@ -302,7 +321,7 @@ def verify(browser_name, output, base_url=None, baseline_ref="HEAD"):
                 assert chart_state(page) == expected[dates[0], "hype"]
                 page.locator("#editors-link").click()
                 expect(page.locator("#editor-retry")).to_be_visible()
-                expect(page.locator("#editor-message")).to_contain_text("불러오지 못했습니다")
+                expect(page.locator("#editor-message")).to_contain_text("Failed to load selected tracks")
                 recovered[0] = True
                 page.locator("#editor-retry").click()
                 expect(page.locator(".editor-pick")).to_have_count(16)
@@ -315,7 +334,7 @@ def verify(browser_name, output, base_url=None, baseline_ref="HEAD"):
             page.close()
             browser.close()
         assert not errors, errors
-        report["checks"] = ["source counts, dates and recording versions", "chart parity with HEAD", "dates and all four services", "trend graph", "all seven years in preview and archive", "all preview tracks, highlight first and exclusive gold title", "continuous flow and seamless wrap", "pause/resume, hover and keyboard focus", "reduced motion and manual scrolling", "selection reasons", "history back", "chart state retention", "deep links", "invalid year", "load failure and retry", "independent chart/editorial loading"]
+        report["checks"] = ["source counts, dates and recording versions", "chart parity with Git baseline", "dates and all four services", "trend graph", "all nine years in preview and archive", "all preview tracks, highlight first and exclusive gold title", "continuous flow and seamless wrap", "pause/resume, hover and keyboard focus", "reduced motion and manual scrolling", "selection reasons", "playlist archives without invented publication dates", "history back", "chart state retention", "deep links", "invalid year", "load failure and retry", "independent chart/editorial loading"]
         (output / f"{browser_name}-report.json").write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n")
         print(json.dumps(report, ensure_ascii=False))
     finally:
