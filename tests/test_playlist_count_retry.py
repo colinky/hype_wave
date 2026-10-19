@@ -1,12 +1,15 @@
 """Offline regressions for delayed playlist counts after acknowledged edits."""
 from copy import deepcopy
 from contextlib import ExitStack
+import json
 from pathlib import Path
 import os
 import sys
 import tempfile
 import unittest
 from unittest.mock import Mock, call, patch
+import requests
+from ytmusicapi.exceptions import YTMusicServerError
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import ytmusic_playlist_sync as sync
@@ -56,8 +59,7 @@ class PlaylistCountRetryTests(unittest.TestCase):
         responses = [None, {}, {"tracks": {}}, {"tracks": [None]},
                      {"tracks": [{"videoId": "new"}]},
                      {"tracks": [{"videoId": " ", "setVideoId": "slot"}]},
-                     {"tracks": [{"videoId": "new", "setVideoId": 42}]},
-                     {"tracks": playlist_items("new", 1) * 2}]
+                     {"tracks": [{"videoId": "new", "setVideoId": 42}]}]
         for response in responses:
             with self.subTest(response=response):
                 if isinstance(response, dict):
@@ -70,7 +72,8 @@ class PlaylistCountRetryTests(unittest.TestCase):
         self.sleep.assert_not_called()
 
     def test_read_exception_is_not_retried(self):
-        for error in (PermissionError("403 denied"), TimeoutError("read timed out")):
+        for error in (PermissionError("403 denied"), YTMusicServerError("Server returned HTTP 404"),
+                      YTMusicServerError("Server returned HTTP 403")):
             with self.subTest(error=error):
                 client = Mock()
                 client.get_playlist.side_effect = error
@@ -78,6 +81,53 @@ class PlaylistCountRetryTests(unittest.TestCase):
                     sync.get_existing_playlist_items(client, "fixture")
                 self.assertEqual(client.get_playlist.call_count, 1)
         self.sleep.assert_not_called()
+
+    def test_transient_read_errors_retry_only_the_complete_read(self):
+        errors = (json.JSONDecodeError("Expecting value", "", 0), TimeoutError("read timed out"),
+                  requests.exceptions.ConnectionError("connection reset"),
+                  YTMusicServerError("Server returned HTTP 503: Service Unavailable"))
+        items = playlist_items("new", 2)
+        for error in errors:
+            with self.subTest(error=error):
+                self.sleep.reset_mock()
+                client = Mock()
+                client.get_playlist.side_effect = [error, {"tracks": items, "trackCount": 2}]
+                self.assertEqual(sync.get_existing_playlist_items(client, "fixture"), items)
+                self.assertEqual(client.get_playlist.call_args_list, [call("fixture", limit=None)] * 2)
+                self.sleep.assert_called_once_with(1)
+                client.add_playlist_items.assert_not_called()
+                client.remove_playlist_items.assert_not_called()
+
+    def test_persistent_json_failure_stops_after_three_reads(self):
+        client = Mock()
+        error = json.JSONDecodeError("Expecting value", "", 0)
+        client.get_playlist.side_effect = error
+        with self.assertRaisesRegex(RuntimeError, "Failed to fetch") as raised:
+            sync.get_existing_playlist_items(client, "fixture")
+        self.assertIs(raised.exception.__cause__, error)
+        self.assertEqual(client.get_playlist.call_count, 3)
+        self.assertEqual(self.sleep.call_args_list, [call(1), call(2)])
+
+    def test_duplicate_pagination_is_reread_without_deduplicating_or_accepting_partial_items(self):
+        items = playlist_items("new", 2)
+        client = Mock()
+        client.get_playlist.side_effect = [
+            {"tracks": [items[0], items[0]], "trackCount": 2},
+            {"tracks": items, "trackCount": 2},
+        ]
+        self.assertEqual(sync.get_existing_playlist_items(client, "fixture", expected_items=items), items)
+        self.assertEqual(client.get_playlist.call_count, 2)
+        client.add_playlist_items.assert_not_called()
+        client.remove_playlist_items.assert_not_called()
+
+    def test_persistent_duplicate_slots_fail_even_with_expected_ownership(self):
+        items = playlist_items("new", 2)
+        client = Mock()
+        client.get_playlist.return_value = {"tracks": [items[0], items[0]], "trackCount": 2}
+        with self.assertRaisesRegex(RuntimeError, "duplicate setVideoIds"):
+            sync.get_existing_playlist_items(client, "fixture", expected_items=items)
+        self.assertEqual(client.get_playlist.call_count, 3)
+        self.assertEqual(self.sleep.call_args_list, [call(1), call(2)])
 
     def replace_after_stale_count(self, *, foreign_slot=False, persistent=False):
         original = playlist_items("old", 100)
