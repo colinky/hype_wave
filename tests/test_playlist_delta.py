@@ -1,6 +1,7 @@
 """Offline publication and durable recovery checks for incremental playlist edits."""
 from copy import deepcopy
 from itertools import combinations, permutations
+import json
 import os
 from pathlib import Path
 import tempfile
@@ -183,6 +184,45 @@ class PlaylistDeltaTests(unittest.TestCase):
         with self.assertRaises(sync.PlaylistPublicationBlocked):
             self.publish(client, ["d", "c", "b", "a"])
         self.assertEqual(len(client.move_batches), 1)
+
+    def test_move_read_json_failure_or_duplicate_page_settles_without_replaying_the_batch(self):
+        for error in ("json", "duplicate"):
+            with self.subTest(error=error):
+                class TransientRead(Playlist):
+                    failures = 2
+
+                    def get_playlist(self, *args, **kwargs):
+                        if self.move_batches and self.failures:
+                            self.failures -= 1
+                            if error == "json":
+                                raise json.JSONDecodeError("Expecting value", "", 0)
+                            items = deepcopy(self.items)
+                            items[1] = deepcopy(items[0])
+                            return {"tracks": items, "trackCount": len(items)}
+                        return super().get_playlist(*args, **kwargs)
+
+                client = TransientRead(["a", "b", "c", "d"])
+                self.publish(client, ["d", "c", "b", "a"])
+                self.assertEqual(client.items, list(reversed(client.original)))
+                self.assertEqual(len(client.move_batches), 1)
+                self.assertEqual((client.adds, client.removes), ([], []))
+                self.assertEqual(self.latest()["status"], "published")
+                self.assertFalse(hype_db.get_pending_playlist_recovery(self.db, "fixture"))
+
+    def test_add_json_decode_error_is_never_replayed_or_assumed_acknowledged(self):
+        class LostResponse(Playlist):
+            def add_playlist_items(self, *args, **kwargs):
+                super().add_playlist_items(*args, **kwargs)
+                raise json.JSONDecodeError("Expecting value", "", 0)
+
+        client = LostResponse(["old"])
+        with self.assertRaises(sync.PlaylistMutationUncertain):
+            self.publish(client, ["new"])
+        self.assertEqual([item["videoId"] for item in client.items], ["old", "new"])
+        self.assertEqual(client.adds, [["new"]])
+        self.assertEqual(client.removes, [])
+        self.assertEqual(self.latest()["status"], "recovery_required")
+        self.assertEqual(reconcile_playlist_update(client, self.db, self.latest()["update_run_id"], "fixture")["action"], "blocked")
 
     def test_equivalent_alias_is_retained_and_moved_with_strict_artist_proof(self):
         client = Playlist(["alias", "b", "obsolete"])

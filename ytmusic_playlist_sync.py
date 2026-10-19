@@ -22,6 +22,7 @@ import requests
 from requests.adapters import HTTPAdapter
 from urllib3.util import Retry
 from ytmusicapi import YTMusic
+from ytmusicapi.exceptions import YTMusicServerError
 
 from hype_db_common import (
     postgres_url,
@@ -2137,6 +2138,18 @@ def get_existing_playlist_items(
         try:
             playlist = ytmusic.get_playlist(playlist_id, limit=None)
         except Exception as exc:
+            status = getattr(getattr(exc, "response", None), "status_code", None)
+            transient = isinstance(exc, (
+                json.JSONDecodeError, requests.exceptions.JSONDecodeError,
+                requests.exceptions.Timeout, requests.exceptions.ConnectionError, TimeoutError, ConnectionError,
+            )) or status in {408, 429, 500, 502, 503, 504} or (
+                isinstance(exc, YTMusicServerError) and re.search(r"\bHTTP (?:408|429|500|502|503|504)\b", str(exc))
+            )
+            if transient and attempt < 2:
+                LOG.warning("Transient playlist read failure for %s; retrying complete read (%d/3): %s",
+                            playlist_id, attempt + 2, exc)
+                time.sleep(attempt + 1)
+                continue
             if "404" in str(exc):
                 LOG.error(f"Playlist {playlist_id} not found (404). Please verify the ID is correct and the playlist is Public or Unlisted.")
             else:
@@ -2158,7 +2171,16 @@ def get_existing_playlist_items(
                     f"Playlist {playlist_id} item {index} is missing videoId or setVideoId"
                 )
             items.append({"videoId": video_id, "setVideoId": set_video_id})
-        _playlist_slots(items)
+        try:
+            _playlist_slots(items)
+        except RuntimeError:
+            if attempt == 2:
+                raise
+            # A paginated read can mix states while a move settles. Never deduplicate it.
+            LOG.warning("Playlist %s returned duplicate setVideoIds; retrying complete read (%d/3)",
+                        playlist_id, attempt + 2)
+            time.sleep(attempt + 1)
+            continue
         reported_count = playlist.get("trackCount")
         if (
             isinstance(reported_count, int)
