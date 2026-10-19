@@ -39,7 +39,6 @@ from ytmusic_playlist_sync import (
     load_dotenv,
     make_ytmusic,
     resolve_video_to_song,
-    resolve_bilingual_song,
     get_verified_video_metadata,
     update_ytmusic_playlist,
     write_json,
@@ -965,6 +964,8 @@ def cached_chart_relations(conn, entries):
         if (sid in blocked_ids or target in blocked_ids or candidate['track_uid'] in blocked_uids
                 or target != row['atv_external_video_id'] or match.get('video_id') != target
                 or match.get('status') != 'cached_match'
+                or match.get('track_uid') != candidate['track_uid']
+                or not match.get('yt_title') or not match.get('yt_artist')
                 or not _metadata_rows_equivalent(row, dict(candidate))
                 or not _relation_metadata_matches(None, None, None, row,
                     {'title':match.get('yt_title'), 'artist':match.get('yt_artist'), 'album':match.get('yt_album')})):
@@ -1024,7 +1025,7 @@ def preflight_chart_relations(conn, entries, ytmusic, reference_period, *, dry_r
         try:
             details = get_verified_video_metadata(ytmusic, target_id, metadata_cache=metadata_cache)
             if not details or details.get('music_video_type') != 'MUSIC_VIDEO_TYPE_ATV':
-                raise ValueError("Target metadata does not identify a public official audio resource")
+                raise ValueError("Target metadata is incomplete or does not identify official audio")
             # A Premium playback restriction is not missing song identity. We
             # fetch metadata only; playlist verification remains a separate gate.
             localized = details

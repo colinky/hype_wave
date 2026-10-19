@@ -432,8 +432,12 @@ def main():
                 history_blocked = True
             if not failure_phase:
                 from hype_db import connect
-                with connect(script_dir / 'hype_wave_data.db', read_only=True) as conn:
-                    publication = publication_result(conn, task, execution_started_at)
+                try:
+                    with connect(script_dir / 'hype_wave_data.db', read_only=True) as conn:
+                        publication = publication_result(conn, task, execution_started_at)
+                except Exception as exc:
+                    failure_phase = 'publish'
+                    LOG.error('Cannot verify publication result for %s: %s', job_name, exc)
         else:
             try:
                 from hype_db import connect
@@ -446,7 +450,11 @@ def main():
                         started_at=execution_started_at, source_variant=variant,
                     )
                     if data_ready and not failure_phase:
-                        publication = publication_result(conn, task, execution_started_at)
+                        try:
+                            publication = publication_result(conn, task, execution_started_at)
+                        except Exception as exc:
+                            failure_phase = 'publish'
+                            LOG.error('Cannot verify publication result for %s: %s', job_name, exc)
                     if data_ready and task.get("include_in_hype") and task.get("hype_group") == "apple":
                         anchor = conn.execute(
                             """SELECT reference_period FROM match_runs

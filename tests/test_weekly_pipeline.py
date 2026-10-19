@@ -55,6 +55,11 @@ class WeeklyPipelineTests(unittest.TestCase):
                         {'atv_external_video_id':'another0001'},
                         {'artist':'Other','artist_en':'Other'}):
             self.assertEqual(weekly.cached_chart_relations(self.conn, [{**self.row, **changes}]), {})
+        with patch('hype_db_store.get_bulk_cached_matches', return_value={
+            'source00001':{'video_id':'target00001','track_uid':'other-uid','status':'cached_match',
+                           'yt_title':'Song','yt_artist':'Artist'}
+        }):
+            self.assertEqual(weekly.cached_chart_relations(self.conn, [self.row]), {})
         self.conn.execute("INSERT INTO manual_overrides(service,song_id,action,target_track_uid,updated_at) VALUES(?,?,?,?,?)",
                           ('apple','policy','split','uid','now'))
         self.assertEqual(weekly.cached_chart_relations(self.conn, [self.row]), {})

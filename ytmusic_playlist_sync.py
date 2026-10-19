@@ -3103,9 +3103,19 @@ def _publish_ytmusic_playlist(
     # Source crawl/matching has already completed. Only publication is blocked.
     pending = get_pending_playlist_recovery(db_path, playlist_id)
     while pending:
-        _resume_previous_daily_update(ytmusic, db_path, pending)
+        try:
+            _resume_previous_daily_update(ytmusic, db_path, pending)
+        except PlaylistPublicationBlocked:
+            raise
+        except Exception as exc:
+            raise PlaylistPublicationBlocked(
+                f"Cannot establish a complete stable baseline for previous publication {pending['update_run_id']}; publication deferred"
+            ) from exc
         pending = get_pending_playlist_recovery(db_path, playlist_id)
-    existing = get_existing_playlist_items(ytmusic, playlist_id)
+    try:
+        existing = get_existing_playlist_items(ytmusic, playlist_id)
+    except Exception as exc:
+        raise PlaylistPublicationBlocked('Cannot observe the current playlist; source data remains ready and publication is deferred') from exc
     _playlist_slots(existing)
     existing_ids = [item["videoId"] for item in existing]
     metadata_cache = metadata_cache if metadata_cache is not None else {}

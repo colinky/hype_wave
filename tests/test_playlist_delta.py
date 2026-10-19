@@ -181,6 +181,15 @@ class PlaylistDeltaTests(unittest.TestCase):
             self.publish(client, ['a','b','c'])
         self.assertEqual(client.adds, [['b']])
 
+    def test_next_day_read_outage_remains_a_publication_block_without_closing_history(self):
+        client = Playlist(['a'])
+        old = self.pending_from_previous_day(client)
+        with patch.object(client, 'get_playlist', side_effect=json.JSONDecodeError('empty','',0)):
+            with self.assertRaisesRegex(sync.PlaylistPublicationBlocked, 'stable baseline'):
+                self.publish(client, ['a','b','c'])
+        self.assertEqual(client.adds, [['b']])
+        self.assertEqual(hype_db.get_playlist_update_run(self.db, old['update_run_id'])['state_fingerprint'], old['state_fingerprint'])
+
     def test_final_read_outage_defers_verification_without_rollback_writes(self):
         client = Playlist(['a','b'])
         original = sync._sync_playlist_contents
@@ -194,6 +203,16 @@ class PlaylistDeltaTests(unittest.TestCase):
         self.assertEqual(client.adds, [['c']])
         self.assertEqual(len(client.removes), 1)
         self.assertEqual(self.latest()['status'], 'recovery_required')
+
+    def test_initial_read_outage_does_not_create_a_pending_mutation(self):
+        client = Playlist(['a'])
+        with patch.object(client, 'get_playlist', side_effect=TimeoutError('read outage')):
+            with self.assertRaisesRegex(sync.PlaylistPublicationBlocked, 'source data remains ready'):
+                self.publish(client, ['a','b'])
+        self.assertEqual(client.adds, [])
+        self.assertIsNone(hype_db.get_pending_playlist_recovery(self.db, 'fixture'))
+        with hype_db.connect(self.db, read_only=True) as conn:
+            self.assertEqual(conn.execute('SELECT COUNT(*) FROM playlist_update_runs').fetchone()[0], 0)
 
     def latest(self):
         with hype_db.connect(self.db, read_only=True) as conn:
