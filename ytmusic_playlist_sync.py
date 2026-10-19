@@ -10,9 +10,9 @@ import sqlite3
 import time
 import unicodedata
 import uuid
-from contextlib import contextmanager
+from contextlib import contextmanager, nullcontext
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from difflib import SequenceMatcher
 from functools import lru_cache
 from pathlib import Path
@@ -2603,7 +2603,10 @@ def _observe_playlist_transition(ytmusic: YTMusic, playlist_id: str, expected: l
                                  *, previous: list[dict[str, str]] | None = None,
                                  intermediate: list[list[dict[str, str]]] | None = None) -> list[dict[str, str]]:
     for attempt in range(3):
-        actual = get_existing_playlist_items(ytmusic, playlist_id, expected_items=expected)
+        try:
+            actual = get_existing_playlist_items(ytmusic, playlist_id, expected_items=expected)
+        except Exception as exc:
+            raise PlaylistObservationUnavailable(f'Playlist transition awaits a complete observation: {exc}') from exc
         if _same_owned_slots(actual, expected):
             return actual
         known = [*(intermediate or []), *([previous] if previous is not None else [])]
@@ -3002,7 +3005,73 @@ def _recoverable_playlist_items(run: dict[str, Any]) -> list[dict[str, str]]:
     return expected
 
 
-def update_ytmusic_playlist(
+def _resume_previous_daily_update(ytmusic: YTMusic, db_path: Path, pending: dict[str, Any]) -> None:
+    """Keep yesterday's uncertain receipts, but start today from a stable complete observation."""
+    from hype_db import (claim_playlist_update_recovery, append_playlist_update_evidence,
+                         finish_playlist_update, get_playlist_update_run)
+    now = datetime.now(timezone.utc)
+    if not pending.get('state_fingerprint') or not pending.get('playlist_id'):
+        raise PlaylistPublicationBlocked(f"Incomplete pending publication (run_id={pending.get('update_run_id')}, started_at={pending.get('started_at')})")
+    try:
+        started = datetime.fromisoformat(pending['started_at'])
+        if started.tzinfo is None:
+            raise ValueError('Missing timezone')
+        started = started.astimezone(timezone.utc)
+    except (KeyError, TypeError, ValueError):
+        raise PlaylistPublicationBlocked('Pending publication has no valid start time')
+    # The scheduled worker has a 120-minute timeout; never take over a recent attempt.
+    if started.date() >= now.date() or now - started < timedelta(hours=3):
+        raise PlaylistPublicationBlocked(f"Recent publication is still pending (run_id={pending['update_run_id']}, started_at={pending['started_at']})")
+    current = get_existing_playlist_items(ytmusic, pending['playlist_id'])
+    time.sleep(2)
+    if get_existing_playlist_items(ytmusic, pending['playlist_id']) != current:
+        raise PlaylistPublicationBlocked('Pending playlist is still changing; postponing new publication')
+    fresh = get_playlist_update_run(db_path, pending['update_run_id'], read_only=True)
+    if fresh['state_fingerprint'] != pending['state_fingerprint']:
+        raise PlaylistPublicationBlocked('Pending publication evidence changed during observation')
+    attestation = ('Automatic next-day takeover under the exclusive synchronization writer lock; '
+                   'previous worker timeout has elapsed and two complete observations agree. '
+                   'Previous requests remain uncertain and are not replayed; current items become a new baseline.')
+    claim = claim_playlist_update_recovery(
+        db_path, pending['update_run_id'], expected_claim_token=pending['claim_token'],
+        expected_state_fingerprint=pending['state_fingerprint'], expected_statuses=(pending['status'],),
+        workers_quiescent=True, allow_reclaim=True, attestation=attestation,
+    )
+    if get_existing_playlist_items(ytmusic, pending['playlist_id']) != current:
+        raise PlaylistPublicationBlocked('Playlist changed after takeover; preserving pending recovery')
+    evidence = append_playlist_update_evidence(
+        db_path, pending['update_run_id'],
+        {'phase':'reconcile', 'operation':'observe', 'state':'verified', 'items':current,
+         'observation_complete':True, 'verification_matches':False,
+         'reconciliation_action':'superseded_by_new_daily_sync', 'attestation':attestation},
+        claim_token=claim['claim_token'], expected_state_fingerprint=claim['state_fingerprint'],
+    )
+    finish_playlist_update(
+        db_path, pending['update_run_id'], status='verification_failed', actual_items=current,
+        observation_complete=True, error=attestation + ' Original failure: ' + pending.get('error',''),
+        differences=pending.get('differences', []), claim_token=claim['claim_token'],
+        expected_statuses=(pending['status'],), expected_state_fingerprint=evidence['state_fingerprint'],
+    )
+    LOG.warning('Preserved previous failed publication %s; starting a new daily publication from %d observed items',
+                pending['update_run_id'], len(current))
+
+
+def update_ytmusic_playlist(ytmusic: YTMusic, playlist_id: str, video_ids: list[str], *,
+                          description: str = '', dry_run: bool, db_path: str | Path | None = None,
+                          service: str = '', job_name: str = '', playlist_name: str = '',
+                          metadata_cache: dict[str, Any] | None = None) -> dict[str, Any]:
+    from sync_validation import sync_run_lock
+    with sync_run_lock(db_path) if db_path and not dry_run else nullcontext():
+        return _publish_ytmusic_playlist(ytmusic, playlist_id, video_ids, description=description,
+            dry_run=dry_run, db_path=db_path, service=service, job_name=job_name,
+            playlist_name=playlist_name, metadata_cache=metadata_cache)
+
+
+class PlaylistObservationUnavailable(RuntimeError):
+    """Acknowledged edits await observation; a read outage must not trigger rollback writes."""
+
+
+def _publish_ytmusic_playlist(
     ytmusic: YTMusic,
     playlist_id: str,
     video_ids: list[str],
@@ -3013,7 +3082,8 @@ def update_ytmusic_playlist(
     service: str = "",
     job_name: str = "",
     playlist_name: str = "",
-) -> None:
+    metadata_cache: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     """Publish with durable item ownership; never equate recovery with song identity."""
     if not video_ids or any(not isinstance(value, str) or not value.strip() for value in video_ids):
         raise ValueError("Playlist video IDs must be non-empty strings")
@@ -3021,7 +3091,8 @@ def update_ytmusic_playlist(
         raise ValueError("Playlist video IDs must be unique")
     if dry_run:
         LOG.info("Dry run enabled. Skipping playlist metadata, item changes and audit writes.")
-        return
+        return {'status':'dry_run', 'publication_mode':'full', 'requested_count':len(video_ids),
+                'actual_count':None, 'excluded_items':[]}
     if not db_path:
         raise RuntimeError("Durable playlist audit is required; refusing external mutation")
 
@@ -3031,18 +3102,23 @@ def update_ytmusic_playlist(
     )
     # Source crawl/matching has already completed. Only publication is blocked.
     pending = get_pending_playlist_recovery(db_path, playlist_id)
-    if pending:
-        raise PlaylistPublicationBlocked(
-            f"Playlist {playlist_id} has pending recovery "
-            f"(run_id={pending.get('update_run_id')}, status={pending.get('status')}, "
-            f"started_at={pending.get('started_at')}); publication is blocked. "
-            "Inspect this run with reconcile_playlist_update.py --run-id and --playlist-id; "
-            "source collection and matching are not classified by this publication error."
-        )
-    existing = get_existing_playlist_items(ytmusic, playlist_id)
+    while pending:
+        try:
+            _resume_previous_daily_update(ytmusic, db_path, pending)
+        except PlaylistPublicationBlocked:
+            raise
+        except Exception as exc:
+            raise PlaylistPublicationBlocked(
+                f"Cannot establish a complete stable baseline for previous publication {pending['update_run_id']}; publication deferred"
+            ) from exc
+        pending = get_pending_playlist_recovery(db_path, playlist_id)
+    try:
+        existing = get_existing_playlist_items(ytmusic, playlist_id)
+    except Exception as exc:
+        raise PlaylistPublicationBlocked('Cannot observe the current playlist; source data remains ready and publication is deferred') from exc
     _playlist_slots(existing)
     existing_ids = [item["videoId"] for item in existing]
-    metadata_cache: dict[str, dict[str, Any]] = {}
+    metadata_cache = metadata_cache if metadata_cache is not None else {}
     initial = _compare_playlist_video_ids(ytmusic, video_ids, existing_ids, metadata_cache=metadata_cache)
     claim_token = uuid.uuid4().hex
     run_id = record_playlist_update(
@@ -3057,12 +3133,20 @@ def update_ytmusic_playlist(
         return append_playlist_update_evidence(db_path, run_id, event, claim_token=claim_token)
 
     def finish(status: str, actual: list[dict[str, str]], comparison: dict[str, Any], error: str = "",
-               *, observation_complete: bool = True) -> None:
+               *, observation_complete: bool = True) -> dict[str, Any]:
         finish_playlist_update(
             db_path, run_id, status=status, actual_video_ids=[item["videoId"] for item in actual],
             actual_items=actual, observation_complete=observation_complete,
             error=error, differences=comparison.get("differences", []), claim_token=claim_token,
         )
+        run = get_playlist_update_run(db_path, run_id, read_only=True)
+        summary = {'update_run_id':run_id, 'status':status, 'publication_mode':run['publication_mode'],
+                   'requested_count':len(video_ids), 'actual_count':len(actual) if observation_complete else None,
+                   'observation_complete':observation_complete,
+                   'excluded_items':run['excluded_items']}
+        LOG.log(logging.WARNING if run['publication_mode'] == 'partial' else logging.INFO,
+                'Publication result: %s', json.dumps(summary, ensure_ascii=False))
+        return summary
 
     def observe() -> tuple[list[dict[str, str]], bool]:
         try:
@@ -3089,16 +3173,15 @@ def update_ytmusic_playlist(
         except Exception as exc:
             LOG.warning("Failed to update playlist metadata: %s", exc)
     if initial["matches"]:
-        finish("skipped_current", existing, initial)
         LOG.info("Playlist already matches requested order; no item removal/addition.")
-        return
+        return finish("skipped_current", existing, initial)
     try:
         current = get_existing_playlist_items(ytmusic, playlist_id)
         if current != existing:
             raise RuntimeError("Playlist changed after its full audit snapshot")
     except Exception as exc:
         actual, complete = observe()
-        finish("recovery_required", actual, initial, str(exc), observation_complete=complete)
+        finish("verification_failed", actual, initial, str(exc), observation_complete=complete)
         raise
 
     failure: Exception | None = None
@@ -3111,7 +3194,10 @@ def update_ytmusic_playlist(
         )
         effective_ids = policy.get("effective_video_ids", video_ids)
         for attempt in range(3):
-            actual = get_existing_playlist_items(ytmusic, playlist_id, expected_items=expected_items)
+            try:
+                actual = get_existing_playlist_items(ytmusic, playlist_id, expected_items=expected_items)
+            except Exception as exc:
+                raise PlaylistObservationUnavailable('Acknowledged changes await a complete playlist observation') from exc
             if not _same_owned_slots(actual, expected_items):
                 raise RuntimeError("Playlist item ownership/order differs from acknowledged additions")
             comparison = _compare_playlist_video_ids(
@@ -3125,8 +3211,7 @@ def update_ytmusic_playlist(
                     LOG.warning("Partial delta publication completed: requested=%d published=%d excluded=%s",
                                 len(video_ids), len(actual), json.dumps(policy["excluded_items"], ensure_ascii=False))
                 publication_verified = True
-                finish("published", actual, comparison)
-                return
+                return finish("published", actual, comparison)
             if attempt < 2:
                 time.sleep(2)
         partial = None if policy else _publish_without_unverified_substitutions(
@@ -3135,14 +3220,13 @@ def update_ytmusic_playlist(
         if partial is not None:
             actual, verified = partial
             publication_verified = True
-            finish("published", actual, verified)
             LOG.warning(
                 "Partial publication completed: playlist=%s run_id=%s requested=%d published=%d omitted=%s",
                 playlist_id, run_id, len(video_ids), len(actual),
                 json.dumps([{key: row[key] for key in ("position", "expected_id", "actual_id", "reason")}
                             for row in comparison["differences"] if not row["accepted"]], ensure_ascii=False),
             )
-            return
+            return finish("published", actual, verified)
         failure = RuntimeError("Playlist verification failed: " + json.dumps(comparison["differences"], ensure_ascii=False))
     except Exception as exc:
         failure = exc
@@ -3161,7 +3245,7 @@ def update_ytmusic_playlist(
     actual, complete = observe()
     # A lost response/ACK cannot be made atomic with the provider. Preserve the
     # pending intent and stop, including when the uncertain operation was restore.
-    if isinstance(failure, PlaylistMutationUncertain) or publication_verified:
+    if isinstance(failure, (PlaylistMutationUncertain, PlaylistObservationUnavailable)) or publication_verified:
         finish("recovery_required", actual, comparison, str(failure), observation_complete=complete)
         raise failure
     try:

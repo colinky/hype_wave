@@ -12,6 +12,10 @@ on:
       - tests/test_artist_metadata_layout.py
       - tests/check_artist_metadata.py
       - hype_db_store.py
+      - crawler_common.py
+      - sync_all.py
+      - sync_validation.py
+      - tests/test_weekly_pipeline.py
       - reconcile_playlist_update.py
       - ytmusic_to_ytmusic_crawl.py
       - requirements.txt

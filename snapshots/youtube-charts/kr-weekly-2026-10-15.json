@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "source_url": "https://charts.youtube.com/charts/TopSongs/kr/weekly",
-  "collected_at": "2026-10-19T11:42:39.540495+00:00",
+  "collected_at": "2026-10-19T12:53:01.985522+00:00",
   "locale": "en",
   "payload": {
     "chartParams": {
@@ -2090,11 +2090,11 @@
               "name": "Paul Kim"
             }
           ],
-          "atvExternalVideoId": "",
+          "atvExternalVideoId": "A8-ENEqhQjg",
           "thumbnail": {
             "thumbnails": [
               {
-                "url": "https://i.ytimg.com/vi/1q_t6RNuH8c/sddefault.jpg"
+                "url": "https://yt3.googleusercontent.com/8BV9DwL6hN8IMnkwvRv7JTxqofjn_lg2c4AjO0PW3_t_tjXoLGNlgvZZO1qvm-6i8TB1hk7OIJJXMKs=w180-h180-l90-rj"
               }
             ]
           },
@@ -2217,5 +2217,5 @@
       ]
     }
   },
-  "sha256": "325a3c5d0f3503c031223d4ec208267a669959414fe7849570c72835ff91f5f0"
+  "sha256": "1a0c4f5ef28860d6ad7096399f8ace7d2794dd527d8c8276abfc15c465bfb089"
 }

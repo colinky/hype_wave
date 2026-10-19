@@ -3,10 +3,12 @@ from __future__ import annotations
 import os
 from pathlib import Path
 from contextlib import contextmanager
+from contextvars import ContextVar
 from hype_db_common import postgres_url
 
 
 EXIT_PUBLICATION_BLOCKED = 5
+_writer_lock_held = ContextVar('hype_writer_lock_held', default=False)
 
 
 class PlaybackBlocked(RuntimeError):
@@ -16,6 +18,19 @@ class PlaybackBlocked(RuntimeError):
 @contextmanager
 def sync_run_lock(db_path):
     """One cooperative writer across scheduled runs, local runs and incident repair."""
+    if _writer_lock_held.get():
+        yield
+        return
+    token = _writer_lock_held.set(True)
+    try:
+        with _acquire_sync_run_lock(db_path):
+            yield
+    finally:
+        _writer_lock_held.reset(token)
+
+
+@contextmanager
+def _acquire_sync_run_lock(db_path):
     if os.environ.get("HYPE_SYNC_PARENT_PID") == str(os.getppid()):
         yield
         return

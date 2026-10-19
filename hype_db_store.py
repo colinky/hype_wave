@@ -4009,7 +4009,13 @@ def finish_playlist_update(
             if payload.get("claim"):
                 _require_playlist_claim(payload, claim_token)
             tail_claim = (payload.get("claim") or {}).get("capability") == "append_missing_last"
-            if tail_claim and status not in {"published", "recovery_required"}:
+            superseded = status == 'verification_failed' and complete and any(
+                e.get('phase') == 'reconcile' and e.get('operation') == 'observe'
+                and e.get('state') == 'verified' and e.get('observation_complete') is True
+                and e.get('reconciliation_action') == 'superseded_by_new_daily_sync'
+                and e.get('items') == actual for e in payload.get('events', [])
+            )
+            if tail_claim and status not in {"published", "recovery_required"} and not superseded:
                 raise RuntimeError("Legacy tail recovery may only publish or remain pending")
             if tail_claim and status == "published":
                 successful_observations = [
