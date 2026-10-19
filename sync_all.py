@@ -70,7 +70,7 @@ def scheduled_task_completed(conn, task: dict, anchor: datetime) -> bool:
     service = normalized_service(task.get("service") or task.get("type"))
     variant = "combined" if task.get("service") == "melon_gen" else "default"
     audit = conn.execute(
-        """SELECT job_name, service, status, dry_run, completed_at, match_started_at
+        """SELECT job_name, service, status, dry_run, completed_at, match_started_at, recovery_payload_json
            FROM playlist_update_runs WHERE playlist_id = ?
            ORDER BY started_at DESC, created_at DESC LIMIT 1""",
         (task.get("target_id") or "",),
@@ -79,6 +79,9 @@ def scheduled_task_completed(conn, task: dict, anchor: datetime) -> bool:
             or normalized_service(audit["service"]) != service
             or audit["status"] not in {"published", "skipped_current"}
             or audit["dry_run"] or not audit["completed_at"] or not audit["match_started_at"]):
+        return False
+    from hype_db_store import _latest_partial_publication
+    if _latest_partial_publication(json.loads(audit['recovery_payload_json'] or '{}')):
         return False
     started_at = audit["match_started_at"]
     started = datetime.fromisoformat(started_at).astimezone(timezone.utc)
@@ -188,6 +191,22 @@ def data_snapshot_ready(conn, *, service: str, job_name: str, started_at: str,
             and run["failed_tracks"] == len(effective) - matched)
 
 
+def publication_result(conn, task: dict, started_at: str) -> dict | None:
+    """Describe the verified actual publication separately from source completeness."""
+    from hype_db_store import _latest_partial_publication
+    row = conn.execute('''SELECT status,requested_count,recovery_payload_json
+                          FROM playlist_update_runs WHERE playlist_id=? AND match_started_at=?
+                          ORDER BY started_at DESC LIMIT 1''',
+                       (task.get('target_id') or '', started_at)).fetchone()
+    if not row or row['status'] not in {'published','skipped_current'}:
+        return None
+    payload = json.loads(row['recovery_payload_json'])
+    partial = _latest_partial_publication(payload)
+    actual = (payload.get('outcomes') or [{}])[-1].get('actual', [])
+    return {'mode':'partial' if partial else 'full', 'requested':row['requested_count'],
+            'published':len(actual), 'excluded':partial.get('excluded_items', []) if partial else []}
+
+
 def classify_task_failure(conn, task: dict, started_at: str, *, returncode: int | None = None) -> str:
     """Identify the failure phase independently of source data eligibility."""
     from sync_validation import EXIT_PUBLICATION_BLOCKED
@@ -256,6 +275,8 @@ def main():
     yt_auth = os.environ.get("YTMUSIC_AUTH_FILE", ".secrets/browser.json")
     
     success_count = 0
+    partial_tasks = []
+    publication_rows = []
     skipped_count = 0
     failed_tasks = []
     publish_failed_tasks = []
@@ -394,6 +415,7 @@ def main():
         data_ready = False
         failure_phase = ""
         returncode = 0
+        publication = None
         try:
             LOG.debug(f"Running command: {' '.join(cmd)}")
             subprocess.run(cmd, check=True, env=child_env)
@@ -408,6 +430,10 @@ def main():
             data_ready = not failure_phase or failure_phase in {"publish", "export"}
             if failure_phase and failure_phase != "publish":
                 history_blocked = True
+            if not failure_phase:
+                from hype_db import connect
+                with connect(script_dir / 'hype_wave_data.db', read_only=True) as conn:
+                    publication = publication_result(conn, task, execution_started_at)
         else:
             try:
                 from hype_db import connect
@@ -419,6 +445,8 @@ def main():
                         conn, service=task_type, job_name=job_name,
                         started_at=execution_started_at, source_variant=variant,
                     )
+                    if data_ready and not failure_phase:
+                        publication = publication_result(conn, task, execution_started_at)
                     if data_ready and task.get("include_in_hype") and task.get("hype_group") == "apple":
                         anchor = conn.execute(
                             """SELECT reference_period FROM match_runs
@@ -444,7 +472,15 @@ def main():
             failure_phase = failure_phase or "data_validation"
         else:
             ready_task_count += 1
-        if not failure_phase:
+        if publication:
+            publication_rows.append((job_name, publication))
+        if not failure_phase and publication and publication['mode'] == 'partial':
+            partial_tasks.append(job_name)
+            LOG.warning('Partially published task: %s (source_data_ready=true requested=%d published=%d excluded=%s)',
+                        job_name, publication['requested'], publication['published'], publication['excluded'])
+            if os.environ.get('GITHUB_ACTIONS') == 'true':
+                print(f"::warning title=Partial playlist publication::{job_name}: {publication['published']}/{publication['requested']} songs published", flush=True)
+        elif not failure_phase:
             success_count += 1
             LOG.info("Successfully finished task: %s (data_ready=true)", job_name)
         elif failure_phase == "publish" and data_ready:
@@ -454,23 +490,16 @@ def main():
             failed_tasks.append(job_name)
             LOG.error("Task '%s': failure_phase=%s data_ready=%s", job_name, failure_phase, data_ready)
 
-        # Do not extend global identity maintenance to unexplained task failures.
-        if task_type == "ytmusic" and data_ready and failure_phase in {"", "publish"}:
-            heal_script = script_dir / "heal_split_tracks.py"
-            db_path = script_dir / "hype_wave_data.db"
-            if heal_script.exists() and (db_path.exists() or postgres_url()):
-                try:
-                    heal_cmd = [sys.executable, str(heal_script), "--db-path", str(db_path)]
-                    LOG.info(f"Running heal_split_tracks after '{job_name}'...")
-                    subprocess.run(heal_cmd, check=True, env=child_env)
-                    LOG.info("heal_split_tracks completed.")
-                except subprocess.CalledProcessError as he:
-                    LOG.warning(f"heal_split_tracks failed (non-fatal): exit code {he.returncode}")
-
     LOG.info("=== Sync Summary ===")
     LOG.info(f"Total tasks: {len(tasks)}")
     LOG.info(f"Skipped: {skipped_count}")
     LOG.info(f"Successful: {success_count}")
+    LOG.info('Partially published: %d (%s)', len(partial_tasks), ', '.join(partial_tasks))
+    if os.environ.get('GITHUB_STEP_SUMMARY') and publication_rows:
+        with open(os.environ['GITHUB_STEP_SUMMARY'], 'a', encoding='utf-8') as stream:
+            stream.write('\n| Task | Publication | Requested | Published | Excluded |\n|---|---|---:|---:|---:|\n')
+            for name, result in publication_rows:
+                stream.write(f"| {name} | {result['mode']} | {result['requested']} | {result['published']} | {len(result['excluded'])} |\n")
     if ready_task_count and not history_blocked and not failed_hype_inputs(tasks, data_unready_tasks):
         try:
             from hype_db import connect, export_frontend_history, latest_hype_history_date, validate_frontend_history

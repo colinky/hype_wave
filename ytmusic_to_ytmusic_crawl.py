@@ -40,6 +40,7 @@ from ytmusic_playlist_sync import (
     make_ytmusic,
     resolve_video_to_song,
     resolve_bilingual_song,
+    get_verified_video_metadata,
     update_ytmusic_playlist,
     write_json,
     ytmusic_url,
@@ -930,7 +931,49 @@ def fetch_ytmusic_playlist_entries(ytmusic, playlist_url_or_id: str, *, limit: i
     return entries
 
 
-def preflight_chart_relations(conn, entries, ytmusic, reference_period, *, dry_run=False):
+def cached_chart_relations(conn, entries):
+    """Reuse unchanged proven bindings in bulk; changed policy or identity uses full preflight."""
+    from hype_db_store import get_bulk_cached_matches, _metadata_rows_equivalent, _relation_metadata_matches
+    rows = {row['song_id']: row for row in entries if row.get('atv_external_video_id')}
+    if not rows:
+        return {}
+    placeholders = ','.join('?' for _ in rows)
+    candidates = conn.execute(f'''
+        SELECT sr.source_song_id, sr.related_song_id, t.track_uid,
+               tl.title_ko, tl.title_en, tl.artist_ko, tl.artist_en, tl.album_ko, tl.album_en
+        FROM source_song_relations sr
+        JOIN platform_song_ids ps ON ps.service='ytmusic' AND ps.song_id=sr.source_song_id
+        JOIN platform_song_ids pt ON pt.service='ytmusic' AND pt.song_id=sr.related_song_id AND pt.track_uid=ps.track_uid
+        JOIN tracks t ON t.track_uid=ps.track_uid AND t.canonical_yt_video_id=sr.related_song_id
+        JOIN yt_video_ids vs ON vs.video_id=sr.source_song_id AND vs.track_uid=t.track_uid
+        JOIN yt_video_ids vt ON vt.video_id=sr.related_song_id AND vt.track_uid=t.track_uid AND vt.is_canonical=1
+        JOIN track_list tl ON tl.service='ytmusic' AND tl.song_id=sr.source_song_id
+        WHERE sr.service='ytmusic' AND sr.related_service='ytmusic'
+          AND sr.relation_type='youtube_charts_atv_external_video_id'
+          AND sr.evidence_source='youtube_charts_weekly_browse_api'
+          AND vs.is_canonical=CASE WHEN sr.source_song_id=sr.related_song_id THEN 1 ELSE 0 END
+          AND sr.source_song_id IN ({placeholders})
+    ''', tuple(rows)).fetchall()
+    policies = conn.execute('SELECT service,song_id,target_track_uid FROM manual_overrides').fetchall()
+    blocked_ids = {r['song_id'] for r in policies if r['service'] == 'ytmusic'}
+    blocked_uids = {r['target_track_uid'] for r in policies if r['target_track_uid']}
+    cached = get_bulk_cached_matches(conn, service='ytmusic', tracks=list(rows.values()), read_only=True)
+    result = {}
+    for candidate in candidates:
+        sid, target = candidate['source_song_id'], candidate['related_song_id']
+        row, match = rows[sid], cached.get(sid) or {}
+        if (sid in blocked_ids or target in blocked_ids or candidate['track_uid'] in blocked_uids
+                or target != row['atv_external_video_id'] or match.get('video_id') != target
+                or match.get('status') != 'cached_match'
+                or not _metadata_rows_equivalent(row, dict(candidate))
+                or not _relation_metadata_matches(None, None, None, row,
+                    {'title':match.get('yt_title'), 'artist':match.get('yt_artist'), 'album':match.get('yt_album')})):
+            continue
+        result[sid] = match
+    return result
+
+
+def preflight_chart_relations(conn, entries, ytmusic, reference_period, *, dry_run=False, metadata_cache=None):
     """Validate chart-provided official audio before consulting old video caches.
 
     The relation selects the chart's song asset; it does not make the source MV
@@ -939,9 +982,21 @@ def preflight_chart_relations(conn, entries, ytmusic, reference_period, *, dry_r
     from hype_db_store import (
         record_source_song_relation, consolidate_source_song_relation, manual_override,
     )
-    resolved = {}
+    resolved = cached_chart_relations(conn, entries)
+    metadata_cache = metadata_cache if metadata_cache is not None else {}
+    LOG.info('Official audio relations: reused=%d require_preflight=%d', len(resolved),
+             sum(bool(row.get('atv_external_video_id')) for row in entries) - len(resolved))
+    if resolved and not dry_run:
+        placeholders = ','.join('?' for _ in resolved)
+        conn.execute(f'''UPDATE source_song_relations SET last_seen_reference_period=?, updated_at=?
+                        WHERE service='ytmusic' AND relation_type='youtube_charts_atv_external_video_id'
+                          AND source_song_id IN ({placeholders}) AND last_seen_reference_period < ?''',
+                     (reference_period, datetime.now(timezone.utc).isoformat(), *resolved, reference_period))
+    conn.commit()
     for row in entries:
         source_id = row.get("original_video_id") or row.get("song_id") or ""
+        if source_id in resolved:
+            continue
         target_id = row.get("atv_external_video_id") or ""
         if row.get("source") != "youtube_charts_weekly_browse_api" or not target_id:
             continue
@@ -967,19 +1022,15 @@ def preflight_chart_relations(conn, entries, ytmusic, reference_period, *, dry_r
         if not ytmusic:
             continue
         try:
-            payload = ytmusic.get_song(target_id)
-            details = payload.get("videoDetails") or {}
-            if (details.get("videoId") != target_id
-                    or details.get("musicVideoType") != "MUSIC_VIDEO_TYPE_ATV"
-                    or not details.get("title") or not details.get("author")
-                    or details.get("isPrivate")):
+            details = get_verified_video_metadata(ytmusic, target_id, metadata_cache=metadata_cache)
+            if not details or details.get('music_video_type') != 'MUSIC_VIDEO_TYPE_ATV':
                 raise ValueError("Target metadata does not identify a public official audio resource")
             # A Premium playback restriction is not missing song identity. We
             # fetch metadata only; playlist verification remains a separate gate.
-            localized = resolve_bilingual_song(ytmusic, target_id)
+            localized = details
             target = {
                 "title": localized.get("title_en") or details["title"],
-                "artist": localized.get("artist_en") or details["author"],
+                "artist": localized.get("artist_en") or details["artist"],
                 "album": localized.get("album_en") or localized.get("album_ko") or "",
                 **localized,
             }
@@ -1097,7 +1148,7 @@ def main() -> int:
                 LOG.warning("Unable to save verified public chart snapshot: %s", exc)
 
     source_report: dict[str, Any] = {}
-    if use_youtube_charts and not args.youtube_charts_csv:
+    if use_youtube_charts and not args.youtube_charts_csv and (args.source_report_json or args.compare_csv):
         source_report = discover_youtube_charts_source_info(
             args.youtube_charts_url,
             chart_period_start=args.chart_period_start,
@@ -1303,15 +1354,17 @@ def main() -> int:
 
         # Preserve official relationships and repair identities before old caches
         # can hide them. The raw chart's IDs and rank slots remain unchanged.
+        metadata_cache = {}
+        relation_started = time.monotonic()
         relation_cache = preflight_chart_relations(
             conn, effective_entries, ytmusic if not args.no_resolve else None,
-            reference_period, dry_run=args.dry_run,
+            reference_period, dry_run=args.dry_run, metadata_cache=metadata_cache,
         )
         conn.commit()
         bulk_cache = load_verified_matching_cache(
             conn, service="ytmusic", tracks=[row for row in effective_entries if row.get("original_video_id")],
             ytmusic=None if args.no_resolve else ytmusic,
-            read_only=args.dry_run,
+            read_only=args.dry_run, metadata_cache=metadata_cache,
         )
         # A manual decision may have changed while metadata was fetched.
         bulk_cache.update({
@@ -1322,6 +1375,7 @@ def main() -> int:
         conn.commit()
 
         resolved_rows: list[dict[str, Any]] = []
+        LOG.info('Weekly relation/cache verification completed in %.2fs', time.monotonic()-relation_started)
         video_ids: list[str] = []
         seen: set[str] = set()
 
@@ -1517,7 +1571,7 @@ def main() -> int:
         return 1
     kst_now = datetime.now(timezone.utc).astimezone(timezone(timedelta(hours=9)))
     desc = f"YouTube Music Korea weekly chart sync\nLast updated: {kst_now:%Y-%m-%d}\n\nAuto-generated by Github Actions."
-    update_ytmusic_playlist(
+    publication = update_ytmusic_playlist(
         ytmusic,
         yt_playlist_id,
         video_ids,
@@ -1527,8 +1581,12 @@ def main() -> int:
         service="ytmusic",
         job_name=args.job_name,
         playlist_name=playlist_name,
+        metadata_cache=metadata_cache,
     )
-    LOG.info("Done. playlist_items=%d dry_run=%s audit=%s", len(video_ids), args.dry_run, audit)
+    LOG.log(logging.WARNING if publication['publication_mode'] == 'partial' else logging.INFO,
+            'Done. source_ranks=%d requested=%d published=%s publication_mode=%s excluded=%s',
+            len(chart_entries), len(video_ids), publication['actual_count'],
+            publication['publication_mode'], json.dumps(publication['excluded_items'], ensure_ascii=False))
     return 0
 
 

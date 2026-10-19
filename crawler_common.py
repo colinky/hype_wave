@@ -27,6 +27,7 @@ def load_verified_matching_cache(
     tracks: list[dict[str, Any]],
     ytmusic: Any = None,
     read_only: bool = False,
+    metadata_cache: dict[str, Any] | None = None,
 ) -> dict[str, dict[str, Any]]:
     """Load cache without holding a database transaction during network calls.
 
@@ -49,7 +50,7 @@ def load_verified_matching_cache(
     if not pending:
         return cached
 
-    metadata_cache: dict[str, Any] = {}
+    metadata_cache = metadata_cache if metadata_cache is not None else {}
     resolved = {
         video_id: get_verified_video_metadata(ytmusic, video_id, metadata_cache=metadata_cache)
         for video_id in pending

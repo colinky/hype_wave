@@ -1,6 +1,7 @@
 """Offline publication and durable recovery checks for incremental playlist edits."""
 from copy import deepcopy
 from itertools import combinations, permutations
+from datetime import datetime, timedelta, timezone
 import json
 import os
 from pathlib import Path
@@ -120,8 +121,79 @@ class PlaylistDeltaTests(unittest.TestCase):
 
     def publish(self, client, target):
         with patch.object(sync, "make_ytmusic", return_value=client):
-            sync.update_ytmusic_playlist(client, "fixture", target, dry_run=False,
+            return sync.update_ytmusic_playlist(client, "fixture", target, dry_run=False,
                 db_path=self.db, service="apple", job_name="Delta-Fixture")
+
+    def pending_from_previous_day(self, client):
+        client.lose_add = True
+        with self.assertRaises(sync.PlaylistMutationUncertain):
+            self.publish(client, ['a','b'])
+        run = self.latest()
+        with hype_db.connect(self.db) as conn:
+            conn.execute('UPDATE playlist_update_runs SET started_at=? WHERE update_run_id=?',
+                         ((datetime.now(timezone.utc)-timedelta(days=2)).isoformat(), run['update_run_id']))
+        client.lose_add = False
+        return hype_db.get_playlist_update_run(self.db, run['update_run_id'], read_only=True)
+
+    def test_next_day_preserves_ambiguous_history_and_publishes_new_target_without_replaying_add(self):
+        client = Playlist(['a'])
+        old = self.pending_from_previous_day(client)
+        result = self.publish(client, ['a','b','c'])
+        self.assertEqual(result['actual_count'], 3)
+        self.assertEqual(client.adds, [['b'],['c']])
+        closed = hype_db.get_playlist_update_run(self.db, old['update_run_id'], read_only=True)
+        self.assertEqual(closed['status'], 'verification_failed')
+        self.assertEqual(closed['recovery_payload']['events'][:2], old['recovery_payload']['events'])
+        self.assertEqual(closed['requested_items'], old['requested_items'])
+        self.assertEqual(closed['actual_video_ids'], ['a','b'])
+        self.assertIsNone(hype_db.get_pending_playlist_recovery(self.db, 'fixture'))
+
+    def test_next_day_unstable_observation_keeps_old_audit_and_performs_no_mutation(self):
+        client = Playlist(['a'])
+        old = self.pending_from_previous_day(client)
+        with patch.object(client, 'get_playlist', side_effect=[
+            {'tracks':client.items, 'trackCount':2},
+            {'tracks':list(reversed(client.items)), 'trackCount':2},
+        ]), self.assertRaisesRegex(sync.PlaylistPublicationBlocked, 'still changing'):
+            self.publish(client, ['a','b','c'])
+        self.assertEqual(client.adds, [['b']])
+        self.assertEqual(hype_db.get_playlist_update_run(self.db, old['update_run_id'])['state_fingerprint'], old['state_fingerprint'])
+
+    def test_next_day_can_preserve_and_close_interrupted_legacy_tail_recovery(self):
+        client = Playlist(['a'])
+        old = self.pending_from_previous_day(client)
+        payload = old['recovery_payload']
+        payload['claim']['role'] = 'reconcile'
+        payload['claim']['capability'] = 'append_missing_last'
+        with hype_db.connect(self.db) as conn:
+            conn.execute('UPDATE playlist_update_runs SET evidence_version=0,recovery_payload_json=? WHERE update_run_id=?',
+                         (json.dumps(payload), old['update_run_id']))
+        self.publish(client, ['a','b','c'])
+        self.assertEqual(client.adds, [['b'],['c']])
+        self.assertEqual(hype_db.get_playlist_update_run(self.db, old['update_run_id'])['status'], 'verification_failed')
+
+    def test_recent_pending_still_blocks_without_replaying_mutations(self):
+        client = Playlist(['a'])
+        client.lose_add = True
+        with self.assertRaises(sync.PlaylistMutationUncertain):
+            self.publish(client, ['a','b'])
+        with self.assertRaisesRegex(sync.PlaylistPublicationBlocked, 'Recent publication'):
+            self.publish(client, ['a','b','c'])
+        self.assertEqual(client.adds, [['b']])
+
+    def test_final_read_outage_defers_verification_without_rollback_writes(self):
+        client = Playlist(['a','b'])
+        original = sync._sync_playlist_contents
+        def applied(*args, **kwargs):
+            result = original(*args, **kwargs)
+            client.get_playlist = lambda *a, **k: (_ for _ in ()).throw(json.JSONDecodeError('empty','',0))
+            return result
+        with patch.object(sync, '_sync_playlist_contents', side_effect=applied):
+            with self.assertRaises(sync.PlaylistObservationUnavailable):
+                self.publish(client, ['a','c'])
+        self.assertEqual(client.adds, [['c']])
+        self.assertEqual(len(client.removes), 1)
+        self.assertEqual(self.latest()['status'], 'recovery_required')
 
     def latest(self):
         with hype_db.connect(self.db, read_only=True) as conn:
@@ -275,7 +347,8 @@ class PlaylistDeltaTests(unittest.TestCase):
     def test_partial_policy_omits_bad_addition_and_keeps_unchanged_original(self):
         client = Playlist(["keep", "obsolete"])
         client.aliases["bad"] = "unrelated"
-        self.publish(client, ["keep", "good", "bad"])
+        summary = self.publish(client, ["keep", "good", "bad"])
+        self.assertEqual((summary['publication_mode'], summary['requested_count'], summary['actual_count']), ('partial',3,2))
         self.assertEqual(client.items[0], client.original[0])
         self.assertEqual([item["videoId"] for item in client.items], ["keep", "good"])
         run = self.latest()

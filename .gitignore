@@ -8,6 +8,7 @@ tests/*
 !tests/test_publication_blocked_phase.py
 !tests/test_playlist_count_retry.py
 !tests/test_playlist_delta.py
+!tests/test_weekly_pipeline.py
 !tests/test_artist_metadata_layout.py
 !tests/check_artist_metadata.py
 !tests/test_ytmusic_csv_missing_url.py

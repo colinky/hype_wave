@@ -39,7 +39,7 @@ class YouTubeMondayScheduleTests(unittest.TestCase):
             CREATE TABLE playlist_update_runs (
                 playlist_id TEXT, job_name TEXT, service TEXT, status TEXT,
                 dry_run INTEGER, completed_at TEXT, match_started_at TEXT,
-                started_at TEXT, created_at TEXT
+                started_at TEXT, created_at TEXT, recovery_payload_json TEXT DEFAULT '{}'
             );
             CREATE TABLE match_runs (
                 run_id TEXT, service TEXT, job_name TEXT, source_variant TEXT,
@@ -75,7 +75,7 @@ class YouTubeMondayScheduleTests(unittest.TestCase):
 
     def seed_publication(self, *, status="published", match_started=START,
                          started=START, task=WEEKLY, dry_run=0):
-        self.conn.execute("INSERT INTO playlist_update_runs VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        self.conn.execute("INSERT INTO playlist_update_runs(playlist_id,job_name,service,status,dry_run,completed_at,match_started_at,started_at,created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
                           (task["target_id"], task["job_name"], task["service"], status,
                            dry_run, started, match_started, started, started))
         self.conn.commit()
@@ -178,6 +178,14 @@ class YouTubeMondayScheduleTests(unittest.TestCase):
     def test_old_source_period_does_not_complete_new_cycle(self):
         self.seed_source(period="2026-W38")
         self.seed_publication()
+        self.assert_due(True)
+
+    def test_verified_partial_publication_remains_due_for_missing_songs(self):
+        self.seed_source()
+        self.seed_publication()
+        self.conn.execute('UPDATE playlist_update_runs SET recovery_payload_json=?',
+                          ('{"events":[{"publication_mode":"partial"}]}',))
+        self.conn.commit()
         self.assert_due(True)
 
     def test_changed_target_or_latest_target_owner_remains_due(self):
