@@ -1,0 +1,2221 @@
+{
+  "schema_version": 1,
+  "source_url": "https://charts.youtube.com/charts/TopSongs/kr/weekly",
+  "collected_at": "2026-10-26T14:32:12.375936+00:00",
+  "locale": "en",
+  "payload": {
+    "chartParams": {
+      "countryCode": "kr",
+      "chartType": "CHART_TYPE_TRACKS",
+      "chartPeriodType": "CHART_PERIOD_TYPE_WEEKLY"
+    },
+    "chart": {
+      "listType": "TOP_VIEWS_CHART",
+      "chartPeriodType": "CHART_PERIOD_TYPE_WEEKLY",
+      "endDate": "2026-10-22",
+      "trackViews": [
+        {
+          "encryptedVideoId": "D968qfUZMUE",
+          "name": "NEON",
+          "artists": [
+            {
+              "name": "A2O, A2O LITE"
+            }
+          ],
+          "atvExternalVideoId": "rlYOsUfpi3M",
+          "thumbnail": {
+            "thumbnails": [
+              {
+                "url": "https://yt3.googleusercontent.com/SCk2zagB3CoKLH3RlVO1ktj566s3I0h4pKSxiea8_0X3QSjGU3ep85ZKt72Ko6OcmsNFDmxaGqCgcvobNA=w180-h180-l90-rj"
+              }
+            ]
+          },
+          "viewCount": "17358292",
+          "chartEntryMetadata": {
+            "currentPosition": 1,
+            "previousPosition": 3
+          }
+        },
+        {
+          "encryptedVideoId": "GxChUrrY4bc",
+          "name": "꿈꾸던 어른이 되었나요?",
+          "artists": [
+            {
+              "name": "MEOMURU"
+            }
+          ],
+          "atvExternalVideoId": "JJx_WQXOeK0",
+          "thumbnail": {
+            "thumbnails": [
+              {
+                "url": "https://yt3.googleusercontent.com/lNOryqmyqEA6mK1YzJJY2cRvTGFRU7fdma_s_krdREDlZm18Dlgeb8cJ1OaLdSvOYCeE-jkwlTXzJj93=w180-h180-l90-rj"
+              }
+            ]
+          },
+          "viewCount": "4765112",
+          "chartEntryMetadata": {
+            "currentPosition": 2,
+            "previousPosition": 2
+          }
+        },
+        {
+          "encryptedVideoId": "7mDDM0eBWR0",
+          "name": "퇴사할게여",
+          "artists": [
+            {
+              "name": "SOYEON"
+            }
+          ],
+          "atvExternalVideoId": "nxdxwZztGj0",
+          "thumbnail": {
+            "thumbnails": [
+              {
+                "url": "https://yt3.googleusercontent.com/-evTfg9Dho5GU39Kw98B-7VuaGHIFSReaafijbIFU6ktxxz4GGtNr1epcGnnvzMTBKiCnjUrNTP1mb-F=w180-h180-l90-rj"
+              }
+            ]
+          },
+          "viewCount": "4074489",
+          "chartEntryMetadata": {
+            "currentPosition": 3,
+            "previousPosition": 1
+          }
+        },
+        {
+          "encryptedVideoId": "F_EGihOgXsg",
+          "name": "Mise en scène",
+          "artists": [
+            {
+              "name": "Epik High, DAVICHI"
+            }
+          ],
+          "atvExternalVideoId": "F_EGihOgXsg",
+          "thumbnail": {
+            "thumbnails": [
+              {
+                "url": "https://yt3.googleusercontent.com/QyfTHAJ798VN7xLKv-3e3hgSpwcmWYmHcnMkAm1sWF8Q9_R2IK7JSw8rMilntcn7WHEIenlu1XGBpWf7Hg=w180-h180-l90-rj"
+              }
+            ]
+          },
+          "viewCount": "3374664",
+          "chartEntryMetadata": {
+            "currentPosition": 4,
+            "previousPosition": 11
+          }
+        },
+        {
+          "encryptedVideoId": "rsNhWkC4neE",
+          "name": "Looks Can Kill",
+          "artists": [
+            {
+              "name": "IVE"
+            }
+          ],
+          "atvExternalVideoId": "EAnOKe_B4k8",
+          "thumbnail": {
+            "thumbnails": [
+              {
+                "url": "https://yt3.googleusercontent.com/_ELxuCvVwr88suFvDRtDA_YCO7sN94SHAjHEvxbQa_ih2bnAU5iqqLBvn3iQcH6879-IqnHfrEmBwxWM=w180-h180-l90-rj"
+              }
+            ]
+          },
+          "viewCount": "3026848",
+          "chartEntryMetadata": {
+            "currentPosition": 5,
+            "previousPosition": null
+          }
+        },
+        {
+          "encryptedVideoId": "-q_S27LbNKU",
+          "name": "BAD",
+          "artists": [
+            {
+              "name": "ATEEZ"
+            }
+          ],
+          "atvExternalVideoId": "3F9jlnANW08",
+          "thumbnail": {
+            "thumbnails": [
+              {
+                "url": "https://yt3.googleusercontent.com/OlsyF8L82chwdoVqON-g5H3BsEEgA0zSIYU_6SIZgMtLe0QzZPxzno91C6zJktuon6rjAv_UbmggkO_vyQ=w180-h180-l90-rj"
+              }
+            ]
+          },
+          "viewCount": "2694541",
+          "chartEntryMetadata": {
+            "currentPosition": 6,
+            "previousPosition": 5
+          }
+        },
+        {
+          "encryptedVideoId": "9XttLI0oH0I",
+          "name": "LOVE ATTACK",
+          "artists": [
+            {
+              "name": "RESCENE"
+            }
+          ],
+          "atvExternalVideoId": "1uDzUPzS2w8",
+          "thumbnail": {
+            "thumbnails": [
+              {
+                "url": "https://yt3.googleusercontent.com/qO6L6WFlgHmu92fYAl9_GP1pLIjuWSafC33gAOs4E1k5BwehYyiH0JEjBgsSOxy6ByQ6ItSCs8Bxrbk35g=w180-h180-l90-rj"
+              }
+            ]
+          },
+          "viewCount": "2659798",
+          "chartEntryMetadata": {
+            "currentPosition": 7,
+            "previousPosition": 4
+          }
+        },
+        {
+          "encryptedVideoId": "83C3TZ4Zm_o",
+          "name": "LEMONADE",
+          "artists": [
+            {
+              "name": "aespa"
+            }
+          ],
+          "atvExternalVideoId": "LBhcqYqeu0U",
+          "thumbnail": {
+            "thumbnails": [
+              {
+                "url": "https://yt3.googleusercontent.com/_RICA9AQMvaw-SLRBVDVF3rLx6pgeXvy2USuFyueQhhMGAVga26n2brDIIbjNkkYW3xv9LyUdav9rWnKvA=w180-h180-l90-rj"
+              }
+            ]
+          },
+          "viewCount": "1988328",
+          "chartEntryMetadata": {
+            "currentPosition": 8,
+            "previousPosition": 10
+          }
+        },
+        {
+          "encryptedVideoId": "qZlu2j2SiBA",
+          "name": "Pretty Girl",
+          "artists": [
+            {
+              "name": "RESCENE"
+            }
+          ],
+          "atvExternalVideoId": "YVjcmz9sBIs",
+          "thumbnail": {
+            "thumbnails": [
+              {
+                "url": "https://yt3.googleusercontent.com/mJmC0SCSdDcKBWAH-XoWecJOoEamfDZEtaqbWCK3c5w68fM1tCEKHVLKYRXh7bNAHqP_tYriJCRrpND3dQ=w180-h180-l90-rj"
+              }
+            ]
+          },
+          "viewCount": "1959932",
+          "chartEntryMetadata": {
+            "currentPosition": 9,
+            "previousPosition": 7
+          }
+        },
+        {
+          "encryptedVideoId": "ZbO9PBdFRdc",
+          "name": "Deja Vu",
+          "artists": [
+            {
+              "name": "RESCENE"
+            }
+          ],
+          "atvExternalVideoId": "_1juftZumOQ",
+          "thumbnail": {
+            "thumbnails": [
+              {
+                "url": "https://yt3.googleusercontent.com/hDloZT7RQeCC_yCDeSvjzb9dioy2xoOhlzPbFXkUg3hBDPVju6FL-a9WbUPjN_mkBw-b4t1kykqcrB9X=w180-h180-l90-rj"
+              }
+            ]
+          },
+          "viewCount": "1922466",
+          "chartEntryMetadata": {
+            "currentPosition": 10,
+            "previousPosition": 8
+          }
+        },
+        {
+          "encryptedVideoId": "U6BDbXIah-Y",
+          "name": "REDRED",
+          "artists": [
+            {
+              "name": "CORTIS"
+            }
+          ],
+          "atvExternalVideoId": "DBOyG7y_FQg",
+          "thumbnail": {
+            "thumbnails": [
+              {
+                "url": "https://yt3.googleusercontent.com/Zl6lT-8KgSYiXI08I5ilE35LaWaDpVFYdBIEn_g_gJRGTBlb6xlMn4Ws226L3nMuhWl9UxRQZq5c1pZF=w180-h180-l90-rj"
+              }
+            ]
+          },
+          "viewCount": "1915363",
+          "chartEntryMetadata": {
+            "currentPosition": 11,
+            "previousPosition": 9
+          }
+        },
+        {
+          "encryptedVideoId": "F7sGJVUrkjQ",
+          "name": "RUDE!",
+          "artists": [
+            {
+              "name": "Hearts2Hearts"
+            }
+          ],
+          "atvExternalVideoId": "EsU7ng0KIy0",
+          "thumbnail": {
+            "thumbnails": [
+              {
+                "url": "https://yt3.googleusercontent.com/FBsKSRbF9dD9gKsMouEBNIymlDObANdcnZk4Lf_5QgTiq7V3gchHRsBXGgOLgDOOJuGkajoF5K-4qeA=w180-h180-l90-rj"
+              }
+            ]
+          },
+          "viewCount": "1790009",
+          "chartEntryMetadata": {
+            "currentPosition": 12,
+            "previousPosition": 12
+          }
+        },
+        {
+          "encryptedVideoId": "bMhDJ0S0OBA",
+          "name": "It's Me",
+          "artists": [
+            {
+              "name": "ILLIT"
+            }
+          ],
+          "atvExternalVideoId": "XDzGoMtSqZA",
+          "thumbnail": {
+            "thumbnails": [
+              {
+                "url": "https://yt3.googleusercontent.com/3RNsv7dNTYSBpuSWmpWM6PiYgQAaCXKvi8ION2AH2OaQHc-vW5-rJW4PqztU9XGaX-5z3sMc5RMTMc8n=w180-h180-l90-rj"
+              }
+            ]
+          },
+          "viewCount": "1624353",
+          "chartEntryMetadata": {
+            "currentPosition": 13,
+            "previousPosition": 13
+          }
+        },
+        {
+          "encryptedVideoId": "lQ-w9M447w0",
+          "name": "CRASH",
+          "artists": [
+            {
+              "name": "ALLDAY PROJECT"
+            }
+          ],
+          "atvExternalVideoId": "-JInUb_G6Jc",
+          "thumbnail": {
+            "thumbnails": [
+              {
+                "url": "https://yt3.googleusercontent.com/k33ua7-3JDf2GZ-Y5V51AM6Y7hlIMyiOyz5PuPQsA2gMKxsY4LBMpMLoiL5nlJrChVLu1idZFvKouRgF=w180-h180-l90-rj"
+              }
+            ]
+          },
+          "viewCount": "1619227",
+          "chartEntryMetadata": {
+            "currentPosition": 14,
+            "previousPosition": 6
+          }
+        },
+        {
+          "encryptedVideoId": "to3sjq-CAvA",
+          "name": "생각을 멈추다 보면 ",
+          "artists": [
+            {
+              "name": "Choi Yu Ree, Jinyoung"
+            }
+          ],
+          "atvExternalVideoId": "i0zqeEAJEx8",
+          "thumbnail": {
+            "thumbnails": [
+              {
+                "url": "https://yt3.googleusercontent.com/geOWWU6dd49YTQ_4O_wMmBkzSORxisB3N6Wg0VlZwCXkvCFOmncUw7x3D3elDsoOLC5y-AKEP26JC_WN=w180-h180-l90-rj"
+              }
+            ]
+          },
+          "viewCount": "1505385",
+          "chartEntryMetadata": {
+            "currentPosition": 15,
+            "previousPosition": 15
+          }
+        },
+        {
+          "encryptedVideoId": "NPqtL1dtrlA",
+          "name": "연애의 조건",
+          "artists": [
+            {
+              "name": "BESTie(베스티)"
+            }
+          ],
+          "atvExternalVideoId": "jWwdHeJ8XeU",
+          "thumbnail": {
+            "thumbnails": [
+              {
+                "url": "https://yt3.googleusercontent.com/e_KhStFaUpXtdfyncHtYOBGibpgdw3fVixG8H0_E8aIW6G0Op9wo4jQqWsfHCEMaI96DnhsqlHM9Yzck=w180-h180-l90-rj"
+              }
+            ]
+          },
+          "viewCount": "1498954",
+          "chartEntryMetadata": {
+            "currentPosition": 16,
+            "previousPosition": 14
+          }
+        },
+        {
+          "encryptedVideoId": "IAURqrShEUQ",
+          "name": "SUPERSTAR",
+          "artists": [
+            {
+              "name": "A2O, A2O SOUL"
+            }
+          ],
+          "atvExternalVideoId": "nTs0Gc0b6Ww",
+          "thumbnail": {
+            "thumbnails": [
+              {
+                "url": "https://yt3.googleusercontent.com/Mrj5lixK85lz-hXN25muwoFoDf7eURKk9R5C8UsJhInlQRYz3XdSChBo1EGZby56k7jtiHpdgnwNx7xu=w180-h180-l90-rj"
+              }
+            ]
+          },
+          "viewCount": "1411926",
+          "chartEntryMetadata": {
+            "currentPosition": 17,
+            "previousPosition": null
+          }
+        },
+        {
+          "encryptedVideoId": "6ruo4VVRjvo",
+          "name": "체포하겠어(Live)",
+          "artists": [
+            {
+              "name": "ILLIT"
+            }
+          ],
+          "atvExternalVideoId": "",
+          "thumbnail": {
+            "thumbnails": [
+              {
+                "url": "https://i.ytimg.com/vi/6ruo4VVRjvo/maxresdefault.jpg"
+              }
+            ]
+          },
+          "viewCount": "1365533",
+          "chartEntryMetadata": {
+            "currentPosition": 18,
+            "previousPosition": null
+          }
+        },
+        {
+          "encryptedVideoId": "Jxgbfc89hNI",
+          "name": "갑자기",
+          "artists": [
+            {
+              "name": "I.O.I"
+            }
+          ],
+          "atvExternalVideoId": "R5By6ms2a3Y",
+          "thumbnail": {
+            "thumbnails": [
+              {
+                "url": "https://yt3.googleusercontent.com/FCzHvDiPq13bHM4G1lzj_wN1fg78iCfwuDHvjHca9gCD_aNDrj0RjYvQXK_ZxXReOrh4GfgFQFgwXZA=w180-h180-l90-rj"
+              }
+            ]
+          },
+          "viewCount": "1334958",
+          "chartEntryMetadata": {
+            "currentPosition": 19,
+            "previousPosition": 16
+          }
+        },
+        {
+          "encryptedVideoId": "8aKR2Ho--5k",
+          "name": "GO HARD",
+          "artists": [
+            {
+              "name": "MEOVV"
+            }
+          ],
+          "atvExternalVideoId": "LPhWz3_-gzk",
+          "thumbnail": {
+            "thumbnails": [
+              {
+                "url": "https://yt3.googleusercontent.com/MX5c1837lt81XBXLoIvyaR3as5t0uhTh57DEN0HfSpgoYaxVxdnR8VYsZZvIolrjmFgTBez_FuAj-wCXNA=w180-h180-l90-rj"
+              }
+            ]
+          },
+          "viewCount": "1316983",
+          "chartEntryMetadata": {
+            "currentPosition": 20,
+            "previousPosition": 25
+          }
+        },
+        {
+          "encryptedVideoId": "6Ycn9qZK09I",
+          "name": "Heavy Serenade",
+          "artists": [
+            {
+              "name": "NMIXX"
+            }
+          ],
+          "atvExternalVideoId": "hGqYdubpcCM",
+          "thumbnail": {
+            "thumbnails": [
+              {
+                "url": "https://yt3.googleusercontent.com/bMQLAiYFfeh4rRtPoMKMYJLpk9giBfDjoAnHCBsGh4EhuR-5eVjf9UUEg-cgC0cqEPwUIW3AU7R7jtWqCw=w180-h180-l90-rj"
+              }
+            ]
+          },
+          "viewCount": "1238095",
+          "chartEntryMetadata": {
+            "currentPosition": 21,
+            "previousPosition": 22
+          }
+        },
+        {
+          "encryptedVideoId": "NwLxMQtlKDY",
+          "name": "Moise",
+          "artists": [
+            {
+              "name": "Lim Young Woong"
+            }
+          ],
+          "atvExternalVideoId": "tE_STpBGVcE",
+          "thumbnail": {
+            "thumbnails": [
+              {
+                "url": "https://yt3.googleusercontent.com/ver3z_mWOKJkKkWopYRmrVbc59YVtLM14D5zl0sf1m-_6eDVCqPYtpI5Kv-xaCtn9cWqT12tJJLuE65ckA=w180-h180-l90-rj"
+              }
+            ]
+          },
+          "viewCount": "1231280",
+          "chartEntryMetadata": {
+            "currentPosition": 22,
+            "previousPosition": 18
+          }
+        },
+        {
+          "encryptedVideoId": "roHWN9fL2SM",
+          "name": "긴 소원 (Birthday Wish)",
+          "artists": [
+            {
+              "name": "NMIXX"
+            }
+          ],
+          "atvExternalVideoId": "zmD9Stm174k",
+          "thumbnail": {
+            "thumbnails": [
+              {
+                "url": "https://yt3.googleusercontent.com/jCp0n7ioXbw6XmPKncVFmB2u2g9IPjsxilEpT7QQfNPvhRYmx2MyaEtd86EFXobW3VVIcVM5rMSfgk0=w180-h180-l90-rj"
+              }
+            ]
+          },
+          "viewCount": "1175556",
+          "chartEntryMetadata": {
+            "currentPosition": 23,
+            "previousPosition": null
+          }
+        },
+        {
+          "encryptedVideoId": "B8JJ8RNM-60",
+          "name": "Pinball",
+          "artists": [
+            {
+              "name": "RESCENE"
+            }
+          ],
+          "atvExternalVideoId": "oP-WPpwBz80",
+          "thumbnail": {
+            "thumbnails": [
+              {
+                "url": "https://yt3.googleusercontent.com/qO6L6WFlgHmu92fYAl9_GP1pLIjuWSafC33gAOs4E1k5BwehYyiH0JEjBgsSOxy6ByQ6ItSCs8Bxrbk35g=w180-h180-l90-rj"
+              }
+            ]
+          },
+          "viewCount": "1163255",
+          "chartEntryMetadata": {
+            "currentPosition": 24,
+            "previousPosition": 19
+          }
+        },
+        {
+          "encryptedVideoId": "bSs1gepe_cY",
+          "name": "삐그덕 (feat. IU)",
+          "artists": [
+            {
+              "name": "Crush"
+            }
+          ],
+          "atvExternalVideoId": "bB8rDZPNjyI",
+          "thumbnail": {
+            "thumbnails": [
+              {
+                "url": "https://yt3.googleusercontent.com/B8GGdcrqBCsKn7IWKpjSam3oCUhEic8IMWaB8xPUAGegvFh1i12rd-Y_a-IhXq8lwAJOEyzZdO3qv4o=w180-h180-l90-rj"
+              }
+            ]
+          },
+          "viewCount": "1097501",
+          "chartEntryMetadata": {
+            "currentPosition": 25,
+            "previousPosition": null
+          }
+        },
+        {
+          "encryptedVideoId": "UOKLtaE2U90",
+          "name": "Bansanka",
+          "artists": [
+            {
+              "name": "TAEYEON"
+            }
+          ],
+          "atvExternalVideoId": "UOKLtaE2U90",
+          "thumbnail": {
+            "thumbnails": [
+              {
+                "url": "https://yt3.googleusercontent.com/qgO7EUPFJ-k8Eewe-C2wHxuEW6ZLY8aEysMY3MqztXY5dmMZB6Q_glS6dhXdI90AmViq4bRmboeNfTAw=w180-h180-l90-rj"
+              }
+            ]
+          },
+          "viewCount": "1079809",
+          "chartEntryMetadata": {
+            "currentPosition": 26,
+            "previousPosition": 20
+          }
+        },
+        {
+          "encryptedVideoId": "ItSKahBISg0",
+          "name": "캐치 캐치",
+          "artists": [
+            {
+              "name": "YENA"
+            }
+          ],
+          "atvExternalVideoId": "sjtyqmA-pH4",
+          "thumbnail": {
+            "thumbnails": [
+              {
+                "url": "https://yt3.googleusercontent.com/KkiZjgUI7ADMjnfu90T8szhJ3CqljSdGDIpo3iNmOltOgewijZyI_Z2TQiXDdCN2jlozAVXNjuiyiSsL=w180-h180-l90-rj"
+              }
+            ]
+          },
+          "viewCount": "1054080",
+          "chartEntryMetadata": {
+            "currentPosition": 27,
+            "previousPosition": 21
+          }
+        },
+        {
+          "encryptedVideoId": "UsbRoaH6y-Q",
+          "name": "Pop Off Pop Off",
+          "artists": [
+            {
+              "name": "KiiiKiii"
+            }
+          ],
+          "atvExternalVideoId": "cQPXraDIvS4",
+          "thumbnail": {
+            "thumbnails": [
+              {
+                "url": "https://yt3.googleusercontent.com/y2hyMy-K8tjvgwc7I4Sef1qfJh_yMUGi8piw4lzB_9X5Rkaoq-lREd5W7EP-xawisk0xyMeUaAcvdaDo=w180-h180-l90-rj"
+              }
+            ]
+          },
+          "viewCount": "1043150",
+          "chartEntryMetadata": {
+            "currentPosition": 28,
+            "previousPosition": 26
+          }
+        },
+        {
+          "encryptedVideoId": "EIc13cn7tWo",
+          "name": "Nostalgia",
+          "artists": [
+            {
+              "name": "BIG Naughty"
+            }
+          ],
+          "atvExternalVideoId": "EIc13cn7tWo",
+          "thumbnail": {
+            "thumbnails": [
+              {
+                "url": "https://yt3.googleusercontent.com/7z3Qu3f68JSS-U6oF1tAQnWoATKOf08zaZa8_7J61jsORoy5dCiYzFiqoCFzcWb-I5yf-J1kNi2xzfg=w180-h180-l90-rj"
+              }
+            ]
+          },
+          "viewCount": "1028051",
+          "chartEntryMetadata": {
+            "currentPosition": 29,
+            "previousPosition": 24
+          }
+        },
+        {
+          "encryptedVideoId": "chl0R8C4NJ8",
+          "name": "ICONIC HEART",
+          "artists": [
+            {
+              "name": "Hearts2Hearts"
+            }
+          ],
+          "atvExternalVideoId": "hl7_dxuytRQ",
+          "thumbnail": {
+            "thumbnails": [
+              {
+                "url": "https://yt3.googleusercontent.com/2ig0DkAoM2I7E5RkJZrcm2VBmj2ABW26sRKGpSuck-sePqbQxUT-3MPl42Ses2Yx1gNuKL04N6cQubaA=w180-h180-l90-rj"
+              }
+            ]
+          },
+          "viewCount": "982989",
+          "chartEntryMetadata": {
+            "currentPosition": 30,
+            "previousPosition": 31
+          }
+        },
+        {
+          "encryptedVideoId": "RdUV9Ms5GM4",
+          "name": "Dear my crazy soulmate",
+          "artists": [
+            {
+              "name": "IU"
+            }
+          ],
+          "atvExternalVideoId": "IHIt9S2DWcQ",
+          "thumbnail": {
+            "thumbnails": [
+              {
+                "url": "https://yt3.googleusercontent.com/dfTaw-LhxWVGPdbKfML-ybvDnOySHxxbyyK_yJDSxnP1GDgcaW0obc5ZeeS6cTpJ-lu-CyiyA_VyGZr2=w180-h180-l90-rj"
+              }
+            ]
+          },
+          "viewCount": "968336",
+          "chartEntryMetadata": {
+            "currentPosition": 31,
+            "previousPosition": 23
+          }
+        },
+        {
+          "encryptedVideoId": "d6rrtRhN9YM",
+          "name": "또또",
+          "artists": [
+            {
+              "name": "Lim Young Woong"
+            }
+          ],
+          "atvExternalVideoId": "2v4VH659WPI",
+          "thumbnail": {
+            "thumbnails": [
+              {
+                "url": "https://yt3.googleusercontent.com/ver3z_mWOKJkKkWopYRmrVbc59YVtLM14D5zl0sf1m-_6eDVCqPYtpI5Kv-xaCtn9cWqT12tJJLuE65ckA=w180-h180-l90-rj"
+              }
+            ]
+          },
+          "viewCount": "943514",
+          "chartEntryMetadata": {
+            "currentPosition": 32,
+            "previousPosition": 32
+          }
+        },
+        {
+          "encryptedVideoId": "46h0LvDHgIs",
+          "name": "SUN KISS",
+          "artists": [
+            {
+              "name": "TUIDE (튜이드)"
+            }
+          ],
+          "atvExternalVideoId": "DWGROwMNFek",
+          "thumbnail": {
+            "thumbnails": [
+              {
+                "url": "https://yt3.googleusercontent.com/wO-brpVQUt_3eKSI86ufqbSTPY-kQHZ9TSgwToJ8S7-pwDLgVMx7DV3MWnGocLkqwyg5eb6WGHSxCgTHaw=w180-h180-l90-rj"
+              }
+            ]
+          },
+          "viewCount": "941874",
+          "chartEntryMetadata": {
+            "currentPosition": 33,
+            "previousPosition": 27
+          }
+        },
+        {
+          "encryptedVideoId": "PEpWLTge234",
+          "name": "Please Be Happy",
+          "artists": [
+            {
+              "name": "Lim Young Woong"
+            }
+          ],
+          "atvExternalVideoId": "PEpWLTge234",
+          "thumbnail": {
+            "thumbnails": [
+              {
+                "url": "https://yt3.googleusercontent.com/ver3z_mWOKJkKkWopYRmrVbc59YVtLM14D5zl0sf1m-_6eDVCqPYtpI5Kv-xaCtn9cWqT12tJJLuE65ckA=w180-h180-l90-rj"
+              }
+            ]
+          },
+          "viewCount": "937937",
+          "chartEntryMetadata": {
+            "currentPosition": 34,
+            "previousPosition": 81
+          }
+        },
+        {
+          "encryptedVideoId": "TBmE7m0yEwY",
+          "name": "Star Trace",
+          "artists": [
+            {
+              "name": "PLAVE"
+            }
+          ],
+          "atvExternalVideoId": "LDXdK6K3IO8",
+          "thumbnail": {
+            "thumbnails": [
+              {
+                "url": "https://yt3.googleusercontent.com/S5M04RnVes2sFI82hTW7NaRxuzvQZtCBRVWmOKHbvyPynV49ZYopygRAfhoj_Ak4eWYKeUqkymibSjWCRg=w180-h180-l90-rj"
+              }
+            ]
+          },
+          "viewCount": "935106",
+          "chartEntryMetadata": {
+            "currentPosition": 35,
+            "previousPosition": 41
+          }
+        },
+        {
+          "encryptedVideoId": "xIlFjHHUfI0",
+          "name": "I SPY",
+          "artists": [
+            {
+              "name": "NCT WISH"
+            }
+          ],
+          "atvExternalVideoId": "TNC6ZdLylXM",
+          "thumbnail": {
+            "thumbnails": [
+              {
+                "url": "https://yt3.googleusercontent.com/sF5-X4CHI9lEnIH5mQW86G4ouvI6n2adalSkt9mqK3u23Mf9elXAn43-KWOhxnERo-VMnj06NMTa3Kdt=w180-h180-l90-rj"
+              }
+            ]
+          },
+          "viewCount": "923694",
+          "chartEntryMetadata": {
+            "currentPosition": 36,
+            "previousPosition": 35
+          }
+        },
+        {
+          "encryptedVideoId": "tYzAC-pYkyM",
+          "name": "BAD HABITS TONITE",
+          "artists": [
+            {
+              "name": "A2O MAY, A2O"
+            }
+          ],
+          "atvExternalVideoId": "znzqL3Iuzjw",
+          "thumbnail": {
+            "thumbnails": [
+              {
+                "url": "https://yt3.googleusercontent.com/M7WWUxjXgGYznd3MWZgLXcAXVDU3GthJ9FYqh5hmAQgm4OldJpsTfl8g1Hn5WN-XGwR5Bm_a-jmcEKXy=w180-h180-l90-rj"
+              }
+            ]
+          },
+          "viewCount": "892573",
+          "chartEntryMetadata": {
+            "currentPosition": 37,
+            "previousPosition": null
+          }
+        },
+        {
+          "encryptedVideoId": "oAwzFFEYm38",
+          "name": "Skibidi",
+          "artists": [
+            {
+              "name": "Girls' Generation-HRS"
+            }
+          ],
+          "atvExternalVideoId": "qxxOgqxosds",
+          "thumbnail": {
+            "thumbnails": [
+              {
+                "url": "https://yt3.googleusercontent.com/trhero5UCoGc4OguktsWuF-jqvj2DVShQjwlLyGgZCDwauKMH4fVUhpW6mptNHdi4lGdKfH-Qq4vaUqC=w180-h180-l90-rj"
+              }
+            ]
+          },
+          "viewCount": "884965",
+          "chartEntryMetadata": {
+            "currentPosition": 38,
+            "previousPosition": 29
+          }
+        },
+        {
+          "encryptedVideoId": "XPUOHpkRAxg",
+          "name": "마음의 숲",
+          "artists": [
+            {
+              "name": "조선힙합"
+            }
+          ],
+          "atvExternalVideoId": "nNgPxwyPDe0",
+          "thumbnail": {
+            "thumbnails": [
+              {
+                "url": "https://yt3.googleusercontent.com/E8sA-U-079AMOCUHpbftCjmeefhKP7TrnwlakXxdICu3Pl3-sDSzUtOZ78sCp-vN2gxSf8y0KRFEjc8=w180-h180-l90-rj"
+              }
+            ]
+          },
+          "viewCount": "873985",
+          "chartEntryMetadata": {
+            "currentPosition": 39,
+            "previousPosition": 33
+          }
+        },
+        {
+          "encryptedVideoId": "zhHB4dZTChw",
+          "name": "404 (New Era)",
+          "artists": [
+            {
+              "name": "KiiiKiii"
+            }
+          ],
+          "atvExternalVideoId": "KL7km3PxilQ",
+          "thumbnail": {
+            "thumbnails": [
+              {
+                "url": "https://yt3.googleusercontent.com/Y4moV1t2CuBqhU0sqzLlwmjYzbO8s_CrT6tsHHN1GyQKQoCrNvfmHLZJa3zWRAe1JATZuZf-kPECD6Q8xw=w180-h180-l90-rj"
+              }
+            ]
+          },
+          "viewCount": "843253",
+          "chartEntryMetadata": {
+            "currentPosition": 40,
+            "previousPosition": 37
+          }
+        },
+        {
+          "encryptedVideoId": "gYAduKnFHG4",
+          "name": "잔불 (Still)",
+          "artists": [
+            {
+              "name": "N.Flying"
+            }
+          ],
+          "atvExternalVideoId": "JqdlzX5zFzg",
+          "thumbnail": {
+            "thumbnails": [
+              {
+                "url": "https://yt3.googleusercontent.com/pzv7Aj4O2ZUvjHc_HU50l4cXgl0mAqjp5yY0MgE4uQycasZj2QkBJTRfSw2Us2UrxaV-bWt9AMeNcOQ=w180-h180-l90-rj"
+              }
+            ]
+          },
+          "viewCount": "792028",
+          "chartEntryMetadata": {
+            "currentPosition": 41,
+            "previousPosition": 28
+          }
+        },
+        {
+          "encryptedVideoId": "EKEts5IShas",
+          "name": "별이 시작되는 곳",
+          "artists": [
+            {
+              "name": "StelLive"
+            }
+          ],
+          "atvExternalVideoId": "Ei7yWYi7x_E",
+          "thumbnail": {
+            "thumbnails": [
+              {
+                "url": "https://yt3.googleusercontent.com/o8nbDm67Qkf1g6Hmg95LcG23WVFSjhm5pPzgzD0bXw11AwLYaHf8z5bW65WktSa9NkX_wQnvqSOlIms=w180-h180-l90-rj"
+              }
+            ]
+          },
+          "viewCount": "783833",
+          "chartEntryMetadata": {
+            "currentPosition": 42,
+            "previousPosition": null
+          }
+        },
+        {
+          "encryptedVideoId": "T6hOlik58gg",
+          "name": "High Forever (Marlon Hoffstadt Remix)",
+          "artists": [
+            {
+              "name": "Petite Meller, Marlon Hoffstadt"
+            }
+          ],
+          "atvExternalVideoId": "-S4H-Usng60",
+          "thumbnail": {
+            "thumbnails": [
+              {
+                "url": "https://yt3.googleusercontent.com/IqAwDmo65D0J1DCyukn3t8K44RxTAzhMed9eQo1hJRDlX4zQ3ZTzzG4vhbhCmKXcQ2kRTHjJ6xQAJyYUiA=w180-h180-l90-rj"
+              }
+            ]
+          },
+          "viewCount": "767005",
+          "chartEntryMetadata": {
+            "currentPosition": 43,
+            "previousPosition": null
+          }
+        },
+        {
+          "encryptedVideoId": "R53dDlmY3wo",
+          "name": "Baila",
+          "artists": [
+            {
+              "name": "Lim Young Woong"
+            }
+          ],
+          "atvExternalVideoId": "R53dDlmY3wo",
+          "thumbnail": {
+            "thumbnails": [
+              {
+                "url": "https://yt3.googleusercontent.com/ver3z_mWOKJkKkWopYRmrVbc59YVtLM14D5zl0sf1m-_6eDVCqPYtpI5Kv-xaCtn9cWqT12tJJLuE65ckA=w180-h180-l90-rj"
+              }
+            ]
+          },
+          "viewCount": "751329",
+          "chartEntryMetadata": {
+            "currentPosition": 44,
+            "previousPosition": 34
+          }
+        },
+        {
+          "encryptedVideoId": "x6_mbnsh6VU",
+          "name": "STORM",
+          "artists": [
+            {
+              "name": "GENER8ION, Yung Lean"
+            }
+          ],
+          "atvExternalVideoId": "yuIB3jmC_0M",
+          "thumbnail": {
+            "thumbnails": [
+              {
+                "url": "https://yt3.googleusercontent.com/pWQjy5MPyAKZOCKVK4Lwl652zGhrGi6KQKxIgp6D1b8jv29nCDzvf-VSSv0r4Ht5DGGwCC2LGe4uyzU=w180-h180-l90-rj"
+              }
+            ]
+          },
+          "viewCount": "739568",
+          "chartEntryMetadata": {
+            "currentPosition": 45,
+            "previousPosition": 30
+          }
+        },
+        {
+          "encryptedVideoId": "8la3SuNxpPQ",
+          "name": "크게 울어라",
+          "artists": [
+            {
+              "name": "Roy Kim"
+            }
+          ],
+          "atvExternalVideoId": "R4kmk4CDVHM",
+          "thumbnail": {
+            "thumbnails": [
+              {
+                "url": "https://yt3.googleusercontent.com/TKqPBkX1f1n02H6sbiyUdicq84_pClZ3hJQlmOyzkdkZfCUfpjARSdkCxU-yuN07S0A9CpgnqLnBNNTf=w180-h180-l90-rj"
+              }
+            ]
+          },
+          "viewCount": "729042",
+          "chartEntryMetadata": {
+            "currentPosition": 46,
+            "previousPosition": 17
+          }
+        },
+        {
+          "encryptedVideoId": "JNy_pVfs6yQ",
+          "name": "Forever Has Always Been",
+          "artists": [
+            {
+              "name": "Redoor"
+            }
+          ],
+          "atvExternalVideoId": "",
+          "thumbnail": {
+            "thumbnails": [
+              {
+                "url": "https://i.ytimg.com/vi/JNy_pVfs6yQ/maxresdefault.jpg"
+              }
+            ]
+          },
+          "viewCount": "700832",
+          "chartEntryMetadata": {
+            "currentPosition": 47,
+            "previousPosition": 50
+          }
+        },
+        {
+          "encryptedVideoId": "B5u8JiGVI_k",
+          "name": "BiiiG",
+          "artists": [
+            {
+              "name": "BIGBANG"
+            }
+          ],
+          "atvExternalVideoId": "ZBFzUSdS2nI",
+          "thumbnail": {
+            "thumbnails": [
+              {
+                "url": "https://yt3.googleusercontent.com/u_BV6asN_Hpd5vvtObpp9P_nMF7iJkjpi_LWSF2NUpreyLvh_brmstqv5sWggDbOP1V4ZlEfhTVl1B7z=w180-h180-l90-rj"
+              }
+            ]
+          },
+          "viewCount": "697236",
+          "chartEntryMetadata": {
+            "currentPosition": 48,
+            "previousPosition": 40
+          }
+        },
+        {
+          "encryptedVideoId": "Y1Lah0BM0KQ",
+          "name": "Made My Night",
+          "artists": [
+            {
+              "name": "LE SSERAFIM"
+            }
+          ],
+          "atvExternalVideoId": "GpsX1d-iMlY",
+          "thumbnail": {
+            "thumbnails": [
+              {
+                "url": "https://yt3.googleusercontent.com/PsYJbvAdtQkONz0UrG64NGMbfBu0Q7H9voCBr3XPGMXbIeKwQ6RkZBPWWdrWF4ZAqsgYXrjBhPwR97FF=w180-h180-l90-rj"
+              }
+            ]
+          },
+          "viewCount": "691914",
+          "chartEntryMetadata": {
+            "currentPosition": 49,
+            "previousPosition": 46
+          }
+        },
+        {
+          "encryptedVideoId": "lu9GinsuyUQ",
+          "name": "Next Chapter",
+          "artists": [
+            {
+              "name": "Hearts2Hearts"
+            }
+          ],
+          "atvExternalVideoId": "YVN8O_YKBbA",
+          "thumbnail": {
+            "thumbnails": [
+              {
+                "url": "https://yt3.googleusercontent.com/keu3_ttnXgI7Lv_hqy3nhwTP4lTEVEyCeBKYrys9LdjrZ7-JNoXUQMcU6H5Y3fHNdBL_v6THa7hJfMqi=w180-h180-l90-rj"
+              }
+            ]
+          },
+          "viewCount": "687254",
+          "chartEntryMetadata": {
+            "currentPosition": 50,
+            "previousPosition": null
+          }
+        },
+        {
+          "encryptedVideoId": "_dq1wwT5Bn0",
+          "name": "타타 (feat. Minami)",
+          "artists": [
+            {
+              "name": "Loco"
+            }
+          ],
+          "atvExternalVideoId": "Mx481RQ2VAw",
+          "thumbnail": {
+            "thumbnails": [
+              {
+                "url": "https://yt3.googleusercontent.com/h4PFGr0HqkeymQEtEe4NNGZUkumNyWyKeW6EAh1o8_Amu-qvoBbD0Hz1XwmNOen7om2LIAmAtIVnUi0=w180-h180-l90-rj"
+              }
+            ]
+          },
+          "viewCount": "686534",
+          "chartEntryMetadata": {
+            "currentPosition": 51,
+            "previousPosition": null
+          }
+        },
+        {
+          "encryptedVideoId": "jy8eGRwI9h8",
+          "name": "Vancouver",
+          "artists": [
+            {
+              "name": "BIG Naughty"
+            }
+          ],
+          "atvExternalVideoId": "NBxqTvtRd6E",
+          "thumbnail": {
+            "thumbnails": [
+              {
+                "url": "https://yt3.googleusercontent.com/2VsBLtYduh22RL-G1Wm2KIpKu47Bhv1953nwk5BpnpYbv0P2FVzUU4guGIBLWjvxiSUGGYvXDVJgnEeuuw=w180-h180-l90-rj"
+              }
+            ]
+          },
+          "viewCount": "675132",
+          "chartEntryMetadata": {
+            "currentPosition": 52,
+            "previousPosition": null
+          }
+        },
+        {
+          "encryptedVideoId": "1VqxWNwgf5Q",
+          "name": "Lemon Tang",
+          "artists": [
+            {
+              "name": "Hearts2Hearts"
+            }
+          ],
+          "atvExternalVideoId": "BEPSc8q6Bd8",
+          "thumbnail": {
+            "thumbnails": [
+              {
+                "url": "https://yt3.googleusercontent.com/FBsKSRbF9dD9gKsMouEBNIymlDObANdcnZk4Lf_5QgTiq7V3gchHRsBXGgOLgDOOJuGkajoF5K-4qeA=w180-h180-l90-rj"
+              }
+            ]
+          },
+          "viewCount": "646448",
+          "chartEntryMetadata": {
+            "currentPosition": 53,
+            "previousPosition": 45
+          }
+        },
+        {
+          "encryptedVideoId": "wmluyZkfFVU",
+          "name": "Four seasons, and you",
+          "artists": [
+            {
+              "name": "LEECHANGSUB"
+            }
+          ],
+          "atvExternalVideoId": "4f8Lr9ZJK28",
+          "thumbnail": {
+            "thumbnails": [
+              {
+                "url": "https://yt3.googleusercontent.com/k-8xouadsEcwRWfzX0rCbSW1alH5RMix9OCpoZDNzOfCeDgzCqtJHjWstPS5BAWu__vFdxIF3ydyKF_Q=w180-h180-l90-rj"
+              }
+            ]
+          },
+          "viewCount": "632159",
+          "chartEntryMetadata": {
+            "currentPosition": 54,
+            "previousPosition": 38
+          }
+        },
+        {
+          "encryptedVideoId": "5ly8tAU-n_w",
+          "name": "If You Ask Me What Love Is",
+          "artists": [
+            {
+              "name": "Roy Kim"
+            }
+          ],
+          "atvExternalVideoId": "ZcHRydIz0eM",
+          "thumbnail": {
+            "thumbnails": [
+              {
+                "url": "https://yt3.googleusercontent.com/ZpA0xrTtvCfgHBaoxNsUsrC7oKe6q0Du8KV6dZaZAQwy2a7gGvuacPqcq5eq30Yb3pv9tF7-Cy5P9P3qGg=w180-h180-l90-rj"
+              }
+            ]
+          },
+          "viewCount": "615279",
+          "chartEntryMetadata": {
+            "currentPosition": 55,
+            "previousPosition": 53
+          }
+        },
+        {
+          "encryptedVideoId": "H0lQwJPdoBU",
+          "name": "인사",
+          "artists": [
+            {
+              "name": "BUMJIN"
+            }
+          ],
+          "atvExternalVideoId": "LP0lRsckX1A",
+          "thumbnail": {
+            "thumbnails": [
+              {
+                "url": "https://yt3.googleusercontent.com/15wkXs1Mndc-2cplMMNKNdJHHG6hg4Ui1nYBgcdXcpSZVUvHe1uvQxnLrSnSmTLGS_wjcR7rdxHqjnQ=w180-h180-l90-rj"
+              }
+            ]
+          },
+          "viewCount": "597738",
+          "chartEntryMetadata": {
+            "currentPosition": 56,
+            "previousPosition": null
+          }
+        },
+        {
+          "encryptedVideoId": "YQ-qToZUybM",
+          "name": "Die For You (Remix)",
+          "artists": [
+            {
+              "name": "The Weeknd, Ariana Grande"
+            }
+          ],
+          "atvExternalVideoId": "AySMGpXQ1Mo",
+          "thumbnail": {
+            "thumbnails": [
+              {
+                "url": "https://yt3.googleusercontent.com/liKrw5t_WphMbkiYKDHQj1rf8S8GSwxgMRUmB7tkHhPF862BRcqIYxFEj9QwKr51ge2ma6u0C_wI4jNo=w180-h180-l90-rj"
+              }
+            ]
+          },
+          "viewCount": "592186",
+          "chartEntryMetadata": {
+            "currentPosition": 57,
+            "previousPosition": 49
+          }
+        },
+        {
+          "encryptedVideoId": "ZjBZ8MUnB0E",
+          "name": "Training Season",
+          "artists": [
+            {
+              "name": "Dua Lipa"
+            }
+          ],
+          "atvExternalVideoId": "n0GXk_T2zs8",
+          "thumbnail": {
+            "thumbnails": [
+              {
+                "url": "https://yt3.googleusercontent.com/5d51ZlGjNP_Gss3Z3RKP7B98ASQ7pxvp4XI3IAQ3kniFFjgLPDPnR6_K3tYZGoMVvfJYXBtu3awwsTI=w180-h180-l90-rj"
+              }
+            ]
+          },
+          "viewCount": "583324",
+          "chartEntryMetadata": {
+            "currentPosition": 58,
+            "previousPosition": 79
+          }
+        },
+        {
+          "encryptedVideoId": "4sdN33l2WTw",
+          "name": "ROSE (feat. Skinny Brown & Homeboy)",
+          "artists": [
+            {
+              "name": "Young B"
+            }
+          ],
+          "atvExternalVideoId": "4sdN33l2WTw",
+          "thumbnail": {
+            "thumbnails": [
+              {
+                "url": "https://yt3.googleusercontent.com/YS5XsEq-EAr0OgdLK4tWnlT9RZpFHzCV3tmmXL5Jjq8XVNB6XrjaV6x0GsYxNkM_JsjcyVJ_o4bEd2U5=w180-h180-l90-rj"
+              }
+            ]
+          },
+          "viewCount": "580402",
+          "chartEntryMetadata": {
+            "currentPosition": 59,
+            "previousPosition": 64
+          }
+        },
+        {
+          "encryptedVideoId": "mzaDWi7mU38",
+          "name": "Every Moment Of You",
+          "artists": [
+            {
+              "name": "D.O."
+            }
+          ],
+          "atvExternalVideoId": "mzaDWi7mU38",
+          "thumbnail": {
+            "thumbnails": [
+              {
+                "url": "https://yt3.googleusercontent.com/_xmLCweU439jaWyLNKdiM1zVyrbk91P59wetHugdsxma1Xc7srulsWxWqitjclDb_U_98W_KNoSJFQ=w180-h180-l90-rj"
+              }
+            ]
+          },
+          "viewCount": "579387",
+          "chartEntryMetadata": {
+            "currentPosition": 60,
+            "previousPosition": null
+          }
+        },
+        {
+          "encryptedVideoId": "sLk8zWUuYTA",
+          "name": "Vitamin ME",
+          "artists": [
+            {
+              "name": "fromis_9"
+            }
+          ],
+          "atvExternalVideoId": "Cbs8h6nJWBc",
+          "thumbnail": {
+            "thumbnails": [
+              {
+                "url": "https://yt3.googleusercontent.com/EWFGLNTjKGAzb8tK4CqUwT_VFCBh_RcAB4ej1ob6vRMcfeuUO5ms4PCl9O8ZRC1y1aNaCP-k5XWyD8lL=w180-h180-l90-rj"
+              }
+            ]
+          },
+          "viewCount": "567552",
+          "chartEntryMetadata": {
+            "currentPosition": 61,
+            "previousPosition": 52
+          }
+        },
+        {
+          "encryptedVideoId": "lBPvMWiq99U",
+          "name": "Epilogue",
+          "artists": [
+            {
+              "name": "Parc Jae Jung"
+            }
+          ],
+          "atvExternalVideoId": "rE2gwiBwg9s",
+          "thumbnail": {
+            "thumbnails": [
+              {
+                "url": "https://yt3.googleusercontent.com/Qoj14Jy44JKysV5iCCoKTC6uiqr9cIuzcLwRy_lw64JwmmS29V0CUJ7gm6FgAnmQt-Oq_0S_Y4jhd1LQ=w180-h180-l90-rj"
+              }
+            ]
+          },
+          "viewCount": "557423",
+          "chartEntryMetadata": {
+            "currentPosition": 62,
+            "previousPosition": 43
+          }
+        },
+        {
+          "encryptedVideoId": "atXQuMPBS50",
+          "name": "고백",
+          "artists": [
+            {
+              "name": "SOMEDAY"
+            }
+          ],
+          "atvExternalVideoId": "77sRWlOTfkA",
+          "thumbnail": {
+            "thumbnails": [
+              {
+                "url": "https://yt3.googleusercontent.com/tV9GPIqAhAk6VrgR481paEll-Xw_-e_J7zAwcaWCZGSRf5GtstK8rr3o5TL-52F3zrVOyeQTg79qktFY=w180-h180-l90-rj"
+              }
+            ]
+          },
+          "viewCount": "543165",
+          "chartEntryMetadata": {
+            "currentPosition": 63,
+            "previousPosition": 63
+          }
+        },
+        {
+          "encryptedVideoId": "luTz3QoowrU",
+          "name": "하늘땅 별땅",
+          "artists": [
+            {
+              "name": "UNIS"
+            }
+          ],
+          "atvExternalVideoId": "_FhkbSwiSwM",
+          "thumbnail": {
+            "thumbnails": [
+              {
+                "url": "https://yt3.googleusercontent.com/uAfb9FgcaidFP5yGLWwurXfajwqcl8yke4y5h5wWyvhUngdJpnNbweIkT-D4yTLl5k0TAUhBXQgTmjFz=w180-h180-l90-rj"
+              }
+            ]
+          },
+          "viewCount": "537656",
+          "chartEntryMetadata": {
+            "currentPosition": 64,
+            "previousPosition": 51
+          }
+        },
+        {
+          "encryptedVideoId": "Mmw-PpWhKFg",
+          "name": "FIRESTARTER (feat. Sophie Powers, MIYEON & SOYEON)",
+          "artists": [
+            {
+              "name": "K/DA, League Of Legends, i-dle, Mimi Webb"
+            }
+          ],
+          "atvExternalVideoId": "miIihGHZ_7A",
+          "thumbnail": {
+            "thumbnails": [
+              {
+                "url": "https://yt3.googleusercontent.com/oe-R6jmpJAVtO-SiPvXhuP71cCOxSPfwVst4RMIlE14li1KW9nsx6ahBqTo4Q21vcBF5pWvgxb6fJuM=w180-h180-l90-rj"
+              }
+            ]
+          },
+          "viewCount": "508004",
+          "chartEntryMetadata": {
+            "currentPosition": 65,
+            "previousPosition": null
+          }
+        },
+        {
+          "encryptedVideoId": "nP1xjFX86Po",
+          "name": "Unknown Planet",
+          "artists": [
+            {
+              "name": "IU"
+            }
+          ],
+          "atvExternalVideoId": "KHqDMwHpdy8",
+          "thumbnail": {
+            "thumbnails": [
+              {
+                "url": "https://yt3.googleusercontent.com/dfTaw-LhxWVGPdbKfML-ybvDnOySHxxbyyK_yJDSxnP1GDgcaW0obc5ZeeS6cTpJ-lu-CyiyA_VyGZr2=w180-h180-l90-rj"
+              }
+            ]
+          },
+          "viewCount": "503178",
+          "chartEntryMetadata": {
+            "currentPosition": 66,
+            "previousPosition": 54
+          }
+        },
+        {
+          "encryptedVideoId": "62qQxaFZFZo",
+          "name": "소년만화",
+          "artists": [
+            {
+              "name": "QWER"
+            }
+          ],
+          "atvExternalVideoId": "62qQxaFZFZo",
+          "thumbnail": {
+            "thumbnails": [
+              {
+                "url": "https://yt3.googleusercontent.com/3wx4f3871XofRlG7ewc2pRJSDedAwNJKpI54UG4OKZTOv0nSVxTyhnKwv6oPFidEylcxYJbea2qvajqm=w180-h180-l90-rj"
+              }
+            ]
+          },
+          "viewCount": "483674",
+          "chartEntryMetadata": {
+            "currentPosition": 67,
+            "previousPosition": 47
+          }
+        },
+        {
+          "encryptedVideoId": "xmX5lqVBH1s",
+          "name": "Vancouver 2",
+          "artists": [
+            {
+              "name": "BIG Naughty"
+            }
+          ],
+          "atvExternalVideoId": "xmX5lqVBH1s",
+          "thumbnail": {
+            "thumbnails": [
+              {
+                "url": "https://yt3.googleusercontent.com/ZeFss38IushY_-DyK7EHtVFQ4Kt44SYZkoeFGTzgM9oXRWKtbqBF4HBla9YIcYzWVaz9oqWgN6j9ABU=w180-h180-l90-rj"
+              }
+            ]
+          },
+          "viewCount": "453826",
+          "chartEntryMetadata": {
+            "currentPosition": 68,
+            "previousPosition": null
+          }
+        },
+        {
+          "encryptedVideoId": "Vio-BUdv84E",
+          "name": "C.R.E.A.M. (Call of Duty: Modern Warfare 4 Remix)",
+          "artists": [
+            {
+              "name": "Wu-Tang Clan, LEE YOUNGJI, Jay Park, E SENS"
+            }
+          ],
+          "atvExternalVideoId": "-LQ7rItAbHY",
+          "thumbnail": {
+            "thumbnails": [
+              {
+                "url": "https://yt3.googleusercontent.com/fMUVRdtvaXnE8B709A5onj2T6jhWec6mIbe4fjl-qRcHAXFyWojcXvHPvdxQuu4xkuTisTQH1_q8vOXQNw=w180-h180-l90-rj"
+              }
+            ]
+          },
+          "viewCount": "437156",
+          "chartEntryMetadata": {
+            "currentPosition": 69,
+            "previousPosition": null
+          }
+        },
+        {
+          "encryptedVideoId": "Jmr_EEDkV-U",
+          "name": "When Spring Comes",
+          "artists": [
+            {
+              "name": "Roy Kim"
+            }
+          ],
+          "atvExternalVideoId": "Jmr_EEDkV-U",
+          "thumbnail": {
+            "thumbnails": [
+              {
+                "url": "https://yt3.googleusercontent.com/hOT1FfzcEvAMC1fCCskYAGHP78UqZ4zStTvycOJ-JkkhrsNJFq5K5G7g_t7Vzxw1MwTrOK7AZc_6s4b6=w180-h180-l90-rj"
+              }
+            ]
+          },
+          "viewCount": "431094",
+          "chartEntryMetadata": {
+            "currentPosition": 70,
+            "previousPosition": 68
+          }
+        },
+        {
+          "encryptedVideoId": "MC6-82GRK5I",
+          "name": "Bloom",
+          "artists": [
+            {
+              "name": "RESCENE"
+            }
+          ],
+          "atvExternalVideoId": "Z5LPrVc1MtU",
+          "thumbnail": {
+            "thumbnails": [
+              {
+                "url": "https://yt3.googleusercontent.com/1QqXT3ooe9cJRqbreVVHFYm5oNxK6LdNQwwoUBipknidBjLfdBZhKj6CB0_8K8j7MMqP_uvURP-ZZYZb=w180-h180-l90-rj"
+              }
+            ]
+          },
+          "viewCount": "430244",
+          "chartEntryMetadata": {
+            "currentPosition": 71,
+            "previousPosition": 73
+          }
+        },
+        {
+          "encryptedVideoId": "0kBL7n_Yxak",
+          "name": "B.B.B (Bigger Badder Better) (English Ver.) (feat. A2O LTG)",
+          "artists": [
+            {
+              "name": "A2O"
+            }
+          ],
+          "atvExternalVideoId": "8x5lpTfMGJ8",
+          "thumbnail": {
+            "thumbnails": [
+              {
+                "url": "https://yt3.googleusercontent.com/oZK9I3s4lKjc5S1MblsJdCak-EIYq8cnWmahH6SsI1IlFK_5iE3YppIfRtk-NbKcXZHsbt3JKA32e__NPQ=w180-h180-l90-rj"
+              }
+            ]
+          },
+          "viewCount": "422874",
+          "chartEntryMetadata": {
+            "currentPosition": 72,
+            "previousPosition": null
+          }
+        },
+        {
+          "encryptedVideoId": "IpFX2vq8HKw",
+          "name": "blue",
+          "artists": [
+            {
+              "name": "yung kai"
+            }
+          ],
+          "atvExternalVideoId": "MHCsrKA9gh8",
+          "thumbnail": {
+            "thumbnails": [
+              {
+                "url": "https://yt3.googleusercontent.com/jTa7GXscGZnmzWZDYYpmvYRy_gYGZQSP_COxCY-7wDt_7HTs37Bi-O313LdKc5qs2tuIVZNv0SGf-Jue=w180-h180-l90-rj"
+              }
+            ]
+          },
+          "viewCount": "419319",
+          "chartEntryMetadata": {
+            "currentPosition": 73,
+            "previousPosition": 71
+          }
+        },
+        {
+          "encryptedVideoId": "7zBeQezaz4U",
+          "name": "クリスマスソング",
+          "artists": [
+            {
+              "name": "back number"
+            }
+          ],
+          "atvExternalVideoId": "e7u2aPzWmU4",
+          "thumbnail": {
+            "thumbnails": [
+              {
+                "url": "https://yt3.googleusercontent.com/Z18dZW8-1xhDJ8F1DPtstNLWZXVBAUeDTNHnUjwRaeQYqIy2cgQARu0V_tty4BPU7CzmpZc-lmFeiAT0cA=w180-h180-l90-rj"
+              }
+            ]
+          },
+          "viewCount": "410512",
+          "chartEntryMetadata": {
+            "currentPosition": 74,
+            "previousPosition": null
+          }
+        },
+        {
+          "encryptedVideoId": "kxUA2wwYiME",
+          "name": "The Chase",
+          "artists": [
+            {
+              "name": "Hearts2Hearts"
+            }
+          ],
+          "atvExternalVideoId": "dTVCk33AQEs",
+          "thumbnail": {
+            "thumbnails": [
+              {
+                "url": "https://yt3.googleusercontent.com/SuHe-Vp5prErGEPDJw4hT8Bwq433DyMPdtBxlKWbUuZyT_GY9sApT52TfCcKchqBLYZYewIYICMQlLQhnA=w180-h180-l90-rj"
+              }
+            ]
+          },
+          "viewCount": "408071",
+          "chartEntryMetadata": {
+            "currentPosition": 75,
+            "previousPosition": null
+          }
+        },
+        {
+          "encryptedVideoId": "OWDcn7hl16A",
+          "name": "DEMON'S SHOT",
+          "artists": [
+            {
+              "name": "Aiobahn, DEMONDICE"
+            }
+          ],
+          "atvExternalVideoId": "hmzlgMhbefo",
+          "thumbnail": {
+            "thumbnails": [
+              {
+                "url": "https://yt3.googleusercontent.com/-EY1kxP9Io4PR70NkLRnZyS3lwofQCxnrSm12jBkKG_BMQml_uVmOFK02e3UJ_7LmfRlUzdbrZKoijpBkg=w180-h180-l90-rj"
+              }
+            ]
+          },
+          "viewCount": "400338",
+          "chartEntryMetadata": {
+            "currentPosition": 76,
+            "previousPosition": 61
+          }
+        },
+        {
+          "encryptedVideoId": "v8mCh6TZfEU",
+          "name": "One-sided love (Live) (feat. Choi Yu Ree)",
+          "artists": [
+            {
+              "name": "Jinyoung"
+            }
+          ],
+          "atvExternalVideoId": "v8mCh6TZfEU",
+          "thumbnail": {
+            "thumbnails": [
+              {
+                "url": "https://yt3.googleusercontent.com/RhzE_EO7604dxbBpxf25kf7HxsZGMVrka1fh5nVPRI2qLZGpFw8401MQ5bVEaHPnx6K7_IfspWOXCZqYbA=w180-h180-l90-rj"
+              }
+            ]
+          },
+          "viewCount": "399856",
+          "chartEntryMetadata": {
+            "currentPosition": 77,
+            "previousPosition": 98
+          }
+        },
+        {
+          "encryptedVideoId": "brM5QZvBl3Y",
+          "name": "그런 일은",
+          "artists": [
+            {
+              "name": "Hwayobi Park"
+            }
+          ],
+          "atvExternalVideoId": "",
+          "thumbnail": {
+            "thumbnails": [
+              {
+                "url": "https://i.ytimg.com/vi/brM5QZvBl3Y/maxresdefault.jpg"
+              }
+            ]
+          },
+          "viewCount": "391260",
+          "chartEntryMetadata": {
+            "currentPosition": 78,
+            "previousPosition": 83
+          }
+        },
+        {
+          "encryptedVideoId": "V3b1JrAl_1Q",
+          "name": "Guitarist",
+          "artists": [
+            {
+              "name": "D.O."
+            }
+          ],
+          "atvExternalVideoId": "svHUxtHIljw",
+          "thumbnail": {
+            "thumbnails": [
+              {
+                "url": "https://yt3.googleusercontent.com/wRXgOBgefc1ffPk_9vmhhL7XfTD27wR5OoCC34lTDv2cD4ooCYBGFjJ_PljlR5tOrKY7vuiCbAwsEQpB=w180-h180-l90-rj"
+              }
+            ]
+          },
+          "viewCount": "385703",
+          "chartEntryMetadata": {
+            "currentPosition": 79,
+            "previousPosition": 58
+          }
+        },
+        {
+          "encryptedVideoId": "_IT83Y_HcAw",
+          "name": "Less than a Lover",
+          "artists": [
+            {
+              "name": "JENNIE"
+            }
+          ],
+          "atvExternalVideoId": "1PVUTUFxq8g",
+          "thumbnail": {
+            "thumbnails": [
+              {
+                "url": "https://yt3.googleusercontent.com/dVxCnpApiZP817QZgHlw8BTccdK462NPBsRPUL_opQNG5YZM0j1N1fRjKt89_7vkzOO79LacsawIBjN2=w180-h180-l90-rj"
+              }
+            ]
+          },
+          "viewCount": "376320",
+          "chartEntryMetadata": {
+            "currentPosition": 80,
+            "previousPosition": 66
+          }
+        },
+        {
+          "encryptedVideoId": "nD1p_H3qo_A",
+          "name": "희재",
+          "artists": [
+            {
+              "name": "Sung Si Kyung"
+            }
+          ],
+          "atvExternalVideoId": "nD1p_H3qo_A",
+          "thumbnail": {
+            "thumbnails": [
+              {
+                "url": "https://yt3.googleusercontent.com/o8tJEbnIUiUEYzqtqYA81ntumZ5sZA9oxBnfpQACjzYbQ3QUK8im2pYE90IZ26cv2psCLus4uDqLNGGa=w180-h180-l90-rj"
+              }
+            ]
+          },
+          "viewCount": "375524",
+          "chartEntryMetadata": {
+            "currentPosition": 81,
+            "previousPosition": 87
+          }
+        },
+        {
+          "encryptedVideoId": "kFhf7pjRRjA",
+          "name": "Late Night(늦은 밤 너의 집 앞 골목길에서)",
+          "artists": [
+            {
+              "name": "Noel"
+            }
+          ],
+          "atvExternalVideoId": "4EQ_vqyojWU",
+          "thumbnail": {
+            "thumbnails": [
+              {
+                "url": "https://yt3.googleusercontent.com/YC-EI4xZSxHvG1oHpEByFyT1dLPci_AFZDAwI4GZ3i7PyG0mW_EB_xTlA8-dNoS8wdPHH-Xc-Azz4ezt=w180-h180-l90-rj"
+              }
+            ]
+          },
+          "viewCount": "364992",
+          "chartEntryMetadata": {
+            "currentPosition": 82,
+            "previousPosition": 92
+          }
+        },
+        {
+          "encryptedVideoId": "3gkSzjp-aoY",
+          "name": "Rendezvous",
+          "artists": [
+            {
+              "name": "Mili"
+            }
+          ],
+          "atvExternalVideoId": "3UqfwnJlAKc",
+          "thumbnail": {
+            "thumbnails": [
+              {
+                "url": "https://yt3.googleusercontent.com/GVvW-zfpuC2q91N7VT6feTsW6JPbfOOToCuzX3JquqmNF6hcRNCrKkx-H4iZ-be-Pdtswb4QYhq0kIAOFQ=w180-h180-l90-rj"
+              }
+            ]
+          },
+          "viewCount": "361328",
+          "chartEntryMetadata": {
+            "currentPosition": 83,
+            "previousPosition": 55
+          }
+        },
+        {
+          "encryptedVideoId": "h0xUtrb_JBc",
+          "name": "Glow Up",
+          "artists": [
+            {
+              "name": "RESCENE"
+            }
+          ],
+          "atvExternalVideoId": "k7D4i1ILCCk",
+          "thumbnail": {
+            "thumbnails": [
+              {
+                "url": "https://yt3.googleusercontent.com/CeFlDDMsauoFNCBLDRagsRQv1FtgUxGpi3SSjhAxQDJCPUX2GLTVKy_u1MryFdbbaswqV-fEDYs-okc=w180-h180-l90-rj"
+              }
+            ]
+          },
+          "viewCount": "359678",
+          "chartEntryMetadata": {
+            "currentPosition": 84,
+            "previousPosition": 76
+          }
+        },
+        {
+          "encryptedVideoId": "pHciG9_2xXM",
+          "name": "GRLS",
+          "artists": [
+            {
+              "name": "TUIDE (튜이드)"
+            }
+          ],
+          "atvExternalVideoId": "f7-z0FDBpZo",
+          "thumbnail": {
+            "thumbnails": [
+              {
+                "url": "https://yt3.googleusercontent.com/wO-brpVQUt_3eKSI86ufqbSTPY-kQHZ9TSgwToJ8S7-pwDLgVMx7DV3MWnGocLkqwyg5eb6WGHSxCgTHaw=w180-h180-l90-rj"
+              }
+            ]
+          },
+          "viewCount": "357642",
+          "chartEntryMetadata": {
+            "currentPosition": 85,
+            "previousPosition": 80
+          }
+        },
+        {
+          "encryptedVideoId": "E7CSVaczMJU",
+          "name": "푸른 하늘에 단비",
+          "artists": [
+            {
+              "name": "PLAVE"
+            }
+          ],
+          "atvExternalVideoId": "NMElrxGM1MI",
+          "thumbnail": {
+            "thumbnails": [
+              {
+                "url": "https://yt3.googleusercontent.com/S5M04RnVes2sFI82hTW7NaRxuzvQZtCBRVWmOKHbvyPynV49ZYopygRAfhoj_Ak4eWYKeUqkymibSjWCRg=w180-h180-l90-rj"
+              }
+            ]
+          },
+          "viewCount": "357354",
+          "chartEntryMetadata": {
+            "currentPosition": 86,
+            "previousPosition": 90
+          }
+        },
+        {
+          "encryptedVideoId": "LlFB4Tk49kI",
+          "name": "Blue Lagoon (Korean Ver.)",
+          "artists": [
+            {
+              "name": "LEE SUHYUN"
+            }
+          ],
+          "atvExternalVideoId": "LlFB4Tk49kI",
+          "thumbnail": {
+            "thumbnails": [
+              {
+                "url": "https://yt3.googleusercontent.com/QmXfUHRPmbCtLK3O_NNtJ4qNxiKGPV4E_O5aykhy3Ede1l_nBFeRtniDHPGu26aZAKLHWL6Aozd4rToO=w180-h180-l90-rj"
+              }
+            ]
+          },
+          "viewCount": "356849",
+          "chartEntryMetadata": {
+            "currentPosition": 87,
+            "previousPosition": 57
+          }
+        },
+        {
+          "encryptedVideoId": "1q_t6RNuH8c",
+          "name": "모든 날, 모든 순간 (Every day, Every Moment)",
+          "artists": [
+            {
+              "name": "Paul Kim"
+            }
+          ],
+          "atvExternalVideoId": "A8-ENEqhQjg",
+          "thumbnail": {
+            "thumbnails": [
+              {
+                "url": "https://yt3.googleusercontent.com/8BV9DwL6hN8IMnkwvRv7JTxqofjn_lg2c4AjO0PW3_t_tjXoLGNlgvZZO1qvm-6i8TB1hk7OIJJXMKs=w180-h180-l90-rj"
+              }
+            ]
+          },
+          "viewCount": "356246",
+          "chartEntryMetadata": {
+            "currentPosition": 88,
+            "previousPosition": 95
+          }
+        },
+        {
+          "encryptedVideoId": "JwmGruvGt_I",
+          "name": "しわあわせ",
+          "artists": [
+            {
+              "name": "Vaundy"
+            }
+          ],
+          "atvExternalVideoId": "Xay0HJ4LsNc",
+          "thumbnail": {
+            "thumbnails": [
+              {
+                "url": "https://yt3.googleusercontent.com/pYNfOjHHfaINeMxgblPBaHPqz8GLCuD9mkxpUqfdeDsMj2YUoWDO3oYUggUnayW9V8CY0YWOYWoC6QA=w180-h180-l90-rj"
+              }
+            ]
+          },
+          "viewCount": "353881",
+          "chartEntryMetadata": {
+            "currentPosition": 89,
+            "previousPosition": 86
+          }
+        },
+        {
+          "encryptedVideoId": "TiOpGgCXeT0",
+          "name": "너",
+          "artists": [
+            {
+              "name": "SYSTEM SEOUL, ycs"
+            }
+          ],
+          "atvExternalVideoId": "ecSLTU0_m2A",
+          "thumbnail": {
+            "thumbnails": [
+              {
+                "url": "https://yt3.googleusercontent.com/w0CVZhNEW2p3EzjEVHfE1J8e9CumlICRLaDHyZWrfK_ovvBHKcngTWrw3MaZXBzvG0dAVlKVRj_F-NOW=w180-h180-l90-rj"
+              }
+            ]
+          },
+          "viewCount": "351660",
+          "chartEntryMetadata": {
+            "currentPosition": 90,
+            "previousPosition": 69
+          }
+        },
+        {
+          "encryptedVideoId": "P5zUkubgW1I",
+          "name": "Love Got Me Ooh",
+          "artists": [
+            {
+              "name": "A2O"
+            }
+          ],
+          "atvExternalVideoId": "CsQ5K4hVD7s",
+          "thumbnail": {
+            "thumbnails": [
+              {
+                "url": "https://yt3.googleusercontent.com/DezkWylUK3SDImWds3f7p-tF_URNLiHjh1PxeDcocPcvZtFmkdCOZXJXZirny9Y_3wAKVPJrCyRrO1U=w180-h180-l90-rj"
+              }
+            ]
+          },
+          "viewCount": "351624",
+          "chartEntryMetadata": {
+            "currentPosition": 91,
+            "previousPosition": null
+          }
+        },
+        {
+          "encryptedVideoId": "uqJ6GDJSyfY",
+          "name": "Andless",
+          "artists": [
+            {
+              "name": "tripleS"
+            }
+          ],
+          "atvExternalVideoId": "_AekQpo1Bw0",
+          "thumbnail": {
+            "thumbnails": [
+              {
+                "url": "https://yt3.googleusercontent.com/siZZC1qe7FbddTMe0JBkR0a3yoFjSt_qWOeSebODISQKjESICbiMtnWc8ZprFL3Ezm5gYfII8wMqkUxdTw=w180-h180-l90-rj"
+              }
+            ]
+          },
+          "viewCount": "349136",
+          "chartEntryMetadata": {
+            "currentPosition": 92,
+            "previousPosition": null
+          }
+        },
+        {
+          "encryptedVideoId": "nhuFm3BGIBY",
+          "name": "너에게 쓰는 편지 (feat. LYn)",
+          "artists": [
+            {
+              "name": "MC MONG"
+            }
+          ],
+          "atvExternalVideoId": "nhuFm3BGIBY",
+          "thumbnail": {
+            "thumbnails": [
+              {
+                "url": "https://yt3.googleusercontent.com/LmfNDWlowh6I-aCPEDCNEcQqjBLangw3lzqFzcJf_UqTZJdSkdcMqA4nq2K52YGpwX1pntkbG86tmm4n=w180-h180-l90-rj"
+              }
+            ]
+          },
+          "viewCount": "343353",
+          "chartEntryMetadata": {
+            "currentPosition": 93,
+            "previousPosition": 74
+          }
+        },
+        {
+          "encryptedVideoId": "kGY6N9DL4Jw",
+          "name": "more than words",
+          "artists": [
+            {
+              "name": "Hitsujibungaku"
+            }
+          ],
+          "atvExternalVideoId": "-sZ3vZ0RiMk",
+          "thumbnail": {
+            "thumbnails": [
+              {
+                "url": "https://yt3.googleusercontent.com/Fa8yMwS2U6xjQItuFJWCvzgDt20AMbCFfXgg3LCt1eKeiw9iNCnCu-lV_7wKeV6zGzz2CpOhWvTMXWTR=w180-h180-l90-rj"
+              }
+            ]
+          },
+          "viewCount": "339540",
+          "chartEntryMetadata": {
+            "currentPosition": 94,
+            "previousPosition": null
+          }
+        },
+        {
+          "encryptedVideoId": "r04O1Twg968",
+          "name": "첫사랑",
+          "artists": [
+            {
+              "name": "Baek A"
+            }
+          ],
+          "atvExternalVideoId": "r04O1Twg968",
+          "thumbnail": {
+            "thumbnails": [
+              {
+                "url": "https://yt3.googleusercontent.com/7GoRsu_El2dumth2BohzdBmrCzHi5_lGMVWlC2VzYNkHdzx_rxBNTObbIXcau7qFqI5ZVNCQqrF7mAY=w180-h180-l90-rj"
+              }
+            ]
+          },
+          "viewCount": "335988",
+          "chartEntryMetadata": {
+            "currentPosition": 95,
+            "previousPosition": null
+          }
+        },
+        {
+          "encryptedVideoId": "EKpoi1spOc0",
+          "name": "Leave Me, Don′t Go",
+          "artists": [
+            {
+              "name": "gitae, Baek Yeseul"
+            }
+          ],
+          "atvExternalVideoId": "yuH4OnvoADU",
+          "thumbnail": {
+            "thumbnails": [
+              {
+                "url": "https://yt3.googleusercontent.com/Bd95U_9VwyKkgfPddSdAwZaurA-_bTODcv6LKK6g_1F7OlWjyqWNCiFGloZL6qRMorqFuL166dqDSuNG=w180-h180-l90-rj"
+              }
+            ]
+          },
+          "viewCount": "334263",
+          "chartEntryMetadata": {
+            "currentPosition": 96,
+            "previousPosition": 89
+          }
+        },
+        {
+          "encryptedVideoId": "HtJS32n6LNQ",
+          "name": "주문",
+          "artists": [
+            {
+              "name": "TOHOSHINKI"
+            }
+          ],
+          "atvExternalVideoId": "Z9Lh6WCl5e8",
+          "thumbnail": {
+            "thumbnails": [
+              {
+                "url": "https://yt3.googleusercontent.com/w0CGl4vBGuG6BQmdP23izJDtFrhHv-K90KeqRr6vNiqGhdg1wq5s263YuuwzLqQ5ZRuZ55Ie3OYYGpc=w180-h180-s-l90-rj"
+              }
+            ]
+          },
+          "viewCount": "329042",
+          "chartEntryMetadata": {
+            "currentPosition": 97,
+            "previousPosition": null
+          }
+        },
+        {
+          "encryptedVideoId": "t3WHpXN0gQE",
+          "name": "RudE TaLK",
+          "artists": [
+            {
+              "name": "NMIXX"
+            }
+          ],
+          "atvExternalVideoId": "t3WHpXN0gQE",
+          "thumbnail": {
+            "thumbnails": [
+              {
+                "url": "https://yt3.googleusercontent.com/jCp0n7ioXbw6XmPKncVFmB2u2g9IPjsxilEpT7QQfNPvhRYmx2MyaEtd86EFXobW3VVIcVM5rMSfgk0=w180-h180-l90-rj"
+              }
+            ]
+          },
+          "viewCount": "328131",
+          "chartEntryMetadata": {
+            "currentPosition": 98,
+            "previousPosition": null
+          }
+        },
+        {
+          "encryptedVideoId": "gW5rI8NGSxE",
+          "name": "나란한 밤",
+          "artists": [
+            {
+              "name": "Seo Young Joo"
+            }
+          ],
+          "atvExternalVideoId": "REFB9MM1e-Q",
+          "thumbnail": {
+            "thumbnails": [
+              {
+                "url": "https://yt3.googleusercontent.com/a_3Wdx91v05mpeP2ZAOqtOJTut0B2Ac1sH-HWakenSJVTKxlBSSVad9NkI3VZOR4io-tWzooRD1DSaQR8w=w180-h180-l90-rj"
+              }
+            ]
+          },
+          "viewCount": "327934",
+          "chartEntryMetadata": {
+            "currentPosition": 99,
+            "previousPosition": null
+          }
+        },
+        {
+          "encryptedVideoId": "2Cv3phvP8Ro",
+          "name": "거짓말",
+          "artists": [
+            {
+              "name": "BIGBANG"
+            }
+          ],
+          "atvExternalVideoId": "Y4RmVcKav9Q",
+          "thumbnail": {
+            "thumbnails": [
+              {
+                "url": "https://yt3.googleusercontent.com/Rf-BNrKwVW_VBdOiq6NbJwEasR4WRlsnFoLfq-MaLbSECamA0W7XaLiOBG5B76z1v_rOqM4YuG3FfjbU=w180-h180-l90-rj"
+              }
+            ]
+          },
+          "viewCount": "326280",
+          "chartEntryMetadata": {
+            "currentPosition": 100,
+            "previousPosition": 99
+          }
+        }
+      ]
+    }
+  },
+  "sha256": "8337c7cd2a8fe43b5705ddb20567eddc918cda401d377d6c2e64cde06d9c5af8"
+}
