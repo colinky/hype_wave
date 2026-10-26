@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Hype Wave | Music Chart</title>
-    <meta name="description" content="HYPE WAVE의 일간 음악 차트와 연도별 Editor's Choice.">
+    <meta name="description" content="HYPE WAVE - Catch Tomorrow's Hype Today. Discover the latest music trends and rising hits before they hit the mainstream.">
     <link rel="stylesheet" href="editors-choice.css">
     <script src="editors-choice.js" defer></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -268,7 +268,7 @@
             font-size: 0.9rem;
         }
 
-        /* Featured WAVE 카드 전용 스타일 및 파동 애니메이션 */
+        /* Featured WAVE Card style and wave animation */
         .featured-wave-card {
             position: relative;
             overflow: hidden;
@@ -399,7 +399,7 @@
             gap: 10px;
         }
 
-        /* 모바일 전용 last-update: 데스크톱에서는 숨김 */
+        /* Mobile only last-update: Hidden on desktop */
         .last-update-mobile {
             display: none;
             font-size: 0.8rem;
@@ -407,7 +407,7 @@
             white-space: nowrap;
         }
 
-        /* 텍스트 overflow 기본 방지 */
+        /* Text overflow default prevention */
         .song-card,
         .info,
         .info h3,
@@ -434,7 +434,7 @@
                 padding: 12px;
             }
 
-            /* 모바일 카드: info가 두 행 스패닝, index/links가 우측 상하 분리 */
+            /* Mobile only song cards: info spans two rows, index/links separated on the right */
             .song-card {
                 display: grid;
                 grid-template-columns: 36px 48px 1fr auto;
@@ -541,7 +541,7 @@
                 margin-bottom: 12px;
             }
 
-            /* controls: 날짜+업데이트 위, 타입바 아래 */
+            /* controls: Date+Update above, type bar below */
             .controls {
                 flex-direction: column;
                 align-items: stretch;
@@ -559,7 +559,7 @@
                 flex-wrap: wrap;
             }
 
-            /* 모바일: 위치 스위칭 */
+            /* Mobile: position switching */
             #last-update { display: none; }
             .last-update-mobile { display: inline; margin-left: auto; }
 
@@ -580,7 +580,7 @@
                 padding: 5px 10px;
             }
 
-            /* 툴팁 모바일 위치 보정 */
+            /* Tooltip mobile position correction */
             .tooltip {
                 width: 220px;
                 right: 0;
@@ -593,7 +593,7 @@
             }
         }
 
-        /* 매우 작은 화면 추가 보정 */
+        /* Very small screen additional correction */
         @media (max-width: 360px) {
             h1 { font-size: 1.7rem; }
 
@@ -636,15 +636,15 @@
     </header>
 
     <main>
-        <nav class="page-navigation" aria-label="콘텐츠">
+        <nav class="page-navigation" aria-label="Content">
             <a href="#charts" id="charts-link" aria-current="page">Charts</a>
             <a href="#editors-choice" id="editors-link">Editor's Choice</a>
-            <a class="external-service-link" href="https://maily.so/trendaword" target="_blank" rel="noopener noreferrer" aria-label="Trend A Word · 외부 서비스 (새 탭에서 열림)">
-                <span>Trend A Word ↗</span><span class="external-service-note">외부 서비스</span>
+            <a class="external-service-link" href="https://maily.so/trendaword" target="_blank" rel="noopener noreferrer" aria-label="Trend A Word (Open in a new tab)">
+                <span class="external-service-note">Suggested Link</span><span>Trend A Word ↗</span>
             </a>
         </nav>
 
-        <section id="charts-view" aria-label="일간 차트">
+        <section id="charts-view" aria-label="Daily Charts">
         <div class="trend-chart-container">
             <h2 class="trend-title">TOP 7 HYPE TREND (LAST 31 DAYS)</h2>
             <div style="flex: 1; min-height: 0; position: relative;">
@@ -673,7 +673,7 @@
                     <select id="date-selector" class="date-select">
                         <option value="">Loading dates...</option>
                     </select>
-                    <!-- 모바일 전용: 날짜 드롭다운 옆에 표시 -->
+                    <!-- Mobile Only: Date dropdown next to display -->
                     <span class="last-update-mobile">Loading...</span>
                 </div>
                 <div class="chart-type-group" id="chart-type-selector">
@@ -683,7 +683,7 @@
                     <button type="button" class="type-btn" data-value="ytmusic">YTMusic</button>
                 </div>
             </div>
-            <!-- 데스크톱 전용: controls 우측에 표시 -->
+            <!-- Desktop Only: controls right side -->
             <div id="last-update" style="font-size: 0.8rem; color: var(--text-secondary);">Loading latest data...</div>
         </div>
         <div class="chart-container" id="chart-container">
@@ -711,7 +711,7 @@
     </main>
 
     <footer>
-        &copy; 2026 colinky.github.io | Powered by Hype Wave Engine
+        &copy; 2026 | Powered by <a href="https://github.com/hype-wave" target="_blank" rel="noopener noreferrer">Hype Wave Engine</a>
     </footer>
 
     <script>
@@ -800,7 +800,7 @@
                 const selector = document.getElementById('date-selector');
                 selector.innerHTML = '';
 
-                // 날짜별 라벨 처리를 위한 기준 날짜 계산
+                // Calculate the reference date for date-specific label processing
                 const latestParts = availableDates[0].split('-').map(Number);
                 const latestDateObj = new Date(latestParts[0], latestParts[1] - 1, latestParts[2]);
                 
@@ -837,7 +837,7 @@
                         btn.classList.add('active');
                         currentChartType = btn.getAttribute('data-value');
 
-                        // 차트 타입에 따라 상단 플레이리스트 링크 업데이트
+                        // update chart type based on the clicked button
                         const playlistLink = document.getElementById('yt-playlist-link');
                         const playlistUrls = {
                             'hype': 'https://music.youtube.com/playlist?list=PLtawHGpcUVZXKVkfIElFeaWB6g6d1o9Dr',
@@ -870,7 +870,7 @@
         function renderTrendChart() {
             const latestDate = availableDates[0];
             if (!latestDate || !globalHistory[latestDate]) {
-                console.warn("트렌드 차트를 생성할 데이터가 없습니다.");
+                console.warn("No trend chart data available.");
                 return;
             }
 
@@ -888,7 +888,7 @@
                 '#00ffff', '#ff9900', '#88ff00', '#ff00ff', '#0088ff'
             ];
             
-            // 최신 날짜 기준 직전 31일간의 고정 타임라인 생성 (왼쪽 -> 오른쪽)
+            // Generate a fixed timeline for the last 31 days based on the latest date (left -> right)
             const latestDateParts = latestDate.split('-').map(Number);
             const displayDates = [];
             for (let i = 30; i >= 0; i--) {
@@ -918,14 +918,14 @@
                 };
             });
 
-            // 강조 효과 적용 함수
+            // Emphasis effect application function
             const applyHighlight = (chart, index) => {
-                // 모바일 터치 후 남을 수 있는 Chart.js 내부 hover/active 상태 초기화
+                // Initialize hover/active state in Chart.js after mobile touch
                 chart.tooltip.setActiveElements([], { x: 0, y: 0 });
                 chart.setActiveElements([]);
 
                 if (highlightedDatasetIndex === index) {
-                    // 이미 강조된 상태에서 다시 클릭하면 초기화
+                    // Reset the highlighted state if the same dataset is clicked again
                     highlightedDatasetIndex = null;
                     chart.data.datasets.forEach((ds, i) => {
                         ds.borderWidth = 1.5;
@@ -936,7 +936,7 @@
                         ds.pointBorderWidth = 0;
                     });
                 } else {
-                    // 선택한 데이터셋만 범례 스타일(불투명, 굵은 선)로 변경
+                    // Highlight the selected dataset only
                     highlightedDatasetIndex = index;
                     chart.data.datasets.forEach((ds, i) => {
                         const isTarget = i === index;
@@ -999,7 +999,7 @@
                                 const dsIndex = legendItem.datasetIndex;
                                 applyHighlight(chart, dsIndex);
 
-                                // 강조 상태면 가장 우측 마커에 툴팁 표시, 해제면 툴팁 닫기
+                                // Highlighted state: show tooltip on the rightmost marker, otherwise close the tooltip
                                 if (highlightedDatasetIndex !== null) {
                                     const data = chart.data.datasets[highlightedDatasetIndex].data;
                                     let rightmostIdx = -1;
@@ -1032,11 +1032,11 @@
                                 generateLabels: (chart) => {
                                     const original = Chart.defaults.plugins.legend.labels.generateLabels(chart);
                                     original.forEach((label, i) => {
-                                        // 선택된 상태에 따라 범례 마커 투명도 조절
+                                        // Adjust the legend marker opacity based on the selected state
                                         const isSelected = highlightedDatasetIndex === i;
                                         label.fillStyle = isSelected ? colors[i] : colors[i] + '66';
                                         label.strokeStyle = isSelected ? colors[i] : colors[i] + '44';
-                                        // 노래 제목이 너무 길면 자르기
+                                        // Truncate the song title if it's too long
                                         if (label.text.length > 15) label.text = label.text.substring(0, 15) + '...';
                                     });
                                     return original;
@@ -1052,7 +1052,7 @@
                             displayColors: true,
                             callbacks: {
                                 label: (context) => {
-                                    // 하단 카드와 동일하게 소수점 버림 처리하여 표시
+                                    // Same as the bottom card, truncate decimal places for display
                                     return `${context.dataset.label}: ${Math.floor(context.parsed.y)}`;
                                 }
                             }
@@ -1148,7 +1148,7 @@
 
                 card.addEventListener('mousemove', (e) => updatePos(e.clientX, e.clientY));
 
-                // 모바일 터치 이벤트 대응
+                // Mobile touch event handling
                 card.addEventListener('touchstart', (e) => {
                     card.classList.add('is-touching');
                     updatePos(e.touches[0].clientX, e.touches[0].clientY);
@@ -1262,7 +1262,7 @@
                 container.innerHTML = '';
                 const fragment = document.createDocumentFragment();
 
-                // Featured NEW WAVE 로직: Hype 순위가 가장 높은 NEW WAVE 곡 찾기
+                // Featured NEW WAVE Logic: Find the NEW WAVE song with the highest Hype rank
                 const newWaveSongs = todayData.filter(s => s.is_new_wave).sort((a, b) => a.hype_rank - b.hype_rank);
                 const featuredWave = newWaveSongs.length > 0 ? newWaveSongs[0] : null;
 

@@ -2,10 +2,12 @@
 from copy import deepcopy
 from datetime import datetime, timezone
 import json
+import os
 from pathlib import Path
+import subprocess
 import tempfile
 import unittest
-from unittest.mock import Mock, patch
+from unittest.mock import MagicMock, Mock, patch
 
 import requests
 
@@ -114,6 +116,29 @@ class WeeklySnapshotTests(unittest.TestCase):
             rows = crawl.extract_chart_entries_from_youtube_charts(crawl.DEFAULT_YOUTUBE_CHARTS_URL)
         self.assertEqual(len(rows), 100)
         self.assertEqual(self.path.read_bytes(), original)
+
+    def test_install_failure_or_timeout_preserves_snapshot_and_rejects_other_week(self):
+        original = self.path.read_bytes()
+        for exit_code in (1, 124, 137):
+            manager = MagicMock()
+            browser = manager.__enter__.return_value.webkit
+            browser.executable_path = str(self.path.parent / "missing-webkit")
+            with (self.subTest(exit_code=exit_code),
+                  patch.dict(os.environ, {"HYPE_INSTALL_CHART_BROWSER": "1"}),
+                  patch.object(crawl, "_CHART_BROWSER_INSTALL_ATTEMPTED", False),
+                  patch.object(crawl.http_session, "get", side_effect=requests.HTTPError("429")),
+                  patch("playwright.sync_api.sync_playwright", return_value=manager),
+                  patch.object(crawl.subprocess, "run",
+                               side_effect=subprocess.CalledProcessError(exit_code, "install")) as install):
+                rows = crawl.extract_chart_entries_from_youtube_charts(crawl.DEFAULT_YOUTUBE_CHARTS_URL)
+                self.assertEqual(len(rows), 100)
+                self.assertEqual(rows[0]["collection_method"], "verified_snapshot")
+                self.assertEqual(rows[0]["source_collected_at"], self.snapshot["collected_at"])
+                self.assertEqual(crawl.extract_chart_entries_from_youtube_charts(
+                    crawl.DEFAULT_YOUTUBE_CHARTS_URL, chart_period_end="2026-10-15"), [])
+            install.assert_called_once()
+            browser.launch.assert_not_called()
+            self.assertEqual(self.path.read_bytes(), original)
 
     def test_incomplete_chart_cannot_be_persisted(self):
         original = self.path.read_bytes()

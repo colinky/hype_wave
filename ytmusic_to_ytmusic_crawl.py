@@ -18,6 +18,7 @@ import json
 import logging
 import os
 import re
+import subprocess
 import sys
 import time
 import uuid
@@ -56,6 +57,7 @@ YOUTUBE_PUBLIC_CONFIG_URL = "https://www.youtube.com/?hl=en"
 SNAPSHOT_DIR = Path(__file__).resolve().parent / "snapshots" / "youtube-charts"
 ACCEPTED_MAPPING_STATUSES = {"resolved_to_song", "already_song", "cached_match", "proxy_matched", "manual_override", "kept_original_video"}
 KST = timezone(timedelta(hours=9))
+_CHART_BROWSER_INSTALL_ATTEMPTED = False
 
 
 def playlist_id_from_url(value: str) -> str:
@@ -858,6 +860,22 @@ def extract_chart_entries_from_browser_json(data, *, locale="en"):
     return merge_localized_chart_entries(entries, entries, locale)
 
 
+def ensure_chart_browser(executable_path):
+    global _CHART_BROWSER_INSTALL_ATTEMPTED
+    if os.environ.get("HYPE_INSTALL_CHART_BROWSER") != "1" or Path(executable_path).is_file():
+        return
+    if _CHART_BROWSER_INSTALL_ATTEMPTED:
+        raise RuntimeError("Chart browser installation already attempted in this process")
+    _CHART_BROWSER_INSTALL_ATTEMPTED = True
+    LOG.info("Installing WebKit for chart fallback (170 seconds plus 10 seconds for cleanup)")
+    # A service cgroup also contains apt/dpkg children that create their own sessions.
+    subprocess.run(["sudo", "-n", "systemd-run", "--wait", "--pipe", "--collect",
+                    "--property=Type=exec", "--property=RuntimeMaxSec=170s",
+                    "--property=TimeoutStopSec=10s", "--property=KillMode=control-group",
+                    "env", f"PLAYWRIGHT_BROWSERS_PATH={Path(executable_path).parent.parent}", sys.executable,
+                    "-m", "playwright", "install", "--with-deps", "webkit"], check=True)
+
+
 def extract_chart_entries_from_browser(url, *, limit=100, chart_period_start=None, chart_period_end=None):
     # shortcut: browser loads the latest week only; use dated CSVs for historical imports.
     LOG.info("Trying browser fallback for the official YouTube weekly chart")
@@ -869,6 +887,7 @@ def extract_chart_entries_from_browser(url, *, limit=100, chart_period_start=Non
         if parsed.scheme != "https" or parsed.netloc != "charts.youtube.com" or parsed.path != "/charts/TopSongs/kr/weekly":
             raise ValueError("Browser fallback only accepts the official South Korea weekly songs URL")
         with sync_playwright() as playwright:
+            ensure_chart_browser(playwright.webkit.executable_path)
             browser = playwright.webkit.launch(headless=True)
             try:
                 page = browser.new_page(locale="en-US")

@@ -1,6 +1,18 @@
-requests>=2.31.0
-PyJWT[crypto]>=2.8.0
-ytmusicapi>=1.10.0
-beautifulsoup4>=4.12.0
-psycopg2-binary>=2.9.0
+# Direct and transitive runtime versions from the successful 2026-10-25 Actions run.
+requests==2.34.2
+PyJWT[crypto]==2.15.1
+ytmusicapi==1.12.3
+beautifulsoup4==4.15.0
+psycopg2-binary==2.9.13
 playwright==1.59.0
+certifi==2026.10.23
+cffi==2.1.1
+charset-normalizer==3.5.2
+cryptography==50.0.2
+greenlet==3.5.6
+idna==3.20
+pycparser==3.12
+pyee==13.0.1
+soupsieve==3.0.4
+typing-extensions==4.16.0
+urllib3==2.8.0

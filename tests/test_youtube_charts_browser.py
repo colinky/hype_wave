@@ -1,10 +1,12 @@
 """Browser source validation and fail-closed fallback orchestration, without network."""
 from copy import deepcopy
+import os
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 import sys
 import tempfile
 import unittest
+import uuid
 from unittest.mock import MagicMock, Mock, patch
 
 import requests
@@ -31,6 +33,105 @@ class YouTubeChartsBrowserTests(unittest.TestCase):
     def setUp(self):
         self.enterContext(patch("socket.socket.connect", side_effect=AssertionError("offline test")))
         self.enterContext(patch.object(crawl, "SNAPSHOT_DIR", Path(self.enterContext(tempfile.TemporaryDirectory()))))
+        self.enterContext(patch.dict(os.environ, {"HYPE_INSTALL_CHART_BROWSER": ""}))
+        self.enterContext(patch.object(crawl, "_CHART_BROWSER_INSTALL_ATTEMPTED", False))
+
+    def test_browser_install_requires_opt_in_and_skips_existing_browser(self):
+        executable = crawl.SNAPSHOT_DIR / "webkit"
+        with patch.object(crawl.subprocess, "run") as install:
+            crawl.ensure_chart_browser(executable)
+            executable.touch()
+            with patch.dict(os.environ, {"HYPE_INSTALL_CHART_BROWSER": "1"}):
+                crawl.ensure_chart_browser(executable)
+            install.assert_not_called()
+
+    def test_browser_install_is_bounded_and_reused(self):
+        executable = crawl.SNAPSHOT_DIR / "webkit"
+        with (patch.dict(os.environ, {"HYPE_INSTALL_CHART_BROWSER": "1"}),
+              patch.object(crawl.subprocess, "run", side_effect=lambda *a, **k: executable.touch()) as install):
+            crawl.ensure_chart_browser(executable)
+            crawl.ensure_chart_browser(executable)
+        install.assert_called_once_with(
+            ["sudo", "-n", "systemd-run", "--wait", "--pipe", "--collect",
+             "--property=Type=exec", "--property=RuntimeMaxSec=170s",
+             "--property=TimeoutStopSec=10s", "--property=KillMode=control-group",
+             "env", f"PLAYWRIGHT_BROWSERS_PATH={executable.parent.parent}", sys.executable,
+             "-m", "playwright", "install", "--with-deps", "webkit"], check=True)
+
+    @unittest.skipUnless(sys.platform == "linux" and Path("/run/systemd/system").is_dir(),
+                         "requires Linux with systemd and passwordless sudo")
+    def test_install_service_kills_detached_child_after_timeout_or_parent_exit(self):
+        run = crawl.subprocess.run
+        child_code = (
+            "import os, pathlib, signal, sys, time; "
+            "signal.signal(signal.SIGTERM, signal.SIG_IGN); "
+            "pathlib.Path(sys.argv[1]).write_text(str(os.getpid())); time.sleep(60)"
+        )
+        parent_code = (
+            "import pathlib, subprocess, sys, time\n"
+            "child = subprocess.Popen([sys.executable, '-c', sys.argv[1], sys.argv[2]], start_new_session=True)\n"
+            "while not pathlib.Path(sys.argv[2]).exists(): time.sleep(0.01)\n"
+            "if sys.argv[3] == 'parent_exit': sys.exit(1)\n"
+            "child.wait()\n"
+        )
+        for case in ("timeout", "parent_exit"):
+            unit = f"hype-chart-browser-test-{uuid.uuid4().hex}.service"
+            pid_file = crawl.SNAPSHOT_DIR / f"{case}.pid"
+
+            def run_installer(command, **kwargs):
+                # Exercise the production supervisor with a short, network-free installer.
+                command = [{"--property=RuntimeMaxSec=170s": "--property=RuntimeMaxSec=2s",
+                            "--property=TimeoutStopSec=10s": "--property=TimeoutStopSec=1s"}.get(arg, arg)
+                           for arg in command]
+                command.insert(command.index("systemd-run") + 1, f"--unit={unit}")
+                command[command.index("env"):] = [sys.executable, "-c", parent_code, child_code, str(pid_file), case]
+                return run(command, **kwargs, timeout=15, capture_output=True, text=True)
+
+            try:
+                with (self.subTest(case=case), patch.dict(os.environ, {"HYPE_INSTALL_CHART_BROWSER": "1"}),
+                      patch.object(crawl, "_CHART_BROWSER_INSTALL_ATTEMPTED", False),
+                      patch.object(crawl.subprocess, "run", side_effect=run_installer)):
+                    with self.assertRaises(crawl.subprocess.CalledProcessError):
+                        crawl.ensure_chart_browser(crawl.SNAPSHOT_DIR / "missing-webkit")
+                    self.assertTrue(pid_file.is_file(), "installer did not start its child")
+                    stat = Path(f"/proc/{int(pid_file.read_text())}/stat")
+                    try:
+                        state = stat.read_text().rsplit(") ", 1)[1].split()[0]
+                    except FileNotFoundError:
+                        continue
+                    self.assertEqual(state, "Z", "installer child survived service shutdown")
+            finally:
+                run(["sudo", "-n", "systemctl", "stop", unit], capture_output=True, timeout=15)
+
+    def test_failed_browser_install_is_not_retried(self):
+        executable = crawl.SNAPSHOT_DIR / "webkit"
+        with (patch.dict(os.environ, {"HYPE_INSTALL_CHART_BROWSER": "1"}),
+              patch.object(crawl.subprocess, "run", side_effect=OSError("installer unavailable")) as install):
+            with self.assertRaises(OSError):
+                crawl.ensure_chart_browser(executable)
+            with self.assertRaisesRegex(RuntimeError, "already attempted"):
+                crawl.ensure_chart_browser(executable)
+        install.assert_called_once()
+
+    def test_api_success_does_not_prepare_browser_even_when_install_is_enabled(self):
+        rows = crawl.extract_chart_entries_from_browser_json(chart_payload())
+        with (patch.dict(os.environ, {"HYPE_INSTALL_CHART_BROWSER": "1"}),
+              patch.object(crawl.http_session, "get", return_value=Mock(text="")),
+              patch.object(crawl, "extract_chart_entries_from_browse_api", return_value=rows),
+              patch.object(crawl, "ensure_chart_browser") as prepare,
+              patch("playwright.sync_api.sync_playwright") as browser):
+            result = crawl.extract_chart_entries_from_youtube_charts(crawl.DEFAULT_YOUTUBE_CHARTS_URL)
+        self.assertEqual(len(result), 100)
+        prepare.assert_not_called()
+        browser.assert_not_called()
+
+    def test_invalid_browser_source_cannot_trigger_installation(self):
+        with (patch.dict(os.environ, {"HYPE_INSTALL_CHART_BROWSER": "1"}),
+              patch.object(crawl.subprocess, "run") as install,
+              patch("playwright.sync_api.sync_playwright") as browser):
+            self.assertEqual(crawl.extract_chart_entries_from_browser("https://example.com/chart"), [])
+        install.assert_not_called()
+        browser.assert_not_called()
 
     def test_browser_payload_preserves_official_ids_audio_links_and_source_period(self):
         payload = chart_payload()
@@ -117,8 +218,12 @@ class YouTubeChartsBrowserTests(unittest.TestCase):
             response.json.return_value = payload
             page.locator.return_value.inner_text.return_value = "Oct 9–15, 2026" if case == "wrong_label" else label
             options = {"chart_period_end": "2026-10-01"} if case == "historical_request" else {}
-            with self.subTest(case=case), patch("playwright.sync_api.sync_playwright", return_value=manager):
+            playwright.webkit.executable_path = str(crawl.SNAPSHOT_DIR / "webkit")
+            with (self.subTest(case=case), patch("playwright.sync_api.sync_playwright", return_value=manager),
+                  patch.dict(os.environ, {"HYPE_INSTALL_CHART_BROWSER": "1" if case == "success" else ""}),
+                  patch.object(crawl.subprocess, "run") as install):
                 rows = crawl.extract_chart_entries_from_browser(crawl.DEFAULT_YOUTUBE_CHARTS_URL, limit=10, **options)
+            self.assertEqual(install.call_count, 1 if case == "success" else 0)
             self.assertEqual(len(rows), 10 if case in {"success", "cross_month", "cross_year"} else 0)
             browser.close.assert_called_once()
             playwright.webkit.launch.assert_called_once_with(headless=True)

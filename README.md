@@ -214,7 +214,6 @@ Aiven의 테이블·인덱스·RLS·권한은 관리자 계정으로 미리 설�
 python -m venv .venv
 source .venv/bin/activate
 python -m pip install -r requirements.txt
-python -m playwright install webkit
 
 mkdir -p .secrets
 if [ ! -f .secrets/.env ]; then
@@ -375,7 +374,11 @@ HTTP/API 수집이 실패하거나 주간 데이터가 불완전하면 Playwrigh
 
 API와 브라우저가 모두 429인 상황에서 새 주차를 가져오는 독립적인 추가 수집 경로는 현재 없습니다. 예를 들어 집계 종료일이 `2026-10-15`인 요청에 `kr-weekly-2026-10-08.json`을 재사용하지 않습니다.
 
-로컬에서는 `python -m playwright install webkit`으로 브라우저를 설치합니다. `python tests/check_youtube_charts_browser.py`는 정상 수집과 강제 HTTP 장애의 대체 수집을 실행하고, 동일한 집계 기간·100위 영상 순서를 검증하며 실제 사용한 수집 방식과 원래 수집 시각을 출력합니다. DB·플레이리스트를 변경하지 않습니다. Actions는 `python -m playwright install --with-deps webkit`으로 브라우저와 Linux 의존성을 설치하고, 별도의 `YouTube Charts Browser Check` 작업으로 같은 검증을 수행합니다.
+로컬에서 브라우저 fallback이나 실제 브라우저 검증이 필요하면 `python -m playwright install webkit`으로 미리 설치합니다. 인증 파일 생성에는 WebKit이 필요하지 않으며 로컬 수집기는 브라우저를 자동 설치하지 않습니다.
+
+일일 Actions는 실제 동기화 단계에만 `HYPE_INSTALL_CHART_BROWSER=1`을 설정합니다. 주간 작업이 생략되거나 HTTP/API 수집이 성공하면 브라우저를 설치하지 않습니다. fallback에 진입했을 때 WebKit 실행 파일이 없으면 수집 프로세스당 한 번 설치를 시도합니다. Ubuntu의 `sudo -n systemd-run`으로 설치를 임시 서비스에 넣고, 실행 170초 뒤 중단하며 남은 하위 프로세스는 10초 뒤 강제 종료합니다. 설치를 시작한 Python이 먼저 종료되거나 `apt`·`dpkg`가 별도 세션을 만들어도 같은 서비스의 프로세스 전체를 정리한 뒤 수집을 계속합니다. 서비스는 종료 후 제거하며 브라우저는 현재 Playwright가 기대하는 경로에 설치합니다. 설치 실패·시간 초과 시 기존 스냅샷 검증으로 진행하며 유효한 해당 주차 자료도 없으면 기존 데이터·플레이리스트를 보존하고 수집 실패로 기록합니다.
+
+`python tests/check_youtube_charts_browser.py`는 정상 수집과 강제 HTTP 장애의 대체 수집을 실행하고, 동일한 집계 기간·100위 영상 순서를 검증하며 실제 사용한 수집 방식과 원래 수집 시각을 출력합니다. DB·플레이리스트를 변경하지 않습니다. 별도의 `YouTube Charts Browser Check` 작업은 실제 브라우저를 검사하기 위해 WebKit을 미리 설치하고 같은 검증을 수행합니다.
 
 검증 작업의 성공 여부와 함께 로그의 `method` 및 결과 파일을 확인합니다. `verified_snapshot`으로 통과한 결과는 해당 스냅샷의 검증·재사용 결과입니다.
 
@@ -439,9 +442,9 @@ python reconcile_playlist_update.py \
 `sync_all.py`는 시작 시 UTC 날짜를 한 번 정하고 `HYPE_SYNC_DATE`로 모든 하위 작업에 전달합니다. 처리 중 자정을 넘어도 이 실행의 내부 기준일은 같습니다. 독립 실행은 UTC 오늘을 사용합니다. Apple 일간 차트의 기준일은 이 날짜에서 하루를 뺀 값이고, Hype 표시 날짜는 다시 하루를 더한 값입니다. 예를 들어 UTC 10월 5일 15:46 실행은 Apple 기준일 10월 4일, Hype 날짜 10월 5일로 기록합니다. 원본에 날짜가 없는 경우의 기준일도 이 UTC 날짜를 사용하며, YouTube·멜론 원본에 명시된 집계 날짜와 Apple의 `--reference-period`는 바꾸지 않습니다. 기존 DB 날짜를 일괄 이동하지 않습니다.
 
 ```
-1. Checkout → Python 3.11 설정 → 의존성·WebKit 설치 → 회귀 테스트
+1. Checkout → Python 3.11 설정 → 고정된 Python 의존성 설치
 2. YouTube Music 인증 파일 복원
-3. sync_all.py 실행 (sync_config.json 기반 전체 작업)
+3. sync_all.py 실행 (sync_config.json 기반 작업, 필요할 때만 WebKit 설치)
 4. 검증된 history.json과 새 공식 차트 스냅샷을 커밋·푸시
 5. 항상 인증 파일 정리
 ```
@@ -450,24 +453,31 @@ python reconcile_playlist_update.py \
 
 수집·매칭 완료와 플레이리스트 게시 성공은 별도로 판단합니다. 게시 실패가 있어도 Hype 입력 데이터와 내보내기 검증이 완료되면 이력을 갱신할 수 있으며, 전체 워크플로우는 실패 상태로 남을 수 있습니다. 재실행은 기존 실행의 커밋을 사용하므로 워크플로우 수정 후에는 최신 main을 선택해 새 수동 실행을 시작합니다.
 
-[`youtube-charts-browser-check.yml`](.github/workflows/youtube-charts-browser-check.yml)은 관련 PR 변경 또는 수동 실행에서 오프라인 회귀 테스트, 실제 아티스트 메타데이터 조회, 주간 차트 수집·대체 경로 검증을 수행하고 결과를 아티팩트로 저장합니다. 이 검증은 DB와 플레이리스트를 수정하지 않습니다.
+[`youtube-charts-browser-check.yml`](.github/workflows/youtube-charts-browser-check.yml)은 관련 PR 변경 또는 수동 실행에서 실제 아티스트 메타데이터 조회와 주간 차트 수집·대체 경로 검증을 수행하고 결과를 아티팩트로 저장합니다. 이 검증은 DB와 플레이리스트를 수정하지 않습니다.
+
+두 Actions 워크플로는 전체 회귀 검사를 반복하지 않습니다. 코드·의존성을 변경하면 개발 환경에서 아래 회귀 검사를 통과한 뒤 운영에 반영합니다. 운영 중 차트 기간·순위·곡 식별·게시 결과·저장 이력 검증과 중복 실행 방지는 계속 수행합니다.
+
+```bash
+HYPE_DB_BACKEND=sqlite PYTHONPATH=.:tests python -m unittest -v \
+  $(git ls-files 'tests/test_*.py' | sed 's#tests/##; s#\.py$##')
+```
+
+위 명령은 Git으로 추적되는 운영 소스의 `test_*.py`를 실행합니다. `.gitignore`가 일부 로컬 테스트와 워크플로를 제외하므로, 새 테스트에 필요한 보조 파일·픽스처도 함께 Git 추적되는지 확인합니다. 로컬에만 남아 있는 테스트는 현재 코드와 맞지 않을 수 있어 운영 회귀 검사 범위와 구분합니다.
+
+설치 하위 프로세스 종료 검사는 `systemd`와 암호 없는 `sudo`가 있는 Linux에서 실제 프로세스로 실행합니다. 별도 세션에서 종료 신호를 무시하는 자식이 있어도 시간 초과 및 부모의 조기 종료 후 남지 않는지 확인하며, 다른 환경에서는 이 검사만 건너뜁니다.
 
 ---
 
 ## 📦 의존성
 
-```
-requests>=2.31.0
-PyJWT[crypto]>=2.8.0
-ytmusicapi>=1.10.0
-beautifulsoup4>=4.12.0
-psycopg2-binary>=2.9.0
-playwright==1.59.0
-```
+[`requirements.txt`](requirements.txt)에 직접·간접 실행 의존성의 정확한 버전을 고정합니다. 기준은 2026-10-25에 성공한 운영 Actions 실행입니다. pip 캐시는 다운로드를 재사용할 뿐 설치를 대체하지 않으므로 매 실행에서 같은 파일로 설치합니다.
 
 ```bash
 pip install -r requirements.txt
+pip check
 ```
+
+업데이트할 때는 별도 개발 환경에서 필요한 버전을 변경하고, 새 간접 의존성까지 정확한 버전으로 고정합니다. `pip check`와 회귀 검사를 수행하고, 수집·브라우저 관련 변경은 실제 수집 검증까지 마친 뒤 운영에 반영합니다. Playwright 버전을 바꾸면 해당 버전의 WebKit도 다시 설치해 검증합니다.
 
 ---
 
