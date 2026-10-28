@@ -16,7 +16,6 @@ tests/*
 !tests/test_utc_chart_dates.py
 !tests/test_youtube_charts_fetch.py
 !tests/test_youtube_charts_browser.py
-!tests/test_youtube_charts_snapshot.py
 !tests/check_youtube_charts_browser.py
 !tests/check_chart_web_v2.py
 utils/
@@ -44,6 +43,7 @@ db_migrations/*
 !.github/workflows/youtube-charts-browser-check.yml
 *.lock
 diagnostic-artifacts/
+/snapshots/youtube-charts/
 /design/
 /validation/
 

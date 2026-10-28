@@ -357,8 +357,7 @@ HYPE_DB_BACKEND=sqlite python heal_split_tracks.py --db-path hype_wave_data.db -
 | :--- | :--- | :--- |
 | 1 | 공식 페이지가 CSV를 반환하거나 페이지에 노출한 CSV 다운로드 링크 | 사용 가능한 CSV가 없음 |
 | 2 | 공식 browse API의 영어·한국어 응답 | 요청 실패 또는 주간 차트 검증 실패 |
-| 3 | Playwright WebKit으로 공식 차트 조회 | 요청 실패, 화면 기간 불일치 또는 데이터 검증 실패 |
-| 4 | `snapshots/youtube-charts/kr-weekly-YYYY-MM-DD.json` | 요청 주차와 일치하는 유효한 파일이 없으면 수집 실패 |
+| 3 | Playwright WebKit으로 공식 차트 조회 | 요청 실패, 화면 기간 불일치 또는 데이터 검증 실패 시 수집 실패 |
 
 `--youtube-charts-csv`를 지정하면 해당 파일을 우선 사용합니다. 공식 YouTube Music 플레이리스트를 읽는 `--use-source-playlist`는 별도 수동 모드이며, 날짜가 없는 플레이리스트를 주간 차트의 자동 대체 소스로 사용하지 않습니다.
 
@@ -368,19 +367,13 @@ YouTube Charts 조회는 `429` 및 일시적인 서버 오류에 최대 3회 재
 
 HTTP/API 수집이 실패하거나 주간 데이터가 불완전하면 Playwright WebKit으로 공식 대한민국 주간 차트를 조회합니다. 공식 응답의 국가·곡 차트 유형, 중복·누락 없는 원본 1–100위, 7일 집계 기간, 화면에 표시된 기간과 요청 기간의 일치를 검증한 뒤 기존 저장·매칭 경로로 넘깁니다. 브라우저는 최신 주차만 수집합니다.
 
-둘 다 실패하면 `snapshots/youtube-charts/`의 검증된 공식 응답을 재사용합니다. 명시한 집계 주 또는 최신 완료된 목요일(UTC)의 주차와 정확히 일치해야 하며, 국가·유형·100위·원본 영상 ID·집계 기간·수집 시각·SHA-256을 다시 검증합니다. 이전 주차를 새 주차로 바꾸지 않습니다. 로그와 DB 원본 수집 기록에 `collection_method=verified_snapshot`, 원래 `source_collected_at`, 체크섬을 남기며 재사용 시 수집 시각을 갱신하지 않습니다. 새로운 공식 응답을 검증한 운영 실행은 공개 차트 스냅샷을 저장하고 Actions가 다른 작업의 성공 여부와 관계없이 이를 커밋합니다. 해당 주차의 유효한 스냅샷도 없으면 수집 실패로 처리하고 기존 차트와 플레이리스트를 보존합니다. 과거 주차는 기간을 명시한 스냅샷 또는 CSV를 사용합니다.
-
-초기 파일 `kr-weekly-2026-10-08.json`은 2026-10-14 21:43:51(KST)에 성공한 공식 API 응답에서 필요한 필드를 추려 저장한 자료입니다. 원본 집계 기간은 2026-10-02~2026-10-08이며 파일명은 집계 종료일을 뜻합니다. `collected_at`은 응답을 저장한 시각이고 SHA-256은 저장 내용의 무결성 검사에 사용합니다.
-
-API와 브라우저가 모두 429인 상황에서 새 주차를 가져오는 독립적인 추가 수집 경로는 현재 없습니다. 예를 들어 집계 종료일이 `2026-10-15`인 요청에 `kr-weekly-2026-10-08.json`을 재사용하지 않습니다.
+API와 브라우저 수집이 모두 실패하면 수집 실패로 기록하고 기존 DB 데이터와 플레이리스트를 보존합니다. 별도 차트 스냅샷 파일은 생성·재사용하거나 Git에 저장하지 않습니다. 미완료 주간 작업은 다음 일일 실행에서 다시 수집하며, 과거 누락 주차는 집계 기간을 명시한 CSV로 수동 복원합니다.
 
 로컬에서 브라우저 fallback이나 실제 브라우저 검증이 필요하면 `python -m playwright install webkit`으로 미리 설치합니다. 인증 파일 생성에는 WebKit이 필요하지 않으며 로컬 수집기는 브라우저를 자동 설치하지 않습니다.
 
-일일 Actions는 실제 동기화 단계에만 `HYPE_INSTALL_CHART_BROWSER=1`을 설정합니다. 주간 작업이 생략되거나 HTTP/API 수집이 성공하면 브라우저를 설치하지 않습니다. fallback에 진입했을 때 WebKit 실행 파일이 없으면 수집 프로세스당 한 번 설치를 시도합니다. Ubuntu의 `sudo -n systemd-run`으로 설치를 임시 서비스에 넣고, 실행 170초 뒤 중단하며 남은 하위 프로세스는 10초 뒤 강제 종료합니다. 설치를 시작한 Python이 먼저 종료되거나 `apt`·`dpkg`가 별도 세션을 만들어도 같은 서비스의 프로세스 전체를 정리한 뒤 수집을 계속합니다. 서비스는 종료 후 제거하며 브라우저는 현재 Playwright가 기대하는 경로에 설치합니다. 설치 실패·시간 초과 시 기존 스냅샷 검증으로 진행하며 유효한 해당 주차 자료도 없으면 기존 데이터·플레이리스트를 보존하고 수집 실패로 기록합니다.
+일일 Actions는 실제 동기화 단계에만 `HYPE_INSTALL_CHART_BROWSER=1`을 설정합니다. 주간 작업이 생략되거나 HTTP/API 수집이 성공하면 브라우저를 설치하지 않습니다. fallback에 진입했을 때 WebKit 실행 파일이 없으면 수집 프로세스당 한 번 설치를 시도합니다. Ubuntu의 `sudo -n systemd-run`으로 설치를 임시 서비스에 넣고, 실행 170초 뒤 중단하며 남은 하위 프로세스는 10초 뒤 강제 종료합니다. 설치를 시작한 Python이 먼저 종료되거나 `apt`·`dpkg`가 별도 세션을 만들어도 같은 서비스의 프로세스 전체를 정리한 뒤 수집을 계속합니다. 서비스는 종료 후 제거하며 브라우저는 현재 Playwright가 기대하는 경로에 설치합니다. 설치 실패·시간 초과 시 기존 데이터·플레이리스트를 보존하고 수집 실패로 기록합니다.
 
-`python tests/check_youtube_charts_browser.py`는 정상 수집과 강제 HTTP 장애의 대체 수집을 실행하고, 동일한 집계 기간·100위 영상 순서를 검증하며 실제 사용한 수집 방식과 원래 수집 시각을 출력합니다. DB·플레이리스트를 변경하지 않습니다. 별도의 `YouTube Charts Browser Check` 작업은 실제 브라우저를 검사하기 위해 WebKit을 미리 설치하고 같은 검증을 수행합니다.
-
-검증 작업의 성공 여부와 함께 로그의 `method` 및 결과 파일을 확인합니다. `verified_snapshot`으로 통과한 결과는 해당 스냅샷의 검증·재사용 결과입니다.
+`python tests/check_youtube_charts_browser.py`는 정상 수집과 강제 HTTP 장애의 브라우저 수집을 실행하고, 동일한 집계 기간·100위 영상 순서를 검증하며 실제 사용한 수집 방식을 출력합니다. 장애 경로는 새 브라우저 응답을 받아야 통과하며, DB·플레이리스트를 변경하지 않습니다. 별도의 `YouTube Charts Browser Check` 작업은 실제 브라우저를 검사하기 위해 WebKit을 미리 설치하고 같은 검증을 수행합니다.
 
 ### DB에서 최근 31일 이력 재작성
 
@@ -445,11 +438,11 @@ python reconcile_playlist_update.py \
 1. Checkout → Python 3.11 설정 → 고정된 Python 의존성 설치
 2. YouTube Music 인증 파일 복원
 3. sync_all.py 실행 (sync_config.json 기반 작업, 필요할 때만 WebKit 설치)
-4. 검증된 history.json과 새 공식 차트 스냅샷을 커밋·푸시
+4. 검증된 history.json을 커밋·푸시
 5. 항상 인증 파일 정리
 ```
 
-`history_ready=true`가 출력된 경우에만 `history.json`을 커밋 대상으로 추가합니다. `.gitignore`는 배포에 필요한 웹 파일과 두 JSON 파일만 허용하며, Actions는 이력 파일을 명시적으로 추가하는 `git add -f -- docs/api/history.json`을 사용합니다. 검증된 차트 스냅샷은 다른 동기화 작업이 실패해도 실행이 취소되지 않았다면 커밋 대상으로 추가합니다. 변경된 파일이 없으면 새 커밋을 만들지 않습니다.
+실행이 취소되지 않고 `history_ready=true`가 출력된 경우에만 `history.json` 커밋 단계를 실행합니다. `.gitignore`는 배포에 필요한 웹 파일과 두 JSON 파일만 허용하며, Actions는 이력 파일을 명시적으로 추가하는 `git add -f -- docs/api/history.json`을 사용합니다. 변경된 파일이 없으면 새 커밋을 만들지 않습니다.
 
 수집·매칭 완료와 플레이리스트 게시 성공은 별도로 판단합니다. 게시 실패가 있어도 Hype 입력 데이터와 내보내기 검증이 완료되면 이력을 갱신할 수 있으며, 전체 워크플로우는 실패 상태로 남을 수 있습니다. 재실행은 기존 실행의 커밋을 사용하므로 워크플로우 수정 후에는 최신 main을 선택해 새 수동 실행을 시작합니다.
 
@@ -536,7 +529,6 @@ hype_wave/
 ├── .github/workflows/
 │   ├── daily-sync.yml             # 운영 동기화 · 결과 커밋
 │   └── youtube-charts-browser-check.yml  # 수집 경로 검증
-├── snapshots/youtube-charts/      # 집계 기간별 공식 차트 스냅샷
 ├── tests/                         # 회귀 테스트 · 읽기 전용 수집 점검
 ├── docs/
 │   ├── index.html                 # Hype Wave 프론트엔드 대시보드

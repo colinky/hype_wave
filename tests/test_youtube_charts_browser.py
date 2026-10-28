@@ -32,12 +32,12 @@ def chart_payload():
 class YouTubeChartsBrowserTests(unittest.TestCase):
     def setUp(self):
         self.enterContext(patch("socket.socket.connect", side_effect=AssertionError("offline test")))
-        self.enterContext(patch.object(crawl, "SNAPSHOT_DIR", Path(self.enterContext(tempfile.TemporaryDirectory()))))
+        self.directory = Path(self.enterContext(tempfile.TemporaryDirectory()))
         self.enterContext(patch.dict(os.environ, {"HYPE_INSTALL_CHART_BROWSER": ""}))
         self.enterContext(patch.object(crawl, "_CHART_BROWSER_INSTALL_ATTEMPTED", False))
 
     def test_browser_install_requires_opt_in_and_skips_existing_browser(self):
-        executable = crawl.SNAPSHOT_DIR / "webkit"
+        executable = self.directory / "webkit"
         with patch.object(crawl.subprocess, "run") as install:
             crawl.ensure_chart_browser(executable)
             executable.touch()
@@ -46,7 +46,7 @@ class YouTubeChartsBrowserTests(unittest.TestCase):
             install.assert_not_called()
 
     def test_browser_install_is_bounded_and_reused(self):
-        executable = crawl.SNAPSHOT_DIR / "webkit"
+        executable = self.directory / "webkit"
         with (patch.dict(os.environ, {"HYPE_INSTALL_CHART_BROWSER": "1"}),
               patch.object(crawl.subprocess, "run", side_effect=lambda *a, **k: executable.touch()) as install):
             crawl.ensure_chart_browser(executable)
@@ -76,7 +76,7 @@ class YouTubeChartsBrowserTests(unittest.TestCase):
         )
         for case in ("timeout", "parent_exit"):
             unit = f"hype-chart-browser-test-{uuid.uuid4().hex}.service"
-            pid_file = crawl.SNAPSHOT_DIR / f"{case}.pid"
+            pid_file = self.directory / f"{case}.pid"
 
             def run_installer(command, **kwargs):
                 # Exercise the production supervisor with a short, network-free installer.
@@ -92,7 +92,7 @@ class YouTubeChartsBrowserTests(unittest.TestCase):
                       patch.object(crawl, "_CHART_BROWSER_INSTALL_ATTEMPTED", False),
                       patch.object(crawl.subprocess, "run", side_effect=run_installer)):
                     with self.assertRaises(crawl.subprocess.CalledProcessError):
-                        crawl.ensure_chart_browser(crawl.SNAPSHOT_DIR / "missing-webkit")
+                        crawl.ensure_chart_browser(self.directory / "missing-webkit")
                     self.assertTrue(pid_file.is_file(), "installer did not start its child")
                     stat = Path(f"/proc/{int(pid_file.read_text())}/stat")
                     try:
@@ -104,7 +104,7 @@ class YouTubeChartsBrowserTests(unittest.TestCase):
                 run(["sudo", "-n", "systemctl", "stop", unit], capture_output=True, timeout=15)
 
     def test_failed_browser_install_is_not_retried(self):
-        executable = crawl.SNAPSHOT_DIR / "webkit"
+        executable = self.directory / "webkit"
         with (patch.dict(os.environ, {"HYPE_INSTALL_CHART_BROWSER": "1"}),
               patch.object(crawl.subprocess, "run", side_effect=OSError("installer unavailable")) as install):
             with self.assertRaises(OSError):
@@ -112,6 +112,37 @@ class YouTubeChartsBrowserTests(unittest.TestCase):
             with self.assertRaisesRegex(RuntimeError, "already attempted"):
                 crawl.ensure_chart_browser(executable)
         install.assert_called_once()
+
+    def test_install_failure_or_timeout_returns_no_chart_without_retry(self):
+        for exit_code in (1, 124, 137):
+            manager = MagicMock()
+            browser = manager.__enter__.return_value.webkit
+            browser.executable_path = str(self.directory / "missing-webkit")
+            with (self.subTest(exit_code=exit_code),
+                  patch.dict(os.environ, {"HYPE_INSTALL_CHART_BROWSER": "1"}),
+                  patch.object(crawl, "_CHART_BROWSER_INSTALL_ATTEMPTED", False),
+                  patch.object(crawl.http_session, "get", side_effect=requests.HTTPError("429")),
+                  patch("playwright.sync_api.sync_playwright", return_value=manager),
+                  patch.object(crawl.subprocess, "run",
+                               side_effect=crawl.subprocess.CalledProcessError(exit_code, "install")) as install):
+                for _ in range(2):
+                    self.assertEqual(crawl.extract_chart_entries_from_youtube_charts(crawl.DEFAULT_YOUTUBE_CHARTS_URL), [])
+            install.assert_called_once()
+            browser.launch.assert_not_called()
+
+    def test_live_check_uses_fresh_browser_results_and_fails_without_them(self):
+        import check_youtube_charts_browser as check
+
+        normal = crawl.extract_chart_entries_from_browser_json(chart_payload())
+        for row in normal:
+            row["collection_method"] = "api"
+        browser = [{**row, "collection_method": "browser"} for row in normal]
+        with (patch.object(crawl, "extract_chart_entries_from_youtube_charts", side_effect=[normal, browser]),
+              patch("builtins.print")):
+            check.main()
+        with patch.object(crawl, "extract_chart_entries_from_youtube_charts", side_effect=[normal, []]):
+            with self.assertRaises(ValueError):
+                check.main()
 
     def test_api_success_does_not_prepare_browser_even_when_install_is_enabled(self):
         rows = crawl.extract_chart_entries_from_browser_json(chart_payload())
@@ -218,7 +249,7 @@ class YouTubeChartsBrowserTests(unittest.TestCase):
             response.json.return_value = payload
             page.locator.return_value.inner_text.return_value = "Oct 9–15, 2026" if case == "wrong_label" else label
             options = {"chart_period_end": "2026-10-01"} if case == "historical_request" else {}
-            playwright.webkit.executable_path = str(crawl.SNAPSHOT_DIR / "webkit")
+            playwright.webkit.executable_path = str(self.directory / "webkit")
             with (self.subTest(case=case), patch("playwright.sync_api.sync_playwright", return_value=manager),
                   patch.dict(os.environ, {"HYPE_INSTALL_CHART_BROWSER": "1" if case == "success" else ""}),
                   patch.object(crawl.subprocess, "run") as install):

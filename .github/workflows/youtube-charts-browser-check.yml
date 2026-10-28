@@ -21,7 +21,6 @@ on:
       - requirements.txt
       - tests/test_youtube_charts*.py
       - tests/check_youtube_charts_browser.py
-      - snapshots/youtube-charts/*.json
       - .github/workflows/youtube-charts-browser-check.yml
 
 permissions:

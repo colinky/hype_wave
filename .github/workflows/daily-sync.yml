@@ -58,22 +58,16 @@ jobs:
           set -euo pipefail
           python sync_all.py
 
-      - name: Commit and Push Verified Chart Snapshots and Historical Web Data
-        if: ${{ !cancelled() }}
-        env:
-          HISTORY_READY: ${{ steps.sync.outputs.history_ready }}
+      - name: Commit and Push Verified Historical Web Data
+        if: ${{ !cancelled() && steps.sync.outputs.history_ready == 'true' }}
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           
-          if [ "$HISTORY_READY" = "true" ]; then
-            git add -f -- docs/api/history.json
-          fi
-          # Preserve complete source captures even if another sync task failed.
-          git add snapshots/youtube-charts/*.json
+          git add -f -- docs/api/history.json
           
           if ! git diff --cached --quiet; then
-            git commit -m "chore: update verified chart snapshots and history [$(date +'%Y-%m-%d')]"
+            git commit -m "chore: update verified chart history [$(date +'%Y-%m-%d')]"
             git push origin HEAD:${{ github.ref_name }}
           else
             echo "No changes to commit"
