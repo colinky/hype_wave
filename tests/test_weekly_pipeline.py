@@ -3,13 +3,77 @@ import os
 from pathlib import Path
 import tempfile
 import unittest
-from unittest.mock import Mock, patch
+from unittest.mock import MagicMock, Mock, call, patch
 
 import hype_db
 from hype_db_store import _yt_metadata_verified_key
 import crawler_common
 import sync_all
+import sync_validation
 import ytmusic_to_ytmusic_crawl as weekly
+
+
+class PostgresWriterLockTests(unittest.TestCase):
+    def setUp(self):
+        self.enterContext(patch.dict(os.environ, {
+            'HYPE_DB_BACKEND': 'aiven', 'AIVEN_DB_URI': 'postgresql://fixture/test',
+            'SUPABASE_DB_URL': 'postgresql://fixture/test', 'HYPE_SYNC_PARENT_PID': '',
+        }))
+        self.raw = MagicMock()
+        self.cursor = self.raw.cursor.return_value
+        self.cursor.description = [('acquired',)]
+        self.cursor.fetchone.return_value = (True,)
+        self.open_connection = self.enterContext(patch('psycopg2.connect', return_value=self.raw))
+        self.enterContext(patch('hype_db_schema.postgres_connect_kwargs', return_value={}))
+        self.enterContext(patch('hype_db_schema.verify_postgres_schema'))
+
+    def test_aiven_commits_before_work_and_closes_after_nested_lock(self):
+        with sync_validation.sync_run_lock('unused.db'):
+            self.cursor.execute.assert_called_with('SELECT pg_try_advisory_lock(1847391027)', ())
+            self.assertEqual(self.raw.mock_calls[-1], call.commit())
+            self.raw.close.assert_not_called()
+            with sync_validation.sync_run_lock('unused.db'):
+                self.open_connection.assert_called_once()
+        self.raw.close.assert_called_once()
+        self.raw.rollback.assert_not_called()
+        self.assertFalse(sync_validation._writer_lock_held.get())
+
+    def test_aiven_exception_closes_lock_connection_and_resets_ownership(self):
+        with self.assertRaisesRegex(RuntimeError, 'worker failed'):
+            with sync_validation.sync_run_lock('unused.db'):
+                self.assertEqual(self.raw.mock_calls[-1], call.commit())
+                raise RuntimeError('worker failed')
+        self.raw.rollback.assert_called_once()
+        self.raw.close.assert_called_once()
+        self.assertFalse(sync_validation._writer_lock_held.get())
+
+    def test_supabase_keeps_transaction_lock_until_work_finishes(self):
+        with patch.dict(os.environ, {'HYPE_DB_BACKEND': 'supabase'}):
+            with sync_validation.sync_run_lock('unused.db'):
+                self.assertEqual(self.cursor.execute.call_args_list, [
+                    call("SET LOCAL idle_in_transaction_session_timeout = '0'", ()),
+                    call('SELECT pg_try_advisory_xact_lock(1847391027)', ()),
+                ])
+                self.assertEqual(self.raw.mock_calls[-1], call.cursor().fetchone())
+                self.raw.close.assert_not_called()
+        self.raw.close.assert_called_once()
+
+    def test_busy_lock_blocks_work_and_closes_connection(self):
+        for backend in ('aiven', 'supabase'):
+            with self.subTest(backend=backend), patch.dict(os.environ, {'HYPE_DB_BACKEND': backend}):
+                self.raw.reset_mock()
+                self.cursor.fetchone.return_value = (False,)
+                with self.assertRaises(sync_validation.PlaybackBlocked):
+                    with sync_validation.sync_run_lock('unused.db'):
+                        self.fail('A competing writer must not start')
+                self.raw.close.assert_called_once()
+                self.assertFalse(sync_validation._writer_lock_held.get())
+
+    def test_child_uses_parent_lock_without_opening_a_connection(self):
+        with patch.dict(os.environ, {'HYPE_SYNC_PARENT_PID': str(os.getppid())}):
+            with sync_validation.sync_run_lock('unused.db'):
+                self.open_connection.assert_not_called()
+        self.assertFalse(sync_validation._writer_lock_held.get())
 
 
 class WeeklyPipelineTests(unittest.TestCase):

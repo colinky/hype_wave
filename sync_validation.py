@@ -4,7 +4,7 @@ import os
 from pathlib import Path
 from contextlib import contextmanager
 from contextvars import ContextVar
-from hype_db_common import postgres_url
+from hype_db_common import database_backend, postgres_url
 
 
 EXIT_PUBLICATION_BLOCKED = 5
@@ -37,11 +37,15 @@ def _acquire_sync_run_lock(db_path):
     if postgres_url():
         from hype_db_schema import connect
         with connect(db_path, read_only=True) as conn:
-            # The hosted URL is a transaction pooler: a session lock could be
-            # detached from this client at commit. Pin only this dedicated lock
-            # transaction until the command exits; normal DB work stays short.
-            conn.execute("SET LOCAL idle_in_transaction_session_timeout = '0'")
-            acquired = conn.execute("SELECT pg_try_advisory_xact_lock(1847391027)").fetchone()[0]
+            if database_backend() == "aiven":
+                # Aiven connects directly; closing this connection releases the session lock.
+                conn.execute("SET application_name = 'hype-wave-sync-lock'")
+                acquired = conn.execute("SELECT pg_try_advisory_lock(1847391027)").fetchone()[0]
+                conn.commit()
+            else:
+                # Supabase's transaction pooler requires a pinned transaction for the lock.
+                conn.execute("SET LOCAL idle_in_transaction_session_timeout = '0'")
+                acquired = conn.execute("SELECT pg_try_advisory_xact_lock(1847391027)").fetchone()[0]
             if not acquired:
                 raise PlaybackBlocked("Another synchronization or incident repair owns the write lock")
             yield

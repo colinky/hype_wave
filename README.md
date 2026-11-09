@@ -548,4 +548,6 @@ hype_wave/
 
 기존 SUPABASE_DB_URL은 명시적인 복구·원본 백업용으로만 보관합니다. Aiven 선택 후 설정·연결·캐시 오류가 나면 다른 DB로 대체하지 않고 실패 처리합니다. Supabase와 Aiven에 서로 다른 쓰기가 발생했다면 단순 URL 변경 대신 양쪽 데이터를 백업·대조한 뒤 복구합니다.
 
+Aiven 동기화는 직접 연결의 세션 잠금으로 중복 실행을 막습니다. 잠금 획득 직후 트랜잭션을 끝내므로 작업 중 `pg_stat_activity`에서 `application_name=hype-wave-sync-lock`, `state=idle`, `xact_start=NULL`로 표시되며, 정상 종료·예외 모두 연결을 닫아 잠금을 해제합니다. Supabase의 트랜잭션 풀러에서는 기존 트랜잭션 잠금을 유지합니다.
+
 `daily-sync.yml`의 수동·예약 실행은 실제 동기화를 수행합니다. 수집 경로만 확인할 때는 별도의 `YouTube Charts Browser Check`를 사용합니다.

@@ -87,6 +87,44 @@ PLAYLIST_EVIDENCE_PHASES = {"publish", "restore", "reconcile", "reconcile_tail"}
 PLAYLIST_EVIDENCE_OPERATIONS = {"remove", "add", "move", "move_batch", "observe", "finalize"}
 PLAYLIST_EVIDENCE_STATES = {"intent", "ack", "ambiguous", "verified"}
 
+_UPSERT_PLATFORM_SONG_ID_SQL = """
+    INSERT INTO platform_song_ids(service, song_id, track_uid)
+    VALUES (?, ?, ?)
+    ON CONFLICT(service, song_id) DO UPDATE SET
+        track_uid = excluded.track_uid
+    WHERE platform_song_ids.track_uid IS DISTINCT FROM excluded.track_uid
+"""
+
+_UPSERT_TRACK_LIST_SQL = """
+    INSERT INTO track_list(
+        service, song_id, album_id, title_ko, artist_ko, album_ko,
+        title_en, artist_en, album_en, artwork_url
+    )
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ON CONFLICT(service, song_id) DO UPDATE SET
+        album_id = COALESCE(NULLIF(excluded.album_id, ''), track_list.album_id),
+        title_ko = COALESCE(NULLIF(excluded.title_ko, ''), track_list.title_ko),
+        artist_ko = COALESCE(NULLIF(excluded.artist_ko, ''), track_list.artist_ko),
+        album_ko = COALESCE(NULLIF(excluded.album_ko, ''), track_list.album_ko),
+        title_en = COALESCE(NULLIF(excluded.title_en, ''), track_list.title_en),
+        artist_en = COALESCE(NULLIF(excluded.artist_en, ''), track_list.artist_en),
+        album_en = COALESCE(NULLIF(excluded.album_en, ''), track_list.album_en),
+        artwork_url = COALESCE(NULLIF(excluded.artwork_url, ''), track_list.artwork_url)
+    WHERE (
+        track_list.album_id, track_list.title_ko, track_list.artist_ko, track_list.album_ko,
+        track_list.title_en, track_list.artist_en, track_list.album_en, track_list.artwork_url
+    ) IS DISTINCT FROM (
+        COALESCE(NULLIF(excluded.album_id, ''), track_list.album_id),
+        COALESCE(NULLIF(excluded.title_ko, ''), track_list.title_ko),
+        COALESCE(NULLIF(excluded.artist_ko, ''), track_list.artist_ko),
+        COALESCE(NULLIF(excluded.album_ko, ''), track_list.album_ko),
+        COALESCE(NULLIF(excluded.title_en, ''), track_list.title_en),
+        COALESCE(NULLIF(excluded.artist_en, ''), track_list.artist_en),
+        COALESCE(NULLIF(excluded.album_en, ''), track_list.album_en),
+        COALESCE(NULLIF(excluded.artwork_url, ''), track_list.artwork_url)
+    )
+"""
+
 
 def _yt_metadata_verified_key(video_id: str, title: str, artist: str, album: str) -> str:
     payload = json.dumps(
@@ -444,31 +482,11 @@ def upsert_track_list_metadata(
 ) -> None:
     if bind_source_id:
         conn.execute(
-            """
-            INSERT INTO platform_song_ids(service, song_id, track_uid)
-            VALUES (?, ?, ?)
-            ON CONFLICT(service, song_id) DO UPDATE SET
-                track_uid = excluded.track_uid
-            """,
+            _UPSERT_PLATFORM_SONG_ID_SQL,
             (normalized_service(service), song_id, track_uid),
         )
     conn.execute(
-        """
-        INSERT INTO track_list(
-            service, song_id, album_id, title_ko, artist_ko, album_ko,
-            title_en, artist_en, album_en, artwork_url
-        )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        ON CONFLICT(service, song_id) DO UPDATE SET
-            album_id = COALESCE(NULLIF(excluded.album_id, ''), track_list.album_id),
-            title_ko = COALESCE(NULLIF(excluded.title_ko, ''), track_list.title_ko),
-            artist_ko = COALESCE(NULLIF(excluded.artist_ko, ''), track_list.artist_ko),
-            album_ko = COALESCE(NULLIF(excluded.album_ko, ''), track_list.album_ko),
-            title_en = COALESCE(NULLIF(excluded.title_en, ''), track_list.title_en),
-            artist_en = COALESCE(NULLIF(excluded.artist_en, ''), track_list.artist_en),
-            album_en = COALESCE(NULLIF(excluded.album_en, ''), track_list.album_en),
-            artwork_url = COALESCE(NULLIF(excluded.artwork_url, ''), track_list.artwork_url)
-        """,
+        _UPSERT_TRACK_LIST_SQL,
         track_list_metadata_params(service=service, song_id=song_id, row=row, locale=locale),
     )
 
@@ -2226,33 +2244,13 @@ def _persist_crawled_tracks_impl(
 
     if platform_song_ids_params:
         conn.executemany(
-            """
-            INSERT INTO platform_song_ids(service, song_id, track_uid)
-            VALUES (?, ?, ?)
-            ON CONFLICT(service, song_id) DO UPDATE SET
-                track_uid = excluded.track_uid
-            """,
+            _UPSERT_PLATFORM_SONG_ID_SQL,
             platform_song_ids_params
         )
 
     if track_list_params:
         conn.executemany(
-            """
-            INSERT INTO track_list(
-                service, song_id, album_id, title_ko, artist_ko, album_ko,
-                title_en, artist_en, album_en, artwork_url
-            )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            ON CONFLICT(service, song_id) DO UPDATE SET
-                album_id = COALESCE(NULLIF(excluded.album_id, ''), track_list.album_id),
-                title_ko = COALESCE(NULLIF(excluded.title_ko, ''), track_list.title_ko),
-                artist_ko = COALESCE(NULLIF(excluded.artist_ko, ''), track_list.artist_ko),
-                album_ko = COALESCE(NULLIF(excluded.album_ko, ''), track_list.album_ko),
-                title_en = COALESCE(NULLIF(excluded.title_en, ''), track_list.title_en),
-                artist_en = COALESCE(NULLIF(excluded.artist_en, ''), track_list.artist_en),
-                album_en = COALESCE(NULLIF(excluded.album_en, ''), track_list.album_en),
-                artwork_url = COALESCE(NULLIF(excluded.artwork_url, ''), track_list.artwork_url)
-            """,
+            _UPSERT_TRACK_LIST_SQL,
             track_list_params
         )
 
@@ -2702,11 +2700,7 @@ def _persist_crawl_run_bulk_impl(
     )
     if platform_song_ids_params:
         conn.executemany(
-            """
-            INSERT INTO platform_song_ids(service, song_id, track_uid)
-            VALUES (?, ?, ?)
-            ON CONFLICT(service, song_id) DO UPDATE SET track_uid = excluded.track_uid
-            """,
+            _UPSERT_PLATFORM_SONG_ID_SQL,
             platform_song_ids_params,
         )
     if blocked_song_ids:
@@ -2717,22 +2711,7 @@ def _persist_crawl_run_bulk_impl(
         )
     if track_list_params:
         conn.executemany(
-            """
-            INSERT INTO track_list(
-                service, song_id, album_id, title_ko, artist_ko, album_ko,
-                title_en, artist_en, album_en, artwork_url
-            )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            ON CONFLICT(service, song_id) DO UPDATE SET
-                album_id = COALESCE(NULLIF(excluded.album_id, ''), track_list.album_id),
-                title_ko = COALESCE(NULLIF(excluded.title_ko, ''), track_list.title_ko),
-                artist_ko = COALESCE(NULLIF(excluded.artist_ko, ''), track_list.artist_ko),
-                album_ko = COALESCE(NULLIF(excluded.album_ko, ''), track_list.album_ko),
-                title_en = COALESCE(NULLIF(excluded.title_en, ''), track_list.title_en),
-                artist_en = COALESCE(NULLIF(excluded.artist_en, ''), track_list.artist_en),
-                album_en = COALESCE(NULLIF(excluded.album_en, ''), track_list.album_en),
-                artwork_url = COALESCE(NULLIF(excluded.artwork_url, ''), track_list.artwork_url)
-            """,
+            _UPSERT_TRACK_LIST_SQL,
             track_list_params,
         )
     if metadata_params:
