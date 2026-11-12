@@ -81,6 +81,19 @@ class YouTubeChartsFetchTests(unittest.TestCase):
         self.assertEqual(post.call_args.kwargs["json"]["context"]["client"]["hl"], "ko")
         self.assertIn("chart_params_end_date=20261008", post.call_args.kwargs["json"]["query"])
 
+    def test_duplicate_video_ids_keep_all_ranks_and_each_localized_row(self):
+        en = json.loads(json.dumps(DATA))
+        en["trackViews"][32]["encryptedVideoId"] = en["trackViews"][21]["encryptedVideoId"]
+        ko = json.loads(json.dumps(en))
+        ko["trackViews"][21]["name"] = "22위 원본 제목"
+        ko["trackViews"][32]["name"] = "33위 원본 제목"
+        with patch.object(crawl.http_session, "post", side_effect=[response(en), response(ko)]):
+            rows = crawl.extract_chart_entries_from_browse_api(HTML, crawl.DEFAULT_YOUTUBE_CHARTS_URL)
+        self.assertEqual([row["rank"] for row in rows], list(range(1, 101)))
+        self.assertEqual(rows[21]["video_id"], rows[32]["video_id"])
+        self.assertEqual((rows[21]["title_en"], rows[32]["title_en"]), ("Song 22", "Song 33"))
+        self.assertEqual((rows[21]["title_ko"], rows[32]["title_ko"]), ("22위 원본 제목", "33위 원본 제목"))
+
     def test_missing_context_and_empty_api_responses_are_visible(self):
         with patch.object(crawl.http_session, "post") as post, self.assertLogs(crawl.LOG, "WARNING"):
             self.assertEqual(crawl.extract_chart_entries_from_browse_api("", crawl.DEFAULT_YOUTUBE_CHARTS_URL), [])

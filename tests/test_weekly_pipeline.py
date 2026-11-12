@@ -139,6 +139,70 @@ class WeeklyPipelineTests(unittest.TestCase):
                                                         ytmusic=Mock(), read_only=True, metadata_cache=shared)
         self.assertIs(verify.call_args.kwargs['metadata_cache'], shared)
 
+    def test_duplicate_source_ids_preserve_100_raw_slots_and_99_effective_matches(self):
+        from test_youtube_charts_browser import chart_payload
+        from hype_db_common import dedupe_source_tracks
+        payload = chart_payload()
+        payload['chart']['trackViews'][32]['encryptedVideoId'] = payload['chart']['trackViews'][21]['encryptedVideoId']
+        raw = weekly.extract_chart_entries_from_browser_json(payload)
+        effective = dedupe_source_tracks(raw, 'ytmusic')
+        started = '2026-10-12T07:05:00+00:00'
+        hype_db.persist_crawled_tracks(self.db, service='ytmusic', job_name='Weekly-Hot-100',
+            chart_date='2026-10-08', reference_period='2026-W41', tracks=raw, conn=self.conn)
+        hype_db.persist_crawl_run(self.db, service='ytmusic', job_name='Weekly-Hot-100',
+            chart_date='2026-10-08', reference_period='2026-W41', started_at=started,
+            tracks=effective, matches=[{**row, 'status':'matched', 'yt_title':row['title'],
+                'yt_artist':row['artist']} for row in effective], conn=self.conn, skip_playlist_order=True)
+        saved = self.conn.execute("SELECT song_id,rank_order FROM playlist_order ORDER BY rank_order").fetchall()
+        self.assertEqual([row['rank_order'] for row in saved], list(range(1, 101)))
+        self.assertEqual(saved[21]['song_id'], saved[32]['song_id'])
+        self.assertEqual(len(effective), 99)
+        self.assertNotIn(33, [row['rank'] for row in effective])
+        self.assertTrue(sync_all.data_snapshot_ready(self.conn, service='ytmusic',
+            job_name='Weekly-Hot-100', started_at=started))
+        from hype_db_reports import fetch_hype_rows_for_dates, build_hype_report_from_rows
+        report = build_hype_report_from_rows(fetch_hype_rows_for_dates(self.conn, ['2026-10-12'])['2026-10-12'])
+        duplicate = next(row for row in report if row['video_id'] == raw[21]['video_id'])
+        self.assertEqual(duplicate['ytmusic_rank'], 22)
+        from hype_scoring import calculate_rank_score
+        self.assertEqual(duplicate['hype_index'], round(calculate_rank_score(22) * 0.2, 2))
+
+    def test_history_check_rebuilds_latest_completed_date_using_read_only_connections(self):
+        import json
+        from datetime import datetime, timezone
+        from contextlib import contextmanager
+        import check_history_rebuild as check
+        import hype_db_reports as reports
+        rows = [{'song_id':str(i), 'rank':i, 'title':f'Song {i}', 'artist':'Artist'}
+                for i in range(1, 101)]
+        hype_db.persist_crawled_tracks(self.db, service='apple', job_name='KR-Top-100',
+            chart_date='2026-11-10', reference_period='2026-11-10', tracks=rows, conn=self.conn)
+        matches = [{**row, 'video_id':f"video{row['rank']:06d}", 'status':'matched',
+                    'yt_title':row['title'], 'yt_artist':'Artist'} for row in rows]
+        hype_db.persist_crawl_run(self.db, service='apple', job_name='KR-Top-100',
+            chart_date='2026-11-10', reference_period='2026-11-10', started_at='2026-11-11T07:05:00+00:00',
+            tracks=rows, matches=matches, conn=self.conn, skip_playlist_order=True)
+        output = self.db.with_name('history.json')
+        connections = []
+        @contextmanager
+        def read_only_connect(path, *, read_only=False):
+            self.assertTrue(read_only)
+            with hype_db.connect(path, read_only=read_only) as conn:
+                connections.append(conn.execute('PRAGMA query_only').fetchone()[0])
+                yield conn
+        with patch.object(check, 'connect', side_effect=read_only_connect), \
+             patch.object(reports, 'connect', side_effect=read_only_connect), \
+             patch.object(check, 'datetime', wraps=datetime) as clock, patch('builtins.print'):
+            clock.now.return_value = datetime(2026, 11, 12, tzinfo=timezone.utc)
+            result = check.main(output, self.db)
+        self.assertEqual(connections, [1, 1])
+        self.assertTrue(result['database_connected'])
+        self.assertFalse(result['ready_for_today'])
+        self.assertEqual(result['latest_history_date'], '2026-11-11')
+        self.assertEqual(result['latest_chart_tracks'], 100)
+        self.assertEqual(json.loads(output.read_text())['dates'], ['2026-11-11'])
+        self.assertEqual(json.loads(output.with_suffix('.summary.json').read_text()), result)
+
     def test_partial_summary_uses_verified_actual_count(self):
         import json
         from unittest.mock import patch

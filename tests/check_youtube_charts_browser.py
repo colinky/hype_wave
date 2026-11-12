@@ -13,7 +13,14 @@ import ytmusic_to_ytmusic_crawl as crawl
 def main(output=None):
     normal_entries = crawl.extract_chart_entries_from_youtube_charts(crawl.DEFAULT_YOUTUBE_CHARTS_URL)
     crawl.validate_weekly_chart(normal_entries)
-    with patch.object(crawl.http_session, "get", side_effect=requests.HTTPError("simulated HTTP/API outage")):
+    get = crawl.http_session.get
+
+    def chart_outage(url, *args, **kwargs):
+        if url == crawl.YOUTUBE_PUBLIC_CONFIG_URL:
+            return get(url, *args, **kwargs)
+        raise requests.HTTPError("simulated chart HTTP/API outage")
+
+    with patch.object(crawl.http_session, "get", side_effect=chart_outage):
         entries = crawl.extract_chart_entries_from_youtube_charts(crawl.DEFAULT_YOUTUBE_CHARTS_URL)
     crawl.validate_weekly_chart(entries)
     assert all(row["collection_method"] == "browser" for row in entries)

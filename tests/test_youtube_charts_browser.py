@@ -1,12 +1,9 @@
 """Browser source validation and fail-closed fallback orchestration, without network."""
 from copy import deepcopy
-import os
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 import sys
-import tempfile
 import unittest
-import uuid
 from unittest.mock import MagicMock, Mock, patch
 
 import requests
@@ -32,103 +29,12 @@ def chart_payload():
 class YouTubeChartsBrowserTests(unittest.TestCase):
     def setUp(self):
         self.enterContext(patch("socket.socket.connect", side_effect=AssertionError("offline test")))
-        self.directory = Path(self.enterContext(tempfile.TemporaryDirectory()))
-        self.enterContext(patch.dict(os.environ, {"HYPE_INSTALL_CHART_BROWSER": ""}))
-        self.enterContext(patch.object(crawl, "_CHART_BROWSER_INSTALL_ATTEMPTED", False))
 
-    def test_browser_install_requires_opt_in_and_skips_existing_browser(self):
-        executable = self.directory / "webkit"
-        with patch.object(crawl.subprocess, "run") as install:
-            crawl.ensure_chart_browser(executable)
-            executable.touch()
-            with patch.dict(os.environ, {"HYPE_INSTALL_CHART_BROWSER": "1"}):
-                crawl.ensure_chart_browser(executable)
-            install.assert_not_called()
-
-    def test_browser_install_is_bounded_and_reused(self):
-        executable = self.directory / "webkit"
-        with (patch.dict(os.environ, {"HYPE_INSTALL_CHART_BROWSER": "1"}),
-              patch.object(crawl.subprocess, "run", side_effect=lambda *a, **k: executable.touch()) as install):
-            crawl.ensure_chart_browser(executable)
-            crawl.ensure_chart_browser(executable)
-        install.assert_called_once_with(
-            ["sudo", "-n", "systemd-run", "--wait", "--pipe", "--collect",
-             "--property=Type=exec", "--property=RuntimeMaxSec=170s",
-             "--property=TimeoutStopSec=10s", "--property=KillMode=control-group",
-             "env", f"PLAYWRIGHT_BROWSERS_PATH={executable.parent.parent}", sys.executable,
-             "-m", "playwright", "install", "--with-deps", "webkit"], check=True)
-
-    @unittest.skipUnless(sys.platform == "linux" and Path("/run/systemd/system").is_dir(),
-                         "requires Linux with systemd and passwordless sudo")
-    def test_install_service_kills_detached_child_after_timeout_or_parent_exit(self):
-        run = crawl.subprocess.run
-        child_code = (
-            "import os, pathlib, signal, sys, time; "
-            "signal.signal(signal.SIGTERM, signal.SIG_IGN); "
-            "pathlib.Path(sys.argv[1]).write_text(str(os.getpid())); time.sleep(60)"
-        )
-        parent_code = (
-            "import pathlib, subprocess, sys, time\n"
-            "child = subprocess.Popen([sys.executable, '-c', sys.argv[1], sys.argv[2]], start_new_session=True)\n"
-            "while not pathlib.Path(sys.argv[2]).exists(): time.sleep(0.01)\n"
-            "if sys.argv[3] == 'parent_exit': sys.exit(1)\n"
-            "child.wait()\n"
-        )
-        for case in ("timeout", "parent_exit"):
-            unit = f"hype-chart-browser-test-{uuid.uuid4().hex}.service"
-            pid_file = self.directory / f"{case}.pid"
-
-            def run_installer(command, **kwargs):
-                # Exercise the production supervisor with a short, network-free installer.
-                command = [{"--property=RuntimeMaxSec=170s": "--property=RuntimeMaxSec=2s",
-                            "--property=TimeoutStopSec=10s": "--property=TimeoutStopSec=1s"}.get(arg, arg)
-                           for arg in command]
-                command.insert(command.index("systemd-run") + 1, f"--unit={unit}")
-                command[command.index("env"):] = [sys.executable, "-c", parent_code, child_code, str(pid_file), case]
-                return run(command, **kwargs, timeout=15, capture_output=True, text=True)
-
-            try:
-                with (self.subTest(case=case), patch.dict(os.environ, {"HYPE_INSTALL_CHART_BROWSER": "1"}),
-                      patch.object(crawl, "_CHART_BROWSER_INSTALL_ATTEMPTED", False),
-                      patch.object(crawl.subprocess, "run", side_effect=run_installer)):
-                    with self.assertRaises(crawl.subprocess.CalledProcessError):
-                        crawl.ensure_chart_browser(self.directory / "missing-webkit")
-                    self.assertTrue(pid_file.is_file(), "installer did not start its child")
-                    stat = Path(f"/proc/{int(pid_file.read_text())}/stat")
-                    try:
-                        state = stat.read_text().rsplit(") ", 1)[1].split()[0]
-                    except FileNotFoundError:
-                        continue
-                    self.assertEqual(state, "Z", "installer child survived service shutdown")
-            finally:
-                run(["sudo", "-n", "systemctl", "stop", unit], capture_output=True, timeout=15)
-
-    def test_failed_browser_install_is_not_retried(self):
-        executable = self.directory / "webkit"
-        with (patch.dict(os.environ, {"HYPE_INSTALL_CHART_BROWSER": "1"}),
-              patch.object(crawl.subprocess, "run", side_effect=OSError("installer unavailable")) as install):
-            with self.assertRaises(OSError):
-                crawl.ensure_chart_browser(executable)
-            with self.assertRaisesRegex(RuntimeError, "already attempted"):
-                crawl.ensure_chart_browser(executable)
-        install.assert_called_once()
-
-    def test_install_failure_or_timeout_returns_no_chart_without_retry(self):
-        for exit_code in (1, 124, 137):
-            manager = MagicMock()
-            browser = manager.__enter__.return_value.webkit
-            browser.executable_path = str(self.directory / "missing-webkit")
-            with (self.subTest(exit_code=exit_code),
-                  patch.dict(os.environ, {"HYPE_INSTALL_CHART_BROWSER": "1"}),
-                  patch.object(crawl, "_CHART_BROWSER_INSTALL_ATTEMPTED", False),
-                  patch.object(crawl.http_session, "get", side_effect=requests.HTTPError("429")),
-                  patch("playwright.sync_api.sync_playwright", return_value=manager),
-                  patch.object(crawl.subprocess, "run",
-                               side_effect=crawl.subprocess.CalledProcessError(exit_code, "install")) as install):
-                for _ in range(2):
-                    self.assertEqual(crawl.extract_chart_entries_from_youtube_charts(crawl.DEFAULT_YOUTUBE_CHARTS_URL), [])
-            install.assert_called_once()
-            browser.launch.assert_not_called()
+    def test_missing_browser_preserves_failure_without_installing(self):
+        manager = MagicMock()
+        manager.__enter__.return_value.webkit.launch.side_effect = RuntimeError("browser executable missing")
+        with patch("playwright.sync_api.sync_playwright", return_value=manager):
+            self.assertEqual(crawl.extract_chart_entries_from_browser(crawl.DEFAULT_YOUTUBE_CHARTS_URL), [])
 
     def test_live_check_uses_fresh_browser_results_and_fails_without_them(self):
         import check_youtube_charts_browser as check
@@ -144,24 +50,18 @@ class YouTubeChartsBrowserTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 check.main()
 
-    def test_api_success_does_not_prepare_browser_even_when_install_is_enabled(self):
+    def test_api_success_does_not_start_browser(self):
         rows = crawl.extract_chart_entries_from_browser_json(chart_payload())
-        with (patch.dict(os.environ, {"HYPE_INSTALL_CHART_BROWSER": "1"}),
-              patch.object(crawl.http_session, "get", return_value=Mock(text="")),
+        with (patch.object(crawl.http_session, "get", return_value=Mock(text="")),
               patch.object(crawl, "extract_chart_entries_from_browse_api", return_value=rows),
-              patch.object(crawl, "ensure_chart_browser") as prepare,
               patch("playwright.sync_api.sync_playwright") as browser):
             result = crawl.extract_chart_entries_from_youtube_charts(crawl.DEFAULT_YOUTUBE_CHARTS_URL)
         self.assertEqual(len(result), 100)
-        prepare.assert_not_called()
         browser.assert_not_called()
 
-    def test_invalid_browser_source_cannot_trigger_installation(self):
-        with (patch.dict(os.environ, {"HYPE_INSTALL_CHART_BROWSER": "1"}),
-              patch.object(crawl.subprocess, "run") as install,
-              patch("playwright.sync_api.sync_playwright") as browser):
+    def test_invalid_browser_source_cannot_start_browser(self):
+        with patch("playwright.sync_api.sync_playwright") as browser:
             self.assertEqual(crawl.extract_chart_entries_from_browser("https://example.com/chart"), [])
-        install.assert_not_called()
         browser.assert_not_called()
 
     def test_browser_payload_preserves_official_ids_audio_links_and_source_period(self):
@@ -177,7 +77,7 @@ class YouTubeChartsBrowserTests(unittest.TestCase):
     def test_browser_rejects_wrong_country_type_period_count_and_source_ranks(self):
         for case in ("country", "type", "daily", "missing_date", "invalid_date", "future_date",
                      "99_rows", "101_rows", "duplicate_rank", "missing_rank", "string_rank", "bool_rank",
-                     "duplicate_video", "invalid_video", "missing_artist"):
+                     "missing_video", "invalid_video", "missing_artist"):
             payload = chart_payload()
             chart, tracks = payload["chart"], payload["chart"]["trackViews"]
             if case == "country": payload["chartParams"]["countryCode"] = "us"
@@ -192,7 +92,7 @@ class YouTubeChartsBrowserTests(unittest.TestCase):
             elif case == "missing_rank": del tracks[-1]["chartEntryMetadata"]["currentPosition"]
             elif case == "string_rank": tracks[-1]["chartEntryMetadata"]["currentPosition"] = "100"
             elif case == "bool_rank": tracks[0]["chartEntryMetadata"]["currentPosition"] = True
-            elif case == "duplicate_video": tracks[-1]["encryptedVideoId"] = tracks[0]["encryptedVideoId"]
+            elif case == "missing_video": tracks[-1]["encryptedVideoId"] = ""
             elif case == "invalid_video": tracks[-1]["encryptedVideoId"] = "invalid"
             elif case == "missing_artist": tracks[-1]["artists"] = []
             with self.subTest(case=case), self.assertRaises(ValueError):
@@ -228,16 +128,17 @@ class YouTubeChartsBrowserTests(unittest.TestCase):
             self.assertEqual(fallback.call_count, 0 if case == "success" else 1)
 
     def test_browser_checks_displayed_period_and_closes_on_success_or_failure(self):
-        for case in ("success", "wrong_label", "http_error", "historical_request", "cross_month", "cross_year", "missing_config", "config_429"):
+        for case in ("success", "wrong_label", "http_error", "historical_request", "cross_month", "cross_year", "missing_config", "config_429", "config_redirect", "config_timeout"):
             manager = MagicMock()
             playwright = manager.__enter__.return_value
             browser = playwright.webkit.launch.return_value
             page = browser.new_page.return_value
-            bootstrap = page.context.request.get.return_value
-            bootstrap.status = 200
-            bootstrap.text.return_value = 'ytcfg.set({"INNERTUBE_API_KEY":"fixture-public-key"});'
-            if case == "missing_config": bootstrap.text.return_value = 'ytcfg.set({"INNERTUBE_API_KEY":""});'
-            if case == "config_429": bootstrap.status = 429
+            page.context.request.get.side_effect = RuntimeError("Parse Error: Header overflow")
+            bootstrap = Mock(status_code=200)
+            bootstrap.text = 'ytcfg.set({"INNERTUBE_API_KEY":"fixture-public-key"});'
+            if case == "missing_config": bootstrap.text = 'ytcfg.set({"INNERTUBE_API_KEY":""});'
+            if case == "config_429": bootstrap.status_code = 429
+            if case == "config_redirect": bootstrap.status_code = 302
             response = page.expect_response.return_value.__enter__.return_value.value
             payload = chart_payload()
             label = "Oct 2\u2009–\u20098, 2026"
@@ -249,12 +150,12 @@ class YouTubeChartsBrowserTests(unittest.TestCase):
             response.json.return_value = payload
             page.locator.return_value.inner_text.return_value = "Oct 9–15, 2026" if case == "wrong_label" else label
             options = {"chart_period_end": "2026-10-01"} if case == "historical_request" else {}
-            playwright.webkit.executable_path = str(self.directory / "webkit")
             with (self.subTest(case=case), patch("playwright.sync_api.sync_playwright", return_value=manager),
-                  patch.dict(os.environ, {"HYPE_INSTALL_CHART_BROWSER": "1" if case == "success" else ""}),
-                  patch.object(crawl.subprocess, "run") as install):
+                  patch.object(crawl.http_session, "get", return_value=bootstrap,
+                               side_effect=requests.Timeout("timeout") if case == "config_timeout" else None) as get):
                 rows = crawl.extract_chart_entries_from_browser(crawl.DEFAULT_YOUTUBE_CHARTS_URL, limit=10, **options)
-            self.assertEqual(install.call_count, 1 if case == "success" else 0)
+            get.assert_called_once_with(crawl.YOUTUBE_PUBLIC_CONFIG_URL, timeout=30, allow_redirects=False)
+            page.context.request.get.assert_not_called()
             self.assertEqual(len(rows), 10 if case in {"success", "cross_month", "cross_year"} else 0)
             browser.close.assert_called_once()
             playwright.webkit.launch.assert_called_once_with(headless=True)

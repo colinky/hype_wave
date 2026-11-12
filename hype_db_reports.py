@@ -278,7 +278,7 @@ def export_frontend_history(
             existing_payload = json.loads(out.read_text(encoding="utf-8"))
         except Exception:
             existing_payload = {}
-    with connect(path) as conn:
+    with connect(path, read_only=True) as conn:
         apple_playlists = _apple_history_anchor_jobs()
         placeholders = ",".join("?" for _ in apple_playlists)
         limit = days if full_rebuild or not out.exists() else 1

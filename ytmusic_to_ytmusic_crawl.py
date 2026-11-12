@@ -18,7 +18,6 @@ import json
 import logging
 import os
 import re
-import subprocess
 import sys
 import time
 import uuid
@@ -56,7 +55,6 @@ DEFAULT_YOUTUBE_CHARTS_URL = "https://charts.youtube.com/charts/TopSongs/kr/week
 YOUTUBE_PUBLIC_CONFIG_URL = "https://www.youtube.com/?hl=en"
 ACCEPTED_MAPPING_STATUSES = {"resolved_to_song", "already_song", "cached_match", "proxy_matched", "manual_override", "kept_original_video"}
 KST = timezone(timedelta(hours=9))
-_CHART_BROWSER_INSTALL_ATTEMPTED = False
 
 
 def playlist_id_from_url(value: str) -> str:
@@ -508,7 +506,6 @@ def extract_chart_entries_from_browse_json(
     locale: str = "",
 ) -> list[dict[str, Any]]:
     entries: list[dict[str, Any]] = []
-    seen: set[str] = set()
     chart_period_start, chart_period_end = extract_youtube_charts_period(data)
     for node in walk_json(data):
         track_views = node.get("trackViews") if isinstance(node, dict) else None
@@ -518,7 +515,7 @@ def extract_chart_entries_from_browse_json(
             if not isinstance(item, dict):
                 continue
             video_id = str(item.get("encryptedVideoId") or item.get("videoId") or "")
-            if not video_id or video_id in seen:
+            if not video_id:
                 continue
             artists = item.get("artists") or []
             artist = ", ".join(
@@ -529,7 +526,6 @@ def extract_chart_entries_from_browse_json(
             metadata = item.get("chartEntryMetadata") or {}
             rank = metadata.get("currentPosition") if isinstance(metadata, dict) else None
             previous_rank = metadata.get("previousPosition") if isinstance(metadata, dict) else ""
-            seen.add(video_id)
             entries.append(
                 {
                     "rank": int(rank or len(entries) + 1),
@@ -554,14 +550,14 @@ def extract_chart_entries_from_browse_json(
 
 
 def merge_localized_chart_entries(primary: list[dict[str, Any]], localized: list[dict[str, Any]], locale: str) -> list[dict[str, Any]]:
-    localized_by_video = {row.get("video_id"): row for row in localized if row.get("video_id")}
-    localized_by_alt = {row.get("atv_external_video_id"): row for row in localized if row.get("atv_external_video_id")}
+    localized_by_video = {(row.get("rank"), row.get("video_id")): row for row in localized if row.get("video_id")}
+    localized_by_alt = {(row.get("rank"), row.get("atv_external_video_id")): row for row in localized if row.get("atv_external_video_id")}
     merged = []
     for row in primary:
         out = dict(row)
         match = (
-            localized_by_video.get(row.get("video_id"))
-            or localized_by_alt.get(row.get("atv_external_video_id"))
+            localized_by_video.get((row.get("rank"), row.get("video_id")))
+            or localized_by_alt.get((row.get("rank"), row.get("atv_external_video_id")))
         )
         if match:
             out[f"title_{locale}"] = match.get("title", "")
@@ -784,22 +780,6 @@ def extract_chart_entries_from_browser_json(data, *, locale="en"):
     return merge_localized_chart_entries(entries, entries, locale)
 
 
-def ensure_chart_browser(executable_path):
-    global _CHART_BROWSER_INSTALL_ATTEMPTED
-    if os.environ.get("HYPE_INSTALL_CHART_BROWSER") != "1" or Path(executable_path).is_file():
-        return
-    if _CHART_BROWSER_INSTALL_ATTEMPTED:
-        raise RuntimeError("Chart browser installation already attempted in this process")
-    _CHART_BROWSER_INSTALL_ATTEMPTED = True
-    LOG.info("Installing WebKit for chart fallback (170 seconds plus 10 seconds for cleanup)")
-    # A service cgroup also contains apt/dpkg children that create their own sessions.
-    subprocess.run(["sudo", "-n", "systemd-run", "--wait", "--pipe", "--collect",
-                    "--property=Type=exec", "--property=RuntimeMaxSec=170s",
-                    "--property=TimeoutStopSec=10s", "--property=KillMode=control-group",
-                    "env", f"PLAYWRIGHT_BROWSERS_PATH={Path(executable_path).parent.parent}", sys.executable,
-                    "-m", "playwright", "install", "--with-deps", "webkit"], check=True)
-
-
 def extract_chart_entries_from_browser(url, *, limit=100, chart_period_start=None, chart_period_end=None):
     # shortcut: browser loads the latest week only; use dated CSVs for historical imports.
     LOG.info("Trying browser fallback for the official YouTube weekly chart")
@@ -811,15 +791,15 @@ def extract_chart_entries_from_browser(url, *, limit=100, chart_period_start=Non
         if parsed.scheme != "https" or parsed.netloc != "charts.youtube.com" or parsed.path != "/charts/TopSongs/kr/weekly":
             raise ValueError("Browser fallback only accepts the official South Korea weekly songs URL")
         with sync_playwright() as playwright:
-            ensure_chart_browser(playwright.webkit.executable_path)
             browser = playwright.webkit.launch(headless=True)
             try:
                 page = browser.new_page(locale="en-US")
                 page.set_default_timeout(45000)
-                bootstrap = page.context.request.get(YOUTUBE_PUBLIC_CONFIG_URL, timeout=30000, max_redirects=0)
-                if bootstrap.status != 200:
-                    raise ValueError(f"Official YouTube public configuration returned HTTP {bootstrap.status}")
-                api_key = extract_public_innertube_key(bootstrap.text())
+                # The existing HTTP client avoids Playwright's response-header size limit.
+                bootstrap = http_session.get(YOUTUBE_PUBLIC_CONFIG_URL, timeout=30, allow_redirects=False)
+                if bootstrap.status_code != 200:
+                    raise ValueError(f"Official YouTube public configuration returned HTTP {bootstrap.status_code}")
+                api_key = extract_public_innertube_key(bootstrap.text)
                 # Keep the browser's own payload and render its actual official response.
                 page.route("https://charts.youtube.com/youtubei/v1/browse*",
                            lambda route: route.continue_(url=chart_request_with_key(route.request.url, api_key)))
