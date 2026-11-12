@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
   schedule:
     # Daily at 07:05 UTC (16:05 KST); sync_all uses UTC scheduling weekdays.
-    # Incomplete weekly tasks retry on later daily runs; official source periods are preserved.
+    # YouTube runs only on UTC Mondays; other incomplete weekly tasks can catch up.
     - cron: "5 7 * * *"
 
 concurrency:
@@ -14,6 +14,9 @@ concurrency:
 jobs:
   sync-all:
     runs-on: ubuntu-24.04
+    container:
+      image: mcr.microsoft.com/playwright/python:v1.59.0-noble
+      options: --init
     timeout-minutes: 120
     permissions:
       contents: write
@@ -53,7 +56,6 @@ jobs:
         shell: bash
         env:
           YTMUSIC_AUTH_FILE: .secrets/browser.json
-          HYPE_INSTALL_CHART_BROWSER: "1"
         run: |
           set -euo pipefail
           python sync_all.py

@@ -1,4 +1,4 @@
-"""UTC weekly scheduling and catch-up require complete source/publication evidence."""
+"""YouTube runs only on UTC Mondays; other weekly tasks retain catch-up."""
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
@@ -80,7 +80,7 @@ class YouTubeMondayScheduleTests(unittest.TestCase):
                            dry_run, started, match_started, started, started))
         self.conn.commit()
 
-    def assert_due(self, expected, *, task=WEEKLY, now=TUESDAY):
+    def assert_due(self, expected, *, task=WEEKLY, now=ANCHOR + timedelta(hours=16)):
         before = self.db.read_bytes()
         self.assertEqual(sync_all.task_enabled(task, now, db_path=self.db), expected)
         self.assertEqual(self.db.read_bytes(), before)
@@ -112,15 +112,31 @@ class YouTubeMondayScheduleTests(unittest.TestCase):
                 self.assertEqual(now.astimezone(timezone(timedelta(hours=9))).weekday(), 1)
                 self.assert_due(True, now=now)
 
-    def test_tuesday_and_remaining_week_catch_up_without_completion(self):
+    def test_tuesday_and_remaining_week_never_catch_up(self):
         for days in range(1, 7):
             with self.subTest(days=days):
-                self.assert_due(True, now=ANCHOR + timedelta(days=days, hours=7))
+                self.assert_due(False, now=ANCHOR + timedelta(days=days, hours=7))
 
-    def test_missing_database_still_allows_catch_up_without_creating_it(self):
+    def test_missing_database_does_not_allow_non_monday_catch_up(self):
         missing = self.db.with_name("missing.db")
-        self.assertTrue(sync_all.task_enabled(WEEKLY, TUESDAY, db_path=missing))
+        self.assertFalse(sync_all.task_enabled(WEEKLY, TUESDAY, db_path=missing))
         self.assertFalse(missing.exists())
+
+    def test_non_monday_skips_without_opening_database_even_after_partial_publication(self):
+        self.seed_source()
+        self.seed_publication()
+        self.conn.execute('UPDATE playlist_update_runs SET recovery_payload_json=?',
+                          ('{"events":[{"publication_mode":"partial"}]}',))
+        self.conn.commit()
+        with patch("hype_db.connect", side_effect=AssertionError("database must not be opened")):
+            for days in range(1, 7):
+                self.assert_due(False, now=ANCHOR + timedelta(days=days, hours=7))
+
+    def test_other_weekly_services_still_catch_up(self):
+        for service in ("melon", "spotify"):
+            task = {**WEEKLY, "service": service, "job_name": f"{service}-weekly"}
+            with self.subTest(service=service):
+                self.assert_due(True, task=task, now=TUESDAY)
 
     def test_completed_publication_skips_cycle_but_next_week_is_due(self):
         self.seed_source()
@@ -162,7 +178,7 @@ class YouTubeMondayScheduleTests(unittest.TestCase):
         self.seed_source()
         self.seed_publication()
         self.assert_due(False)
-        self.seed_publication(status="recovery_required", started="2026-09-29T06:00:00+00:00")
+        self.seed_publication(status="recovery_required", started="2026-09-28T15:30:00+00:00")
         self.assert_due(True)
 
     def test_previous_cycle_or_unlinked_match_cannot_complete_current_cycle(self):

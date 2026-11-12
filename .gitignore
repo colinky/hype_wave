@@ -18,6 +18,7 @@ tests/*
 !tests/test_youtube_charts_fetch.py
 !tests/test_youtube_charts_browser.py
 !tests/check_youtube_charts_browser.py
+!tests/check_history_rebuild.py
 !tests/check_chart_web_v2.py
 utils/
 rules/

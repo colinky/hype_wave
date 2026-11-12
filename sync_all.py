@@ -111,8 +111,11 @@ def task_enabled(task, now: datetime | None = None, *, db_path: Path | None = No
     if not is_enabled:
         return False
 
-    # A delayed/missed weekly run remains due until its source and publication complete.
+    # YouTube runs only on its UTC scheduled day; other weekly tasks can catch up.
     ok, reason, anchor = schedule_window(task, now)
+    if task.get("job_name") == "Weekly-Hot-100" and not ok:
+        LOG.info(reason)
+        return False
     if anchor is not None and db_path is not None:
         from hype_db import connect
 
