@@ -84,7 +84,6 @@ jobs:
           retention-days: 1
 
   history-check:
-    needs: browser-check
     if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-24.04
     timeout-minutes: 10
