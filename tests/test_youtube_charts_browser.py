@@ -139,7 +139,10 @@ class YouTubeChartsBrowserTests(unittest.TestCase):
             if case == "missing_config": bootstrap.text = 'ytcfg.set({"INNERTUBE_API_KEY":""});'
             if case == "config_429": bootstrap.status_code = 429
             if case == "config_redirect": bootstrap.status_code = 302
-            response = page.expect_response.return_value.__enter__.return_value.value
+            response = Mock(url="https://charts.youtube.com/youtubei/v1/browse?key=fixture-public-key")
+            page.goto.side_effect = lambda *args, **kwargs: [
+                call.args[1](response) for call in page.on.call_args_list if call.args[0] == "response"
+            ]
             payload = chart_payload()
             label = "Oct 2\u2009–\u20098, 2026"
             if case == "cross_month":
@@ -172,6 +175,41 @@ class YouTubeChartsBrowserTests(unittest.TestCase):
                     "https://charts.youtube.com/youtubei/v1/player"):
             with self.assertRaises(ValueError):
                 crawl.chart_request_with_key(url, "fixture-key")
+
+    def test_browser_wait_distinguishes_visible_challenge_hidden_frame_and_missing_response(self):
+        for case in ("visible_challenge", "hidden_frame", "missing_response"):
+            manager = MagicMock()
+            browser = manager.__enter__.return_value.webkit.launch.return_value
+            page = browser.new_page.return_value
+            challenge = Mock()
+            challenge.count.return_value = 1 if case == "visible_challenge" else 0
+            calendar = Mock()
+            calendar.inner_text.return_value = "Oct 2–8, 2026"
+            page.locator.side_effect = lambda selector: challenge if selector.startswith("iframe") else calendar
+            bootstrap = Mock(status_code=200, text='ytcfg.set({"INNERTUBE_API_KEY":"fixture-key"});')
+            response = Mock(url="https://charts.youtube.com/youtubei/v1/browse", status=200)
+            response.json.return_value = chart_payload()
+
+            def emit_response(response):
+                for call in page.on.call_args_list:
+                    if call.args[0] == "response":
+                        call.args[1](response)
+
+            page.goto.side_effect = lambda *args, **kwargs: emit_response(
+                Mock(url="https://example.com/youtubei/v1/browse", status=200))
+            page.wait_for_timeout.side_effect = lambda milliseconds: emit_response(response)
+            with (self.subTest(case=case), patch("playwright.sync_api.sync_playwright", return_value=manager),
+                  patch.object(crawl.http_session, "get", return_value=bootstrap),
+                  patch.object(crawl.time, "monotonic", side_effect=[0, 46] if case == "missing_response" else [0, 0]),
+                  self.assertLogs(crawl.LOG, "INFO") as logs):
+                rows = crawl.extract_chart_entries_from_browser(crawl.DEFAULT_YOUTUBE_CHARTS_URL)
+            self.assertEqual(len(rows), 100 if case == "hidden_frame" else 0)
+            browser.close.assert_called_once()
+            if case == "hidden_frame":
+                page.wait_for_timeout.assert_called_once_with(100)
+            else:
+                page.wait_for_timeout.assert_not_called()
+                self.assertIn("interactive reCAPTCHA" if case == "visible_challenge" else "within 45 seconds", "\n".join(logs.output))
 
     def test_main_uses_one_verification_locale_without_changing_bilingual_source_collection(self):
         with (patch.object(sys, "argv", ["crawl", "--yt-auth", "unused.json", "--yt-playlist-id", "fixture", "--dry-run"]),

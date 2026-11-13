@@ -795,11 +795,6 @@ def extract_chart_entries_from_browser(url, *, limit=100, chart_period_start=Non
             try:
                 page = browser.new_page(locale="en-US")
                 page.set_default_timeout(45000)
-                clean_url = lambda value: urlparse(value)._replace(query="", fragment="").geturl()
-                page.on("request", lambda request: LOG.warning("DIAG request %s %s", request.method, clean_url(request.url)))
-                page.on("response", lambda response: LOG.warning("DIAG response %s %s", response.status, clean_url(response.url)))
-                page.on("requestfailed", lambda request: LOG.warning("DIAG failed %s %s", clean_url(request.url), request.failure))
-                page.on("pageerror", lambda error: LOG.warning("DIAG page error %s", str(error).replace(api_key, "<public-config-key>") if api_key else error))
                 # The existing HTTP client avoids Playwright's response-header size limit.
                 bootstrap = http_session.get(YOUTUBE_PUBLIC_CONFIG_URL, timeout=30, allow_redirects=False)
                 if bootstrap.status_code != 200:
@@ -808,10 +803,20 @@ def extract_chart_entries_from_browser(url, *, limit=100, chart_period_start=Non
                 # Keep the browser's own payload and render its actual official response.
                 page.route("https://charts.youtube.com/youtubei/v1/browse*",
                            lambda route: route.continue_(url=chart_request_with_key(route.request.url, api_key)))
-                with page.expect_response(lambda response: urlparse(response.url).netloc == "charts.youtube.com"
-                                          and urlparse(response.url).path == "/youtubei/v1/browse") as result:
-                    page.goto(url, wait_until="domcontentloaded")
-                response = result.value
+                responses = []
+                page.on("response", lambda response: responses.append(response)
+                        if (urlparse(response.url).netloc == "charts.youtube.com"
+                            and urlparse(response.url).path == "/youtubei/v1/browse") else None)
+                deadline = time.monotonic() + 45
+                page.goto(url, wait_until="domcontentloaded")
+                challenge = page.locator('iframe[src*="/recaptcha/"][src*="/bframe"]:visible')
+                while not responses:
+                    if challenge.count():
+                        raise ValueError("Official YouTube Charts requires interactive reCAPTCHA; browser collection stopped")
+                    if time.monotonic() >= deadline:
+                        raise TimeoutError("Official YouTube chart response was not received within 45 seconds")
+                    page.wait_for_timeout(100)
+                response = responses[0]
                 if response.status != 200:
                     raise ValueError(f"Browser chart request returned HTTP {response.status}")
                 entries = extract_chart_entries_from_browser_json(response.json())
@@ -826,9 +831,6 @@ def extract_chart_entries_from_browser(url, *, limit=100, chart_period_start=Non
                 actual = page.locator(".weekly-chart-calendar-selector #paper-button-container").inner_text()
                 if re.sub(r"\s", "", actual) != re.sub(r"\s", "", expected):
                     raise ValueError("Browser's displayed weekly period differs from its chart response")
-            except Exception:
-                LOG.warning("DIAG page url=%s title=%s text=%s", clean_url(page.url), page.title(), page.locator("body").inner_text(timeout=3000)[:1200])
-                raise
             finally:
                 browser.close()
         LOG.info("Browser fallback verified 100 ranks for %s..%s", start, end)

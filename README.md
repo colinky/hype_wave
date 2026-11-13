@@ -369,6 +369,8 @@ HTTP/API 수집이 실패하거나 주간 데이터가 불완전하면 Playwrigh
 
 API와 브라우저 수집이 모두 실패하면 수집 실패로 기록하고 기존 DB 데이터와 플레이리스트를 보존합니다. 별도 차트 스냅샷 파일은 생성·재사용하거나 Git에 저장하지 않습니다. YouTube 주간 작업은 UTC 월요일에만 실행하며, 실패·부분 게시가 남아도 화~일요일에는 재시도하지 않습니다. 과거 누락 주차는 집계 기간을 명시한 CSV로 수동 복원합니다.
 
+브라우저에 Google reCAPTCHA 사람 확인 화면이 표시되면 45초 응답 대기를 중단하고 `interactive reCAPTCHA` 오류로 수집을 종료합니다. 숨겨진 reCAPTCHA 프레임만으로는 차단으로 판단하지 않습니다. 실시간 검증은 정상 API 수집 결과를 먼저 기록하며, 브라우저가 차단된 경우에는 검증 실패를 유지합니다.
+
 로컬에서 브라우저 fallback이나 실제 브라우저 검증이 필요하면 `python -m playwright install webkit`으로 미리 설치합니다. 인증 파일 생성에는 WebKit이 필요하지 않으며 로컬 수집기는 브라우저를 자동 설치하지 않습니다.
 
 일일 동기화와 브라우저 검증 Actions는 `requirements.txt`의 Playwright 1.59.0과 일치하는 `mcr.microsoft.com/playwright/python:v1.59.0-noble` 이미지를 사용합니다. WebKit과 운영체제 의존성이 포함돼 수집 도중 `apt` 설치를 하지 않습니다. Python 3.11과 고정된 Python 의존성은 기존대로 설치합니다. 공개 YouTube 설정 조회는 기존 HTTP 클라이언트를 사용해 Playwright 요청의 `Header overflow` 경로를 피하고, 실제 차트 응답과 화면 기간은 WebKit으로 검증합니다. 브라우저 실행·조회 실패 시 기존 데이터와 플레이리스트를 보존합니다.

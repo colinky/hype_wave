@@ -13,6 +13,8 @@ import ytmusic_to_ytmusic_crawl as crawl
 def main(output=None):
     normal_entries = crawl.extract_chart_entries_from_youtube_charts(crawl.DEFAULT_YOUTUBE_CHARTS_URL)
     crawl.validate_weekly_chart(normal_entries)
+    print(f"Official weekly collection verified: mode=normal method={normal_entries[0]['collection_method']} country=kr "
+          f"ranks=1..100 period={crawl.fetched_period_from_entries(normal_entries)}", flush=True)
     get = crawl.http_session.get
 
     def chart_outage(url, *args, **kwargs):
@@ -22,6 +24,8 @@ def main(output=None):
 
     with patch.object(crawl.http_session, "get", side_effect=chart_outage):
         entries = crawl.extract_chart_entries_from_youtube_charts(crawl.DEFAULT_YOUTUBE_CHARTS_URL)
+    if not entries:
+        raise ValueError("Browser fallback returned no verified chart; see the preceding collection error")
     crawl.validate_weekly_chart(entries)
     assert all(row["collection_method"] == "browser" for row in entries)
     assert all(row["source"] == "youtube_charts_weekly_browse_api" for row in entries)
@@ -29,9 +33,8 @@ def main(output=None):
     assert [(row["rank"], row["video_id"]) for row in normal_entries] == [(row["rank"], row["video_id"]) for row in entries]
     if output:
         Path(output).write_text(json.dumps({"normal": normal_entries, "http_outage": entries}, ensure_ascii=False, indent=2), encoding="utf-8")
-    for label, rows in (("normal", normal_entries), ("http_outage", entries)):
-        print(f"Official weekly collection verified: mode={label} method={rows[0]['collection_method']} country=kr "
-              f"ranks=1..100 period={crawl.fetched_period_from_entries(rows)}")
+    print(f"Official weekly collection verified: mode=http_outage method={entries[0]['collection_method']} country=kr "
+          f"ranks=1..100 period={crawl.fetched_period_from_entries(entries)}")
 
 
 if __name__ == "__main__":
