@@ -2,8 +2,6 @@ name: YouTube Charts Browser Check
 
 on:
   workflow_dispatch:
-  push:
-    branches: [codex/youtube-browser-fallback]
   pull_request:
     paths:
       - ytmusic_playlist_sync.py
