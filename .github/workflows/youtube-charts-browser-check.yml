@@ -57,6 +57,7 @@ jobs:
           assert before.returncode == 128 and 'dubious ownership' in before.stderr, before.stderr
           remote = Path(os.environ['RUNNER_TEMP']) / 'history-publication-check.git'
           subprocess.run(['git', 'init', '--bare', str(remote)], cwd=remote.parent, check=True)
+          subprocess.run(['git', f'--git-dir={remote}', 'config', 'receive.shallowUpdate', 'true'], check=True)
           subprocess.run(['git', '-c', f'safe.directory={workspace}', 'remote', 'set-url', 'origin', str(remote)], check=True)
           history = Path('docs/api/history.json')
           history.write_bytes(history.read_bytes() + b'\n')
