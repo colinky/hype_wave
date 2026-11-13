@@ -45,21 +45,27 @@ def observe_wire_cookie_names():
 
     source = Path(playwright.__file__).parent / "driver/package/lib/server/webkit/wkInterceptableRequest.js"
     text = source.read_text()
+    if "COOKIE_AB_WIRE " in text:
+        assert text.count("COOKIE_AB_WIRE ") == 1 and "cookie_digest:" in text
+        return
     marker = "    const setCookieSeparator = process.platform"
     assert text.count(marker) == 1, "Unexpected pinned Playwright source; cannot instrument safely"
     # Routed WebKit requests expose provisional headers. Observe final protocol metadata only.
     observer = '''    if (this.request.url().split("?")[0] === "https://charts.youtube.com/charts/TopSongs/kr/weekly") {
       const entry = Object.entries(responsePayload.requestHeaders || {}).find(([name]) => name.toLowerCase() === "cookie");
+      const cookies = (entry ? entry[1] : "").split(";").map(item => item.trim()).filter(Boolean);
       console.error("COOKIE_AB_WIRE " + JSON.stringify({
         headers_available: !!responsePayload.requestHeaders,
-        cookie_names: (entry ? entry[1] : "").split(";").map(item => item.trim().split("=")[0]).filter(Boolean)
+        cookie_names: cookies.map(item => item.split("=")[0]),
+        cookie_digest: process.env.HYPE_DIAGNOSTIC_HMAC_KEY ? require("crypto").createHmac(
+          "sha256", process.env.HYPE_DIAGNOSTIC_HMAC_KEY).update(cookies.sort().join("; ")).digest("hex") : null
       }));
     }
 '''
     source.write_text(text.replace(marker, observer + marker))
 
 
-def run_trial(playwright, mode, trial, output, bootstrap=None):
+def run_trial(playwright, mode, trial, output, bootstrap=None, prepare=None):
     print(f"COOKIE_AB_START {trial} {mode}", flush=True)
     result = dict(trial=trial, mode=mode, started_at=datetime.now(timezone.utc).isoformat(),
                   chart_requests=0, chart_responses=0, challenge_visible=False)
@@ -71,7 +77,9 @@ def run_trial(playwright, mode, trial, output, bootstrap=None):
     try:
         page = browser.new_page(locale="en-US")
         page.set_default_timeout(45000)
-        if mode == "legacy_context_request":
+        if prepare is not None:
+            key = prepare(page, result)
+        elif mode == "legacy_context_request":
             response = page.context.request.get(crawl.YOUTUBE_PUBLIC_CONFIG_URL,
                                                 timeout=30000, max_redirects=0)
             result["bootstrap_status"] = response.status
@@ -162,7 +170,7 @@ def run_trial(playwright, mode, trial, output, bootstrap=None):
     except Exception as exc:
         result["outcome"] = f"{stage}_error"
         # Playwright exceptions can include headers on later lines; retain only the first line.
-        message = str(exc).splitlines()[0]
+        message = (str(exc).splitlines() or [type(exc).__name__])[0]
         result["error"] = message.replace(key, "<public-key>") if key else message
         result["error_type"] = type(exc).__name__
     finally:
