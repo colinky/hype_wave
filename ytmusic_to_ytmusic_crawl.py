@@ -810,11 +810,22 @@ def extract_chart_entries_from_browser(url, *, limit=100, chart_period_start=Non
                 deadline = time.monotonic() + 45
                 page.goto(url, wait_until="domcontentloaded")
                 challenge = page.locator('iframe[src*="/recaptcha/"][src*="/bframe"]:visible')
+                challenge_since = None
                 while not responses:
-                    if challenge.count():
-                        raise ValueError("Official YouTube Charts requires interactive reCAPTCHA; browser collection stopped")
-                    if time.monotonic() >= deadline:
+                    visible = challenge.count()
+                    now = time.monotonic()
+                    if responses:
+                        break
+                    if now >= deadline:
                         raise TimeoutError("Official YouTube chart response was not received within 45 seconds")
+                    if visible:
+                        if challenge_since is None:
+                            challenge_since = now
+                        elif now - challenge_since >= 2:
+                            raise ValueError("Official YouTube Charts requires interactive reCAPTCHA "
+                                             "visible for at least 2 seconds; browser collection stopped")
+                    else:
+                        challenge_since = None
                     page.wait_for_timeout(100)
                 response = responses[0]
                 if response.status != 200:
