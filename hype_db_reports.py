@@ -33,7 +33,6 @@ __all__ = [
     "inflate_frontend_history",
     "compact_frontend_history",
     "prune_history",
-    "previous_apple_videos_for_history",
     "fetch_hype_rows_for_dates",
     "hype_report_for_date",
     "build_hype_report_from_rows",
@@ -306,11 +305,7 @@ def export_frontend_history(
             raise RuntimeError(f"History export did not rebuild intended chart date {intended_date}")
         rows_by_date = fetch_hype_rows_for_dates(conn, dates)
         for date in sorted(dates):
-            previous_apple_videos = previous_apple_videos_for_history(conn, history, date)
-            report = build_hype_report_from_rows(
-                rows_by_date.get(date, []),
-                previous_apple_videos=previous_apple_videos,
-            )
+            report = build_hype_report_from_rows(rows_by_date.get(date, []))
             validate_frontend_history(compact_frontend_history({date: report}, days=days), date, days=days)
             history[date] = report
         history = prune_history(history, reference_date=max(dates), days=days)
@@ -406,38 +401,6 @@ def prune_history(
     return filtered
 
 
-def previous_apple_videos_for_history(
-    conn: sqlite3.Connection,
-    history: Any,
-    date: str,
-) -> set[str]:
-    inflated_history = inflate_frontend_history(history)
-    previous_dates = sorted([item for item in inflated_history if item < date], reverse=True)
-    if previous_dates:
-        return {row["video_id"] for row in inflated_history[previous_dates[0]] if row.get("apple_rank")}
-
-    apple_playlists = _apple_history_anchor_jobs()
-    placeholders = ",".join("?" for _ in apple_playlists)
-    row = conn.execute(
-        f"""
-        SELECT DISTINCT p.reference_period AS chart_date
-        FROM playlist_order p
-        WHERE p.job_name IN ({placeholders})
-          AND p.reference_period LIKE '____-__-__'
-          AND p.reference_period < ?
-          AND {_COMPLETED_SNAPSHOT_SQL}
-        ORDER BY chart_date DESC
-        LIMIT 1
-        """,
-        (*apple_playlists, _daily_reference_cutoff_for_history_date(date)),
-    ).fetchone()
-    if not row:
-        return set()
-    previous_date = _history_date_from_hype_anchor_reference(row["chart_date"])
-    report = build_hype_report_from_rows(fetch_hype_rows_for_dates(conn, [previous_date]).get(previous_date, []))
-    return {item["video_id"] for item in report if item.get("apple_rank")}
-
-
 def fetch_hype_rows_for_dates(conn: sqlite3.Connection, dates: list[str]) -> dict[str, list[Any]]:
     if not dates:
         return {}
@@ -527,19 +490,14 @@ def fetch_hype_rows_for_dates(conn: sqlite3.Connection, dates: list[str]) -> dic
 def hype_report_for_date(
     conn: sqlite3.Connection,
     chart_date: str,
-    *,
-    previous_apple_videos: set[str] | None = None,
 ) -> list[dict[str, Any]]:
     rows = fetch_hype_rows_for_dates(conn, [chart_date]).get(chart_date, [])
-    return build_hype_report_from_rows(rows, previous_apple_videos=previous_apple_videos)
+    return build_hype_report_from_rows(rows)
 
 
 def build_hype_report_from_rows(
     rows: Iterable[Any],
-    *,
-    previous_apple_videos: set[str] | None = None,
 ) -> list[dict[str, Any]]:
-    previous_apple_videos = previous_apple_videos or set()
     input_config = hype_inputs()
 
     grouped: dict[str, dict[str, Any]] = {}

@@ -72,7 +72,6 @@ def main() -> int:
             hype_report_for_date,
             init_db,
             latest_hype_history_date,
-            previous_apple_videos_for_history,
             validate_frontend_history,
         )
         if args.limit <= 0:
@@ -121,8 +120,7 @@ def main() -> int:
             if history_date is None:
                 history_date = latest_hype_history_date(conn)
             if history_date:
-                previous_apple_videos = previous_apple_videos_for_history(conn, {}, history_date)
-                report = hype_report_for_date(conn, history_date, previous_apple_videos=previous_apple_videos)
+                report = hype_report_for_date(conn, history_date)
                 validate_frontend_history(compact_frontend_history({history_date: report}), history_date)
                 hype_results = [
                     (row["video_id"], {"metadata": row, "score": row.get("hype_index", 0), "ranks": {
