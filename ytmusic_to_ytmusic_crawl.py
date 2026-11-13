@@ -795,6 +795,11 @@ def extract_chart_entries_from_browser(url, *, limit=100, chart_period_start=Non
             try:
                 page = browser.new_page(locale="en-US")
                 page.set_default_timeout(45000)
+                clean_url = lambda value: urlparse(value)._replace(query="", fragment="").geturl()
+                page.on("request", lambda request: LOG.warning("DIAG request %s %s", request.method, clean_url(request.url)))
+                page.on("response", lambda response: LOG.warning("DIAG response %s %s", response.status, clean_url(response.url)))
+                page.on("requestfailed", lambda request: LOG.warning("DIAG failed %s %s", clean_url(request.url), request.failure))
+                page.on("pageerror", lambda error: LOG.warning("DIAG page error %s", str(error).replace(api_key, "<public-config-key>") if api_key else error))
                 # The existing HTTP client avoids Playwright's response-header size limit.
                 bootstrap = http_session.get(YOUTUBE_PUBLIC_CONFIG_URL, timeout=30, allow_redirects=False)
                 if bootstrap.status_code != 200:
@@ -821,6 +826,9 @@ def extract_chart_entries_from_browser(url, *, limit=100, chart_period_start=Non
                 actual = page.locator(".weekly-chart-calendar-selector #paper-button-container").inner_text()
                 if re.sub(r"\s", "", actual) != re.sub(r"\s", "", expected):
                     raise ValueError("Browser's displayed weekly period differs from its chart response")
+            except Exception:
+                LOG.warning("DIAG page url=%s title=%s text=%s", clean_url(page.url), page.title(), page.locator("body").inner_text(timeout=3000)[:1200])
+                raise
             finally:
                 browser.close()
         LOG.info("Browser fallback verified 100 ranks for %s..%s", start, end)
