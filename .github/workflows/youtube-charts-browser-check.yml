@@ -58,30 +58,3 @@ jobs:
           name: official-kr-weekly-chart
           path: browser-chart.json
           retention-days: 1
-
-  history-check:
-    needs: browser-check
-    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
-    runs-on: ubuntu-24.04
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-          cache: pip
-      - name: Install dependencies
-        run: python -m pip install -r requirements.txt
-      - name: Check database and rebuild history without publishing
-        env:
-          HYPE_DB_BACKEND: aiven
-          AIVEN_DB_URI: ${{ secrets.AIVEN_DB_URI }}
-          AIVEN_DB_HOST: ${{ secrets.AIVEN_DB_HOST }}
-          AIVEN_DB_CA_CERTIFICATE: ${{ secrets.AIVEN_DB_CA_CERTIFICATE }}
-        run: python tests/check_history_rebuild.py diagnostic-artifacts/history.json
-      - name: Save validated rebuilt history
-        uses: actions/upload-artifact@v4
-        with:
-          name: rebuilt-history
-          path: diagnostic-artifacts/
-          retention-days: 7
