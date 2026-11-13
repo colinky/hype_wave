@@ -2,7 +2,9 @@
 from copy import deepcopy
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
+import os
 import sys
+import tempfile
 import unittest
 from unittest.mock import MagicMock, Mock, patch
 
@@ -10,6 +12,7 @@ import requests
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import ytmusic_to_ytmusic_crawl as crawl
+import hype_db
 
 
 def chart_payload():
@@ -139,7 +142,10 @@ class YouTubeChartsBrowserTests(unittest.TestCase):
             if case == "missing_config": bootstrap.text = 'ytcfg.set({"INNERTUBE_API_KEY":""});'
             if case == "config_429": bootstrap.status_code = 429
             if case == "config_redirect": bootstrap.status_code = 302
-            response = page.expect_response.return_value.__enter__.return_value.value
+            response = Mock(url="https://charts.youtube.com/youtubei/v1/browse?key=fixture-public-key")
+            page.goto.side_effect = lambda *args, **kwargs: [
+                call.args[1](response) for call in page.on.call_args_list if call.args[0] == "response"
+            ]
             payload = chart_payload()
             label = "Oct 2\u2009–\u20098, 2026"
             if case == "cross_month":
@@ -172,6 +178,110 @@ class YouTubeChartsBrowserTests(unittest.TestCase):
                     "https://charts.youtube.com/youtubei/v1/player"):
             with self.assertRaises(ValueError):
                 crawl.chart_request_with_key(url, "fixture-key")
+
+    def test_browser_wait_requires_continuous_challenge_and_accepts_valid_responses(self):
+        cases = (
+            ("persistent", [(0, 45000)], None, 2000, "interactive reCAPTCHA"),
+            ("hidden_frame", [], 100, 100, None),
+            ("transient", [(0, 1900)], 2100, 2100, None),
+            ("interrupted", [(0, 1500), (1900, 3400)], 3500, 3500, None),
+            ("response_before_confirmation", [(0, 45000)], 1900, 1900, None),
+            ("response_at_confirmation", [(0, 45000)], None, 2000, None),
+            ("missing_response", [], None, 45000, "within 45 seconds"),
+            ("late_challenge", [(44500, 45000)], None, 45000, "within 45 seconds"),
+        )
+        for case, visible_intervals, response_at, expected_elapsed, error in cases:
+            manager = MagicMock()
+            browser = manager.__enter__.return_value.webkit.launch.return_value
+            page = browser.new_page.return_value
+            elapsed_ms = 0
+            challenge = Mock()
+            calendar = Mock()
+            calendar.inner_text.return_value = "Oct 2–8, 2026"
+            page.locator.side_effect = lambda selector: challenge if selector.startswith("iframe") else calendar
+            bootstrap = Mock(status_code=200, text='ytcfg.set({"INNERTUBE_API_KEY":"fixture-key"});')
+            response = Mock(url="https://charts.youtube.com/youtubei/v1/browse", status=200)
+            response.json.return_value = chart_payload()
+
+            def emit_response(response):
+                for call in page.on.call_args_list:
+                    if call.args[0] == "response":
+                        call.args[1](response)
+
+            def visible_count():
+                # Playwright may dispatch a response while answering the visibility query.
+                if case == "response_at_confirmation" and elapsed_ms >= 2000:
+                    emit_response(response)
+                return int(any(start <= elapsed_ms < end for start, end in visible_intervals))
+
+            def advance(milliseconds):
+                nonlocal elapsed_ms
+                elapsed_ms += milliseconds
+                if response_at is not None and elapsed_ms >= response_at:
+                    emit_response(response)
+
+            challenge.count.side_effect = visible_count
+            page.goto.side_effect = lambda *args, **kwargs: [emit_response(Mock(url=url, status=200)) for url in (
+                "https://example.com/youtubei/v1/browse", "https://charts.youtube.com/youtubei/v1/player")]
+            page.wait_for_timeout.side_effect = advance
+            with (self.subTest(case=case), patch("playwright.sync_api.sync_playwright", return_value=manager),
+                  patch.object(crawl.http_session, "get", return_value=bootstrap),
+                  patch.object(crawl.time, "monotonic", side_effect=lambda: elapsed_ms / 1000),
+                  self.assertLogs(crawl.LOG, "INFO") as logs):
+                rows = crawl.extract_chart_entries_from_browser(crawl.DEFAULT_YOUTUBE_CHARTS_URL)
+                self.assertEqual(len(rows), 0 if error else 100)
+                self.assertEqual(elapsed_ms, expected_elapsed)
+                browser.close.assert_called_once()
+                if error:
+                    self.assertIn(error, "\n".join(logs.output))
+                    if case == "persistent":
+                        self.assertIn("2 seconds", "\n".join(logs.output))
+                else:
+                    self.assertNotIn("browser fallback failed", "\n".join(logs.output))
+
+    def test_confirmed_challenge_preserves_data_and_blocks_publication(self):
+        manager = MagicMock()
+        browser = manager.__enter__.return_value.webkit.launch.return_value
+        page = browser.new_page.return_value
+        page.locator.return_value.count.return_value = 1
+        elapsed_ms = 0
+
+        def advance(milliseconds):
+            nonlocal elapsed_ms
+            elapsed_ms += milliseconds
+
+        page.wait_for_timeout.side_effect = advance
+        bootstrap = Mock(status_code=200, text='ytcfg.set({"INNERTUBE_API_KEY":"fixture-key"});')
+        with tempfile.TemporaryDirectory() as directory, patch.dict(os.environ, {"HYPE_DB_BACKEND": "sqlite"}):
+            db, history = Path(directory) / "chart.db", Path(directory) / "history.json"
+            history.write_text('{"preserved":true}', encoding="utf-8")
+            hype_db.init_db(db)
+            with hype_db.connect(db) as conn:
+                conn.execute("INSERT INTO playlist_order(service, job_name, source_variant, reference_period, song_id, rank_order) "
+                             "VALUES ('ytmusic', 'Weekly-Hot-100', 'default', '2026-W41', 'old-video', 1)")
+            argv = ["crawl", "--db-path", str(db), "--history-json", str(history),
+                    "--yt-auth", "unused.json", "--yt-playlist-id", "fixture", "--no-resolve"]
+            with (patch.object(sys, "argv", argv), patch.object(crawl, "load_dotenv"),
+                  patch.object(crawl, "make_ytmusic"),
+                  patch.object(crawl, "discover_youtube_charts_source_info", return_value={}),
+                  patch.object(crawl.http_session, "get", return_value=bootstrap),
+                  patch.object(crawl, "extract_chart_entries_from_browse_api", return_value=[]),
+                  patch("playwright.sync_api.sync_playwright", return_value=manager),
+                  patch.object(crawl.time, "monotonic", side_effect=lambda: elapsed_ms / 1000),
+                  patch.object(crawl, "update_ytmusic_playlist") as publish,
+                  patch.object(hype_db, "export_frontend_history") as export,
+                  self.assertLogs(crawl.LOG, "WARNING") as logs):
+                self.assertEqual(crawl.main(), 1)
+            self.assertIn("interactive reCAPTCHA", "\n".join(logs.output))
+            self.assertEqual(elapsed_ms, 2000)
+            browser.close.assert_called_once()
+            publish.assert_not_called()
+            export.assert_not_called()
+            self.assertEqual(history.read_text(encoding="utf-8"), '{"preserved":true}')
+            with hype_db.connect(db, read_only=True) as conn:
+                rows = conn.execute("SELECT song_id, reference_period FROM playlist_order").fetchall()
+                self.assertEqual([(row[0], row[1]) for row in rows], [("old-video", "2026-W41")])
+                self.assertEqual(conn.execute("SELECT status, entry_count FROM chart_source_audit").fetchone()[0], "source_error")
 
     def test_main_uses_one_verification_locale_without_changing_bilingual_source_collection(self):
         with (patch.object(sys, "argv", ["crawl", "--yt-auth", "unused.json", "--yt-playlist-id", "fixture", "--dry-run"]),

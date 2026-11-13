@@ -803,10 +803,31 @@ def extract_chart_entries_from_browser(url, *, limit=100, chart_period_start=Non
                 # Keep the browser's own payload and render its actual official response.
                 page.route("https://charts.youtube.com/youtubei/v1/browse*",
                            lambda route: route.continue_(url=chart_request_with_key(route.request.url, api_key)))
-                with page.expect_response(lambda response: urlparse(response.url).netloc == "charts.youtube.com"
-                                          and urlparse(response.url).path == "/youtubei/v1/browse") as result:
-                    page.goto(url, wait_until="domcontentloaded")
-                response = result.value
+                responses = []
+                page.on("response", lambda response: responses.append(response)
+                        if (urlparse(response.url).netloc == "charts.youtube.com"
+                            and urlparse(response.url).path == "/youtubei/v1/browse") else None)
+                deadline = time.monotonic() + 45
+                page.goto(url, wait_until="domcontentloaded")
+                challenge = page.locator('iframe[src*="/recaptcha/"][src*="/bframe"]:visible')
+                challenge_since = None
+                while not responses:
+                    visible = challenge.count()
+                    now = time.monotonic()
+                    if responses:
+                        break
+                    if now >= deadline:
+                        raise TimeoutError("Official YouTube chart response was not received within 45 seconds")
+                    if visible:
+                        if challenge_since is None:
+                            challenge_since = now
+                        elif now - challenge_since >= 2:
+                            raise ValueError("Official YouTube Charts requires interactive reCAPTCHA "
+                                             "visible for at least 2 seconds; browser collection stopped")
+                    else:
+                        challenge_since = None
+                    page.wait_for_timeout(100)
+                response = responses[0]
                 if response.status != 200:
                     raise ValueError(f"Browser chart request returned HTTP {response.status}")
                 entries = extract_chart_entries_from_browser_json(response.json())
