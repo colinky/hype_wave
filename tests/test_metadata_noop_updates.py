@@ -1,10 +1,15 @@
 """Metadata persistence skips physical UPDATEs only when merged values are unchanged."""
+import os
+from pathlib import Path
 import sqlite3
+import tempfile
 import unittest
 from unittest.mock import patch
 
 from hype_db_schema import init_schema
 import hype_db_store as store
+import hype_db
+import melon_to_ytmusic_crawl as melon
 
 
 FIELDS = ("album_id", "title_ko", "artist_ko", "album_ko",
@@ -124,6 +129,103 @@ class MetadataNoopUpdateTests(unittest.TestCase):
                 self.assertEqual(self.updates(), [])
         run = self.conn.execute("SELECT status, completed_at FROM match_runs ORDER BY started_at DESC LIMIT 1").fetchone()
         self.assertEqual(tuple(run), ("completed", "2026-11-09T02:00:00+00:00"))
+
+
+class AlbumCacheNoopUpdateTests(unittest.TestCase):
+    def setUp(self):
+        self.enterContext(patch.dict(os.environ, {"HYPE_DB_BACKEND": "sqlite"}))
+        self.enterContext(patch("socket.socket.connect", side_effect=AssertionError("No network")))
+        directory = self.enterContext(tempfile.TemporaryDirectory())
+        self.db_path = Path(directory) / "cache.db"
+        self.conn = sqlite3.connect(self.db_path)
+        self.conn.row_factory = sqlite3.Row
+        self.addCleanup(self.conn.close)
+        init_schema(self.conn, repair_source_bindings=False)
+        self.enterContext(patch.dict(melon._ALBUM_NAME_CACHE, {
+            "1": {"name": "Album", "created_at": "2000-01-01", "last_checked": "2000-01-01"},
+            "2": {"name": "Untouched", "created_at": "2000-01-01", "last_checked": "2000-01-01"},
+        }, clear=True))
+        melon.save_album_cache(self.db_path)
+        self.conn.executescript("""
+            CREATE TABLE cache_updates(album_id TEXT);
+            CREATE TRIGGER audit_album_update AFTER UPDATE ON album_metadata
+            BEGIN INSERT INTO cache_updates VALUES (NEW.album_id); END;
+        """)
+
+    def rows(self):
+        return [tuple(row) for row in self.conn.execute("""
+            SELECT album_id, album_name, created_at, last_checked
+            FROM album_metadata WHERE service='melon' ORDER BY album_id
+        """)]
+
+    def updates(self):
+        return [row[0] for row in self.conn.execute("SELECT album_id FROM cache_updates")]
+
+    def clear_updates(self):
+        self.conn.execute("DELETE FROM cache_updates")
+        self.conn.commit()
+
+    def test_reloaded_unchanged_cache_does_not_update(self):
+        before = self.rows()
+        self.assertEqual(len(before), 2)
+        melon._ALBUM_NAME_CACHE.clear()
+        melon.load_album_cache(self.db_path)
+        melon.save_album_cache(self.db_path)
+        self.assertEqual(self.rows(), before)
+        self.assertEqual(self.updates(), [])
+
+    def test_each_changed_value_updates_only_its_album(self):
+        for key, value in (("name", "Renamed"), ("created_at", "2026-11-13"),
+                           ("last_checked", "2026-11-14")):
+            with self.subTest(key=key):
+                before_other = self.rows()[1]
+                melon._ALBUM_NAME_CACHE["1"][key] = value
+                melon.save_album_cache(self.db_path)
+                item = melon._ALBUM_NAME_CACHE["1"]
+                self.assertEqual(self.rows()[0], ("1", item["name"], item["created_at"], item["last_checked"]))
+                self.assertEqual(self.rows()[1], before_other)
+                self.assertEqual(self.updates(), ["1"])
+                self.clear_updates()
+
+    def test_new_album_is_stored_without_updating_existing_albums(self):
+        before = self.rows()
+        melon._ALBUM_NAME_CACHE["3"] = {"name": "New", "created_at": "2026-11-13", "last_checked": "2026-11-13"}
+        melon.save_album_cache(self.db_path)
+        self.assertEqual(self.rows(), before + [("3", "New", "2026-11-13", "2026-11-13")])
+        self.assertEqual(self.updates(), [])
+
+    def test_null_and_empty_names_keep_existing_storage_semantics(self):
+        melon._ALBUM_NAME_CACHE["1"]["name"] = None
+        melon.save_album_cache(self.db_path)
+        self.assertIsNone(self.rows()[0][1])
+        self.clear_updates()
+        melon.save_album_cache(self.db_path)
+        self.assertEqual(self.updates(), [])
+        melon._ALBUM_NAME_CACHE["1"]["name"] = ""
+        melon.save_album_cache(self.db_path)
+        self.assertEqual(self.rows()[0][1], "")
+        self.assertEqual(self.updates(), ["1"])
+
+    def test_missing_dates_still_use_the_current_collection_time(self):
+        melon._ALBUM_NAME_CACHE["1"] = {"name": "Album"}
+        for now in ("2026-11-13T00:00:00+00:00", "2026-11-13T01:00:00+00:00"):
+            with self.subTest(now=now), patch.object(hype_db, "utc_now_iso", return_value=now):
+                melon.save_album_cache(self.db_path)
+                self.assertEqual(self.rows()[0][2:], (now, now))
+                self.assertEqual(self.updates(), ["1"])
+                self.clear_updates()
+                melon.save_album_cache(self.db_path)
+                self.assertEqual(self.updates(), [])
+
+    def test_expired_cache_remains_available_during_fetch_failure(self):
+        melon._ALBUM_NAME_CACHE.clear()
+        melon.load_album_cache(self.db_path)
+        with patch.object(melon.http_session, "get", side_effect=RuntimeError("Fixture outage")) as fetch:
+            self.assertEqual(melon.fetch_melon_album_name("1", ttl_days=0), "Album")
+            fetch.assert_called_once()
+        melon.save_album_cache(self.db_path)
+        self.assertEqual(self.rows()[0][1], "Album")
+        self.assertEqual(self.rows()[0][3], melon._ALBUM_NAME_CACHE["1"]["last_checked"])
 
 
 if __name__ == "__main__":

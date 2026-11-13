@@ -105,6 +105,8 @@ def save_album_cache(db_path: Path):
                         album_name = excluded.album_name,
                         created_at = excluded.created_at,
                         last_checked = excluded.last_checked
+                    WHERE (album_metadata.album_name, album_metadata.created_at, album_metadata.last_checked)
+                        IS DISTINCT FROM (excluded.album_name, excluded.created_at, excluded.last_checked)
                     """,
                     params,
                 )
