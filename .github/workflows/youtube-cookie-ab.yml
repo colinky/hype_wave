@@ -21,6 +21,8 @@ jobs:
     env:
       HYPE_DB_BACKEND: sqlite
       PYTHONUNBUFFERED: '1'
+      # Diagnostic only: let the legacy initial request get past its known header-parser limit.
+      NODE_OPTIONS: '--max-http-header-size=262144'
     steps:
       - uses: actions/checkout@v4
         with:

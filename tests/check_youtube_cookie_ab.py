@@ -40,7 +40,27 @@ def is_browse(url):
         "https", "charts.youtube.com", "/youtubei/v1/browse")
 
 
+def observe_wire_cookie_names():
+    import playwright
+
+    source = Path(playwright.__file__).parent / "driver/package/lib/server/webkit/wkInterceptableRequest.js"
+    text = source.read_text()
+    marker = "    const setCookieSeparator = process.platform"
+    assert text.count(marker) == 1, "Unexpected pinned Playwright source; cannot instrument safely"
+    # Routed WebKit requests expose provisional headers. Observe final protocol metadata only.
+    observer = '''    if (this.request.url().split("?")[0] === "https://charts.youtube.com/charts/TopSongs/kr/weekly") {
+      const entry = Object.entries(responsePayload.requestHeaders || {}).find(([name]) => name.toLowerCase() === "cookie");
+      console.error("COOKIE_AB_WIRE " + JSON.stringify({
+        headers_available: !!responsePayload.requestHeaders,
+        cookie_names: (entry ? entry[1] : "").split(";").map(item => item.trim().split("=")[0]).filter(Boolean)
+      }));
+    }
+'''
+    source.write_text(text.replace(marker, observer + marker))
+
+
 def run_trial(playwright, mode, trial, output, bootstrap=None):
+    print(f"COOKIE_AB_START {trial} {mode}", flush=True)
     result = dict(trial=trial, mode=mode, started_at=datetime.now(timezone.utc).isoformat(),
                   chart_requests=0, chart_responses=0, challenge_visible=False)
     started = time.monotonic()
@@ -173,6 +193,7 @@ def self_test():
 def main():
     from playwright.sync_api import sync_playwright
 
+    observe_wire_cookie_names()
     output = Path("diagnostic-artifacts/cookie-ab")
     output.mkdir(parents=True, exist_ok=True)
     report = dict(commit=os.environ.get("GITHUB_SHA"), run_id=os.environ.get("GITHUB_RUN_ID"),
