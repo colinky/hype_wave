@@ -63,7 +63,7 @@ jobs:
           workflow = Path('.github/workflows/daily-sync.yml').read_text()
           section = workflow.split('      - name: Commit and Push Verified Historical Web Data\n', 1)[1]
           script = textwrap.dedent(section.split('        run: |\n', 1)[1].split('\n      - name:', 1)[0])
-          script = script.replace('${{ github.ref_name }}', 'publication-check')
+          script = script.replace('$' + '{{ github.ref_name }}', 'publication-check')
           subprocess.run(['sh', '-e'], input=script, text=True, check=True)
           published = subprocess.check_output(['git', f'--git-dir={remote}', 'show', 'refs/heads/publication-check:docs/api/history.json'])
           assert published == history.read_bytes()
