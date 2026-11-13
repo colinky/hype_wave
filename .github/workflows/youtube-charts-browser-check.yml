@@ -2,8 +2,6 @@ name: YouTube Charts Browser Check
 
 on:
   workflow_dispatch:
-  push:
-    branches: [codex/youtube-browser-fallback]
   pull_request:
     paths:
       - ytmusic_playlist_sync.py
@@ -23,7 +21,6 @@ on:
       - requirements.txt
       - tests/test_youtube_charts*.py
       - tests/check_youtube_charts_browser.py
-      - tests/check_history_rebuild.py
       - .github/workflows/daily-sync.yml
       - .github/workflows/youtube-charts-browser-check.yml
 

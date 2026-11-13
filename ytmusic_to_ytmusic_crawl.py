@@ -424,21 +424,6 @@ def walk_json(value: Any):
             yield from walk_json(child)
 
 
-def extract_json_objects_from_html(html: str) -> list[Any]:
-    objects: list[Any] = []
-    for pattern in (
-        r"ytInitialData\s*=\s*(\{.*?\})\s*;",
-        r"AF_initDataCallback\((\{.*?\})\);",
-        r"window\.__data\s*=\s*(\{.*?\})\s*;",
-    ):
-        for match in re.finditer(pattern, html, flags=re.DOTALL):
-            try:
-                objects.append(json.loads(match.group(1)))
-            except Exception:
-                continue
-    return objects
-
-
 def extract_ytcfg_from_html(html: str) -> dict[str, Any]:
     config = {}
     for match in re.finditer(r"ytcfg\.set\(\s*", html):
@@ -639,51 +624,6 @@ def extract_chart_entries_from_browse_api(
         row["artist"] = row.get("artist_en") or row.get("artist") or row.get("artist_ko") or ""
         row["album"] = row.get("album_en") or row.get("album") or row.get("album_ko") or ""
     return merged
-
-
-def text_from_runs(value: Any) -> str:
-    if isinstance(value, str):
-        return value
-    if isinstance(value, dict):
-        if "simpleText" in value:
-            return str(value.get("simpleText") or "")
-        if "runs" in value and isinstance(value["runs"], list):
-            return " ".join(str(run.get("text") or "") for run in value["runs"] if isinstance(run, dict)).strip()
-    return ""
-
-
-def extract_chart_entries_from_embedded_json(html: str, *, limit: int = 100) -> list[dict[str, Any]]:
-    entries: list[dict[str, Any]] = []
-    seen: set[str] = set()
-    for obj in extract_json_objects_from_html(html):
-        for node in walk_json(obj):
-            video_id = str(node.get("videoId") or node.get("video_id") or "")
-            if not video_id or video_id in seen:
-                continue
-            title = text_from_runs(node.get("title")) or str(node.get("title") or "")
-            artists: list[str] = []
-            for key in ("subtitle", "secondaryText", "shortBylineText", "longBylineText"):
-                text = text_from_runs(node.get(key))
-                if text:
-                    artists.append(text)
-            artist = artists[0] if artists else str(node.get("artist") or node.get("artists") or "")
-            if not title:
-                continue
-            seen.add(video_id)
-            entries.append(
-                {
-                    "rank": len(entries) + 1,
-                    "video_id": video_id,
-                    "title": title,
-                    "artist": artist,
-                    "source": "youtube_charts_weekly_embedded_json",
-                }
-            )
-            if len(entries) >= limit:
-                break
-        if len(entries) >= limit:
-            break
-    return entries
 
 
 def extract_chart_entries_from_youtube_charts(

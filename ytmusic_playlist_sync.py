@@ -2535,23 +2535,6 @@ def _compare_playlist_video_ids(
     }
 
 
-def _playlist_video_ids_match(
-    ytmusic: YTMusic,
-    expected: list[str],
-    actual: list[str],
-) -> bool:
-    """Compatibility wrapper for callers that only need the final boolean."""
-    comparison = _compare_playlist_video_ids(ytmusic, expected, actual)
-    for difference in comparison["differences"]:
-        if difference["accepted"]:
-            LOG.info(
-                "Accepted YouTube Music equivalent video substitution: %s -> %s",
-                difference["expected_id"],
-                difference["actual_id"],
-            )
-    return bool(comparison["matches"])
-
-
 class PlaylistMutationUncertain(RuntimeError):
     """An attempted mutation lacks durable, complete acknowledgement. Never replay it."""
 

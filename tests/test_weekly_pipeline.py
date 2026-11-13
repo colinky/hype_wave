@@ -167,11 +167,9 @@ class WeeklyPipelineTests(unittest.TestCase):
         from hype_scoring import calculate_rank_score
         self.assertEqual(duplicate['hype_index'], round(calculate_rank_score(22) * 0.2, 2))
 
-    def test_history_check_rebuilds_latest_completed_date_using_read_only_connections(self):
+    def test_history_rebuilds_latest_completed_date_using_read_only_connection(self):
         import json
-        from datetime import datetime, timezone
         from contextlib import contextmanager
-        import check_history_rebuild as check
         import hype_db_reports as reports
         rows = [{'song_id':str(i), 'rank':i, 'title':f'Song {i}', 'artist':'Artist'}
                 for i in range(1, 101)]
@@ -190,18 +188,13 @@ class WeeklyPipelineTests(unittest.TestCase):
             with hype_db.connect(path, read_only=read_only) as conn:
                 connections.append(conn.execute('PRAGMA query_only').fetchone()[0])
                 yield conn
-        with patch.object(check, 'connect', side_effect=read_only_connect), \
-             patch.object(reports, 'connect', side_effect=read_only_connect), \
-             patch.object(check, 'datetime', wraps=datetime) as clock, patch('builtins.print'):
-            clock.now.return_value = datetime(2026, 11, 12, tzinfo=timezone.utc)
-            result = check.main(output, self.db)
-        self.assertEqual(connections, [1, 1])
-        self.assertTrue(result['database_connected'])
-        self.assertFalse(result['ready_for_today'])
-        self.assertEqual(result['latest_history_date'], '2026-11-11')
-        self.assertEqual(result['latest_chart_tracks'], 100)
-        self.assertEqual(json.loads(output.read_text())['dates'], ['2026-11-11'])
-        self.assertEqual(json.loads(output.with_suffix('.summary.json').read_text()), result)
+        with patch.object(reports, 'connect', side_effect=read_only_connect):
+            payload = reports.export_frontend_history(
+                self.db, output, full_rebuild=True, expected_date='2026-11-11')
+        self.assertEqual(connections, [1])
+        self.assertEqual(payload['dates'], ['2026-11-11'])
+        self.assertEqual(len(payload['rankings']['2026-11-11']), 100)
+        self.assertEqual(json.loads(output.read_text()), payload)
 
     def test_partial_summary_uses_verified_actual_count(self):
         import json

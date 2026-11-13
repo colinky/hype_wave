@@ -130,31 +130,6 @@ def format_artwork_url(url: str, size: int = 100) -> str:
     return url.replace("{w}", str(size)).replace("{h}", str(size))
 
 
-def parse_tracks_from_chart_api(payload: dict[str, Any]) -> list[SourceTrack]:
-    """Parse tracks brief info from Apple Music charts API endpoint."""
-    songs_data = payload.get("results", {}).get("songs", [])[0].get("data", []) if payload.get("results", {}).get("songs") else []
-    tracks: list[SourceTrack] = []
-    
-    for idx, item in enumerate(songs_data, 1):
-        attrs = item.get("attributes", {})
-        title = attrs.get("name", "").strip()
-        tracks.append(
-            SourceTrack(
-                rank=idx,
-                title=title,
-                artist=attrs.get("artistName", "").strip(),
-                service="apple",
-                album=attrs.get("albumName", "").strip(),
-                song_id=str(item.get("id", "") or ""),
-                source="apple_web_chart_api",
-                artwork_url=format_artwork_url(attrs.get("artwork", {}).get("url", ""), 100),
-                locale="ko",
-            )
-        )
-
-    return tracks
-
-
 def _apple_api_headers(token: str, page_url: str = "") -> dict[str, str]:
     headers = {
         "Authorization": f"Bearer {token}",
