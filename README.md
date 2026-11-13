@@ -448,8 +448,6 @@ python reconcile_playlist_update.py \
 
 [`youtube-charts-browser-check.yml`](.github/workflows/youtube-charts-browser-check.yml)은 관련 PR 변경 또는 수동 실행에서 실제 아티스트 메타데이터 조회와 주간 차트 수집·대체 경로 검증을 수행하고 결과를 아티팩트로 저장합니다. 이 검증은 DB와 플레이리스트를 수정하지 않습니다.
 
-브라우저 검증 워크플로의 저장소 내부 push 또는 수동 실행은 브라우저 검증 성공 후 `tests/check_history_rebuild.py`도 실행합니다. 기존 Aiven Secrets를 실행 환경에만 전달하고 DB를 읽기 전용으로 조회해, 최신 완료된 Apple 기준일까지 31일 이력을 다시 생성·검증합니다. UTC 오늘 날짜와 DB에서 만들 수 있는 최신 날짜를 구분해 보고하며, 원본 데이터가 없는 날짜를 임의로 붙이지 않습니다. `rebuilt-history` 아티팩트에 JSON과 요약을 저장하고 DB·재생목록·게시된 파일은 변경하지 않습니다. PR 실행에는 DB Secrets를 전달하지 않습니다.
-
 일일 동기화는 전체 회귀 검사를 반복하지 않으며, 브라우저 검증 워크플로는 실제 조회 전에 회귀 검사를 실행합니다. 코드·의존성을 변경하면 개발 환경에서 아래 회귀 검사를 통과한 뒤 운영에 반영합니다. 운영 중 차트 기간·순위·곡 식별·게시 결과·저장 이력 검증과 중복 실행 방지는 계속 수행합니다.
 
 ```bash
