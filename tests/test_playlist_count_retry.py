@@ -330,12 +330,24 @@ class PlaylistCountRetryTests(unittest.TestCase):
                 client.get_watch_playlist.side_effect = watch
                 client.get_artist.return_value = {"name": "Fixture Artist"}
                 db = Path(directory) / "publication.db"
+                original = deepcopy(state)
                 with patch.object(sync, "make_ytmusic", return_value=client):
-                    sync.update_ytmusic_playlist(client, "fixture", requested, dry_run=False,
-                                                db_path=db, service="apple", job_name="KR-Top-Songs")
+                    if case == "missing_metadata":
+                        with self.assertRaisesRegex(RuntimeError, "restored"):
+                            sync.update_ytmusic_playlist(client, "fixture", requested, dry_run=False,
+                                                        db_path=db, service="apple", job_name="KR-Top-Songs")
+                    else:
+                        sync.update_ytmusic_playlist(client, "fixture", requested, dry_run=False,
+                                                    db_path=db, service="apple", job_name="KR-Top-Songs")
                 with hype_db.connect(db, read_only=True) as conn:
                     run_id = conn.execute("SELECT update_run_id FROM playlist_update_runs").fetchone()[0]
                 run = hype_db.get_playlist_update_run(db, run_id, read_only=True)
+                if case == "missing_metadata":
+                    self.assertEqual(state, original)
+                    self.assertEqual(run["status"], "restored")
+                    self.assertEqual(run["publication_mode"], "full")
+                    self.assertEqual(run["excluded_items"], [])
+                    continue
                 self.assertEqual(run["status"], "published")
                 self.assertFalse(hype_db.get_pending_playlist_recovery(db, "fixture"))
                 expected = [aliases.get(video, video) for video in requested
@@ -345,8 +357,7 @@ class PlaylistCountRetryTests(unittest.TestCase):
                 self.assertEqual(client.add_playlist_items.call_count, 4)
                 self.assertEqual(client.remove_playlist_items.call_count, 4 if case == "equivalent" else 5)
                 if case != "equivalent":
-                    reason = {"wrong_title": "title_mismatch", "wrong_artist": "author_mismatch",
-                              "missing_metadata": "metadata_error"}[case]
+                    reason = {"wrong_title": "title_mismatch", "wrong_artist": "author_mismatch"}[case]
                     self.assertEqual(run["publication_mode"], "partial")
                     self.assertEqual(run["excluded_items"][0]["reason"], reason)
 

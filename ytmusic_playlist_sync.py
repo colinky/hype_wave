@@ -17,6 +17,7 @@ from difflib import SequenceMatcher
 from functools import lru_cache
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlsplit
 
 import requests
 from requests.adapters import HTTPAdapter
@@ -40,6 +41,35 @@ except ImportError:  # pragma: no cover - compatibility with older ytmusicapi.
 
 
 LOG = logging.getLogger("ytmusic_playlist_sync")
+
+
+def _read_metadata_with_retry(read, *args, **kwargs):
+    # Only metadata reads may be replayed; playlist mutations keep their own receipts.
+    for attempt in range(3):
+        try:
+            return read(*args, **kwargs)
+        except (json.JSONDecodeError, requests.RequestException, YTMusicServerError, TimeoutError) as exc:
+            if attempt == 2:
+                raise
+            LOG.warning("YouTube metadata read failed (%s); retrying (%d/3)",
+                        type(exc).__name__, attempt + 2)
+            time.sleep(attempt + 1)
+
+
+def _log_ytmusic_response(response, *args, **kwargs):
+    path = urlsplit(response.url).path
+    if not path.startswith("/youtubei/"):
+        return
+    try:
+        json.loads(response.content)
+        valid_json = True
+    except (ValueError, UnicodeError):
+        valid_json = False
+    if response.status_code >= 400 or not valid_json:
+        # Never log URLs with query strings, cookies, headers, or response bodies.
+        LOG.warning("YouTube response: endpoint=%s http=%s content_type=%s bytes=%d json=%s",
+                    path, response.status_code, response.headers.get("Content-Type", ""),
+                    len(response.content), valid_json)
 
 
 def get_resilient_session(
@@ -802,11 +832,11 @@ def resolve_bilingual_artist(yt_ko: YTMusic, artist_id: str) -> list[str]:
 
 def _artist_name_for_metadata(client: YTMusic, artist_id: str) -> str | None:
     try:
-        artist = client.get_artist(artist_id)
+        artist = _read_metadata_with_retry(client.get_artist, artist_id)
         name = artist.get("name") if isinstance(artist, dict) else None
     except KeyError:
         # Topic channels and empty music tabs break the SDK's full-page parser.
-        payload = client._send_request("browse", {"browseId": artist_id})
+        payload = _read_metadata_with_retry(client._send_request, "browse", {"browseId": artist_id})
         header = payload.get("header") if isinstance(payload, dict) else None
         if not isinstance(header, dict):
             raise
@@ -830,7 +860,7 @@ def _artist_name_for_metadata(client: YTMusic, artist_id: str) -> str | None:
 
 def _watch_playlist_for_metadata(client: YTMusic, video_id: str) -> dict[str, Any]:
     try:
-        return client.get_watch_playlist(videoId=video_id)
+        return _read_metadata_with_retry(client.get_watch_playlist, videoId=video_id)
     except KeyError as exc:
         if exc.args != ("endpoint",):
             raise
@@ -838,7 +868,7 @@ def _watch_playlist_for_metadata(client: YTMusic, video_id: str) -> dict[str, An
         # the installed track parser without requiring those unrelated tabs.
         from ytmusicapi.parsers.watch import parse_watch_playlist
 
-        payload = client._send_request("next", {
+        payload = _read_metadata_with_retry(client._send_request, "next", {
             "videoId": video_id, "playlistId": "RDAMVM" + video_id,
             "enablePersistentPlaylistPanel": True, "isAudioOnly": True,
             "tunerSettingValue": "AUTOMIX_SETTING_NORMAL",
@@ -2207,7 +2237,23 @@ def _require_playlist_mutation_success(result: Any, operation: str) -> None:
     status = result.get("status", "") if isinstance(result, dict) else result
     if status in ("STATUS_SUCCEEDED", "SUCCEEDED"):
         return
-    raise RuntimeError(f"YouTube Music playlist {operation} acknowledgement is missing or unsuccessful")
+    detail = {"status": status if isinstance(status, (str, int)) else type(status).__name__}
+    if isinstance(result, dict):
+        error = result.get("error")
+        if isinstance(error, dict):
+            detail["error_code"] = error.get("code")
+        actions = result.get("actions")
+        for action in actions if isinstance(actions, list) else []:
+            if not isinstance(action, dict):
+                continue
+            runs = action
+            for key in ("addToToastAction", "item", "notificationActionRenderer", "responseText", "runs"):
+                runs = runs.get(key) if isinstance(runs, dict) else None
+            message = "".join(row["text"] for row in runs if isinstance(row, dict) and isinstance(row.get("text"), str)) if isinstance(runs, list) else ""
+            if message:
+                detail["reason"] = message[:200]
+    raise RuntimeError(f"YouTube Music playlist {operation} acknowledgement is missing or unsuccessful: "
+                       + json.dumps(detail, ensure_ascii=False))
 
 
 @lru_cache(maxsize=4096)
@@ -2231,7 +2277,7 @@ def _playlist_video_details(
         return cached
     response_received = False
     try:
-        payload = ytmusic.get_song(video_id)
+        payload = _read_metadata_with_retry(ytmusic.get_song, video_id)
         response_received = True
         if not isinstance(payload, dict) or not isinstance(payload.get("videoDetails"), dict):
             raise ValueError("response is missing videoDetails")
@@ -2767,15 +2813,23 @@ def _sync_playlist_contents(
     for video_id in target_video_ids:
         if video_id in selected:
             continue
+        if all(item["setVideoId"] in used for item in candidates):
+            continue
         # Consider aliases only among unused items, preserving every exact-ID match.
         wanted = _playlist_video_details(ytmusic, video_id, cache)
+        if wanted["error"]:
+            raise RuntimeError(f"Cannot verify requested video {video_id}; preserving existing items: {wanted['error']}")
         for item in candidates:
-            if item["setVideoId"] in used or wanted["error"]:
+            if item["setVideoId"] in used:
                 continue
             actual = _playlist_video_details(ytmusic, item["videoId"], cache)
-            if wanted["normalized_title"] != actual["normalized_title"] or actual["error"]:
+            if actual["error"]:
+                raise RuntimeError(f"Cannot verify existing video {item['videoId']}; preserving existing items: {actual['error']}")
+            if wanted["normalized_title"] != actual["normalized_title"]:
                 continue
             comparison = _compare_playlist_video_ids(ytmusic, [video_id], [item["videoId"]], metadata_cache=cache)
+            if any(row["reason"] == "metadata_error" for row in comparison["differences"]):
+                raise PlaylistIdentityRejected(comparison, expected)
             if comparison["matches"]:
                 selected[video_id] = item["setVideoId"]
                 used.add(item["setVideoId"])
@@ -2791,7 +2845,7 @@ def _sync_playlist_contents(
         comparison = _compare_playlist_video_ids(ytmusic, chunk, [item["videoId"] for item in additions], metadata_cache=cache)
         rejected = [row for row in comparison["differences"] if not row["accepted"]]
         if rejected:
-            allowed = {"title_mismatch", "author_mismatch", "version_mismatch", "duration_mismatch", "metadata_error"}
+            allowed = {"title_mismatch", "author_mismatch", "version_mismatch", "duration_mismatch"}
             if not allow_partial or any(row["reason"] not in allowed for row in rejected):
                 raise PlaylistIdentityRejected(comparison, expected)
             for row in rejected:
@@ -2857,7 +2911,7 @@ def _publish_without_unverified_substitutions(
 ) -> tuple[list[dict[str, str]], dict[str, Any]] | None:
     """Omit only observed bad substitutions; preserve every verified slot/order."""
     rejected = [row for row in comparison["differences"] if not row["accepted"]]
-    allowed = {"title_mismatch", "author_mismatch", "version_mismatch", "duration_mismatch", "metadata_error"}
+    allowed = {"title_mismatch", "author_mismatch", "version_mismatch", "duration_mismatch"}
     if (not rejected or len(actual) != len(requested)
             or any(row["reason"] not in allowed for row in rejected)):
         return None
@@ -3142,9 +3196,9 @@ def _publish_ytmusic_playlist(
     # A complete audited baseline protects replacement; the new slots below
     # receive strict verification and, when possible, per-item omission.
     metadata_errors = [row for row in initial["differences"] if row["reason"] == "metadata_error"]
-    if len(metadata_errors) == len(video_ids) == len(existing_ids):
-        finish("verification_failed", existing, initial, "No requested item can be verified during metadata outage")
-        raise RuntimeError("All requested substitutions lack metadata; preserving the existing playlist")
+    if metadata_errors:
+        finish("verification_failed", existing, initial, "Substitution metadata unavailable; preserving the existing playlist")
+        raise RuntimeError("Requested substitutions lack metadata; preserving the existing playlist")
     if description or playlist_name:
         try:
             kwargs = {}
@@ -3291,6 +3345,8 @@ def make_ytmusic(auth_file: str | None, client_id: str = "", client_secret: str 
         )
     else:
         yt = YTMusic(auth_file, language=language)
+
+    yt._session.hooks["response"].append(_log_ytmusic_response)
 
     # Force headers based on language to ensure metadata matches the source chart
     if language == "ko":
