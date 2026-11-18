@@ -1,6 +1,6 @@
 {
   "schema_version": 2,
-  "generated_at": "2026-11-18T11:24:43+00:00",
+  "generated_at": "2026-11-18T16:32:48+00:00",
   "days": 31,
   "dates": [
     "2026-11-18",
@@ -2409,9 +2409,9 @@
       "album": "Para Ti",
       "yt_title": "미인",
       "yt_artist": "이기찬",
+      "yt_album": "이기찬 9집(Para Ti)",
       "artwork_url": "https://kkoimg.melon.co.kr/cm/album/images/003/43/998/343998_500.jpg/melon/resize/96/quality/80/optimize",
       "melon_url": "https://www.melon.com/song/detail.htm?songId=1563237",
-      "yt_album": "",
       "apple_url": "",
       "spotify_url": ""
     },
