@@ -1,6 +1,6 @@
 {
   "schema_version": 2,
-  "generated_at": "2026-11-19T15:35:12+00:00",
+  "generated_at": "2026-11-19T16:42:12+00:00",
   "days": 31,
   "dates": [
     "2026-11-19",
@@ -2291,7 +2291,7 @@
       "artist": "디핵 (D-Hack), PATEKO (파테코)",
       "album": "OHAYO MY NIGHT",
       "yt_title": "OHAYO MY NIGHT",
-      "yt_artist": "디핵 (D-Hack) PATEKO (파테코)",
+      "yt_artist": "D-Hack, PATEKO",
       "yt_album": "OHAYO MY NIGHT",
       "artwork_url": "https://kkoimg.melon.co.kr/cm2/album/images/104/47/520/10447520_20200619123343_500.jpg?fdfc086383c4200a0a47885934bf8a7c/melon/resize/96/quality/80/optimize",
       "melon_url": "https://www.melon.com/song/detail.htm?songId=32698101",
