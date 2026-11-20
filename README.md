@@ -296,6 +296,10 @@ Aiven에는 `db_migrations/20260919_aiven_runtime_access.sql`을 적용했습니
 - `artists` / `titles` / `albums`: 동일 엔티티의 다른 표기를 묶는 클러스터 배열
 - `overrides`: `"제목|아티스트": "video_id"` 형식으로 특정 곡을 강제 매칭
 
+단일 아티스트의 새 표기 후보는 `python artist_alias_candidates.py`로 추출합니다. 현재 DB의 Apple·Spotify 한영 표시명을 읽어 로컬 `diagnostic-artifacts/artist-alias-candidates.json`에 근거 곡 ID와 함께 저장합니다. 이 파일의 이름은 검토 전까지 매칭에 쓰이지 않습니다.
+
+검토한 이름만 `verified_single_artists`에 넣습니다. Apple은 동일 ISRC, Spotify는 동일 트랙 ID인 두 지역 응답에서 단일 크레딧과 같은 서비스 내 아티스트 ID를 확인합니다. 대표곡의 YouTube Music 단일 크레딧과 채널 ID도 기록합니다. 동명이인이 있는 이름은 `ambiguous_names`에 표시합니다. 이 이름만 들어온 경우에는 등록된 서비스와 근거 곡 ID가 있어야 해당 별칭을 사용할 수 있습니다. 기존 검색이 실패하면 검색어 한 개를 추가할 수 있으며, 그 검색에서는 확인된 단일 크레딧의 음원만 채택합니다.
+
 ---
 
 ## 💻 로컬 실행

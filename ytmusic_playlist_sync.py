@@ -121,6 +121,63 @@ def normalize_text(value: str) -> str:
     return re.sub(r"\s+", " ", value).strip()
 
 
+def artist_name_key(value: str) -> str:
+    """Keep punctuation and whole artist credits when looking up reviewed names."""
+    return " ".join(unicodedata.normalize("NFKC", value).casefold().split())
+
+
+_GUEST_CREDIT = re.compile(r"\b(?:feat(?:uring)?|ft|duet)\b|피[처쳐]링|듀엣|[\[(（]\s*with\b", re.I)
+
+
+@dataclass(frozen=True)
+class VerifiedSoloArtist:
+    names: tuple[str, ...]
+    name_keys: frozenset[str]
+    ambiguous: frozenset[str]
+    channel_id: str
+    source_songs: frozenset[tuple[str, str]]
+
+    @classmethod
+    def from_evidence(cls, item):
+        names = tuple(item["names"])
+        keys = frozenset(map(artist_name_key, names))
+        ambiguous = frozenset(map(artist_name_key, item.get("ambiguous_names", [])))
+        channel = item["youtube_channel_id"]
+        source_songs = set()
+        for service, artist in item["catalog"].items():
+            if service not in {"apple", "spotify"} or not artist["artist_id"] or not artist["recordings"]:
+                raise ValueError("Missing catalog artist or recordings")
+            for recording in artist["recordings"]:
+                if (not recording["song_id"] or not recording["youtube_video_id"]
+                        or (service == "apple" and not recording["isrc"])):
+                    raise ValueError("Missing verified recording identifiers")
+                source_songs.add((service, recording["song_id"]))
+        if (len(keys) < 2 or "" in keys or not ambiguous <= keys
+                or not re.fullmatch(r"UC[A-Za-z0-9_-]{22}", channel) or not source_songs):
+            raise ValueError("Incomplete verified artist evidence")
+        return cls(names, keys, ambiguous, channel, frozenset(source_songs))
+
+    def owns_credit(self, credits):
+        if not isinstance(credits, list) or len(credits) != 1:
+            return False
+        artist = credits[0]
+        return (isinstance(artist, dict) and artist.get("id") == self.channel_id
+                and artist_name_key(artist.get("name") or "") in self.name_keys)
+
+    def accepts(self, result, details):
+        if ytmusic_result_type(result.get("resultType")) != "song" or not self.owns_credit(result.get("artists")):
+            return False
+        # Album-level credits can omit guests on an individual track.
+        if "album_track_credits" in result and not self.owns_credit(result["album_track_credits"]):
+            return False
+        return all(
+            artist_name_key(name) in self.name_keys
+            for name in (details.get("artist_ko"), details.get("artist_en")) if name
+        ) and not any(_GUEST_CREDIT.search(title or "") for title in (
+            result.get("title"), details.get("title_ko"), details.get("title_en")
+        ))
+
+
 class AliasManager:
     """
     플랫폼별로 다른 아티스트/곡명/앨범명 표기법을 관리합니다.
@@ -128,6 +185,7 @@ class AliasManager:
     """
     def __init__(self, path: str | Path | None = None):
         self.artist_map: dict[str, list[str]] = {}
+        self.solo_artists: dict[str, VerifiedSoloArtist] = {}
         self.title_map: dict[str, list[str]] = {}
         self.album_map: dict[str, list[str]] = {}
         self.overrides: dict[str, str] = {}
@@ -137,6 +195,7 @@ class AliasManager:
         self.load(path)
 
     def load(self, path: str | Path):
+        self.solo_artists.clear()
         p = Path(path)
         if not p.exists():
             return
@@ -155,6 +214,13 @@ class AliasManager:
                     self.overrides[norm_key] = video_id
                 else:
                     self.overrides[normalize_text(raw_key)] = video_id
+            solo_artists = {}
+            for item in data.get("verified_single_artists", []):
+                group = VerifiedSoloArtist.from_evidence(item)
+                if group.name_keys.intersection(solo_artists):
+                    raise ValueError("Conflicting verified artist names")
+                solo_artists.update(dict.fromkeys(group.name_keys, group))
+            self.solo_artists = solo_artists
         except Exception as e:
             LOG.warning("Failed to load alias file %s: %s", path, e)
 
@@ -173,6 +239,18 @@ class AliasManager:
         mapping = getattr(self, f"{category}_map", {})
         # Return a copy to prevent mutation of the cached alias mapping
         return list(mapping.get(key, [value]))
+
+    def solo_artist(self, track, track_ko):
+        group = self.solo_artists.get(artist_name_key(track.artist or ""))
+        if group is None:
+            return None
+        views = [track] if track_ko is None else [track, track_ko]
+        keys = {artist_name_key(view.artist) for view in views if view.artist}
+        if not keys <= group.name_keys or any(_GUEST_CREDIT.search(view.title) for view in views):
+            return None
+        if keys <= group.ambiguous and (track.service, track.song_id) not in group.source_songs:
+            return None
+        return group
 
 
 ALIASES = AliasManager()
@@ -1299,6 +1377,7 @@ def score_result(
     ytmusic: YTMusic | None = None,
     *,
     force_resolve: bool = False,
+    require_verified_artist: bool = False,
 ) -> tuple[float, float, float, float]:
     yt_title = result.get("title", "")
     yt_album = result_album(result)
@@ -1499,6 +1578,12 @@ def score_result(
         score = title_score * album_multiplier
         return score, title_score, 0.0, album_score
 
+    group = ALIASES.solo_artist(track_en, track_ko)
+    same_solo_artist = group is not None and group.accepts(result, resolved_details or {})
+    if require_verified_artist and not same_solo_artist:
+        return 0.0, title_score, 0.0, album_score
+    if same_solo_artist:
+        artist_score = 1.0
     score = title_score * artist_score * album_multiplier
 
     # 5. Version mismatch penalty (Preview, Teaser, Instrumental, etc.)
@@ -1543,7 +1628,7 @@ def score_result(
 
     # 6. Short artist name strict check to prevent SequenceMatcher false positives
     is_short_artist = (track_en.artist and len(track_en.artist.strip()) <= 5) or (track_ko and track_ko.artist and len(track_ko.artist.strip()) <= 5)
-    if is_short_artist:
+    if is_short_artist and not same_solo_artist:
         source_artists_tokens = set()
         for sa in target_artist_variants:
             source_artists_tokens.update(normalize_text(sa).split())
@@ -1620,7 +1705,7 @@ def score_result(
                 cand_groups.append({part_norm})
 
     # Compare against the best source language view.
-    if target_group_views and cand_groups:
+    if target_group_views and cand_groups and not same_solo_artist:
         def group_matches(left_group: set[str], right_group: set[str]) -> bool:
             return any(similarity(left, right, is_title=False) >= 0.85 for left in left_group for right in right_group)
 
@@ -1788,9 +1873,11 @@ def search_ytmusic_songs(
     min_score: float = 0.6,
     min_title_score: float = 0.65,
     min_artist_score: float = 0.55,
+    source_track: SourceTrack | None = None,
+    require_verified_artist: bool = False,
 ) -> list[dict[str, Any]]:
     # Build dummy source tracks to score candidates inside search_ytmusic_songs
-    track_en = SourceTrack(rank=1, title=track_title, artist=track_artist, album=track_album)
+    track_en = source_track or SourceTrack(rank=1, title=track_title, artist=track_artist, album=track_album)
     track_ko = SourceTrack(rank=1, title=track_title_ko, artist=track_artist_ko, album=track_album_ko) if (track_title_ko or track_artist_ko) else None
 
     # A failed API request is not evidence that no matching song exists.
@@ -1822,7 +1909,7 @@ def search_ytmusic_songs(
                     try:
                         # Use force_resolve=False inside search_ytmusic_songs to prevent redundant API calls
                         score, title_score, artist_score, _ = score_result(
-                            track_en, r, track_ko, ytmusic=ytmusic, force_resolve=False
+                            track_en, r, track_ko, ytmusic=ytmusic, require_verified_artist=require_verified_artist
                         )
                         if passes_match_gates(
                             track_en, score=score, title_score=title_score,
@@ -1900,6 +1987,7 @@ def search_ytmusic_songs(
                                                     "videoId": t_video_id,
                                                     "title": t_title,
                                                     "artists": alb_details.get("artists"),
+                                                    "album_track_credits": t.get("artists"),
                                                     "album": {
                                                         "name": alb_details.get("title"),
                                                         "id": r.get("browseId")
@@ -2029,7 +2117,17 @@ def search_youtube_music(
     # independently select their best canonical match before playlist-level deduplication.
     evaluated_candidates: dict[tuple[str, ...], dict[str, Any]] = {}
 
-    for query in search_queries_for_track(track, track_ko):
+    queries = search_queries_for_track(track, track_ko)
+    group = ALIASES.solo_artist(track, track_ko)
+    alias_query = None
+    # The existing query builder has at most ten combinations across two locales.
+    if group and len(queries) < 10:
+        used = {artist_name_key(query) for query in queries}
+        alias_query = next((f"{track.title} {name}" for name in group.names
+                            if artist_name_key(f"{track.title} {name}") not in used), None)
+        if alias_query:
+            queries = [*queries, alias_query]
+    for query in queries:
         time.sleep(0.5)  # Add sleep to prevent rate limiting (429 Too Many Requests)
         try:
             results = search_ytmusic_songs(
@@ -2042,6 +2140,8 @@ def search_youtube_music(
                 track_title_ko=track_ko.title if track_ko else "",
                 track_artist_ko=track_ko.artist if track_ko else "",
                 track_album_ko=track_ko.album if track_ko else "",
+                source_track=track,
+                require_verified_artist=(query == alias_query),
                 min_score=min_score,
                 min_title_score=min_title_score,
                 min_artist_score=min_artist_score,
@@ -2057,6 +2157,9 @@ def search_youtube_music(
                 continue
 
             signature = _candidate_metadata_signature(result)
+            if group:
+                # A later search can supply a track credit missing from the first view.
+                signature += ("verified" if group.accepts(result, {}) else "unverified",)
             if signature in evaluated_candidates:
                 continue
             quality = _candidate_metadata_quality(result)
@@ -2068,8 +2171,10 @@ def search_youtube_music(
                 result,
                 track_ko,
                 ytmusic=ytmusic,
-                force_resolve=force_resolve
+                force_resolve=force_resolve, require_verified_artist=(query == alias_query)
             )
+            if query == alias_query and artist_score != 1.0:
+                continue
             evaluated_candidates[signature] = {
                 "result": result,
                 "score": candidate_score,

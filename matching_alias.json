@@ -1,5 +1,36 @@
 {
   "artists": [],
+  "verified_single_artists": [
+    {
+      "names": ["투모로우바이투게더", "TOMORROW X TOGETHER"],
+      "youtube_channel_id": "UCdeb5b3bAxn1OXXFFeuCaHg",
+      "catalog": {
+        "apple": {
+          "artist_id": "1454642552",
+          "recordings": [
+            {"song_id": "6815062086", "isrc": "USA2P2660707", "youtube_video_id": "5JkTq9rOYI8"},
+            {"song_id": "6815062085", "isrc": "USA2P2660706", "youtube_video_id": "gledHxEf--E"}
+          ]
+        }
+      }
+    },
+    {
+      "names": ["양홍원", "YANGHONGWON", "Young B"],
+      "ambiguous_names": ["Young B"],
+      "youtube_channel_id": "UCO4p2LbFEEF1HKm4HnUVjfg",
+      "catalog": {
+        "apple": {
+          "artist_id": "1265125493",
+          "recordings": [
+            {"song_id": "1573192794", "isrc": "KRA382158943", "youtube_video_id": "eKZm7aXAGAc"},
+            {"song_id": "1573192800", "isrc": "KRA382158948", "youtube_video_id": "aQaZMSnT7x4"},
+            {"song_id": "1573192803", "isrc": "KRA382158951", "youtube_video_id": "AzS4LokpHmg"},
+            {"song_id": "6834305016", "isrc": "KRA382604714", "youtube_video_id": "BMqn8cmqti8"}
+          ]
+        }
+      }
+    }
+  ],
   "titles": [],
   "albums": [],
   "overrides": {}

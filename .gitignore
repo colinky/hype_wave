@@ -12,6 +12,7 @@ tests/*
 !tests/test_weekly_pipeline.py
 !tests/test_metadata_noop_updates.py
 !tests/test_artist_metadata_layout.py
+!tests/test_verified_artist_aliases.py
 !tests/check_artist_metadata.py
 !tests/test_ytmusic_csv_missing_url.py
 !tests/test_ytmusic_monday_schedule.py
