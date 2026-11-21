@@ -25,6 +25,8 @@ from urllib3.util import Retry
 from ytmusicapi import YTMusic
 from ytmusicapi.exceptions import YTMusicServerError
 
+from recording_language import RecordingLanguage, normalize_edition_labels
+
 from hype_db_common import (
     postgres_url,
     has_version_mismatch,
@@ -1378,6 +1380,7 @@ def score_result(
     *,
     force_resolve: bool = False,
     require_verified_artist: bool = False,
+    localized_metadata: dict[str, str] | None = None,
 ) -> tuple[float, float, float, float]:
     yt_title = result.get("title", "")
     yt_album = result_album(result)
@@ -1480,6 +1483,9 @@ def score_result(
         except Exception as e:
             LOG.debug("Failed to resolve bilingual song details for %s: %s", video_id, e)
 
+    if localized_metadata is not None:
+        localized_metadata.update(resolved_details or {})
+
     target_titles_for_version = [track_en.title]
     if track_ko and track_ko.title:
         target_titles_for_version.append(track_ko.title)
@@ -1489,7 +1495,10 @@ def score_result(
             candidate_titles_for_version.append(resolved_details["title_ko"])
         if resolved_details.get("title_en"):
             candidate_titles_for_version.append(resolved_details["title_en"])
-    if _has_recording_version_mismatch(target_titles_for_version, candidate_titles_for_version):
+    if _has_recording_version_mismatch(
+        [normalize_edition_labels(t) for t in target_titles_for_version],
+        [normalize_edition_labels(t) for t in candidate_titles_for_version],
+    ):
         LOG.debug(
             "Rejected version mismatch: target=%s candidate=%s",
             target_titles_for_version,
@@ -1603,6 +1612,8 @@ def score_result(
     if track_ko:
         apple_combined += " " + (track_ko.title + " " + track_ko.artist + " " + track_ko.album).lower()
 
+    yt_combined = normalize_edition_labels(yt_combined)
+    apple_combined = normalize_edition_labels(apple_combined)
     for marker in neg_markers:
         # For ASCII markers, use word boundaries to avoid false positives (e.g. "very" containing "ver")
         is_ascii = bool(re.match(r"^[a-z0-9\s]+$", marker))
@@ -1880,6 +1891,8 @@ def search_ytmusic_songs(
     track_en = source_track or SourceTrack(rank=1, title=track_title, artist=track_artist, album=track_album)
     track_ko = SourceTrack(rank=1, title=track_title_ko, artist=track_artist_ko, album=track_album_ko) if (track_title_ko or track_artist_ko) else None
 
+    source_language = source_recording_language(track_en, track_ko) if source_track else None
+
     # A failed API request is not evidence that no matching song exists.
     max_retries = 3
     delay = 3.0
@@ -1908,8 +1921,10 @@ def search_ytmusic_songs(
                 for r in stage1_candidates[:3]:
                     try:
                         # Use force_resolve=False inside search_ytmusic_songs to prevent redundant API calls
+                        localized = {}
                         score, title_score, artist_score, _ = score_result(
-                            track_en, r, track_ko, ytmusic=ytmusic, require_verified_artist=require_verified_artist
+                            track_en, r, track_ko, ytmusic=ytmusic, require_verified_artist=require_verified_artist,
+                            localized_metadata=localized,
                         )
                         if passes_match_gates(
                             track_en, score=score, title_score=title_score,
@@ -1918,6 +1933,12 @@ def search_ytmusic_songs(
                         ):
                             need_stage2 = False
                             break
+                        # Route an identifiable edition clash to the single localized song lookup.
+                        if source_language:
+                            candidate = _candidate_recording_language(r, localized)
+                            if source_language.shares_title(candidate) and source_language.conflicts_with(candidate):
+                                need_stage2 = False
+                                break
                     except Exception as e:
                         LOG.debug("Error scoring in search_ytmusic_songs: %s", e)
 
@@ -2069,6 +2090,59 @@ def _candidate_metadata_signature(result: dict[str, Any]) -> tuple[str, ...]:
     )
 
 
+def source_recording_language(track: SourceTrack, track_ko: SourceTrack | None) -> RecordingLanguage:
+    views = (track, track_ko) if track_ko else (track,)
+    return RecordingLanguage.from_metadata([v.title for v in views], [v.artist for v in views])
+
+
+def _candidate_recording_language(result, localized) -> RecordingLanguage:
+    return RecordingLanguage.from_metadata(
+        [result.get("title"), localized.get("title_ko"), localized.get("title_en")],
+        [result_artists(result), localized.get("artist_ko"), localized.get("artist_en")],
+    )
+
+
+def _select_language_match(source, passing, evaluated, conflict):
+    """Return a passing match, or the recording clues that still need confirmation."""
+    best = max(passing, key=lambda item: item["score"], default=None)
+    if conflict is None:
+        if best is None:
+            # Explicit edition mismatches may have already failed the ordinary score gates.
+            conflict = next((item["language"] for item in evaluated
+                             if source.shares_title(item["language"]) and source.conflicts_with(item["language"])), None)
+        else:
+            winner = best["language"]
+            rivals = any(
+                item["result"]["videoId"] != best["result"]["videoId"]
+                and winner.artists & item["language"].artists and winner.latin & item["language"].latin
+                and winner.different_scripts(item["language"])
+                and not (winner.editions or item["language"].editions)
+                for item in passing
+            )
+            if source.conflicts_with(winner) or (rivals and source.artists & winner.artists):
+                conflict = winner
+        if conflict is None:
+            return best, None
+
+    choices = {}
+    for item in sorted(passing, key=lambda row: row["score"], reverse=True):
+        candidate = item["language"]
+        if conflict.latin and candidate.latin and not (conflict.latin & candidate.latin or source.latin & candidate.latin):
+            continue
+        if not conflict.shares_title(candidate) and not source.shares_title(candidate):
+            continue
+        supported = source.supports(candidate)
+        # An unmarked original can be distinguished from an explicitly labelled edition.
+        if conflict.editions and not source.editions and not candidate.editions:
+            supported = bool(source.artists & candidate.artists and source.shares_title(candidate)
+                             and not source.conflicts_with(candidate))
+        if supported:
+            choices.setdefault(item["result"]["videoId"], item)
+    if len(choices) == 1:
+        return next(iter(choices.values())), None
+    return None, conflict
+
+
 def search_youtube_music(
     ytmusic: YTMusic,
     track: SourceTrack,
@@ -2079,6 +2153,7 @@ def search_youtube_music(
     min_artist_score: float,
     limit: int,
     ignore_video_ids: set[str] | None = None,
+    language_conflict: RecordingLanguage | None = None,
 ) -> MatchResult:
     # 1. Check manual overrides first from matching_alias.json
     t_norm = normalize_text(track.title)
@@ -2127,25 +2202,35 @@ def search_youtube_music(
                             if artist_name_key(f"{track.title} {name}") not in used), None)
         if alias_query:
             queries = [*queries, alias_query]
-    for query in queries:
-        time.sleep(0.5)  # Add sleep to prevent rate limiting (429 Too Many Requests)
+    source_language = source_recording_language(track, track_ko)
+    local_view = track_ko if track_ko and track_ko.title.strip() else track
+    local_query = f"{local_view.title} {local_view.artist}".strip()
+    tried = set()
+    pending = iter([local_query] if language_conflict else queries)
+    while (query := next(pending, None)) is not None:
+        tried.add(artist_name_key(query))
+        time.sleep(0.5)
         try:
-            results = search_ytmusic_songs(
-                ytmusic,
-                query,
-                limit,
-                track_title=track.title,
-                track_artist=track.artist,
-                track_album=track.album,
-                track_title_ko=track_ko.title if track_ko else "",
-                track_artist_ko=track_ko.artist if track_ko else "",
-                track_album_ko=track_ko.album if track_ko else "",
-                source_track=track,
-                require_verified_artist=(query == alias_query),
-                min_score=min_score,
-                min_title_score=min_title_score,
-                min_artist_score=min_artist_score,
-            )
+            if language_conflict:
+                results = [item for item in ytmusic.search(query, filter="songs", limit=limit)
+                           if ytmusic_result_type(item.get("resultType")) == "song"]
+            else:
+                results = search_ytmusic_songs(
+                    ytmusic,
+                    query,
+                    limit,
+                    track_title=track.title,
+                    track_artist=track.artist,
+                    track_album=track.album,
+                    track_title_ko=track_ko.title if track_ko else "",
+                    track_artist_ko=track_ko.artist if track_ko else "",
+                    track_album_ko=track_ko.album if track_ko else "",
+                    source_track=track,
+                    require_verified_artist=(query == alias_query),
+                    min_score=min_score,
+                    min_title_score=min_title_score,
+                    min_artist_score=min_artist_score,
+                )
         except Exception as exc:
             LOG.warning("Search failed: %s (%s)", query, exc)
             last_search_error = exc
@@ -2166,16 +2251,18 @@ def search_youtube_music(
 
             # Force resolve for the top 3 search results of each query
             force_resolve = (index < 3)
+            localized = {}
             candidate_score, title_score, artist_score, album_score = score_result(
                 track,
                 result,
                 track_ko,
                 ytmusic=ytmusic,
-                force_resolve=force_resolve, require_verified_artist=(query == alias_query)
+                force_resolve=force_resolve, require_verified_artist=(query == alias_query), localized_metadata=localized,
             )
             if query == alias_query and artist_score != 1.0:
                 continue
             evaluated_candidates[signature] = {
+                "language": _candidate_recording_language(result, localized),
                 "result": result,
                 "score": candidate_score,
                 "title_score": title_score,
@@ -2202,7 +2289,15 @@ def search_youtube_music(
                     min_artist_score=min_artist_score,
                 )
             ]
-            best_passing = max(passing, key=lambda item: item["score"], default=None)
+            best_passing, unresolved = _select_language_match(
+                source_language, passing, evaluated_candidates.values(), language_conflict,
+            )
+            if unresolved:
+                LOG.info("Recording language unresolved for %s (%s)", track.title, query)
+                if language_conflict or not local_view.title.strip() or artist_name_key(local_query) in tried:
+                    break
+                language_conflict = unresolved
+                pending = iter([local_query])
 
         if best_passing:
             break

@@ -7,6 +7,7 @@ from contextlib import nullcontext
 from pathlib import Path
 from typing import Any
 
+from recording_language import RecordingLanguage
 from ytmusic_playlist_sync import (
     MatchResult,
     SourceTrack,
@@ -15,6 +16,7 @@ from ytmusic_playlist_sync import (
     localized_source_fields,
     match_from_prev,
     search_youtube_music,
+    source_recording_language,
 )
 
 LOG = logging.getLogger("crawler_common")
@@ -164,7 +166,12 @@ def process_matching_pipeline(
             
             # 2a. DB cache check
             cached = bulk_cache.get(track.song_id) if track.song_id else None
-            if cached:
+            language_conflict = None
+            if cached and cached.get("cache_origin") == "metadata_lookup":
+                candidate = RecordingLanguage.from_metadata([cached.get("yt_title")], [cached.get("yt_artist")])
+                if source_recording_language(track, track_ko).conflicts_with(candidate):
+                    language_conflict = candidate
+            if cached and language_conflict is None:
                 if cached.get("status") == "manual_blocked":
                     localized = localized_source_fields(track, track_ko)
                     match = MatchResult(
@@ -191,6 +198,7 @@ def process_matching_pipeline(
                     min_title_score=min_title_score,
                     min_artist_score=min_artist_score,
                     limit=search_limit,
+                    language_conflict=language_conflict,
                 )
                 did_search = True
 
