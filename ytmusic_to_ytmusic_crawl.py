@@ -46,11 +46,12 @@ from ytmusic_playlist_sync import (
 )
 from hype_db_common import dedupe_source_tracks
 from crawler_common import load_verified_matching_cache
+import youtube_weekly_playlist as weekly_playlist
 
 LOG = logging.getLogger("ytmusic_to_ytmusic_crawl")
 # Browse POSTs only read chart data; playlist mutations never use this session.
 http_session = get_resilient_session(backoff_factor=2, allowed_methods=frozenset({"GET", "POST"}))
-DEFAULT_PLAYLIST_URL = "https://music.youtube.com/playlist?list=PL4fGSI1pDJn6jXS_Tv_N9B8Z0HTRVJE0m"
+DEFAULT_PLAYLIST_URL = f"https://music.youtube.com/playlist?list={weekly_playlist.PLAYLIST_ID}"
 DEFAULT_YOUTUBE_CHARTS_URL = "https://charts.youtube.com/charts/TopSongs/kr/weekly"
 YOUTUBE_PUBLIC_CONFIG_URL = "https://www.youtube.com/?hl=en"
 ACCEPTED_MAPPING_STATUSES = {"resolved_to_song", "already_song", "cached_match", "proxy_matched", "manual_override", "kept_original_video"}
@@ -626,6 +627,30 @@ def extract_chart_entries_from_browse_api(
     return merged
 
 
+def dated_csv_rows(response, start, end):
+    # Only an official filename identifies the period of a downloaded CSV.
+    filename = r"youtube-charts-top-songs-kr-weekly-(\d{8})\.csv"
+    names = (Path(urlparse(response.url).path).name, response.headers.get("Content-Disposition", ""))
+    dates = {dashed_date(n) for name in names for n in re.findall(filename, name, re.I)}
+    if len(dates) != 1 or (end and dashed_date(end) not in dates):
+        return []
+    fetched_end = dates.pop()
+    try:
+        csv_text = response.text.lstrip("\ufeff")
+        ranks = [r.get("Rank") for r in csv.DictReader(csv_text.splitlines())]
+        if ranks != [str(i) for i in range(1, 101)]:
+            return []
+        rows = extract_chart_entries_from_csv_text(csv_text)
+        for row in rows:
+            row.update(chart_period_start=default_week_start(fetched_end), chart_period_end=fetched_end,
+                       collection_method="csv")
+        validate_weekly_chart(rows, chart_period_start=start, chart_period_end=end)
+        return rows
+    except ValueError as exc:
+        LOG.warning("Discarding unusable official weekly CSV: %s", exc)
+        return []
+
+
 def extract_chart_entries_from_youtube_charts(
     url: str,
     *,
@@ -646,7 +671,9 @@ def extract_chart_entries_from_youtube_charts(
         )
     html = response.text
     if looks_like_youtube_charts_csv(html):
-        return extract_chart_entries_from_csv_text(html, limit=limit)
+        rows = dated_csv_rows(response, chart_period_start, chart_period_end)
+        if rows:
+            return rows[:limit]
 
     for csv_url in find_csv_urls(html, fetch_url):
         try:
@@ -656,10 +683,10 @@ def extract_chart_entries_from_youtube_charts(
             LOG.debug("Failed to fetch candidate CSV %s: %s", csv_url, exc)
             continue
         if looks_like_youtube_charts_csv(csv_response.text):
-            entries = extract_chart_entries_from_csv_text(csv_response.text, limit=limit)
+            entries = dated_csv_rows(csv_response, chart_period_start, chart_period_end)
             if entries:
                 LOG.info("Fetched YouTube Charts CSV from %s", csv_url)
-                return entries
+                return entries[:limit]
 
     try:
         browse_entries = extract_chart_entries_from_browse_api(
@@ -694,9 +721,13 @@ def validate_weekly_chart(entries, *, chart_period_start=None, chart_period_end=
             or (chart_period_end and dashed_date(chart_period_end) != end)):
         raise ValueError(f"Official weekly chart period {start}..{end} differs from the requested period")
     for row in entries:
+        no_video = (not row.get("video_id") and (
+            (row.get("source") == "youtube_charts_weekly_csv" and str(row.get("song_id", "")).startswith("fallback:ytmusic:csv:"))
+            or (row.get("source") == weekly_playlist.SOURCE and row.get("source_unavailable") is True
+                and str(row.get("song_id", "")).startswith("fallback:ytmusic:playlist:"))))
         if (row.get("chart_period_start") != start or row.get("chart_period_end") != end
                 or not str(row.get("title") or "").strip() or not str(row.get("artist") or "").strip()
-                or not re.fullmatch(r"[A-Za-z0-9_-]{11}", str(row.get("video_id") or ""))):
+                or not (no_video or re.fullmatch(r"[A-Za-z0-9_-]{11}", str(row.get("video_id") or "")))):
             raise ValueError("Official weekly chart has inconsistent periods or incomplete track metadata")
 
 
@@ -1001,6 +1032,7 @@ def main() -> int:
     # Verify provider substitutions in one locale; bilingual metadata is fetched separately.
     ytmusic = make_ytmusic(yt_auth, yt_client_id, yt_client_secret, language="en") if needs_ytmusic else None
 
+    fallback_error = ""
     if args.youtube_charts_csv:
         chart_entries = extract_chart_entries_from_csv(args.youtube_charts_csv, limit=args.track_limit)
         if chart_entries and chart_period_end:
@@ -1019,6 +1051,21 @@ def main() -> int:
             if use_youtube_charts
             else []
         )
+        if use_youtube_charts and not chart_entries and yt_auth and args.job_name == "Weekly-Hot-100":
+            if not chart_period_end:
+                day = datetime.fromisoformat(started_at).astimezone(timezone.utc).date()
+                chart_period_end = (day - timedelta(days=day.weekday() + 4)).isoformat()
+                chart_period_start = default_week_start(chart_period_end)
+            try:
+                playlist_reader = ytmusic or make_ytmusic(yt_auth, yt_client_id, yt_client_secret, language="en")
+                chart_entries = weekly_playlist.collect_official_playlist(
+                    playlist_reader, http_session, chart_period_start, chart_period_end)
+                validate_weekly_chart(chart_entries, chart_period_start=chart_period_start, chart_period_end=chart_period_end)
+                LOG.info("Official playlist: verified ranks 1–100, dated top 20 matched for %s", chart_period_end)
+            except Exception as exc:
+                chart_entries = []
+                fallback_error = f"Official playlist could not verify {chart_period_end}: {exc}"
+                LOG.warning("%s", fallback_error)
     if chart_entries:
         LOG.info("Fetched %d YouTube Charts entries for audit/reference", len(chart_entries))
         if not chart_period_end:
@@ -1061,15 +1108,15 @@ def main() -> int:
         else ""
     )
     fetched_expected_period = chart_audit_expected(
-        chart_period_start=fetched_chart_period_start,
-        chart_period_end=fetched_chart_period_end,
-        reference_period=fetched_reference_period,
+        chart_period_start=chart_period_start,
+        chart_period_end=chart_period_end,
+        reference_period=reference_period_for_date(args.job_name, chart_period_end) if chart_period_end else "",
     )
     if use_youtube_charts and not args.use_source_playlist:
         not_published_message = ""
         audit_status = "source_error"
         if not chart_entries:
-            not_published_message = "No YouTube Charts entries were available from latest weekly chart source."
+            not_published_message = fallback_error or "No YouTube Charts entries were available from latest weekly chart source."
         elif not fetched_chart_period_end:
             not_published_message = "YouTube Charts entries did not expose a verifiable weekly chart period."
             audit_status = "validation_failed"
@@ -1132,7 +1179,9 @@ def main() -> int:
                 "atv_external_video_id": row.get("atv_external_video_id", ""),
                 "original_title": row.get("title", ""),
                 "original_artist_or_channel": row.get("artist", ""),
-                "duration_seconds_original": 0,
+                "duration_seconds_original": row.get("duration_seconds", 0),
+                "source_unavailable": row.get("source_unavailable", False),
+                "artist_ids": row.get("artist_ids", []),
                 "album": row.get("album", ""),
                 "title_en": row.get("title_en", ""),
                 "artist_en": row.get("artist_en", ""),
@@ -1222,6 +1271,8 @@ def main() -> int:
                         message="YouTube Charts weekly chart collected; " + json.dumps({
                             "collection_method": chart_entries[0].get("collection_method", "api"),
                             "source_collected_at": started_at,
+                            **({"week_evidence": weekly_playlist.REFERENCE_URL, "matched_ranks": 20}
+                               if chart_entries[0].get("source") == weekly_playlist.SOURCE else {}),
                         }, ensure_ascii=False),
                     )
                 conn.commit()
@@ -1260,7 +1311,7 @@ def main() -> int:
         for row in effective_entries:
             original_id = row.get("original_video_id", "")
             if not original_id:
-                row.update({"mapping_status": "failed", "mapping_reason": "missing_original_video_id",
+                row.update({"mapping_status": "failed", "mapping_reason": weekly_playlist.HELD if row.get("source_unavailable") else "missing_original_video_id",
                             "mapping_score": 0.0, "resolved_video_id": ""})
                 resolved_rows.append(row)
                 continue
@@ -1287,6 +1338,17 @@ def main() -> int:
                 LOG.info("[%03d/%03d] resolve_skipped %s", row["rank"], len(effective_entries), original_id)
                 continue
             
+            if row.get("source_unavailable"):
+                resolution = weekly_playlist.unavailable_replacement(ytmusic, row, cached or {}, args.search_limit)
+                out = {**row, **resolution}
+                resolved_rows.append(out)
+                rid = out.get("resolved_video_id")
+                if rid and rid not in seen:
+                    video_ids.append(rid)
+                    seen.add(rid)
+                LOG.info("[%03d/%03d] %s: %s", row["rank"], len(entries), out["mapping_reason"], original_id)
+                continue
+
             # DB cache check using in-memory bulk cache dict
             if cached and cached.get("video_id"):
                 out = {
@@ -1311,11 +1373,11 @@ def main() -> int:
                 resolved_rows.append(out)
                 LOG.info("[%03d/%03d] %s %.3f %s -> %s", row["rank"], len(effective_entries), out["mapping_status"], out.get("mapping_score", 0.0), original_id, rid)
                 continue
-            if not ytmusic:
+            if not ytmusic or row.get("source") == weekly_playlist.SOURCE:
                 out = {
                     **row,
                     "mapping_status": "kept_original_video",
-                    "mapping_reason": "db_cache_miss_no_ytmusic_fallback",
+                    "mapping_reason": "official_playlist_recording" if row.get("source") == weekly_playlist.SOURCE else "db_cache_miss_no_ytmusic_fallback",
                     "mapping_score": 1.0,
                     "resolved_video_id": original_id,
                     "resolved_title": row.get("original_title", ""),
@@ -1461,10 +1523,12 @@ def main() -> int:
         playlist_name=playlist_name,
         metadata_cache=metadata_cache,
     )
-    LOG.log(logging.WARNING if publication['publication_mode'] == 'partial' else logging.INFO,
-            'Done. source_ranks=%d requested=%d published=%s publication_mode=%s excluded=%s',
-            len(chart_entries), len(video_ids), publication['actual_count'],
-            publication['publication_mode'], json.dumps(publication['excluded_items'], ensure_ascii=False))
+    held_ranks = [row["rank"] for row in resolved_rows if row.get("mapping_reason") == weekly_playlist.HELD]
+    mode = "partial" if held_ranks else publication["publication_mode"]
+    LOG.log(logging.WARNING if mode == "partial" else logging.INFO,
+            "Done. source_ranks=%d requested=%d published=%s publication_mode=%s held_ranks=%s excluded=%s",
+            len(entries), len(video_ids), publication["actual_count"], mode, held_ranks,
+            json.dumps(publication["excluded_items"], ensure_ascii=False))
     return 0
 
 

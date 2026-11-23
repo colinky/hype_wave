@@ -1,4 +1,4 @@
-"""YouTube runs only on UTC Mondays; other weekly tasks retain catch-up."""
+"""YouTube collects on UTC Monday and retries one missing chart on Tuesday."""
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
@@ -36,6 +36,11 @@ class YouTubeMondayScheduleTests(unittest.TestCase):
         self.conn.row_factory = sqlite3.Row
         self.addCleanup(self.conn.close)
         self.conn.executescript("""
+            CREATE TABLE chart_source_audit (
+                audit_id TEXT PRIMARY KEY, service TEXT, job_name TEXT, expected_chart_period_start TEXT,
+                expected_chart_period_end TEXT, expected_reference_period TEXT, fetched_chart_period_end TEXT,
+                status TEXT, entry_count INTEGER, source TEXT, created_at TEXT
+            );
             CREATE TABLE playlist_update_runs (
                 playlist_id TEXT, job_name TEXT, service TEXT, status TEXT,
                 dry_run INTEGER, completed_at TEXT, match_started_at TEXT,
@@ -85,6 +90,11 @@ class YouTubeMondayScheduleTests(unittest.TestCase):
         self.assertEqual(sync_all.task_enabled(task, now, db_path=self.db), expected)
         self.assertEqual(self.db.read_bytes(), before)
 
+    def assert_publication_due(self, expected, *, task=WEEKLY, now=ANCHOR):
+        # Other scheduled tasks still require an audited, completed publication.
+        anchor = sync_all.schedule_window(task, now)[2]
+        self.assertEqual(not sync_all.scheduled_task_completed(self.conn, task, anchor), expected)
+
     def test_config_and_weekday_check_use_utc_monday(self):
         configured = next(task for task in load_sync_config() if task["job_name"] == "Weekly-Hot-100")
         self.assertEqual(configured["schedule"], "Monday")
@@ -112,8 +122,9 @@ class YouTubeMondayScheduleTests(unittest.TestCase):
                 self.assertEqual(now.astimezone(timezone(timedelta(hours=9))).weekday(), 1)
                 self.assert_due(True, now=now)
 
-    def test_tuesday_and_remaining_week_never_catch_up(self):
-        for days in range(1, 7):
+    def test_only_tuesday_can_recover_the_missing_chart(self):
+        self.assert_due(True, now=TUESDAY)
+        for days in range(2, 7):
             with self.subTest(days=days):
                 self.assert_due(False, now=ANCHOR + timedelta(days=days, hours=7))
 
@@ -129,8 +140,24 @@ class YouTubeMondayScheduleTests(unittest.TestCase):
                           ('{"events":[{"publication_mode":"partial"}]}',))
         self.conn.commit()
         with patch("hype_db.connect", side_effect=AssertionError("database must not be opened")):
-            for days in range(1, 7):
+            for days in range(2, 7):
                 self.assert_due(False, now=ANCHOR + timedelta(days=days, hours=7))
+
+    def test_tuesday_claim_and_complete_chart_are_independent_of_publication(self):
+        self.assertTrue(sync_all.claim_youtube_retry(self.conn, WEEKLY["job_name"], ANCHOR))
+        self.assertFalse(sync_all.claim_youtube_retry(self.conn, WEEKLY["job_name"], ANCHOR))
+        self.assertEqual(self.conn.execute("SELECT expected_chart_period_end FROM chart_source_audit").fetchone()[0],
+                         "2026-09-24")
+        self.seed_source()
+        self.seed_publication()
+        self.assert_due(True, now=ANCHOR)  # An unverified import is not an official source receipt.
+        self.conn.execute("""INSERT INTO chart_source_audit(service,job_name,status,entry_count,fetched_chart_period_end)
+                             VALUES ('ytmusic','Weekly-Hot-100','published',100,'2026-09-24')""")
+        self.conn.commit()
+        self.assert_due(False, now=TUESDAY)
+        self.assert_due(False, now=ANCHOR)
+        self.assert_due(True, now=TUESDAY + timedelta(days=7))
+        self.assertTrue(sync_all.claim_youtube_retry(self.conn, WEEKLY["job_name"], ANCHOR + timedelta(days=7)))
 
     def test_other_weekly_services_still_catch_up(self):
         for service in ("melon", "spotify"):
@@ -146,18 +173,18 @@ class YouTubeMondayScheduleTests(unittest.TestCase):
                 self.conn.execute("UPDATE playlist_update_runs SET status = ?", (status,))
                 self.conn.commit()
                 self.assertTrue(sync_all.scheduled_task_completed(self.conn, WEEKLY, ANCHOR))
-                self.assert_due(False, now=datetime.fromisoformat(START) + timedelta(minutes=30))
-                self.assert_due(False)
-                self.assert_due(True, now=ANCHOR + timedelta(days=7, hours=15))
+                self.assert_publication_due(False, now=datetime.fromisoformat(START) + timedelta(minutes=30))
+                self.assert_publication_due(False)
+                self.assert_publication_due(True, now=ANCHOR + timedelta(days=7, hours=15))
         compact_start = "20260928T150000Z"
         self.conn.execute("UPDATE match_runs SET started_at = ?", (compact_start,))
         self.conn.execute("UPDATE playlist_update_runs SET match_started_at = ?", (compact_start,))
         self.conn.commit()
-        self.assert_due(False)
+        self.assert_publication_due(False)
 
     def test_db_only_import_does_not_complete_publication(self):
         self.seed_source()
-        self.assert_due(True)
+        self.assert_publication_due(True)
 
     def test_failed_or_incomplete_publication_remains_due(self):
         self.seed_source()
@@ -166,20 +193,20 @@ class YouTubeMondayScheduleTests(unittest.TestCase):
             with self.subTest(status=status):
                 self.conn.execute("UPDATE playlist_update_runs SET status = ?", (status,))
                 self.conn.commit()
-                self.assert_due(True)
+                self.assert_publication_due(True)
         self.conn.execute("UPDATE playlist_update_runs SET status = 'published', completed_at = NULL")
         self.conn.commit()
-        self.assert_due(True)
+        self.assert_publication_due(True)
         self.conn.execute("UPDATE playlist_update_runs SET completed_at = ?, dry_run = 1", (START,))
         self.conn.commit()
-        self.assert_due(True)
+        self.assert_publication_due(True)
 
     def test_newer_publication_failure_takes_precedence_over_earlier_success(self):
         self.seed_source()
         self.seed_publication()
-        self.assert_due(False)
+        self.assert_publication_due(False)
         self.seed_publication(status="recovery_required", started="2026-09-28T15:30:00+00:00")
-        self.assert_due(True)
+        self.assert_publication_due(True)
 
     def test_previous_cycle_or_unlinked_match_cannot_complete_current_cycle(self):
         self.seed_source()
@@ -189,12 +216,12 @@ class YouTubeMondayScheduleTests(unittest.TestCase):
             with self.subTest(started=started):
                 self.conn.execute("UPDATE playlist_update_runs SET match_started_at = ?", (started,))
                 self.conn.commit()
-                self.assert_due(True)
+                self.assert_publication_due(True)
 
     def test_old_source_period_does_not_complete_new_cycle(self):
         self.seed_source(period="2026-W38")
         self.seed_publication()
-        self.assert_due(True)
+        self.assert_publication_due(True)
 
     def test_verified_partial_publication_remains_due_for_missing_songs(self):
         self.seed_source()
@@ -202,17 +229,17 @@ class YouTubeMondayScheduleTests(unittest.TestCase):
         self.conn.execute('UPDATE playlist_update_runs SET recovery_payload_json=?',
                           ('{"events":[{"publication_mode":"partial"}]}',))
         self.conn.commit()
-        self.assert_due(True)
+        self.assert_publication_due(True)
 
     def test_changed_target_or_latest_target_owner_remains_due(self):
         self.seed_source()
         self.seed_publication()
-        self.assert_due(True, task={**WEEKLY, "target_id": "new-target"})
+        self.assert_publication_due(True, task={**WEEKLY, "target_id": "new-target"})
         for field, value in (("job_name", "Other-Job"), ("service", "spotify")):
             with self.subTest(field=field):
                 self.conn.execute("DELETE FROM playlist_update_runs")
                 self.seed_publication(task={**WEEKLY, field: value})
-                self.assert_due(True)
+                self.assert_publication_due(True)
 
     def test_source_status_counts_and_final_attempts_must_all_be_complete(self):
         self.seed_source()
@@ -233,7 +260,7 @@ class YouTubeMondayScheduleTests(unittest.TestCase):
                 self.assertFalse(sync_all.scheduled_task_completed(self.conn, WEEKLY, ANCHOR))
                 self.conn.execute("ROLLBACK TO incomplete_source")
                 self.conn.execute("RELEASE incomplete_source")
-        self.assert_due(False)
+        self.assert_publication_due(False)
 
     def test_weekly_playlist_requires_scheduled_date_instead_of_chart_week(self):
         task = {"job_name": "Hot-Hits-Korea", "service": "spotify", "frequency": "weekly",

@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
   schedule:
     # Daily at 07:05 UTC (16:05 KST); sync_all uses UTC scheduling weekdays.
-    # YouTube runs only on UTC Mondays; other incomplete weekly tasks can catch up.
+    # YouTube collects on UTC Monday, with one Tuesday recovery for a missing chart.
     - cron: "5 7 * * *"
 
 concurrency:

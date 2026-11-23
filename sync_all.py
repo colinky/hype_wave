@@ -100,6 +100,47 @@ def scheduled_task_completed(conn, task: dict, anchor: datetime) -> bool:
     ))
 
 
+def youtube_week_ready(conn, job, end):
+    from hype_db_common import reference_period_for_date
+
+    audit = conn.execute(
+        """SELECT 1 FROM chart_source_audit WHERE service='ytmusic' AND job_name=?
+           AND status='published' AND fetched_chart_period_end=? AND entry_count=100 LIMIT 1""",
+        (job, end),
+    ).fetchone()
+    if not audit:
+        return False
+    period = reference_period_for_date(job, end)
+    slots = conn.execute(
+        """SELECT COUNT(*) AS total, MIN(rank_order) AS first, MAX(rank_order) AS last
+           FROM playlist_order WHERE service='ytmusic' AND job_name=? AND source_variant='default'
+           AND reference_period=?""", (job, period)).fetchone()
+    if (slots["total"], slots["first"], slots["last"]) != (100, 1, 100):
+        return False
+    run = conn.execute(
+        """SELECT started_at FROM match_runs WHERE service='ytmusic' AND job_name=?
+           AND source_variant='default' AND reference_period=? AND status='completed'
+           ORDER BY created_at DESC LIMIT 1""", (job, period),
+    ).fetchone()
+    return bool(run and data_snapshot_ready(conn, service="ytmusic", job_name=job, started_at=run["started_at"]))
+
+
+def claim_youtube_retry(conn, job, anchor):
+    from hype_db_common import reference_period_for_date
+
+    end = (anchor.date() - timedelta(days=4)).isoformat()
+    row = conn.execute(
+        """INSERT INTO chart_source_audit (audit_id,service,job_name,expected_chart_period_start,
+               expected_chart_period_end,expected_reference_period,status,entry_count,source,created_at)
+           VALUES (?,'ytmusic',?,?,?,?,'retry_started',0,'scheduler',?)
+           ON CONFLICT (audit_id) DO NOTHING RETURNING audit_id""",
+        (f"tuesday:{job}:{end}", job, (anchor.date() - timedelta(days=10)).isoformat(), end,
+         reference_period_for_date(job, end), utc_now().isoformat()),
+    ).fetchone()
+    conn.commit()
+    return bool(row)
+
+
 def task_enabled(task, now: datetime | None = None, *, db_path: Path | None = None):
     # 1. Check basic enabled/disabled toggle
     value = task.get("enabled", True)
@@ -111,11 +152,20 @@ def task_enabled(task, now: datetime | None = None, *, db_path: Path | None = No
     if not is_enabled:
         return False
 
-    # YouTube runs only on its UTC scheduled day; other weekly tasks can catch up.
     ok, reason, anchor = schedule_window(task, now)
-    if task.get("job_name") == "Weekly-Hot-100" and not ok:
-        LOG.info(reason)
-        return False
+    if task.get("job_name") == "Weekly-Hot-100":
+        current = (now or utc_now()).astimezone(timezone.utc)
+        if not anchor or (not ok and current.date() != anchor.date() + timedelta(days=1)):
+            LOG.info(reason)
+            return False
+        if db_path is None or not (postgres_url() or Path(db_path).exists()):
+            return ok
+        from hype_db import connect
+
+        end = (anchor.date() - timedelta(days=4)).isoformat()
+        with connect(db_path, read_only=True) as conn:
+            return not youtube_week_ready(conn, task["job_name"], end)
+
     if anchor is not None and db_path is not None:
         from hype_db import connect
 
@@ -206,8 +256,25 @@ def publication_result(conn, task: dict, started_at: str) -> dict | None:
     payload = json.loads(row['recovery_payload_json'])
     partial = _latest_partial_publication(payload)
     actual = (payload.get('outcomes') or [{}])[-1].get('actual', [])
-    return {'mode':'partial' if partial else 'full', 'requested':row['requested_count'],
-            'published':len(actual), 'excluded':partial.get('excluded_items', []) if partial else []}
+    excluded = list(partial.get('excluded_items', [])) if partial else []
+    result = {'mode': 'partial' if partial else 'full', 'requested': row['requested_count'],
+              'published': len(actual), 'excluded': excluded}
+    if task.get('job_name') == 'Weekly-Hot-100':
+        from youtube_weekly_playlist import HELD
+        held = conn.execute(
+            """SELECT a.rank_order AS position, a.song_id AS source_song_id, a.query AS reason
+               FROM match_attempts a JOIN match_runs m ON a.run_id=m.run_id
+               WHERE m.service='ytmusic' AND m.job_name=? AND m.started_at=? AND a.query=?
+               ORDER BY a.rank_order""", (task['job_name'], started_at, HELD)).fetchall()
+        result['source_count'] = conn.execute(
+            """SELECT COUNT(*) FROM playlist_order p JOIN match_runs m
+               USING(service,job_name,source_variant,reference_period)
+               WHERE m.service='ytmusic' AND m.job_name=? AND m.started_at=?""",
+            (task['job_name'], started_at)).fetchone()[0]
+        if held:
+            result['mode'] = 'partial'
+            excluded.extend(dict(item) for item in held)
+    return result
 
 
 def classify_task_failure(conn, task: dict, started_at: str, *, returncode: int | None = None) -> str:
@@ -387,6 +454,20 @@ def main():
                 cmd.extend(["--track-limit", str(entity_limit)])
         elif task_type == "ytmusic":
             cmd.append(str(script_dir / "ytmusic_to_ytmusic_crawl.py"))
+            if job_name == "Weekly-Hot-100":
+                _, _, anchor = schedule_window(task, current_utc)
+                cmd.extend(["--chart-period-end", (anchor.date() - timedelta(days=4)).isoformat()])
+                if current_utc.weekday() == 1:
+                    from hype_db import connect
+                    try:
+                        with connect(script_dir / "hype_wave_data.db") as conn:
+                            if not claim_youtube_retry(conn, job_name, anchor):
+                                raise RuntimeError("Tuesday recovery already attempted; weekly data is still missing")
+                    except Exception as exc:
+                        LOG.error("Cannot start YouTube weekly recovery: %s", exc)
+                        failed_tasks.append(job_name)
+                        data_unready_tasks.append(job_name)
+                        continue
             for url in source_urls:
                 if "charts.youtube.com" in url:
                     cmd.extend(["--youtube-charts-url", url])
@@ -490,7 +571,7 @@ def main():
             LOG.warning('Partially published task: %s (source_data_ready=true requested=%d published=%d excluded=%s)',
                         job_name, publication['requested'], publication['published'], publication['excluded'])
             if os.environ.get('GITHUB_ACTIONS') == 'true':
-                print(f"::warning title=Partial playlist publication::{job_name}: {publication['published']}/{publication['requested']} songs published", flush=True)
+                print(f"::warning title=Partial playlist publication::{job_name}: {publication['published']}/{publication.get('source_count', publication['requested'])} songs published", flush=True)
         elif not failure_phase:
             success_count += 1
             LOG.info("Successfully finished task: %s (data_ready=true)", job_name)
@@ -508,9 +589,9 @@ def main():
     LOG.info('Partially published: %d (%s)', len(partial_tasks), ', '.join(partial_tasks))
     if os.environ.get('GITHUB_STEP_SUMMARY') and publication_rows:
         with open(os.environ['GITHUB_STEP_SUMMARY'], 'a', encoding='utf-8') as stream:
-            stream.write('\n| Task | Publication | Requested | Published | Excluded |\n|---|---|---:|---:|---:|\n')
+            stream.write('\n| Task | Publication | Source ranks | Requested | Published | Excluded |\n|---|---|---:|---:|---:|---:|\n')
             for name, result in publication_rows:
-                stream.write(f"| {name} | {result['mode']} | {result['requested']} | {result['published']} | {len(result['excluded'])} |\n")
+                stream.write(f"| {name} | {result['mode']} | {result.get('source_count', '')} | {result['requested']} | {result['published']} | {len(result['excluded'])} |\n")
     if ready_task_count and not history_blocked and not failed_hype_inputs(tasks, data_unready_tasks):
         try:
             from hype_db import connect, export_frontend_history, latest_hype_history_date, validate_frontend_history
