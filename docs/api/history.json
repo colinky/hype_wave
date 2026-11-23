@@ -1,6 +1,6 @@
 {
   "schema_version": 2,
-  "generated_at": "2026-11-23T12:21:31+00:00",
+  "generated_at": "2026-11-23T19:22:39+00:00",
   "days": 31,
   "dates": [
     "2026-11-23",
@@ -49,6 +49,32 @@
       "spotify_url": "https://open.spotify.com/track/0pMoUGdpD8nupNP1mSdZUn",
       "apple_url": ""
     },
+    "JJx_WQXOeK0": {
+      "video_id": "JJx_WQXOeK0",
+      "title": "꿈꾸던 어른이 되었나요?",
+      "artist": "머무르",
+      "album": "꿈꾸던 어른이 되었나요?",
+      "yt_title": "꿈꾸던 어른이 되었나요?",
+      "yt_artist": "MEOMURU",
+      "yt_album": "꿈꾸던 어른이 되었나요?",
+      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music221/v4/04/26/86/04268661-4972-f0fa-5699-7ce96d9a4e6b/8800362305407.jpg/100x100bb.jpg",
+      "melon_url": "https://www.melon.com/song/detail.htm?songId=602290711",
+      "apple_url": "",
+      "spotify_url": "https://open.spotify.com/track/67bXdWqZFre6lPaBIaZHlO"
+    },
+    "rlYOsUfpi3M": {
+      "video_id": "rlYOsUfpi3M",
+      "title": "NEON",
+      "artist": "A2O & A2O LITE",
+      "album": "NEON - Single",
+      "yt_title": "NEON",
+      "yt_artist": "A2O A2O LITE",
+      "yt_album": "NEON",
+      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/47/9c/af/479caf36-9941-3b8e-51f5-98e761463502/888272190403_Cover.jpg/100x100bb.jpg",
+      "melon_url": "https://www.melon.com/song/detail.htm?songId=603382333",
+      "spotify_url": "https://open.spotify.com/track/5PvLNQRNRj61y3CU4SFIY4",
+      "apple_url": ""
+    },
     "jWwdHeJ8XeU": {
       "video_id": "jWwdHeJ8XeU",
       "title": "연애의 조건 (Love Options)",
@@ -65,7 +91,7 @@
     "rodFpxo7wkE": {
       "video_id": "rodFpxo7wkE",
       "title": "With",
-      "artist": "RESCENE (리센느)",
+      "artist": "리센느",
       "album": "PULSE - EP",
       "yt_title": "With",
       "yt_artist": "RESCENE",
@@ -75,37 +101,11 @@
       "spotify_url": "https://open.spotify.com/track/6GNvsmhrkdPp5skYLq42nY",
       "apple_url": ""
     },
-    "rlYOsUfpi3M": {
-      "video_id": "rlYOsUfpi3M",
-      "title": "NEON",
-      "artist": "A2O & A2O LITE",
-      "album": "NEON - Single",
-      "yt_title": "NEON",
-      "yt_artist": "A2O A2O LITE",
-      "yt_album": "NEON",
-      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/47/9c/af/479caf36-9941-3b8e-51f5-98e761463502/888272190403_Cover.jpg/100x100bb.jpg",
-      "melon_url": "https://www.melon.com/song/detail.htm?songId=603382333",
-      "spotify_url": "https://open.spotify.com/track/5PvLNQRNRj61y3CU4SFIY4",
-      "apple_url": ""
-    },
-    "JJx_WQXOeK0": {
-      "video_id": "JJx_WQXOeK0",
-      "title": "꿈꾸던 어른이 되었나요?",
-      "artist": "머무르",
-      "album": "꿈꾸던 어른이 되었나요?",
-      "yt_title": "꿈꾸던 어른이 되었나요?",
-      "yt_artist": "MEOMURU",
-      "yt_album": "꿈꾸던 어른이 되었나요?",
-      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music221/v4/04/26/86/04268661-4972-f0fa-5699-7ce96d9a4e6b/8800362305407.jpg/100x100bb.jpg",
-      "melon_url": "https://www.melon.com/song/detail.htm?songId=602290711",
-      "apple_url": "",
-      "spotify_url": "https://open.spotify.com/track/67bXdWqZFre6lPaBIaZHlO"
-    },
     "bB8rDZPNjyI": {
       "video_id": "bB8rDZPNjyI",
-      "title": "삐그덕 (feat. 아이유)",
+      "title": "삐그덕 (seesaw) (feat. 아이유(IU))",
       "artist": "Crush",
-      "album": "삐그덕 (feat. 아이유) - Single",
+      "album": "삐그덕 (seesaw)",
       "yt_title": "삐그덕 (seesaw) (feat. 아이유(IU))",
       "yt_artist": "Crush",
       "yt_album": "삐그덕 (seesaw)",
@@ -153,6 +153,19 @@
       "melon_url": "https://www.melon.com/song/detail.htm?songId=37928381",
       "spotify_url": "https://open.spotify.com/track/6uosenLUNFZtOIih5T0qfV"
     },
+    "3F9jlnANW08": {
+      "video_id": "3F9jlnANW08",
+      "title": "BAD",
+      "artist": "ATEEZ",
+      "album": "GOLDEN HOUR : Part.5",
+      "yt_title": "BAD",
+      "yt_artist": "ATEEZ",
+      "yt_album": "GOLDEN HOUR : Part.5",
+      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music221/v4/15/5e/a0/155ea070-3f0d-84ae-7883-128ecd9ed5bf/196874257944.jpg/100x100bb.jpg",
+      "melon_url": "https://www.melon.com/song/detail.htm?songId=602322595",
+      "spotify_url": "https://open.spotify.com/track/55UDXtbNJBAdTdUdbRu8T3",
+      "apple_url": ""
+    },
     "za0moRpUMVY": {
       "video_id": "za0moRpUMVY",
       "title": "Looks Can Kill",
@@ -164,19 +177,6 @@
       "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music221/v4/f3/96/41/f39641dc-d2a7-58e6-0fd0-9e14a87ee67a/711641081975.jpg/100x100bb.jpg",
       "melon_url": "https://www.melon.com/song/detail.htm?songId=603448999",
       "spotify_url": "https://open.spotify.com/track/39sjfpQLGBJnvwTox6LLkn",
-      "apple_url": ""
-    },
-    "3F9jlnANW08": {
-      "video_id": "3F9jlnANW08",
-      "title": "BAD",
-      "artist": "ATEEZ(에이티즈)",
-      "album": "GOLDEN HOUR : Part.5",
-      "yt_title": "BAD",
-      "yt_artist": "ATEEZ",
-      "yt_album": "GOLDEN HOUR : Part.5",
-      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music221/v4/15/5e/a0/155ea070-3f0d-84ae-7883-128ecd9ed5bf/196874257944.jpg/100x100bb.jpg",
-      "melon_url": "https://www.melon.com/song/detail.htm?songId=602322595",
-      "spotify_url": "https://open.spotify.com/track/55UDXtbNJBAdTdUdbRu8T3",
       "apple_url": ""
     },
     "EsU7ng0KIy0": {
@@ -218,19 +218,6 @@
       "spotify_url": "https://open.spotify.com/track/1pBUzZE9PoKLoPxo6QxsG6",
       "apple_url": ""
     },
-    "EIc13cn7tWo": {
-      "video_id": "EIc13cn7tWo",
-      "title": "노스탈지아",
-      "artist": "BIG Naughty (서동현)",
-      "album": "노스탈지아",
-      "yt_title": "Nostalgia",
-      "yt_artist": "BIG Naughty",
-      "yt_album": "Nostalgia",
-      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/d9/e1/62/d9e162a7-7125-6cd0-2df5-a4a3c909c285/cover_KM0025140_1.jpg/100x100bb.jpg",
-      "melon_url": "https://www.melon.com/song/detail.htm?songId=602939768",
-      "spotify_url": "https://open.spotify.com/track/776vLcNy6mHNmPisdejR0I",
-      "apple_url": ""
-    },
     "XDzGoMtSqZA": {
       "video_id": "XDzGoMtSqZA",
       "title": "It's Me",
@@ -244,16 +231,55 @@
       "melon_url": "https://www.melon.com/song/detail.htm?songId=601899271",
       "spotify_url": "https://open.spotify.com/track/1D5L58KLBbceOynTP4DQnY"
     },
+    "5JkTq9rOYI8": {
+      "video_id": "5JkTq9rOYI8",
+      "title": "Angel Bite",
+      "artist": "투모로우바이투게더",
+      "album": "PERFECT STORM - EP",
+      "yt_title": "Angel Bite",
+      "yt_artist": "TOMORROW BY TOGETHER",
+      "yt_album": "PERFECT STORM",
+      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/a7/8b/7c/a78b7c36-7152-5541-6f0f-5f3182eb7bc1/823375408819_Cover.jpg/100x100bb.jpg",
+      "melon_url": "https://www.melon.com/song/detail.htm?songId=603801191",
+      "apple_url": "",
+      "spotify_url": ""
+    },
+    "EIc13cn7tWo": {
+      "video_id": "EIc13cn7tWo",
+      "title": "노스탈지아",
+      "artist": "BIG Naughty (서동현)",
+      "album": "노스탈지아",
+      "yt_title": "Nostalgia",
+      "yt_artist": "BIG Naughty",
+      "yt_album": "Nostalgia",
+      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/d9/e1/62/d9e162a7-7125-6cd0-2df5-a4a3c909c285/cover_KM0025140_1.jpg/100x100bb.jpg",
+      "melon_url": "https://www.melon.com/song/detail.htm?songId=602939768",
+      "spotify_url": "https://open.spotify.com/track/776vLcNy6mHNmPisdejR0I",
+      "apple_url": ""
+    },
     "IQI2qaqHFlg": {
       "video_id": "IQI2qaqHFlg",
       "title": "기립 (GiiiRIP)",
-      "artist": "BIGBANG (빅뱅)",
-      "album": "기립 (GiiiRIP)",
+      "artist": "BIGBANG",
+      "album": "기립 (GiiiRIP) - Single",
       "yt_title": "GiiiRIP",
       "yt_artist": "BIGBANG",
       "yt_album": "GiiiRIP",
       "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music221/v4/13/29/40/132940f6-6b2d-7625-46be-2f22590c0bb3/8809519881573_cover.jpg/100x100bb.jpg",
       "melon_url": "https://www.melon.com/song/detail.htm?songId=604028779",
+      "apple_url": "",
+      "spotify_url": ""
+    },
+    "InCd0ElKUAQ": {
+      "video_id": "InCd0ElKUAQ",
+      "title": "사랑은 왜 해",
+      "artist": "최정철",
+      "album": "Identity",
+      "yt_title": "사랑은 왜 해",
+      "yt_artist": "Choi Jung Chul",
+      "yt_album": "Identity",
+      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music221/v4/9e/df/9e/9edf9ef0-d932-36f2-9e49-d7ec24788769/8809527316081_cover.jpg/100x100bb.jpg",
+      "melon_url": "https://www.melon.com/song/detail.htm?songId=1746304",
       "apple_url": "",
       "spotify_url": ""
     },
@@ -270,32 +296,6 @@
       "melon_url": "https://www.melon.com/song/detail.htm?songId=31615308",
       "spotify_url": ""
     },
-    "5JkTq9rOYI8": {
-      "video_id": "5JkTq9rOYI8",
-      "title": "Angel Bite",
-      "artist": "투모로우바이투게더",
-      "album": "PERFECT STORM - EP",
-      "yt_title": "Angel Bite",
-      "yt_artist": "TOMORROW BY TOGETHER",
-      "yt_album": "PERFECT STORM",
-      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/a7/8b/7c/a78b7c36-7152-5541-6f0f-5f3182eb7bc1/823375408819_Cover.jpg/100x100bb.jpg",
-      "melon_url": "https://www.melon.com/song/detail.htm?songId=603801191",
-      "apple_url": "",
-      "spotify_url": ""
-    },
-    "InCd0ElKUAQ": {
-      "video_id": "InCd0ElKUAQ",
-      "title": "사랑은 왜 해",
-      "artist": "최정철",
-      "album": "Identity",
-      "yt_title": "사랑은 왜 해",
-      "yt_artist": "최정철",
-      "yt_album": "Identity",
-      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music221/v4/9e/df/9e/9edf9ef0-d932-36f2-9e49-d7ec24788769/8809527316081_cover.jpg/100x100bb.jpg",
-      "melon_url": "https://www.melon.com/song/detail.htm?songId=1746304",
-      "apple_url": "",
-      "spotify_url": ""
-    },
     "v8mCh6TZfEU": {
       "video_id": "v8mCh6TZfEU",
       "title": "외사랑 (feat. 최유리)",
@@ -308,19 +308,6 @@
       "melon_url": "https://www.melon.com/song/detail.htm?songId=601983813",
       "apple_url": "",
       "spotify_url": ""
-    },
-    "nxdxwZztGj0": {
-      "video_id": "nxdxwZztGj0",
-      "title": "퇴사할게여 (Narr. 기안84)",
-      "artist": "소연 (SOYEON)",
-      "album": "끝내주는 인생",
-      "yt_title": "I’m gonna TOESA (Narr. KIAN84)",
-      "yt_artist": "SOYEON",
-      "yt_album": "What a Wonderful Life",
-      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/ea/cf/ad/eacfadf8-14ab-07e4-d69b-b4c0c3897235/8804775411847.jpg/100x100bb.jpg",
-      "melon_url": "https://www.melon.com/song/detail.htm?songId=602862199",
-      "spotify_url": "https://open.spotify.com/track/5kaHfldTiM58rL3yOpBqfO",
-      "apple_url": ""
     },
     "jWYFI10cZfw": {
       "video_id": "jWYFI10cZfw",
@@ -348,6 +335,19 @@
       "melon_url": "https://www.melon.com/song/detail.htm?songId=33186501",
       "spotify_url": "https://open.spotify.com/track/3tbHqU6PKS2bIGWx9cn082"
     },
+    "nxdxwZztGj0": {
+      "video_id": "nxdxwZztGj0",
+      "title": "퇴사할게여 (Narr. 기안84)",
+      "artist": "소연 (SOYEON)",
+      "album": "끝내주는 인생",
+      "yt_title": "I’m gonna TOESA (Narr. KIAN84)",
+      "yt_artist": "SOYEON",
+      "yt_album": "What a Wonderful Life",
+      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/ea/cf/ad/eacfadf8-14ab-07e4-d69b-b4c0c3897235/8804775411847.jpg/100x100bb.jpg",
+      "melon_url": "https://www.melon.com/song/detail.htm?songId=602862199",
+      "spotify_url": "https://open.spotify.com/track/5kaHfldTiM58rL3yOpBqfO",
+      "apple_url": ""
+    },
     "LBhcqYqeu0U": {
       "video_id": "LBhcqYqeu0U",
       "title": "LEMONADE",
@@ -359,19 +359,6 @@
       "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/cc/c8/93/ccc89345-aa49-ca82-3dbe-f11c65ff1706/888735955679_Cover.jpg/100x100bb.jpg",
       "melon_url": "https://www.melon.com/song/detail.htm?songId=602115220",
       "spotify_url": "https://open.spotify.com/track/40tqYMTWs6E1FKEDMTWRFB",
-      "apple_url": ""
-    },
-    "YVjcmz9sBIs": {
-      "video_id": "YVjcmz9sBIs",
-      "title": "Pretty Girl",
-      "artist": "RESCENE (리센느)",
-      "album": "Pretty Girl - Special Single",
-      "yt_title": "Pretty Girl",
-      "yt_artist": "RESCENE",
-      "yt_album": "Pretty Girl - Special Single",
-      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music221/v4/44/70/65/44706599-2480-efab-7cfe-564b5e254b25/888272184075_Cover.jpg/100x100bb.jpg",
-      "melon_url": "https://www.melon.com/song/detail.htm?songId=602450078",
-      "spotify_url": "https://open.spotify.com/track/26GehcyfHwgzfS0ok9yDYk",
       "apple_url": ""
     },
     "oPVxdNe1hrk": {
@@ -387,18 +374,18 @@
       "apple_url": "",
       "spotify_url": ""
     },
-    "fRyhqobl0sk": {
-      "video_id": "fRyhqobl0sk",
-      "title": "All I Want for Christmas Is You",
-      "artist": "Mariah Carey",
-      "album": "Merry Christmas",
-      "yt_title": "All I Want for Christmas Is You",
-      "yt_artist": "Mariah Carey",
-      "yt_album": "Merry Christmas",
-      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music124/v4/c6/b7/27/c6b727f7-3a32-6b43-cee2-05bb71daf1cf/dj.itfmdeif.jpg/100x100bb.jpg",
-      "melon_url": "https://www.melon.com/song/detail.htm?songId=14776",
-      "apple_url": "",
-      "spotify_url": ""
+    "YVjcmz9sBIs": {
+      "video_id": "YVjcmz9sBIs",
+      "title": "Pretty Girl",
+      "artist": "RESCENE (리센느)",
+      "album": "Pretty Girl - Special Single",
+      "yt_title": "Pretty Girl",
+      "yt_artist": "RESCENE",
+      "yt_album": "Pretty Girl - Special Single",
+      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music221/v4/44/70/65/44706599-2480-efab-7cfe-564b5e254b25/888272184075_Cover.jpg/100x100bb.jpg",
+      "melon_url": "https://www.melon.com/song/detail.htm?songId=602450078",
+      "spotify_url": "https://open.spotify.com/track/26GehcyfHwgzfS0ok9yDYk",
+      "apple_url": ""
     },
     "Snyan1_jGWc": {
       "video_id": "Snyan1_jGWc",
@@ -422,22 +409,22 @@
       "yt_artist": "이무진",
       "yt_album": "눈이 오잖아",
       "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music126/v4/26/2d/da/262ddac9-329d-fb00-8e3f-1d6f2d3219e5/cover_KM0014407_1.jpg/100x100bb.jpg",
-      "melon_url": "https://www.melon.com/song/detail.htm?songId=34360855",
       "apple_url": "https://music.apple.com/album/1598537211?i=1598537212",
+      "melon_url": "https://www.melon.com/song/detail.htm?songId=34360855",
       "spotify_url": ""
     },
-    "-JInUb_G6Jc": {
-      "video_id": "-JInUb_G6Jc",
-      "title": "CRASH",
-      "artist": "ALLDAY PROJECT",
-      "album": "CRASH - EP",
-      "yt_title": "CRASH",
-      "yt_artist": "ALLDAY PROJECT",
-      "yt_album": "CRASH",
-      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music221/v4/d9/2d/00/d92d00ef-252d-2c80-546f-fabe48bc051d/8800388635953.jpg/100x100bb.jpg",
-      "melon_url": "https://www.melon.com/song/detail.htm?songId=603175883",
-      "spotify_url": "https://open.spotify.com/track/1pU7ywmV4nJsgJcnuPMLyw",
-      "apple_url": ""
+    "fRyhqobl0sk": {
+      "video_id": "fRyhqobl0sk",
+      "title": "All I Want for Christmas Is You",
+      "artist": "Mariah Carey",
+      "album": "Merry Christmas",
+      "yt_title": "All I Want for Christmas Is You",
+      "yt_artist": "Mariah Carey",
+      "yt_album": "Merry Christmas",
+      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music124/v4/c6/b7/27/c6b727f7-3a32-6b43-cee2-05bb71daf1cf/dj.itfmdeif.jpg/100x100bb.jpg",
+      "melon_url": "https://www.melon.com/song/detail.htm?songId=14776",
+      "apple_url": "",
+      "spotify_url": ""
     },
     "CgmGJZjLmes": {
       "video_id": "CgmGJZjLmes",
@@ -449,6 +436,19 @@
       "yt_album": "Love Is...",
       "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music116/v4/a1/20/25/a120258f-237f-1e41-f0df-995487a0ecf4/8809856761217.jpg/100x100bb.jpg",
       "melon_url": "https://www.melon.com/song/detail.htm?songId=1753876",
+      "apple_url": "",
+      "spotify_url": ""
+    },
+    "wKF-mcbwHjo": {
+      "video_id": "wKF-mcbwHjo",
+      "title": "하지하지마",
+      "artist": "GOT7",
+      "album": "Identify",
+      "yt_title": "하지하지마 Stop stop it",
+      "yt_artist": "GOT7",
+      "yt_album": "Identify",
+      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music116/v4/c8/69/31/c8693142-ed51-0667-12fb-987ccb4d60eb/799975600123_Cover.jpg/100x100bb.jpg",
+      "melon_url": "https://www.melon.com/song/detail.htm?songId=5459348",
       "apple_url": "",
       "spotify_url": ""
     },
@@ -478,17 +478,30 @@
       "melon_url": "https://www.melon.com/song/detail.htm?songId=39504779",
       "spotify_url": "https://open.spotify.com/track/3sOAwRg5esaxDcWnUigWPv"
     },
-    "wKF-mcbwHjo": {
-      "video_id": "wKF-mcbwHjo",
-      "title": "하지하지마",
-      "artist": "GOT7",
-      "album": "Identify",
-      "yt_title": "하지하지마 Stop stop it",
-      "yt_artist": "GOT7",
-      "yt_album": "Identify",
-      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music116/v4/c8/69/31/c8693142-ed51-0667-12fb-987ccb4d60eb/799975600123_Cover.jpg/100x100bb.jpg",
-      "melon_url": "https://www.melon.com/song/detail.htm?songId=5459348",
-      "apple_url": "",
+    "-JInUb_G6Jc": {
+      "video_id": "-JInUb_G6Jc",
+      "title": "CRASH",
+      "artist": "ALLDAY PROJECT",
+      "album": "CRASH - EP",
+      "yt_title": "CRASH",
+      "yt_artist": "ALLDAY PROJECT",
+      "yt_album": "CRASH",
+      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music221/v4/d9/2d/00/d92d00ef-252d-2c80-546f-fabe48bc051d/8800388635953.jpg/100x100bb.jpg",
+      "melon_url": "https://www.melon.com/song/detail.htm?songId=603175883",
+      "spotify_url": "https://open.spotify.com/track/1pU7ywmV4nJsgJcnuPMLyw",
+      "apple_url": ""
+    },
+    "j-seAiANLG8": {
+      "video_id": "j-seAiANLG8",
+      "title": "And July (Feat. DEAN, DJ Friz)",
+      "artist": "헤이즈 (Heize)",
+      "album": "And July",
+      "yt_title": "And July (feat. DEAN & DJ Friz)",
+      "yt_artist": "Heize",
+      "yt_album": "And July",
+      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music125/v4/a6/9e/ba/a69ebae6-e47c-ec13-c670-4f8a1ffa6584/8809484116656_Cover.jpg/100x100bb.jpg",
+      "apple_url": "https://music.apple.com/album/1569920323?i=1569920439",
+      "melon_url": "https://www.melon.com/song/detail.htm?songId=8271355",
       "spotify_url": ""
     },
     "DWGROwMNFek": {
@@ -504,19 +517,6 @@
       "apple_url": "",
       "melon_url": "https://www.melon.com/song/detail.htm?songId=602872568"
     },
-    "j-seAiANLG8": {
-      "video_id": "j-seAiANLG8",
-      "title": "And July (Feat. DEAN, DJ Friz)",
-      "artist": "헤이즈 (Heize)",
-      "album": "And July",
-      "yt_title": "And July (feat. DEAN & DJ Friz)",
-      "yt_artist": "Heize",
-      "yt_album": "And July",
-      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music125/v4/a6/9e/ba/a69ebae6-e47c-ec13-c670-4f8a1ffa6584/8809484116656_Cover.jpg/100x100bb.jpg",
-      "apple_url": "https://music.apple.com/album/1569920323?i=1569920439",
-      "melon_url": "https://www.melon.com/song/detail.htm?songId=8271355",
-      "spotify_url": ""
-    },
     "UOKLtaE2U90": {
       "video_id": "UOKLtaE2U90",
       "title": "만찬가",
@@ -530,32 +530,6 @@
       "spotify_url": "https://open.spotify.com/track/0KgetoSLg8qfJWIwoAQxBf",
       "apple_url": ""
     },
-    "X0PUdt1gt5c": {
-      "video_id": "X0PUdt1gt5c",
-      "title": "It`s You (Feat. NO:EL)",
-      "artist": "한요한",
-      "album": "Shining Star",
-      "yt_title": "It's You (feat. NO:EL)",
-      "yt_artist": "Han Yo Han",
-      "yt_album": "Shining Star",
-      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music116/v4/50/b3/fc/50b3fc25-e388-9300-91c9-c2542814c342/cover_KM0017713_1.jpg/100x100bb.jpg",
-      "apple_url": "https://music.apple.com/album/1692738272?i=1692738275",
-      "melon_url": "https://www.melon.com/song/detail.htm?songId=36521506",
-      "spotify_url": ""
-    },
-    "dgZlLjfh6q4": {
-      "video_id": "dgZlLjfh6q4",
-      "title": "yours",
-      "artist": "데이먼스 이어 (Damons year)",
-      "album": "yours",
-      "yt_title": "yours",
-      "yt_artist": "Damons Year",
-      "yt_album": "yours",
-      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music221/v4/53/8b/95/538b9573-4e96-d9ee-1ef5-ddc0d7dc0c72/5021732767813.jpg/100x100bb.jpg",
-      "apple_url": "https://music.apple.com/album/1806264605?i=1806264606",
-      "melon_url": "https://www.melon.com/song/detail.htm?songId=31726704",
-      "spotify_url": "https://open.spotify.com/track/7JQH2lBMZ10ztDnpoeq6Ki"
-    },
     "-_r_Y5nuHlo": {
       "video_id": "-_r_Y5nuHlo",
       "title": "한시 오분 (1:05)",
@@ -567,19 +541,6 @@
       "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music125/v4/be/ce/5c/bece5cff-2caf-6d8a-9c21-3035537d2a4d/Album_cover_1400X1400.jpg/100x100bb.jpg",
       "apple_url": "https://music.apple.com/album/1242154383?i=1242155573",
       "melon_url": "https://www.melon.com/song/detail.htm?songId=30444665",
-      "spotify_url": ""
-    },
-    "5USBozeR4eg": {
-      "video_id": "5USBozeR4eg",
-      "title": "눈사람",
-      "artist": "정승환",
-      "album": "그리고 봄",
-      "yt_title": "눈사람",
-      "yt_artist": "정승환",
-      "yt_album": "그리고 봄",
-      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music125/v4/96/0b/aa/960baa7d-6de5-218a-8eaf-ec2b53929350/80988378.jpg/100x100bb.jpg",
-      "apple_url": "https://music.apple.com/album/1345295215?i=1345295576",
-      "melon_url": "https://www.melon.com/song/detail.htm?songId=30877002",
       "spotify_url": ""
     },
     "I0Hu7PRF4j0": {
@@ -595,6 +556,32 @@
       "melon_url": "https://www.melon.com/song/detail.htm?songId=34753369",
       "spotify_url": "https://open.spotify.com/track/4qdBPJta3BVPXCS0wJZ6yO"
     },
+    "X0PUdt1gt5c": {
+      "video_id": "X0PUdt1gt5c",
+      "title": "It`s You (Feat. NO:EL)",
+      "artist": "한요한",
+      "album": "Shining Star",
+      "yt_title": "It's You (feat. NO:EL)",
+      "yt_artist": "Han Yo Han",
+      "yt_album": "Shining Star",
+      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music116/v4/50/b3/fc/50b3fc25-e388-9300-91c9-c2542814c342/cover_KM0017713_1.jpg/100x100bb.jpg",
+      "apple_url": "https://music.apple.com/album/1692738272?i=1692738275",
+      "melon_url": "https://www.melon.com/song/detail.htm?songId=36521506",
+      "spotify_url": ""
+    },
+    "5USBozeR4eg": {
+      "video_id": "5USBozeR4eg",
+      "title": "눈사람",
+      "artist": "정승환",
+      "album": "그리고 봄",
+      "yt_title": "눈사람",
+      "yt_artist": "정승환",
+      "yt_album": "그리고 봄",
+      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music125/v4/96/0b/aa/960baa7d-6de5-218a-8eaf-ec2b53929350/80988378.jpg/100x100bb.jpg",
+      "apple_url": "https://music.apple.com/album/1345295215?i=1345295576",
+      "melon_url": "https://www.melon.com/song/detail.htm?songId=30877002",
+      "spotify_url": ""
+    },
     "BEPSc8q6Bd8": {
       "video_id": "BEPSc8q6Bd8",
       "title": "Lemon Tang",
@@ -607,32 +594,6 @@
       "melon_url": "https://www.melon.com/song/detail.htm?songId=602313594",
       "spotify_url": "https://open.spotify.com/track/0NGFAcYQVHCIdQea2qSs1I",
       "apple_url": ""
-    },
-    "KczYjTVrK_o": {
-      "video_id": "KczYjTVrK_o",
-      "title": "어떻게 이별까지 사랑하겠어, 널 사랑하는 거지",
-      "artist": "AKMU (악뮤)",
-      "album": "항해",
-      "yt_title": "어떻게 이별까지 사랑하겠어, 널 사랑하는 거지(How can I love the heartbreak, you're the one I love)",
-      "yt_artist": "AKMU",
-      "yt_album": "SAILING",
-      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music125/v4/e4/a2/80/e4a28015-490b-255a-ff26-aadd6257cfa1/AKMU_DS.jpg/100x100bb.jpg",
-      "apple_url": "https://music.apple.com/album/1480802547?i=1480802550",
-      "melon_url": "https://www.melon.com/song/detail.htm?songId=32061975",
-      "spotify_url": "https://open.spotify.com/track/0hqj5JBnFt1BHEz2UCFwrl"
-    },
-    "107UoVP2fAA": {
-      "video_id": "107UoVP2fAA",
-      "title": "ヒロイン",
-      "artist": "back number",
-      "album": "Heroine - EP",
-      "yt_title": "ヒロイン - Heroine",
-      "yt_artist": "back number",
-      "yt_album": "Chandelier",
-      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music124/v4/5d/d1/f0/5dd1f0aa-4b50-e6b1-73b1-fb740989afba/00602577303906.rgb.jpg/100x100bb.jpg",
-      "apple_url": "https://music.apple.com/album/1451566360?i=1451566361",
-      "melon_url": "https://www.melon.com/song/detail.htm?songId=106849980",
-      "spotify_url": ""
     },
     "KL7km3PxilQ": {
       "video_id": "KL7km3PxilQ",
@@ -647,10 +608,88 @@
       "melon_url": "https://www.melon.com/song/detail.htm?songId=601013499",
       "spotify_url": "https://open.spotify.com/track/1rEa59P5yEal5cp1h7kl2e"
     },
+    "107UoVP2fAA": {
+      "video_id": "107UoVP2fAA",
+      "title": "ヒロイン - Heroine",
+      "artist": "back number",
+      "album": "Chandelier",
+      "yt_title": "ヒロイン - Heroine",
+      "yt_artist": "back number",
+      "yt_album": "Chandelier",
+      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music124/v4/5d/d1/f0/5dd1f0aa-4b50-e6b1-73b1-fb740989afba/00602577303906.rgb.jpg/100x100bb.jpg",
+      "apple_url": "https://music.apple.com/album/1451566360?i=1451566361",
+      "melon_url": "https://www.melon.com/song/detail.htm?songId=106849980",
+      "spotify_url": ""
+    },
+    "gjQwwWjxPaQ": {
+      "video_id": "gjQwwWjxPaQ",
+      "title": "Ling Ling",
+      "artist": "검정치마",
+      "album": "TEEN TROUBLES",
+      "yt_title": "Ling Ling",
+      "yt_artist": "The Black Skirts",
+      "yt_album": "TEEN TROUBLES",
+      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music112/v4/33/f1/f3/33f1f3d4-c3b9-6528-cc99-ee7215dc1d12/TEEN_TROUBLES.jpg/100x100bb.jpg",
+      "apple_url": "https://music.apple.com/album/1644821406?i=1644821665",
+      "melon_url": "https://www.melon.com/song/detail.htm?songId=34002233",
+      "spotify_url": "https://open.spotify.com/track/5BGxDtIEw8zxoP29Fid69a"
+    },
+    "KczYjTVrK_o": {
+      "video_id": "KczYjTVrK_o",
+      "title": "어떻게 이별까지 사랑하겠어, 널 사랑하는 거지",
+      "artist": "AKMU (악뮤)",
+      "album": "항해",
+      "yt_title": "어떻게 이별까지 사랑하겠어, 널 사랑하는 거지(How can I love the heartbreak, you're the one I love)",
+      "yt_artist": "AKMU",
+      "yt_album": "SAILING",
+      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music125/v4/e4/a2/80/e4a28015-490b-255a-ff26-aadd6257cfa1/AKMU_DS.jpg/100x100bb.jpg",
+      "apple_url": "https://music.apple.com/album/1480802547?i=1480802550",
+      "melon_url": "https://www.melon.com/song/detail.htm?songId=32061975",
+      "spotify_url": "https://open.spotify.com/track/0hqj5JBnFt1BHEz2UCFwrl"
+    },
+    "R5By6ms2a3Y": {
+      "video_id": "R5By6ms2a3Y",
+      "title": "갑자기",
+      "artist": "아이오아이 (I.O.I)",
+      "album": "I.O.I 3rd MINI ALBUM [I.O.I : LOOP]",
+      "yt_title": "Suddenly",
+      "yt_artist": "I.O.I",
+      "yt_album": "I.O.I 3rd MINI ALBUM [I.O.I : LOOP]",
+      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/4e/f0/d9/4ef0d927-e14f-49c7-b273-e92ed3ce354b/888272181623_Cover.jpg/100x100bb.jpg",
+      "melon_url": "https://www.melon.com/song/detail.htm?songId=602024048",
+      "spotify_url": "https://open.spotify.com/track/7u0yW2XPSJozIGdUSRET19",
+      "apple_url": ""
+    },
+    "OdFVPP_Rcos": {
+      "video_id": "OdFVPP_Rcos",
+      "title": "너의 모든 순간",
+      "artist": "성시경",
+      "album": "별에서 온 그대 OST Part.7",
+      "yt_title": "Every moment of you",
+      "yt_artist": "Sung Si Kyung",
+      "yt_album": "My Love From the Star (Original Soundtrack) Part 7",
+      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/47/ae/64/47ae647e-5628-8e5b-59a2-bd6a94748439/ticket.dcymrccv.jpg/100x100bb.jpg",
+      "melon_url": "https://www.melon.com/song/detail.htm?songId=4446485",
+      "apple_url": "",
+      "spotify_url": ""
+    },
+    "1jtban6rFAA": {
+      "video_id": "1jtban6rFAA",
+      "title": "FLYING HIGH WITH U",
+      "artist": "빈첸",
+      "album": "FLYING HIGH WITH U",
+      "yt_title": "FLYING HIGH WITH U",
+      "yt_artist": "VINXEN",
+      "yt_album": "FLYING HIGH WITH U",
+      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music125/v4/97/4d/9b/974d9be9-e579-84c0-2e2f-d0c5f23ba8cf/8804775159190.jpg/100x100bb.jpg",
+      "apple_url": "https://music.apple.com/album/1577892511?i=1577892512",
+      "melon_url": "https://www.melon.com/song/detail.htm?songId=33334136",
+      "spotify_url": "https://open.spotify.com/track/4iZIvaus7v4wSjFvdF83NA"
+    },
     "hGqYdubpcCM": {
       "video_id": "hGqYdubpcCM",
       "title": "Heavy Serenade",
-      "artist": "엔믹스",
+      "artist": "NMIXX",
       "album": "Heavy Serenade",
       "yt_title": "Heavy Serenade",
       "yt_artist": "NMIXX",
@@ -673,18 +712,18 @@
       "melon_url": "https://www.melon.com/song/detail.htm?songId=36699489",
       "spotify_url": "https://open.spotify.com/track/3TQHPUEVdvdq8ejwEcHUlL"
     },
-    "gjQwwWjxPaQ": {
-      "video_id": "gjQwwWjxPaQ",
-      "title": "Ling Ling",
-      "artist": "검정치마",
-      "album": "TEEN TROUBLES",
-      "yt_title": "Ling Ling",
-      "yt_artist": "The Black Skirts",
-      "yt_album": "TEEN TROUBLES",
-      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music112/v4/33/f1/f3/33f1f3d4-c3b9-6528-cc99-ee7215dc1d12/TEEN_TROUBLES.jpg/100x100bb.jpg",
-      "apple_url": "https://music.apple.com/album/1644821406?i=1644821665",
-      "melon_url": "https://www.melon.com/song/detail.htm?songId=34002233",
-      "spotify_url": "https://open.spotify.com/track/5BGxDtIEw8zxoP29Fid69a"
+    "h-zuG75Ds-w": {
+      "video_id": "h-zuG75Ds-w",
+      "title": "Nicole Kidman",
+      "artist": "ADÉLA",
+      "album": "PRIMA",
+      "yt_title": "Nicole Kidman",
+      "yt_artist": "ADÉLA",
+      "yt_album": "PRIMA",
+      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music221/v4/5d/77/7b/5d777b87-e796-0b3e-cef6-d37d993dd8fe/26UMGIM82371.rgb.jpg/100x100bb.jpg",
+      "spotify_url": "https://open.spotify.com/track/70cHKK8bHAfJrOGVnfRG9J",
+      "apple_url": "",
+      "melon_url": ""
     },
     "cQPXraDIvS4": {
       "video_id": "cQPXraDIvS4",
@@ -699,70 +738,18 @@
       "spotify_url": "https://open.spotify.com/track/3lKENzQzOnbXmo8FBtb7el",
       "apple_url": ""
     },
-    "OdFVPP_Rcos": {
-      "video_id": "OdFVPP_Rcos",
-      "title": "너의 모든 순간",
-      "artist": "성시경",
-      "album": "별에서 온 그대 OST Part.7",
-      "yt_title": "Every moment of you",
-      "yt_artist": "Sung Si Kyung",
-      "yt_album": "My Love From the Star (Original Soundtrack) Part 7",
-      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/47/ae/64/47ae647e-5628-8e5b-59a2-bd6a94748439/ticket.dcymrccv.jpg/100x100bb.jpg",
-      "melon_url": "https://www.melon.com/song/detail.htm?songId=4446485",
-      "apple_url": "",
-      "spotify_url": ""
-    },
-    "h-zuG75Ds-w": {
-      "video_id": "h-zuG75Ds-w",
-      "title": "Nicole Kidman",
-      "artist": "ADÉLA",
-      "album": "PRIMA",
-      "yt_title": "Nicole Kidman",
-      "yt_artist": "ADÉLA",
-      "yt_album": "PRIMA",
-      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music221/v4/5d/77/7b/5d777b87-e796-0b3e-cef6-d37d993dd8fe/26UMGIM82371.rgb.jpg/100x100bb.jpg",
-      "spotify_url": "https://open.spotify.com/track/70cHKK8bHAfJrOGVnfRG9J",
-      "apple_url": "",
-      "melon_url": ""
-    },
-    "R5By6ms2a3Y": {
-      "video_id": "R5By6ms2a3Y",
-      "title": "갑자기",
-      "artist": "아이오아이 (I.O.I)",
-      "album": "I.O.I 3rd MINI ALBUM [I.O.I : LOOP]",
-      "yt_title": "Suddenly",
-      "yt_artist": "I.O.I",
-      "yt_album": "I.O.I 3rd MINI ALBUM [I.O.I : LOOP]",
-      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/4e/f0/d9/4ef0d927-e14f-49c7-b273-e92ed3ce354b/888272181623_Cover.jpg/100x100bb.jpg",
-      "melon_url": "https://www.melon.com/song/detail.htm?songId=602024048",
-      "spotify_url": "https://open.spotify.com/track/7u0yW2XPSJozIGdUSRET19",
-      "apple_url": ""
-    },
-    "1jtban6rFAA": {
-      "video_id": "1jtban6rFAA",
-      "title": "FLYING HIGH WITH U",
-      "artist": "빈첸",
-      "album": "FLYING HIGH WITH U",
-      "yt_title": "FLYING HIGH WITH U",
-      "yt_artist": "VINXEN",
-      "yt_album": "FLYING HIGH WITH U",
-      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music125/v4/97/4d/9b/974d9be9-e579-84c0-2e2f-d0c5f23ba8cf/8804775159190.jpg/100x100bb.jpg",
-      "apple_url": "https://music.apple.com/album/1577892511?i=1577892512",
-      "melon_url": "https://www.melon.com/song/detail.htm?songId=33334136",
-      "spotify_url": "https://open.spotify.com/track/4iZIvaus7v4wSjFvdF83NA"
-    },
-    "MWXbns4FV0s": {
-      "video_id": "MWXbns4FV0s",
-      "title": "Boogie Woogie",
-      "artist": "NCT DREAM",
-      "album": "DREAM AFTER DREAM",
-      "yt_title": "Boogie Woogie",
-      "yt_artist": "NCT DREAM",
-      "yt_album": "DREAM AFTER DREAM",
-      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music221/v4/9a/12/b9/9a12b999-8abc-b0c2-ba6e-7729562eaab6/888735957383.png/100x100bb.jpg",
-      "apple_url": "",
-      "melon_url": "https://www.melon.com/song/detail.htm?songId=603574639",
-      "spotify_url": ""
+    "dgZlLjfh6q4": {
+      "video_id": "dgZlLjfh6q4",
+      "title": "yours",
+      "artist": "데이먼스 이어 (Damons year)",
+      "album": "yours",
+      "yt_title": "yours",
+      "yt_artist": "Damons Year",
+      "yt_album": "yours",
+      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music221/v4/53/8b/95/538b9573-4e96-d9ee-1ef5-ddc0d7dc0c72/5021732767813.jpg/100x100bb.jpg",
+      "apple_url": "https://music.apple.com/album/1806264605?i=1806264606",
+      "melon_url": "https://www.melon.com/song/detail.htm?songId=31726704",
+      "spotify_url": "https://open.spotify.com/track/7JQH2lBMZ10ztDnpoeq6Ki"
     },
     "z1Ci3DSPs0s": {
       "video_id": "z1Ci3DSPs0s",
@@ -780,8 +767,8 @@
     "SsUU0-rysY4": {
       "video_id": "SsUU0-rysY4",
       "title": "Drip",
-      "artist": "ATEEZ (에이티즈)",
-      "album": "Drip - Single",
+      "artist": "ATEEZ",
+      "album": "Drip",
       "yt_title": "Drip",
       "yt_artist": "ATEEZ",
       "yt_album": "Drip",
@@ -790,29 +777,29 @@
       "spotify_url": "https://open.spotify.com/track/5JaMKAodzzLdFM2ARRTXb9",
       "apple_url": ""
     },
-    "JwC6KUpBAAU": {
-      "video_id": "JwC6KUpBAAU",
-      "title": "Love Love Love (Feat. Yoong Jin Of Casker)",
-      "artist": "에픽하이 (EPIK HIGH)",
-      "album": "Remapping The Human Soul",
-      "yt_title": "Love Love Love (feat. 융진 of Casker)",
-      "yt_artist": "에픽하이 (Epik High)",
-      "yt_album": "Remapping the Human Soul",
-      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music126/v4/c3/56/b2/c356b23d-6844-46a8-bbfc-1206dbfcde52/08809114102691_Cover.jpg/100x100bb.jpg",
-      "apple_url": "https://music.apple.com/album/1610106934?i=1610108181",
-      "melon_url": "https://www.melon.com/song/detail.htm?songId=1556553",
-      "spotify_url": "https://open.spotify.com/track/7hlEhmg5h9XuFtaGfgvqjF"
+    "HBqH4uJS0PU": {
+      "video_id": "HBqH4uJS0PU",
+      "title": "Magnetic",
+      "artist": "아일릿",
+      "album": "SUPER REAL ME - EP",
+      "yt_title": "Magnetic",
+      "yt_artist": "ILLIT",
+      "yt_album": "SUPER REAL ME",
+      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music122/v4/3e/49/1e/3e491e43-4961-21ab-2abe-37fb1c0feb40/196922879227_Cover.jpg/100x100bb.jpg",
+      "apple_url": "https://music.apple.com/album/1734500886?i=1734500896",
+      "melon_url": "https://www.melon.com/song/detail.htm?songId=37347911",
+      "spotify_url": "https://open.spotify.com/track/1aKvZDoLGkNMxoRYgkckZG"
     },
-    "ZcHRydIz0eM": {
-      "video_id": "ZcHRydIz0eM",
-      "title": "내게 사랑이 뭐냐고 물어본다면",
-      "artist": "로이킴",
-      "album": "내게 사랑이 뭐냐고 물어본다면",
-      "yt_title": "If You Ask Me What Love Is",
-      "yt_artist": "Roy Kim",
-      "yt_album": "If You Ask Me What Love Is",
-      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/b5/f7/17/b5f7170a-c9fa-35e3-d2a0-94e4cdeb145e/888272141344_Cover.jpg/100x100bb.jpg",
-      "melon_url": "https://www.melon.com/song/detail.htm?songId=38104031",
+    "YH8H0GtgccI": {
+      "video_id": "YH8H0GtgccI",
+      "title": "그녀가 웃잖아....",
+      "artist": "김형중",
+      "album": "Kim Hyung Joong Vol. 2",
+      "yt_title": "She′s laughing",
+      "yt_artist": "Kim hyung joong",
+      "yt_album": "Kim Hyung Joong Vol. 2",
+      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music221/v4/4b/c1/d6/4bc1d6c2-d500-f9ad-b069-c7b27a4e8a39/191953491639.jpg/100x100bb.jpg",
+      "melon_url": "https://www.melon.com/song/detail.htm?songId=526407",
       "apple_url": "",
       "spotify_url": ""
     },
@@ -829,43 +816,43 @@
       "apple_url": "",
       "spotify_url": ""
     },
-    "HBqH4uJS0PU": {
-      "video_id": "HBqH4uJS0PU",
-      "title": "Magnetic",
-      "artist": "아일릿",
-      "album": "SUPER REAL ME - EP",
-      "yt_title": "Magnetic",
-      "yt_artist": "ILLIT",
-      "yt_album": "SUPER REAL ME",
-      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music122/v4/3e/49/1e/3e491e43-4961-21ab-2abe-37fb1c0feb40/196922879227_Cover.jpg/100x100bb.jpg",
-      "apple_url": "https://music.apple.com/album/1734500886?i=1734500896",
-      "melon_url": "https://www.melon.com/song/detail.htm?songId=37347911",
-      "spotify_url": "https://open.spotify.com/track/1aKvZDoLGkNMxoRYgkckZG"
+    "JwC6KUpBAAU": {
+      "video_id": "JwC6KUpBAAU",
+      "title": "Love Love Love (Feat. Yoong Jin Of Casker)",
+      "artist": "에픽하이 (EPIK HIGH)",
+      "album": "Remapping The Human Soul",
+      "yt_title": "Love Love Love (feat. 융진 of Casker)",
+      "yt_artist": "에픽하이 (Epik High)",
+      "yt_album": "Remapping the Human Soul",
+      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music126/v4/c3/56/b2/c356b23d-6844-46a8-bbfc-1206dbfcde52/08809114102691_Cover.jpg/100x100bb.jpg",
+      "apple_url": "https://music.apple.com/album/1610106934?i=1610108181",
+      "melon_url": "https://www.melon.com/song/detail.htm?songId=1556553",
+      "spotify_url": "https://open.spotify.com/track/7hlEhmg5h9XuFtaGfgvqjF"
     },
-    "oP-WPpwBz80": {
-      "video_id": "oP-WPpwBz80",
-      "title": "Pinball",
-      "artist": "RESCENE (리센느)",
-      "album": "SCENEDROME",
-      "yt_title": "Pinball",
-      "yt_artist": "RESCENE",
-      "yt_album": "SCENEDROME",
-      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music221/v4/43/0b/4c/430b4c8e-3cb8-da27-648f-435ec3b391a6/8804775334160.jpg/100x100bb.jpg",
-      "melon_url": "https://www.melon.com/song/detail.htm?songId=37928383",
-      "spotify_url": "https://open.spotify.com/track/7FzDMnwPhj6qdTT2PRaSYi",
+    "sjtyqmA-pH4": {
+      "video_id": "sjtyqmA-pH4",
+      "title": "캐치 캐치",
+      "artist": "YENA (최예나)",
+      "album": "LOVE CATCHER",
+      "yt_title": "Catch Catch",
+      "yt_artist": "YENA",
+      "yt_album": "LOVE CATCHER",
+      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/2d/1f/99/2d1f997c-6d8b-c312-2156-c2a1ae969c03/888272177749_Cover.jpg/100x100bb.jpg",
+      "melon_url": "https://www.melon.com/song/detail.htm?songId=601479669",
+      "spotify_url": "https://open.spotify.com/track/2O9bMJticxbQ8FH3NiQ7Xh",
       "apple_url": ""
     },
-    "YH8H0GtgccI": {
-      "video_id": "YH8H0GtgccI",
-      "title": "그녀가 웃잖아....",
-      "artist": "김형중",
-      "album": "Kim Hyung Joong Vol. 2",
-      "yt_title": "She′s laughing",
-      "yt_artist": "Kim hyung joong",
-      "yt_album": "Kim Hyung Joong Vol. 2",
-      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music221/v4/4b/c1/d6/4bc1d6c2-d500-f9ad-b069-c7b27a4e8a39/191953491639.jpg/100x100bb.jpg",
-      "melon_url": "https://www.melon.com/song/detail.htm?songId=526407",
+    "MLrx0P8p_s8": {
+      "video_id": "MLrx0P8p_s8",
+      "title": "Last Christmas (Single Version)",
+      "artist": "Wham!",
+      "album": "Last Christmas - Single",
+      "yt_title": "Last Christmas (Single Version)",
+      "yt_artist": "Wham!",
+      "yt_album": "All-Star Christmas",
+      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music114/v4/eb/4a/f9/eb4af984-fc68-56ab-7b89-1d070c04e1dd/5099765318524.jpg/100x100bb.jpg",
       "apple_url": "",
+      "melon_url": "",
       "spotify_url": ""
     },
     "XfzE8ku3TCI": {
@@ -881,45 +868,6 @@
       "melon_url": "https://www.melon.com/song/detail.htm?songId=32476250",
       "spotify_url": "https://open.spotify.com/track/3s761CQaziQ0GEN1yUkIsG"
     },
-    "MLrx0P8p_s8": {
-      "video_id": "MLrx0P8p_s8",
-      "title": "Last Christmas (Single Version)",
-      "artist": "Wham!",
-      "album": "Last Christmas - Single",
-      "yt_title": "Last Christmas (Single Version)",
-      "yt_artist": "Wham!",
-      "yt_album": "All-Star Christmas",
-      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music114/v4/eb/4a/f9/eb4af984-fc68-56ab-7b89-1d070c04e1dd/5099765318524.jpg/100x100bb.jpg",
-      "apple_url": "",
-      "melon_url": "",
-      "spotify_url": ""
-    },
-    "sjtyqmA-pH4": {
-      "video_id": "sjtyqmA-pH4",
-      "title": "캐치 캐치",
-      "artist": "YENA (최예나)",
-      "album": "LOVE CATCHER",
-      "yt_title": "Catch Catch",
-      "yt_artist": "YENA",
-      "yt_album": "LOVE CATCHER",
-      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/2d/1f/99/2d1f997c-6d8b-c312-2156-c2a1ae969c03/888272177749_Cover.jpg/100x100bb.jpg",
-      "melon_url": "https://www.melon.com/song/detail.htm?songId=601479669",
-      "spotify_url": "https://open.spotify.com/track/2O9bMJticxbQ8FH3NiQ7Xh",
-      "apple_url": ""
-    },
-    "i0zqeEAJEx8": {
-      "video_id": "i0zqeEAJEx8",
-      "title": "생각을 멈추다 보면",
-      "artist": "최유리, 진영",
-      "album": "WelcomeToForest Choi Yu Re2_01-2",
-      "yt_title": "🎤진영&최유리 - 생각을 멈추다 보면 | 들어봐! 유리의 숲2 EP.01 진영 편",
-      "yt_artist": "진영, 최유리",
-      "yt_album": "WelcomeToForest Choi Yu Re2_01-2",
-      "artwork_url": "https://i.ytimg.com/vi/to3sjq-CAvA/maxresdefault.jpg",
-      "apple_url": "",
-      "melon_url": "",
-      "spotify_url": ""
-    },
     "f73laCUMUW0": {
       "video_id": "f73laCUMUW0",
       "title": "toxic till the end",
@@ -933,31 +881,18 @@
       "melon_url": "https://www.melon.com/song/detail.htm?songId=38300904",
       "spotify_url": ""
     },
-    "I-KHziDe9-k": {
-      "video_id": "I-KHziDe9-k",
-      "title": "로맨틱 겨울 (Feat. 김진호 Of SG워너비)",
-      "artist": "김진표",
-      "album": "Romantic 겨울",
-      "yt_title": "로맨틱 겨울 (feat. 김진호 Of SG워너비)",
-      "yt_artist": "JP. 김진표",
-      "artwork_url": "https://kkoimg.melon.co.kr/cm/album/images/007/45/152/745152_500.jpg/melon/resize/96/quality/80/optimize",
-      "melon_url": "https://www.melon.com/song/detail.htm?songId=2511767",
-      "yt_album": "",
-      "apple_url": "",
-      "spotify_url": ""
-    },
-    "jCKcEoZrlJQ": {
-      "video_id": "jCKcEoZrlJQ",
-      "title": "그대 작은 나의 세상이 되어",
-      "artist": "카더가든",
-      "album": "부재",
-      "yt_title": "My whole world",
-      "yt_artist": "Car, the garden",
-      "yt_album": "Absence",
-      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music123/v4/a1/f1/d9/a1f1d9ed-4367-b40e-42ac-27992280a208/Car_the_garden.jpg/100x100bb.jpg",
-      "apple_url": "https://music.apple.com/album/1661608701?i=1661608702",
-      "melon_url": "https://www.melon.com/song/detail.htm?songId=33241003",
-      "spotify_url": "https://open.spotify.com/track/55pCe0UgAeaeWKKSQqdiWh"
+    "oP-WPpwBz80": {
+      "video_id": "oP-WPpwBz80",
+      "title": "Pinball",
+      "artist": "RESCENE (리센느)",
+      "album": "SCENEDROME",
+      "yt_title": "Pinball",
+      "yt_artist": "RESCENE",
+      "yt_album": "SCENEDROME",
+      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music221/v4/43/0b/4c/430b4c8e-3cb8-da27-648f-435ec3b391a6/8804775334160.jpg/100x100bb.jpg",
+      "melon_url": "https://www.melon.com/song/detail.htm?songId=37928383",
+      "spotify_url": "https://open.spotify.com/track/7FzDMnwPhj6qdTT2PRaSYi",
+      "apple_url": ""
     },
     "pJ-IGZKyfpU": {
       "video_id": "pJ-IGZKyfpU",
@@ -985,6 +920,19 @@
       "melon_url": "",
       "spotify_url": ""
     },
+    "MWXbns4FV0s": {
+      "video_id": "MWXbns4FV0s",
+      "title": "Boogie Woogie",
+      "artist": "NCT DREAM",
+      "album": "DREAM AFTER DREAM",
+      "yt_title": "Boogie Woogie",
+      "yt_artist": "NCT DREAM",
+      "yt_album": "DREAM AFTER DREAM",
+      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music221/v4/9a/12/b9/9a12b999-8abc-b0c2-ba6e-7729562eaab6/888735957383.png/100x100bb.jpg",
+      "melon_url": "https://www.melon.com/song/detail.htm?songId=603574639",
+      "apple_url": "",
+      "spotify_url": ""
+    },
     "NbKH4iZqq1Y": {
       "video_id": "NbKH4iZqq1Y",
       "title": "Drowning",
@@ -998,30 +946,17 @@
       "spotify_url": "https://open.spotify.com/track/4xeugB5MqWh0jwvXZPxahq",
       "apple_url": "https://music.apple.com/album/1683448653?i=1683448656"
     },
-    "HXV5aZaBLDo": {
-      "video_id": "HXV5aZaBLDo",
-      "title": "EVERYTHING",
-      "artist": "검정치마",
-      "album": "TEAM BABY",
-      "yt_title": "EVERYTHING",
-      "yt_artist": "The Black Skirts",
-      "yt_album": "TEAM BABY",
-      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music125/v4/be/ce/5c/bece5cff-2caf-6d8a-9c21-3035537d2a4d/Album_cover_1400X1400.jpg/100x100bb.jpg",
-      "apple_url": "https://music.apple.com/album/1242154383?i=1242155576",
-      "melon_url": "",
-      "spotify_url": ""
-    },
-    "miIihGHZ_7A": {
-      "video_id": "miIihGHZ_7A",
-      "title": "FIRESTARTER (feat. Sophie Powers & 미연 (MIYEON))",
-      "artist": "K/DA, League of Legends,  i-dle (아이들), Mimi Webb",
-      "album": "FIRESTARTER",
-      "yt_title": "FIRESTARTER (feat. Sophie Powers, MIYEON & SOYEON)",
-      "yt_artist": "K/DA League of Legends i-dle Mimi Webb",
-      "yt_album": "FIRESTARTER",
-      "artwork_url": "https://yt3.googleusercontent.com/GnZNeGOAfcle_evP0Xjp_4ZhP9nnHpmNGQYj2cQeglUq2ugIugEPmM8omfYubxVdd7IbwOA9s356Coc=w180-h180-l90-rj",
-      "apple_url": "",
-      "melon_url": "",
+    "QX2dqXr8mOU": {
+      "video_id": "QX2dqXr8mOU",
+      "title": "사랑으로",
+      "artist": "wave to earth",
+      "album": "0.1 flaws and all.",
+      "yt_title": "love.",
+      "yt_artist": "wave to earth",
+      "yt_album": "0.1 flaws and all.",
+      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/71/b6/82/71b6820b-97a2-9968-c5a8-b659103030b1/5054197659843.jpg/100x100bb.jpg",
+      "apple_url": "https://music.apple.com/album/1770274106?i=1770274550",
+      "melon_url": "https://www.melon.com/song/detail.htm?songId=36386455",
       "spotify_url": ""
     },
     "eNiPuDEUQpQ": {
@@ -1037,55 +972,16 @@
       "spotify_url": "https://open.spotify.com/track/3yKUJbZjAWlteUSjnNv3UK",
       "apple_url": ""
     },
-    "vrM2mrI83uk": {
-      "video_id": "vrM2mrI83uk",
-      "title": "How Sweet",
-      "artist": "뉴진스",
-      "album": "How Sweet - EP",
-      "yt_title": "How Sweet",
-      "yt_artist": "NewJeans",
-      "yt_album": "How Sweet",
-      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music221/v4/bf/68/ca/bf68ca64-4acd-543f-bc78-455f11f06105/196922889738_Cover.jpg/100x100bb.jpg",
-      "apple_url": "https://music.apple.com/album/1744448415?i=1744448416",
-      "melon_url": "",
-      "spotify_url": ""
-    },
-    "roPmnx9Pglw": {
-      "video_id": "roPmnx9Pglw",
-      "title": "화",
-      "artist": "Panda Gomm & 양홍원",
-      "album": "오보 - Single",
-      "yt_title": "화",
-      "yt_artist": "Panda Gomm 양홍원",
-      "yt_album": "오보",
-      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/6c/e8/ea/6ce8ea42-03c6-6e58-6f4b-c432a1ccad36/8800388627842_cover.jpg/100x100bb.jpg",
-      "apple_url": "",
-      "melon_url": "https://www.melon.com/song/detail.htm?songId=603858396",
-      "spotify_url": ""
-    },
-    "QX2dqXr8mOU": {
-      "video_id": "QX2dqXr8mOU",
-      "title": "사랑으로",
-      "artist": "wave to earth",
-      "album": "0.1 flaws and all.",
-      "yt_title": "love.",
-      "yt_artist": "wave to earth",
-      "yt_album": "0.1 flaws and all.",
-      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/71/b6/82/71b6820b-97a2-9968-c5a8-b659103030b1/5054197659843.jpg/100x100bb.jpg",
-      "apple_url": "https://music.apple.com/album/1770274106?i=1770274550",
-      "melon_url": "https://www.melon.com/song/detail.htm?songId=36386455",
-      "spotify_url": ""
-    },
-    "HlT6mxxt6Ek": {
-      "video_id": "HlT6mxxt6Ek",
-      "title": "ADDICTED",
-      "artist": "지수",
-      "album": "ADDICTED",
-      "yt_title": "ADDICTED",
-      "yt_artist": "JISOO",
-      "yt_album": "ADDICTED",
-      "artwork_url": "https://yt3.googleusercontent.com/vHNdsSwM1rYf7G_CZLKeroFGtmTpqoCSYVvgsXVdJmCw6-VsK_-vPfGVF4y0B4DdzO3J5pMYhpL6FhoQ=w180-h180-l90-rj",
-      "apple_url": "",
+    "HXV5aZaBLDo": {
+      "video_id": "HXV5aZaBLDo",
+      "title": "EVERYTHING",
+      "artist": "검정치마",
+      "album": "TEAM BABY",
+      "yt_title": "EVERYTHING",
+      "yt_artist": "The Black Skirts",
+      "yt_album": "TEAM BABY",
+      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music125/v4/be/ce/5c/bece5cff-2caf-6d8a-9c21-3035537d2a4d/Album_cover_1400X1400.jpg/100x100bb.jpg",
+      "apple_url": "https://music.apple.com/album/1242154383?i=1242155576",
       "melon_url": "",
       "spotify_url": ""
     },
@@ -1102,56 +998,69 @@
       "apple_url": "https://music.apple.com/album/1619746921?i=1619747166",
       "spotify_url": ""
     },
-    "ghrlZIMDzbM": {
-      "video_id": "ghrlZIMDzbM",
-      "title": "Hype Boy",
+    "I-KHziDe9-k": {
+      "video_id": "I-KHziDe9-k",
+      "title": "로맨틱 겨울 (Feat. 김진호 Of SG워너비)",
+      "artist": "김진표",
+      "album": "Romantic 겨울",
+      "yt_title": "로맨틱 겨울 (feat. 김진호 Of SG워너비)",
+      "yt_artist": "JP. 김진표",
+      "artwork_url": "https://kkoimg.melon.co.kr/cm/album/images/007/45/152/745152_500.jpg/melon/resize/96/quality/80/optimize",
+      "melon_url": "https://www.melon.com/song/detail.htm?songId=2511767",
+      "yt_album": "",
+      "apple_url": "",
+      "spotify_url": ""
+    },
+    "miIihGHZ_7A": {
+      "video_id": "miIihGHZ_7A",
+      "title": "FIRESTARTER (feat. Sophie Powers, MIYEON & SOYEON)",
+      "artist": "K/DA, League of Legends, i-dle, Mimi Webb",
+      "album": "FIRESTARTER",
+      "yt_title": "FIRESTARTER (feat. Sophie Powers, MIYEON & SOYEON)",
+      "yt_artist": "K/DA League of Legends i-dle Mimi Webb",
+      "yt_album": "FIRESTARTER",
+      "artwork_url": "https://yt3.googleusercontent.com/GnZNeGOAfcle_evP0Xjp_4ZhP9nnHpmNGQYj2cQeglUq2ugIugEPmM8omfYubxVdd7IbwOA9s356Coc=w180-h180-l90-rj",
+      "apple_url": "",
+      "melon_url": "",
+      "spotify_url": ""
+    },
+    "vrM2mrI83uk": {
+      "video_id": "vrM2mrI83uk",
+      "title": "How Sweet",
       "artist": "뉴진스",
-      "album": "NewJeans 1st EP 'New Jeans'",
-      "yt_title": "Hype Boy",
+      "album": "How Sweet - EP",
+      "yt_title": "How Sweet",
       "yt_artist": "NewJeans",
-      "yt_album": "NewJeans 1st EP 'New Jeans'",
-      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music112/v4/4e/64/34/4e64344b-3ac6-c503-2c41-257a15401416/192641873096_Cover.jpg/100x100bb.jpg",
-      "apple_url": "https://music.apple.com/album/1635469682?i=1635469851",
-      "melon_url": "https://www.melon.com/song/detail.htm?songId=35454426",
+      "yt_album": "How Sweet",
+      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music221/v4/bf/68/ca/bf68ca64-4acd-543f-bc78-455f11f06105/196922889738_Cover.jpg/100x100bb.jpg",
+      "apple_url": "https://music.apple.com/album/1744448415?i=1744448416",
+      "melon_url": "",
       "spotify_url": ""
     },
-    "29lj9jFfJvY": {
-      "video_id": "29lj9jFfJvY",
-      "title": "어제보다 슬픈 오늘",
-      "artist": "우디 (Woody)",
-      "album": "어제보다 슬픈 오늘",
-      "yt_title": "어제보다 슬픈 오늘",
-      "yt_artist": "우디 (Woody)",
-      "yt_album": "어제보다 슬픈 오늘",
-      "artwork_url": "https://kkoimg.melon.co.kr/cm2/album/images/117/56/010/11756010_20250331135525_500.jpg?1253aed12fbd252ff6263490542c2739/melon/resize/96/quality/80/optimize",
-      "melon_url": "https://www.melon.com/song/detail.htm?songId=38733032",
+    "i0zqeEAJEx8": {
+      "video_id": "i0zqeEAJEx8",
+      "title": "생각을 멈추다 보면",
+      "artist": "최유리, 진영",
+      "album": "WelcomeToForest Choi Yu Re2_01-2",
+      "yt_title": "🎤진영&최유리 - 생각을 멈추다 보면 | 들어봐! 유리의 숲2 EP.01 진영 편",
+      "yt_artist": "진영, 최유리",
+      "yt_album": "WelcomeToForest Choi Yu Re2_01-2",
+      "artwork_url": "https://yt3.googleusercontent.com/geOWWU6dd49YTQ_4O_wMmBkzSORxisB3N6Wg0VlZwCXkvCFOmncUw7x3D3elDsoOLC5y-AKEP26JC_WN=w180-h180-l90-rj",
       "apple_url": "",
+      "melon_url": "",
       "spotify_url": ""
     },
-    "pMEvQz6HIA0": {
-      "video_id": "pMEvQz6HIA0",
-      "title": "행복하지 말아요",
-      "artist": "엠씨더맥스 (M.C the MAX)",
-      "album": "Solitude Love...",
-      "yt_title": "행복하지 말아요",
-      "yt_artist": "M.C The Max",
-      "yt_album": "Solitude Love…",
-      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music115/v4/b0/5a/57/b05a57bb-25b9-b92d-8166-de2a18ffaff5/8809795742681.jpg/100x100bb.jpg",
-      "melon_url": "https://www.melon.com/song/detail.htm?songId=623415",
-      "apple_url": "",
-      "spotify_url": ""
-    },
-    "V_kzqTam8lQ": {
-      "video_id": "V_kzqTam8lQ",
-      "title": "Finest Thing",
-      "artist": "RESCENE",
-      "album": "PULSE - EP",
-      "yt_title": "Finest Thing",
-      "yt_artist": "RESCENE",
-      "yt_album": "PULSE",
-      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music221/v4/b3/df/b7/b3dfb7ba-715f-1f5a-5528-eb82acd5225a/888272191394_Cover.jpg/100x100bb.jpg",
-      "melon_url": "https://www.melon.com/song/detail.htm?songId=603712833",
-      "spotify_url": "https://open.spotify.com/track/4sBBMO44urIJI5QN7pNo7Q",
+    "D9IVOL9felk": {
+      "video_id": "D9IVOL9felk",
+      "title": "봄 내음보다 너를",
+      "artist": "김나영",
+      "album": "봄 내음보다 너를",
+      "yt_title": "A Letter for You",
+      "yt_artist": "Kim NaYoung",
+      "yt_album": "A Letter for You",
+      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music115/v4/14/33/5a/14335adb-75f6-7804-ac40-3036e7171207/cover_-.jpg/100x100bb.jpg",
+      "melon_url": "https://www.melon.com/song/detail.htm?songId=33411344",
+      "spotify_url": "https://open.spotify.com/track/4vfO4uu5VObHhGSrdV6TC5",
       "apple_url": ""
     },
     "pERDk4KoW-s": {
@@ -1167,31 +1076,148 @@
       "melon_url": "https://www.melon.com/song/detail.htm?songId=33939313",
       "spotify_url": ""
     },
-    "6Xa1VDLACPo": {
-      "video_id": "6Xa1VDLACPo",
-      "title": "소문의 낙원 (Live)",
-      "artist": "AKMU (악뮤)",
-      "album": "개화",
-      "yt_title": "Paradise of Rumors",
-      "yt_artist": "AKMU",
-      "yt_album": "FLOWERING",
-      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/43/aa/35/43aa3529-1776-70fb-fe49-2bb59a7680f2/8800367489775_cover.jpg/100x100bb.jpg",
-      "melon_url": "https://www.melon.com/song/detail.htm?songId=601719413",
-      "spotify_url": "https://open.spotify.com/track/5dxiriLgC9mu2FbSNqudld",
-      "apple_url": ""
+    "ghrlZIMDzbM": {
+      "video_id": "ghrlZIMDzbM",
+      "title": "Hype Boy",
+      "artist": "뉴진스",
+      "album": "NewJeans 1st EP 'New Jeans'",
+      "yt_title": "Hype Boy",
+      "yt_artist": "NewJeans",
+      "yt_album": "NewJeans 1st EP 'New Jeans'",
+      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music112/v4/4e/64/34/4e64344b-3ac6-c503-2c41-257a15401416/192641873096_Cover.jpg/100x100bb.jpg",
+      "apple_url": "https://music.apple.com/album/1635469682?i=1635469851",
+      "melon_url": "https://www.melon.com/song/detail.htm?songId=35454426",
+      "spotify_url": ""
     },
-    "F_EGihOgXsg": {
-      "video_id": "F_EGihOgXsg",
-      "title": "Mise en scène",
-      "artist": "에픽하이 (EPIK HIGH), 다비치",
-      "album": "미장센 - Single",
-      "yt_title": "Mise en scène",
-      "yt_artist": "Epik High, DAVICHI",
-      "yt_album": "Mise en scène",
-      "artwork_url": "https://yt3.googleusercontent.com/QyfTHAJ798VN7xLKv-3e3hgSpwcmWYmHcnMkAm1sWF8Q9_R2IK7JSw8rMilntcn7WHEIenlu1XGBpWf7Hg=w180-h180-l90-rj",
-      "spotify_url": "https://open.spotify.com/track/0wIwrT28ZIAHdJsTgKhAt9",
+    "Yc4gp6oeN7k": {
+      "video_id": "Yc4gp6oeN7k",
+      "title": "Skrr (feat. 지젤 of aespa)",
+      "artist": "김하온 (HAON)",
+      "album": "Skrr (feat. 지젤 of aespa)",
+      "yt_title": "Skrr (feat. 지젤)",
+      "yt_artist": "김하온",
+      "yt_album": "Skrr",
+      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/b9/ca/44/b9ca4462-4197-6ece-c43f-a9a229203e69/5034644289472.jpg/100x100bb.jpg",
+      "apple_url": "https://music.apple.com/album/1780254494?i=1780254692",
+      "melon_url": "https://www.melon.com/song/detail.htm?songId=38229421",
+      "spotify_url": ""
+    },
+    "roPmnx9Pglw": {
+      "video_id": "roPmnx9Pglw",
+      "title": "화",
+      "artist": "Panda Gomm & 양홍원",
+      "album": "오보 - Single",
+      "yt_title": "화",
+      "yt_artist": "Panda Gomm 양홍원",
+      "yt_album": "오보",
+      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/6c/e8/ea/6ce8ea42-03c6-6e58-6f4b-c432a1ccad36/8800388627842_cover.jpg/100x100bb.jpg",
       "apple_url": "",
-      "melon_url": "https://www.melon.com/song/detail.htm?songId=603382325"
+      "melon_url": "https://www.melon.com/song/detail.htm?songId=603858396",
+      "spotify_url": ""
+    },
+    "g9S18fcpNSQ": {
+      "video_id": "g9S18fcpNSQ",
+      "title": "Night Stage",
+      "artist": "LEE MU JIN",
+      "album": "Night Stage",
+      "yt_title": "Night Stage",
+      "yt_artist": "LEE MU JIN",
+      "yt_album": "Night Stage",
+      "spotify_url": "https://open.spotify.com/track/36wx19Bof5DtHII4ETXJL5",
+      "artwork_url": "https://yt3.googleusercontent.com/oEhAK5YMRQ14ywV6GBlCwSP9lciJFdJ8Vm3qftwp-oUPe7b4Q3QP_KIR-p_oDdNKq6CKf0rxlhnJf_rfOg=w180-h180-l90-rj",
+      "apple_url": "",
+      "melon_url": ""
+    },
+    "nD1p_H3qo_A": {
+      "video_id": "nD1p_H3qo_A",
+      "title": "희재",
+      "artist": "성시경",
+      "album": "국화꽃 향기 OST",
+      "yt_title": "HeeJae (희재)",
+      "yt_artist": "Sung Si Kyung",
+      "yt_album": "HeeJae (Original Motion Picture Soundtrack) (국화꽃 향기 OST)",
+      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music124/v4/83/79/01/837901da-4013-6375-dfc8-f20009b58d05/KO0009172.jpg/100x100bb.jpg",
+      "melon_url": "https://www.melon.com/song/detail.htm?songId=418168",
+      "apple_url": "",
+      "spotify_url": ""
+    },
+    "fV4uM0b3vmE": {
+      "video_id": "fV4uM0b3vmE",
+      "title": "Darling",
+      "artist": "D.O.",
+      "album": "Darling",
+      "yt_title": "Darling",
+      "yt_artist": "디오 (D.O.)",
+      "yt_album": "Darling",
+      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/9d/01/e1/9d01e1f4-c9b7-89c8-58be-caa84f4c7a34/191953593371.jpg/100x100bb.jpg",
+      "apple_url": "",
+      "melon_url": "https://www.melon.com/song/detail.htm?songId=603882945",
+      "spotify_url": ""
+    },
+    "m8fkHYTAFSw": {
+      "video_id": "m8fkHYTAFSw",
+      "title": "Lovesick",
+      "artist": "CHAERYEONG",
+      "album": "Lovesick",
+      "yt_title": "Lovesick",
+      "yt_artist": "CHAERYEONG (ITZY)",
+      "yt_album": "Lovesick",
+      "artwork_url": "https://yt3.googleusercontent.com/7iXfkJuw40ijbPfqm-SaicrBprC_EDZVHIZVpVp6qdW37Y5kxzJtqqUB1Vc4WSUVeOILcMZfqg8-Lfue=w180-h180-l90-rj",
+      "apple_url": "",
+      "melon_url": "",
+      "spotify_url": ""
+    },
+    "RwrZPCKLs2E": {
+      "video_id": "RwrZPCKLs2E",
+      "title": "빌려온 고양이 (Do the Dance)",
+      "artist": "아일릿",
+      "album": "bomb - EP",
+      "yt_title": "Billyeoon Goyangi (Do the Dance)",
+      "yt_artist": "ILLIT",
+      "yt_album": "bomb",
+      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music221/v4/e4/bc/4d/e4bc4da3-0013-9949-8e54-0eede523f9d4/198704525001_Cover.jpg/100x100bb.jpg",
+      "apple_url": "https://music.apple.com/album/1817427556?i=1817427565",
+      "melon_url": "",
+      "spotify_url": ""
+    },
+    "zXJMieNOKmM": {
+      "video_id": "zXJMieNOKmM",
+      "title": "City Blue",
+      "artist": "Mili",
+      "album": "City Blue",
+      "yt_title": "City Blue",
+      "yt_artist": "Mili",
+      "yt_album": "City Blue",
+      "artwork_url": "",
+      "apple_url": "",
+      "melon_url": "",
+      "spotify_url": ""
+    },
+    "AzS4LokpHmg": {
+      "video_id": "AzS4LokpHmg",
+      "title": "사계",
+      "artist": "양홍원",
+      "album": "오보에",
+      "yt_title": "4 Seasons(1.12) (사계)",
+      "yt_artist": "YANGHONGWON",
+      "yt_album": "3 STEPS FORWARD, 2 STEPS BACK (오보에)",
+      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music125/v4/1d/91/d0/1d91d04e-e509-2d85-72f7-dcffe5359d13/cover-_0601.jpg/100x100bb.jpg",
+      "apple_url": "https://music.apple.com/album/1573192793?i=1573192803",
+      "melon_url": "https://www.melon.com/song/detail.htm?songId=33596736",
+      "spotify_url": ""
+    },
+    "Uw6LRf2Bgu4": {
+      "video_id": "Uw6LRf2Bgu4",
+      "title": "REBELS",
+      "artist": "ISEGYE IDOL",
+      "album": "Across Dimensions",
+      "yt_title": "REBELS",
+      "yt_artist": "ISEGYE IDOL",
+      "yt_album": "Across Dimensions",
+      "artwork_url": "https://yt3.googleusercontent.com/2Ih10QikC1MXiY9askUWi9ek4GQ5A8uF0z2mgRWHbGR6P2PMTdwWRkoGxRcHeGJLRW8CDyCJmY2bNyTkWA=w180-h180-l90-rj",
+      "apple_url": "",
+      "melon_url": "",
+      "spotify_url": ""
     },
     "7Eo-TAWu0oo": {
       "video_id": "7Eo-TAWu0oo",
@@ -1219,110 +1245,6 @@
       "spotify_url": "https://open.spotify.com/track/5BqwC9kOBbqYkzdOKeXFFk",
       "apple_url": "https://music.apple.com/album/1456102975?i=1456103133"
     },
-    "Yc4gp6oeN7k": {
-      "video_id": "Yc4gp6oeN7k",
-      "title": "Skrr (feat. 지젤 of aespa)",
-      "artist": "김하온 (HAON)",
-      "album": "Skrr (feat. 지젤 of aespa)",
-      "yt_title": "Skrr (feat. 지젤)",
-      "yt_artist": "김하온",
-      "yt_album": "Skrr",
-      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/b9/ca/44/b9ca4462-4197-6ece-c43f-a9a229203e69/5034644289472.jpg/100x100bb.jpg",
-      "apple_url": "https://music.apple.com/album/1780254494?i=1780254692",
-      "melon_url": "https://www.melon.com/song/detail.htm?songId=38229421",
-      "spotify_url": ""
-    },
-    "AzS4LokpHmg": {
-      "video_id": "AzS4LokpHmg",
-      "title": "사계",
-      "artist": "양홍원",
-      "album": "오보에",
-      "yt_title": "4 Seasons(1.12) (사계)",
-      "yt_artist": "YANGHONGWON",
-      "yt_album": "3 STEPS FORWARD, 2 STEPS BACK (오보에)",
-      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music125/v4/1d/91/d0/1d91d04e-e509-2d85-72f7-dcffe5359d13/cover-_0601.jpg/100x100bb.jpg",
-      "apple_url": "https://music.apple.com/album/1573192793?i=1573192803",
-      "melon_url": "https://www.melon.com/song/detail.htm?songId=33596736",
-      "spotify_url": ""
-    },
-    "nD1p_H3qo_A": {
-      "video_id": "nD1p_H3qo_A",
-      "title": "희재",
-      "artist": "성시경",
-      "album": "국화꽃 향기 OST",
-      "yt_title": "HeeJae (희재)",
-      "yt_artist": "Sung Si Kyung",
-      "yt_album": "HeeJae (Original Motion Picture Soundtrack) (국화꽃 향기 OST)",
-      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music124/v4/83/79/01/837901da-4013-6375-dfc8-f20009b58d05/KO0009172.jpg/100x100bb.jpg",
-      "melon_url": "https://www.melon.com/song/detail.htm?songId=418168",
-      "apple_url": "",
-      "spotify_url": ""
-    },
-    "RwrZPCKLs2E": {
-      "video_id": "RwrZPCKLs2E",
-      "title": "빌려온 고양이 (Do the Dance)",
-      "artist": "아일릿",
-      "album": "bomb - EP",
-      "yt_title": "Billyeoon Goyangi (Do the Dance)",
-      "yt_artist": "ILLIT",
-      "yt_album": "bomb",
-      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music221/v4/e4/bc/4d/e4bc4da3-0013-9949-8e54-0eede523f9d4/198704525001_Cover.jpg/100x100bb.jpg",
-      "apple_url": "https://music.apple.com/album/1817427556?i=1817427565",
-      "melon_url": "",
-      "spotify_url": ""
-    },
-    "IhKjZk5AYRg": {
-      "video_id": "IhKjZk5AYRg",
-      "title": "Popcorn",
-      "artist": "도경수(D.O.)",
-      "album": "성장 - THE 3RD MINI ALBUM",
-      "yt_title": "Popcorn",
-      "yt_artist": "D.O.",
-      "yt_album": "BLOSSOM - THE 3RD MINI ALBUM",
-      "artwork_url": "https://kkoimg.melon.co.kr/cm2/album/images/114/77/689/11477689_20240507151429_500.jpg?da59e0849d54eb7e6ccff961e44f8d70/melon/resize/96/quality/80/optimize",
-      "melon_url": "https://www.melon.com/song/detail.htm?songId=37473973",
-      "apple_url": "",
-      "spotify_url": ""
-    },
-    "IHIt9S2DWcQ": {
-      "video_id": "IHIt9S2DWcQ",
-      "title": "Dear my crazy soulmate",
-      "artist": "아이유",
-      "album": "이 별로부터 - Single",
-      "yt_title": "Dear my crazy soulmate",
-      "yt_artist": "IU",
-      "yt_album": "Unknown Planet",
-      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music221/v4/0f/42/d4/0f42d4ec-e05e-afa2-225a-fa27bb65127b/cover_KM0025182_1.jpg/100x100bb.jpg",
-      "melon_url": "https://www.melon.com/song/detail.htm?songId=603052340",
-      "spotify_url": "https://open.spotify.com/track/0cbgFMxCXMzs80R2vxwApT",
-      "apple_url": ""
-    },
-    "tE_STpBGVcE": {
-      "video_id": "tE_STpBGVcE",
-      "title": "Moise",
-      "artist": "임영웅",
-      "album": "IM HERO 10",
-      "yt_title": "Moise",
-      "yt_artist": "Lim Young Woong",
-      "yt_album": "IM HERO 10",
-      "artwork_url": "https://yt3.googleusercontent.com/ver3z_mWOKJkKkWopYRmrVbc59YVtLM14D5zl0sf1m-_6eDVCqPYtpI5Kv-xaCtn9cWqT12tJJLuE65ckA=w180-h180-l90-rj",
-      "apple_url": "",
-      "melon_url": "",
-      "spotify_url": ""
-    },
-    "kdOS94IjzzE": {
-      "video_id": "kdOS94IjzzE",
-      "title": "Attention",
-      "artist": "뉴진스",
-      "album": "NewJeans 1st EP 'New Jeans'",
-      "yt_title": "Attention",
-      "yt_artist": "NewJeans",
-      "yt_album": "NewJeans 1st EP 'New Jeans'",
-      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music112/v4/4e/64/34/4e64344b-3ac6-c503-2c41-257a15401416/192641873096_Cover.jpg/100x100bb.jpg",
-      "apple_url": "https://music.apple.com/album/1635469682?i=1635469694",
-      "melon_url": "",
-      "spotify_url": ""
-    },
     "eqKhhG4FVoQ": {
       "video_id": "eqKhhG4FVoQ",
       "title": "FOCUS",
@@ -1336,70 +1258,18 @@
       "spotify_url": "https://open.spotify.com/track/6jYiHr12NVKLzn0X7K8aSK",
       "melon_url": "https://www.melon.com/song/detail.htm?songId=600320356"
     },
-    "m8fkHYTAFSw": {
-      "video_id": "m8fkHYTAFSw",
-      "title": "Lovesick",
-      "artist": "채령",
-      "album": "Lovesick",
-      "yt_title": "Lovesick",
-      "yt_artist": "CHAERYEONG (ITZY)",
-      "yt_album": "Lovesick",
-      "artwork_url": "https://yt3.googleusercontent.com/7iXfkJuw40ijbPfqm-SaicrBprC_EDZVHIZVpVp6qdW37Y5kxzJtqqUB1Vc4WSUVeOILcMZfqg8-Lfue=w180-h180-l90-rj",
+    "ZcHRydIz0eM": {
+      "video_id": "ZcHRydIz0eM",
+      "title": "내게 사랑이 뭐냐고 물어본다면",
+      "artist": "로이킴",
+      "album": "내게 사랑이 뭐냐고 물어본다면",
+      "yt_title": "If You Ask Me What Love Is",
+      "yt_artist": "Roy Kim",
+      "yt_album": "If You Ask Me What Love Is",
+      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/b5/f7/17/b5f7170a-c9fa-35e3-d2a0-94e4cdeb145e/888272141344_Cover.jpg/100x100bb.jpg",
+      "melon_url": "https://www.melon.com/song/detail.htm?songId=38104031",
       "apple_url": "",
-      "melon_url": "",
       "spotify_url": ""
-    },
-    "7CUz7Ec7cWc": {
-      "video_id": "7CUz7Ec7cWc",
-      "title": "hate that i made you love me",
-      "artist": "Ariana Grande",
-      "album": "petal",
-      "yt_title": "hate that i made you love me",
-      "yt_artist": "Ariana Grande",
-      "yt_album": "hate that i made you love me",
-      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/7e/e6/82/7ee682bd-1b17-6adc-be63-b5af1bdff369/26UMGIM51126.rgb.jpg/100x100bb.jpg",
-      "spotify_url": "https://open.spotify.com/track/20jbSiX29FDX4oQxBXyUEi",
-      "apple_url": "",
-      "melon_url": ""
-    },
-    "QxGt54-oh1A": {
-      "video_id": "QxGt54-oh1A",
-      "title": "Good Goodbye",
-      "artist": "화사 (HWASA)",
-      "album": "Good Goodbye",
-      "yt_title": "Good Goodbye",
-      "yt_artist": "HWASA",
-      "yt_album": "Good Goodbye",
-      "artwork_url": "https://kkoimg.melon.co.kr/cm2/album/images/121/60/000/12160000_20251014164646_500.jpg?131bde718bd1578a1b34b12adabfa153/melon/resize/96/quality/80/optimize",
-      "melon_url": "https://www.melon.com/song/detail.htm?songId=600287375",
-      "apple_url": "",
-      "spotify_url": "https://open.spotify.com/track/3cLXrotzCjYCkN73PewALM"
-    },
-    "nNgPxwyPDe0": {
-      "video_id": "nNgPxwyPDe0",
-      "title": "마음의 숲",
-      "artist": "조선힙합",
-      "album": "마음의 숲",
-      "yt_title": "마음의 숲",
-      "yt_artist": "조선힙합",
-      "yt_album": "마음의 숲",
-      "artwork_url": "https://yt3.googleusercontent.com/E8sA-U-079AMOCUHpbftCjmeefhKP7TrnwlakXxdICu3Pl3-sDSzUtOZ78sCp-vN2gxSf8y0KRFEjc8=w180-h180-l90-rj",
-      "apple_url": "",
-      "melon_url": "",
-      "spotify_url": ""
-    },
-    "uGM5hvD6ku4": {
-      "video_id": "uGM5hvD6ku4",
-      "title": "MEME",
-      "artist": "RESCENE (리센느)",
-      "album": "PULSE",
-      "yt_title": "MEME",
-      "yt_artist": "RESCENE",
-      "yt_album": "PULSE",
-      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music221/v4/b3/df/b7/b3dfb7ba-715f-1f5a-5528-eb82acd5225a/888272191394_Cover.jpg/100x100bb.jpg",
-      "melon_url": "https://www.melon.com/song/detail.htm?songId=603712836",
-      "spotify_url": "https://open.spotify.com/track/4IShSHFVumlyS3jICnOFw2",
-      "apple_url": ""
     },
     "ytENsphA_BI": {
       "video_id": "ytENsphA_BI",
@@ -1414,31 +1284,70 @@
       "melon_url": "",
       "spotify_url": ""
     },
-    "D9IVOL9felk": {
-      "video_id": "D9IVOL9felk",
-      "title": "봄 내음보다 너를",
-      "artist": "김나영",
-      "album": "봄 내음보다 너를",
-      "yt_title": "A Letter for You",
-      "yt_artist": "Kim NaYoung",
-      "yt_album": "A Letter for You",
-      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music115/v4/14/33/5a/14335adb-75f6-7804-ac40-3036e7171207/cover_-.jpg/100x100bb.jpg",
-      "melon_url": "https://www.melon.com/song/detail.htm?songId=33411344",
-      "spotify_url": "https://open.spotify.com/track/4vfO4uu5VObHhGSrdV6TC5",
+    "F_EGihOgXsg": {
+      "video_id": "F_EGihOgXsg",
+      "title": "Mise en scène",
+      "artist": "에픽하이 (EPIK HIGH), 다비치",
+      "album": "Mise en scène",
+      "yt_title": "Mise en scène",
+      "yt_artist": "Epik High, DAVICHI",
+      "yt_album": "Mise en scène",
+      "artwork_url": "https://yt3.googleusercontent.com/QyfTHAJ798VN7xLKv-3e3hgSpwcmWYmHcnMkAm1sWF8Q9_R2IK7JSw8rMilntcn7WHEIenlu1XGBpWf7Hg=w180-h180-l90-rj",
+      "spotify_url": "https://open.spotify.com/track/0wIwrT28ZIAHdJsTgKhAt9",
+      "apple_url": "",
+      "melon_url": "https://www.melon.com/song/detail.htm?songId=603382325"
+    },
+    "6Xa1VDLACPo": {
+      "video_id": "6Xa1VDLACPo",
+      "title": "소문의 낙원",
+      "artist": "AKMU (악뮤)",
+      "album": "개화",
+      "yt_title": "Paradise of Rumors",
+      "yt_artist": "AKMU",
+      "yt_album": "FLOWERING",
+      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/43/aa/35/43aa3529-1776-70fb-fe49-2bb59a7680f2/8800367489775_cover.jpg/100x100bb.jpg",
+      "melon_url": "https://www.melon.com/song/detail.htm?songId=601719413",
+      "spotify_url": "https://open.spotify.com/track/5dxiriLgC9mu2FbSNqudld",
       "apple_url": ""
     },
-    "2v4VH659WPI": {
-      "video_id": "2v4VH659WPI",
-      "title": "또또",
-      "artist": "임영웅",
-      "album": "IM HERO 10",
-      "yt_title": "ToTo",
-      "yt_artist": "Lim Young Woong",
-      "yt_album": "IM HERO 10",
-      "artwork_url": "https://yt3.googleusercontent.com/ver3z_mWOKJkKkWopYRmrVbc59YVtLM14D5zl0sf1m-_6eDVCqPYtpI5Kv-xaCtn9cWqT12tJJLuE65ckA=w180-h180-l90-rj",
-      "spotify_url": "https://open.spotify.com/track/0sRcVXli6eqbPASpVXTWB2",
+    "kdOS94IjzzE": {
+      "video_id": "kdOS94IjzzE",
+      "title": "Attention",
+      "artist": "뉴진스",
+      "album": "NewJeans 1st EP 'New Jeans'",
+      "yt_title": "Attention",
+      "yt_artist": "NewJeans",
+      "yt_album": "NewJeans 1st EP 'New Jeans'",
+      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music112/v4/4e/64/34/4e64344b-3ac6-c503-2c41-257a15401416/192641873096_Cover.jpg/100x100bb.jpg",
+      "apple_url": "https://music.apple.com/album/1635469682?i=1635469694",
+      "melon_url": "",
+      "spotify_url": ""
+    },
+    "KYGb4thFNqk": {
+      "video_id": "KYGb4thFNqk",
+      "title": "UP",
+      "artist": "ATEEZ",
+      "album": "GOLDEN HOUR : Part.6",
+      "yt_title": "UP",
+      "yt_artist": "ATEEZ",
+      "yt_album": "GOLDEN HOUR : Part.6",
+      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/1d/4c/8e/1d4c8e84-ac53-90ed-1dbe-615fdef5b8f1/196874852668.jpg/100x100bb.jpg",
       "apple_url": "",
-      "melon_url": ""
+      "melon_url": "",
+      "spotify_url": ""
+    },
+    "nNgPxwyPDe0": {
+      "video_id": "nNgPxwyPDe0",
+      "title": "마음의 숲",
+      "artist": "조선힙합",
+      "album": "마음의 숲",
+      "yt_title": "마음의 숲",
+      "yt_artist": "조선힙합",
+      "yt_album": "마음의 숲",
+      "artwork_url": "https://yt3.googleusercontent.com/E8sA-U-079AMOCUHpbftCjmeefhKP7TrnwlakXxdICu3Pl3-sDSzUtOZ78sCp-vN2gxSf8y0KRFEjc8=w180-h180-l90-rj",
+      "apple_url": "",
+      "melon_url": "",
+      "spotify_url": ""
     },
     "TNC6ZdLylXM": {
       "video_id": "TNC6ZdLylXM",
@@ -1453,28 +1362,28 @@
       "apple_url": "",
       "melon_url": "https://www.melon.com/song/detail.htm?songId=603196851"
     },
-    "bLahVNBGdLQ": {
-      "video_id": "bLahVNBGdLQ",
-      "title": "멸종위기사랑",
-      "artist": "이찬혁",
-      "album": "EROS",
-      "yt_title": "Endangered Love",
-      "yt_artist": "LEE CHANHYUK",
-      "yt_album": "EROS",
-      "artwork_url": "https://kkoimg.melon.co.kr/cm2/album/images/118/91/198/11891198_20250714145747_500.jpg?ad52c64e28297826012030d7ddef1382/melon/resize/96/quality/80/optimize",
-      "melon_url": "https://www.melon.com/song/detail.htm?songId=39307948",
+    "IhKjZk5AYRg": {
+      "video_id": "IhKjZk5AYRg",
+      "title": "Popcorn",
+      "artist": "도경수(D.O.)",
+      "album": "성장 - THE 3RD MINI ALBUM",
+      "yt_title": "Popcorn",
+      "yt_artist": "D.O.",
+      "yt_album": "BLOSSOM - THE 3RD MINI ALBUM",
+      "artwork_url": "https://kkoimg.melon.co.kr/cm2/album/images/114/77/689/11477689_20240507151429_500.jpg?da59e0849d54eb7e6ccff961e44f8d70/melon/resize/96/quality/80/optimize",
+      "melon_url": "https://www.melon.com/song/detail.htm?songId=37473973",
       "apple_url": "",
-      "spotify_url": "https://open.spotify.com/track/06o2o3TpyR8eGU2ANK21Lp"
+      "spotify_url": ""
     },
-    "Uw6LRf2Bgu4": {
-      "video_id": "Uw6LRf2Bgu4",
-      "title": "REBELS",
-      "artist": "이세계아이돌",
-      "album": "Across Dimensions",
-      "yt_title": "REBELS",
-      "yt_artist": "ISEGYE IDOL",
-      "yt_album": "Across Dimensions",
-      "artwork_url": "https://yt3.googleusercontent.com/2Ih10QikC1MXiY9askUWi9ek4GQ5A8uF0z2mgRWHbGR6P2PMTdwWRkoGxRcHeGJLRW8CDyCJmY2bNyTkWA=w180-h180-l90-rj",
+    "tE_STpBGVcE": {
+      "video_id": "tE_STpBGVcE",
+      "title": "Moise",
+      "artist": "Lim Young Woong",
+      "album": "IM HERO 10",
+      "yt_title": "Moise",
+      "yt_artist": "Lim Young Woong",
+      "yt_album": "IM HERO 10",
+      "artwork_url": "https://yt3.googleusercontent.com/ver3z_mWOKJkKkWopYRmrVbc59YVtLM14D5zl0sf1m-_6eDVCqPYtpI5Kv-xaCtn9cWqT12tJJLuE65ckA=w180-h180-l90-rj",
       "apple_url": "",
       "melon_url": "",
       "spotify_url": ""
@@ -1492,6 +1401,110 @@
       "melon_url": "",
       "spotify_url": ""
     },
+    "pMEvQz6HIA0": {
+      "video_id": "pMEvQz6HIA0",
+      "title": "행복하지 말아요",
+      "artist": "엠씨더맥스 (M.C the MAX)",
+      "album": "Solitude Love...",
+      "yt_title": "행복하지 말아요",
+      "yt_artist": "M.C The Max",
+      "yt_album": "Solitude Love…",
+      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music115/v4/b0/5a/57/b05a57bb-25b9-b92d-8166-de2a18ffaff5/8809795742681.jpg/100x100bb.jpg",
+      "melon_url": "https://www.melon.com/song/detail.htm?songId=623415",
+      "apple_url": "",
+      "spotify_url": ""
+    },
+    "2v4VH659WPI": {
+      "video_id": "2v4VH659WPI",
+      "title": "ToTo",
+      "artist": "Lim Young Woong",
+      "album": "IM HERO 10",
+      "yt_title": "ToTo",
+      "yt_artist": "Lim Young Woong",
+      "yt_album": "IM HERO 10",
+      "spotify_url": "https://open.spotify.com/track/0sRcVXli6eqbPASpVXTWB2",
+      "artwork_url": "https://yt3.googleusercontent.com/ver3z_mWOKJkKkWopYRmrVbc59YVtLM14D5zl0sf1m-_6eDVCqPYtpI5Kv-xaCtn9cWqT12tJJLuE65ckA=w180-h180-l90-rj",
+      "apple_url": "",
+      "melon_url": ""
+    },
+    "QxGt54-oh1A": {
+      "video_id": "QxGt54-oh1A",
+      "title": "Good Goodbye",
+      "artist": "화사 (HWASA)",
+      "album": "Good Goodbye",
+      "yt_title": "Good Goodbye",
+      "yt_artist": "HWASA",
+      "yt_album": "Good Goodbye",
+      "artwork_url": "https://kkoimg.melon.co.kr/cm2/album/images/121/60/000/12160000_20251014164646_500.jpg?131bde718bd1578a1b34b12adabfa153/melon/resize/96/quality/80/optimize",
+      "melon_url": "https://www.melon.com/song/detail.htm?songId=600287375",
+      "apple_url": "",
+      "spotify_url": "https://open.spotify.com/track/3cLXrotzCjYCkN73PewALM"
+    },
+    "ujIl_AU6B24": {
+      "video_id": "ujIl_AU6B24",
+      "title": "Hong Kong",
+      "artist": "Lil Utah YBTOP",
+      "album": "Hong Kong",
+      "yt_title": "Hong Kong",
+      "yt_artist": "Lil Utah YBTOP",
+      "yt_album": "Hong Kong",
+      "artwork_url": "",
+      "apple_url": "",
+      "melon_url": "",
+      "spotify_url": ""
+    },
+    "HlT6mxxt6Ek": {
+      "video_id": "HlT6mxxt6Ek",
+      "title": "ADDICTED",
+      "artist": "JISOO",
+      "album": "ADDICTED",
+      "yt_title": "ADDICTED",
+      "yt_artist": "JISOO",
+      "yt_album": "ADDICTED",
+      "artwork_url": "https://yt3.googleusercontent.com/vHNdsSwM1rYf7G_CZLKeroFGtmTpqoCSYVvgsXVdJmCw6-VsK_-vPfGVF4y0B4DdzO3J5pMYhpL6FhoQ=w180-h180-l90-rj",
+      "apple_url": "",
+      "melon_url": "",
+      "spotify_url": ""
+    },
+    "dBv5ju-TGZQ": {
+      "video_id": "dBv5ju-TGZQ",
+      "title": "I Want You",
+      "artist": "엔하이픈",
+      "album": "THE SIN : PARALLEL WORLD - Single",
+      "yt_title": "I Want You",
+      "yt_artist": "ENHYPEN",
+      "yt_album": "THE SIN : PARALLEL WORLD",
+      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/26/3d/d5/263dd5d0-a22e-8f2c-a383-766220d450e7/823375532705_Cover.jpg/100x100bb.jpg",
+      "apple_url": "",
+      "melon_url": "",
+      "spotify_url": ""
+    },
+    "29lj9jFfJvY": {
+      "video_id": "29lj9jFfJvY",
+      "title": "어제보다 슬픈 오늘",
+      "artist": "우디 (Woody)",
+      "album": "어제보다 슬픈 오늘",
+      "yt_title": "어제보다 슬픈 오늘",
+      "yt_artist": "우디 (Woody)",
+      "yt_album": "어제보다 슬픈 오늘",
+      "artwork_url": "https://kkoimg.melon.co.kr/cm2/album/images/117/56/010/11756010_20250331135525_500.jpg?1253aed12fbd252ff6263490542c2739/melon/resize/96/quality/80/optimize",
+      "melon_url": "https://www.melon.com/song/detail.htm?songId=38733032",
+      "apple_url": "",
+      "spotify_url": ""
+    },
+    "7CUz7Ec7cWc": {
+      "video_id": "7CUz7Ec7cWc",
+      "title": "hate that i made you love me",
+      "artist": "Ariana Grande",
+      "album": "petal",
+      "yt_title": "hate that i made you love me",
+      "yt_artist": "Ariana Grande",
+      "yt_album": "hate that i made you love me",
+      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/7e/e6/82/7ee682bd-1b17-6adc-be63-b5af1bdff369/26UMGIM51126.rgb.jpg/100x100bb.jpg",
+      "spotify_url": "https://open.spotify.com/track/20jbSiX29FDX4oQxBXyUEi",
+      "apple_url": "",
+      "melon_url": ""
+    },
     "cZL7mpzVpgI": {
       "video_id": "cZL7mpzVpgI",
       "title": "사랑의 바보",
@@ -1504,6 +1517,32 @@
       "melon_url": "https://www.melon.com/song/detail.htm?songId=534252",
       "spotify_url": "https://open.spotify.com/track/3wYDgvDi82GUU1NPy2roYp",
       "apple_url": ""
+    },
+    "fwNJdxUghcc": {
+      "video_id": "fwNJdxUghcc",
+      "title": "사랑은 봄비처럼...이별은 겨울비처럼...",
+      "artist": "임현정",
+      "album": "All That Love",
+      "yt_title": "사랑은 봄비처럼...이별은 겨울비처럼",
+      "yt_artist": "임현정 (Lim Hyun Jung)",
+      "yt_album": "A Year Out...In The Island",
+      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music/00/2f/94/mzi.crijpvtm.jpg/100x100bb.jpg",
+      "melon_url": "https://www.melon.com/song/detail.htm?songId=1121123",
+      "apple_url": "https://music.apple.com/album/345400869?i=345400888",
+      "spotify_url": ""
+    },
+    "IuaW6w3Mh4c": {
+      "video_id": "IuaW6w3Mh4c",
+      "title": "Underneath the Tree",
+      "artist": "Kelly Clarkson",
+      "album": "Wrapped In Red (Deluxe Version)",
+      "yt_title": "Underneath the Tree",
+      "yt_artist": "Kelly Clarkson",
+      "yt_album": "Wrapped In Red",
+      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music124/v4/d8/e3/a5/d8e3a5f3-9296-07cc-9714-26069c01fd44/886448741190.jpg/100x100bb.jpg",
+      "apple_url": "",
+      "melon_url": "",
+      "spotify_url": ""
     },
     "n9h7WZg1oYs": {
       "video_id": "n9h7WZg1oYs",
@@ -1518,15 +1557,509 @@
       "melon_url": "",
       "spotify_url": ""
     },
-    "IuaW6w3Mh4c": {
-      "video_id": "IuaW6w3Mh4c",
-      "title": "Underneath the Tree",
-      "artist": "Kelly Clarkson",
-      "album": "Wrapped In Red (Deluxe Version)",
-      "yt_title": "Underneath the Tree",
-      "yt_artist": "Kelly Clarkson",
-      "yt_album": "Wrapped In Red",
-      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music124/v4/d8/e3/a5/d8e3a5f3-9296-07cc-9714-26069c01fd44/886448741190.jpg/100x100bb.jpg",
+    "YJhEsDa2o8w": {
+      "video_id": "YJhEsDa2o8w",
+      "title": "Bloody Paradise",
+      "artist": "엔하이픈 (ENHYPEN)",
+      "album": "THE SIN : BLISS",
+      "yt_title": "Bloody Paradise",
+      "yt_artist": "ENHYPEN",
+      "yt_album": "THE SIN : BLISS",
+      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music221/v4/9e/f2/dc/9ef2dc16-eefd-7cad-3d74-adbd0e394991/823375232841_Cover.jpg/100x100bb.jpg",
+      "melon_url": "https://www.melon.com/song/detail.htm?songId=602858445",
+      "spotify_url": "https://open.spotify.com/track/0r2JVOjI7H1jhXzXBOorKu",
+      "apple_url": ""
+    },
+    "bLahVNBGdLQ": {
+      "video_id": "bLahVNBGdLQ",
+      "title": "멸종위기사랑",
+      "artist": "이찬혁",
+      "album": "EROS",
+      "yt_title": "Endangered Love",
+      "yt_artist": "LEE CHANHYUK",
+      "yt_album": "EROS",
+      "artwork_url": "https://kkoimg.melon.co.kr/cm2/album/images/118/91/198/11891198_20250714145747_500.jpg?ad52c64e28297826012030d7ddef1382/melon/resize/96/quality/80/optimize",
+      "melon_url": "https://www.melon.com/song/detail.htm?songId=39307948",
+      "apple_url": "",
+      "spotify_url": "https://open.spotify.com/track/06o2o3TpyR8eGU2ANK21Lp"
+    },
+    "Xm2c0L-Xgdg": {
+      "video_id": "Xm2c0L-Xgdg",
+      "title": "Dancing in the Dark",
+      "artist": "A2O, A2O SOUL",
+      "album": "SUPERSTAR",
+      "yt_title": "Dancing in the Dark",
+      "yt_artist": "A2O, A2O SOUL",
+      "yt_album": "SUPERSTAR",
+      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music221/v4/3b/18/ab/3b18ab34-7d32-d62c-a1d5-c15352e3d6ab/888272192056_Cover.jpg/100x100bb.jpg",
+      "apple_url": "",
+      "melon_url": "",
+      "spotify_url": ""
+    },
+    "BY4sHNaV4WU": {
+      "video_id": "BY4sHNaV4WU",
+      "title": "눈의 꽃",
+      "artist": "박효신",
+      "album": "미안하다 사랑한다 OST",
+      "yt_title": "눈의 꽃",
+      "yt_artist": "박효신",
+      "yt_album": "미안하다 사랑한다 OST",
+      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music125/v4/c8/0d/5a/c80d5a02-7cad-d3b3-5751-02bcaecb7e0f/8809649887872.jpg/100x100bb.jpg",
+      "melon_url": "https://www.melon.com/song/detail.htm?songId=623902",
+      "apple_url": "",
+      "spotify_url": ""
+    },
+    "jCKcEoZrlJQ": {
+      "video_id": "jCKcEoZrlJQ",
+      "title": "그대 작은 나의 세상이 되어",
+      "artist": "카더가든",
+      "album": "부재",
+      "yt_title": "My whole world",
+      "yt_artist": "Car, the garden",
+      "yt_album": "Absence",
+      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music123/v4/a1/f1/d9/a1f1d9ed-4367-b40e-42ac-27992280a208/Car_the_garden.jpg/100x100bb.jpg",
+      "apple_url": "https://music.apple.com/album/1661608701?i=1661608702",
+      "melon_url": "https://www.melon.com/song/detail.htm?songId=33241003",
+      "spotify_url": "https://open.spotify.com/track/55pCe0UgAeaeWKKSQqdiWh"
+    },
+    "LP0lRsckX1A": {
+      "video_id": "LP0lRsckX1A",
+      "title": "인사",
+      "artist": "범진(BUMJIN)",
+      "album": "인사",
+      "yt_title": "인사",
+      "yt_artist": "BUMJIN",
+      "yt_album": "인사",
+      "artwork_url": "https://yt3.googleusercontent.com/15wkXs1Mndc-2cplMMNKNdJHHG6hg4Ui1nYBgcdXcpSZVUvHe1uvQxnLrSnSmTLGS_wjcR7rdxHqjnQ=w180-h180-l90-rj",
+      "apple_url": "",
+      "melon_url": "",
+      "spotify_url": "https://open.spotify.com/track/0VdwOoAKPe9aGahkpllfkH"
+    },
+    "VeU4N7z93BM": {
+      "video_id": "VeU4N7z93BM",
+      "title": "어른인 척 하는 중",
+      "artist": "MEOMURU",
+      "album": "쉬었음 청년",
+      "yt_title": "어른인 척 하는 중",
+      "yt_artist": "MEOMURU",
+      "yt_album": "쉬었음 청년",
+      "artwork_url": "https://yt3.googleusercontent.com/eEGumzAwslAQZSLhxKh0T9zO15dq3-6R8Gqj1I1Yj-979H6VXzeur0HxdXHc1y-DRjhJ4IsM-TfeeMuO=w180-h180-l90-rj",
+      "apple_url": "",
+      "melon_url": "",
+      "spotify_url": ""
+    },
+    "IHIt9S2DWcQ": {
+      "video_id": "IHIt9S2DWcQ",
+      "title": "Dear my crazy soulmate",
+      "artist": "아이유",
+      "album": "이 별로부터 - Single",
+      "yt_title": "Dear my crazy soulmate",
+      "yt_artist": "IU",
+      "yt_album": "Unknown Planet",
+      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music221/v4/0f/42/d4/0f42d4ec-e05e-afa2-225a-fa27bb65127b/cover_KM0025182_1.jpg/100x100bb.jpg",
+      "melon_url": "https://www.melon.com/song/detail.htm?songId=603052340",
+      "spotify_url": "https://open.spotify.com/track/0cbgFMxCXMzs80R2vxwApT",
+      "apple_url": ""
+    },
+    "E-BvyQb7mWE": {
+      "video_id": "E-BvyQb7mWE",
+      "title": "응급실",
+      "artist": "izi",
+      "album": "쾌걸춘향 OST",
+      "yt_title": "응급실",
+      "yt_artist": "izi",
+      "yt_album": "izi 1집",
+      "artwork_url": "https://kkoimg.melon.co.kr/cm/album/images/000/48/736/48736_500.jpg/melon/resize/96/quality/80/optimize",
+      "melon_url": "https://www.melon.com/song/detail.htm?songId=686651",
+      "apple_url": "",
+      "spotify_url": ""
+    },
+    "PEpWLTge234": {
+      "video_id": "PEpWLTge234",
+      "title": "Please Be Happy",
+      "artist": "임영웅",
+      "album": "IM HERO 10",
+      "yt_title": "Please Be Happy",
+      "yt_artist": "Lim Young Woong",
+      "yt_album": "IM HERO 10",
+      "artwork_url": "https://yt3.googleusercontent.com/ver3z_mWOKJkKkWopYRmrVbc59YVtLM14D5zl0sf1m-_6eDVCqPYtpI5Kv-xaCtn9cWqT12tJJLuE65ckA=w180-h180-l90-rj",
+      "apple_url": "",
+      "melon_url": "",
+      "spotify_url": ""
+    },
+    "jFPKynsdKDc": {
+      "video_id": "jFPKynsdKDc",
+      "title": "Ripple Effect2 Remix",
+      "artist": "Swings, hyeminsong, shinjihang, YULEUM",
+      "album": "The Ship Of Theseus",
+      "yt_title": "Ripple Effect2 Remix",
+      "yt_artist": "Swings, hyeminsong, shinjihang, YULEUM",
+      "yt_album": "The Ship Of Theseus",
+      "artwork_url": "",
+      "apple_url": "",
+      "melon_url": "",
+      "spotify_url": ""
+    },
+    "6POlUfjBIB4": {
+      "video_id": "6POlUfjBIB4",
+      "title": "Sakuranbo",
+      "artist": "YENA",
+      "album": "J-POP REMAKE Vol.5",
+      "yt_title": "사쿠란보",
+      "yt_artist": "YENA (최예나)",
+      "yt_album": "J-POP REMAKE Vol.5",
+      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/b9/74/b5/b974b571-c61c-1a63-ebb2-4858bc51724f/FrontCoverImage_1.jpg/100x100bb.jpg",
+      "apple_url": "",
+      "melon_url": "https://www.melon.com/song/detail.htm?songId=603959665",
+      "spotify_url": ""
+    },
+    "8QFM8Ews68c": {
+      "video_id": "8QFM8Ews68c",
+      "title": "Lucky Girl Syndrome",
+      "artist": "아일릿",
+      "album": "SUPER REAL ME - EP",
+      "yt_title": "Lucky Girl Syndrome",
+      "yt_artist": "ILLIT",
+      "yt_album": "SUPER REAL ME",
+      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music122/v4/3e/49/1e/3e491e43-4961-21ab-2abe-37fb1c0feb40/196922879227_Cover.jpg/100x100bb.jpg",
+      "apple_url": "https://music.apple.com/album/1734500886?i=1734501146",
+      "melon_url": "",
+      "spotify_url": ""
+    },
+    "TLftyCObb_E": {
+      "video_id": "TLftyCObb_E",
+      "title": "Blue Valentine",
+      "artist": "NMIXX",
+      "album": "Blue Valentine",
+      "yt_title": "Blue Valentine",
+      "yt_artist": "NMIXX",
+      "yt_album": "Blue Valentine",
+      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music221/v4/a7/5d/54/a75d54db-b997-d410-b6dd-25f7e766392a/8809928955148_Cover.jpg/100x100bb.jpg",
+      "melon_url": "https://www.melon.com/song/detail.htm?songId=600243411",
+      "apple_url": "",
+      "spotify_url": ""
+    },
+    "8kQH_bBMrMQ": {
+      "video_id": "8kQH_bBMrMQ",
+      "title": "숲",
+      "artist": "최유리",
+      "album": "Stroll",
+      "yt_title": "Forest",
+      "yt_artist": "최유리",
+      "yt_album": "Stroll",
+      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music112/v4/93/a7/4b/93a74b7c-69be-a9b1-1499-2d2eb0f9c3ed/191953194141.jpg/100x100bb.jpg",
+      "apple_url": "",
+      "melon_url": "",
+      "spotify_url": ""
+    },
+    "C_pHfKaLSM4": {
+      "video_id": "C_pHfKaLSM4",
+      "title": "Munchkin (feat. Nochang & Jvcki Wai)",
+      "artist": "Layone",
+      "album": "Munchkin",
+      "yt_title": "Munchkin (feat. Nochang & Jvcki Wai)",
+      "yt_artist": "Layone",
+      "yt_album": "Munchkin",
+      "artwork_url": "",
+      "apple_url": "",
+      "melon_url": "",
+      "spotify_url": ""
+    },
+    "V6TEcoNUmc8": {
+      "video_id": "V6TEcoNUmc8",
+      "title": "Ditto",
+      "artist": "NewJeans",
+      "album": "NewJeans 'OMG'",
+      "yt_title": "Ditto",
+      "yt_artist": "NewJeans",
+      "yt_album": "NewJeans 'OMG'",
+      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music112/v4/f6/29/42/f629426e-92fe-535c-cbe4-76e70850819b/196922287107_Cover.jpg/100x100bb.jpg",
+      "apple_url": "https://music.apple.com/album/1657231957?i=1657231962",
+      "melon_url": "",
+      "spotify_url": ""
+    },
+    "NwO0H2bUhSQ": {
+      "video_id": "NwO0H2bUhSQ",
+      "title": "내 머리가 나빠서",
+      "artist": "SS501",
+      "album": "꽃보다 남자 OST",
+      "yt_title": "내 머리가 나빠서",
+      "yt_artist": "SS501",
+      "yt_album": "꽃보다 남자 (Original Television Soundtrack)",
+      "artwork_url": "https://kkoimg.melon.co.kr/cm/album/images/004/63/151/463151_500.jpg/melon/resize/96/quality/80/optimize",
+      "melon_url": "https://www.melon.com/song/detail.htm?songId=2017349",
+      "apple_url": "",
+      "spotify_url": ""
+    },
+    "bp0eXAvaDzQ": {
+      "video_id": "bp0eXAvaDzQ",
+      "title": "Higher Than Rap",
+      "artist": "Dynamicduo",
+      "album": "Higher Than Rap",
+      "yt_title": "Higher Than Rap",
+      "yt_artist": "Dynamicduo",
+      "yt_album": "Higher Than Rap",
+      "artwork_url": "",
+      "apple_url": "",
+      "melon_url": "",
+      "spotify_url": ""
+    },
+    "aLUvL0mNQmY": {
+      "video_id": "aLUvL0mNQmY",
+      "title": "타임캡슐",
+      "artist": "다비치",
+      "album": "타임캡슐",
+      "yt_title": "타임캡슐",
+      "yt_artist": "다비치",
+      "yt_album": "TIME CAPSULE",
+      "artwork_url": "https://kkoimg.melon.co.kr/cm2/album/images/121/63/032/12163032_20251015164500_500.jpg?e7ae633046a20aa52afd5ff1fb86e847/melon/resize/96/quality/80/optimize",
+      "melon_url": "https://www.melon.com/song/detail.htm?songId=600299706",
+      "apple_url": "",
+      "spotify_url": ""
+    },
+    "vjrk0_T4Jzs": {
+      "video_id": "vjrk0_T4Jzs",
+      "title": "Whenever, Wherever",
+      "artist": "Roy Kim",
+      "album": "MY DEMON, Pt. 2 (Original Soundtrack)",
+      "yt_title": "Whenever, Wherever",
+      "yt_artist": "Roy Kim",
+      "yt_album": "MY DEMON, Pt. 2 (Original Soundtrack)",
+      "artwork_url": "https://yt3.googleusercontent.com/LYNbqvV-TguFjFjYdN_6N05p_84Vv0piO1cCooddYaZndLhu7Eom2weQTAXHWhRrNp9FYxUN77QFKLWn=w180-h180-l90-rj",
+      "apple_url": "",
+      "melon_url": "",
+      "spotify_url": ""
+    },
+    "V_kzqTam8lQ": {
+      "video_id": "V_kzqTam8lQ",
+      "title": "Finest Thing",
+      "artist": "RESCENE",
+      "album": "PULSE - EP",
+      "yt_title": "Finest Thing",
+      "yt_artist": "RESCENE",
+      "yt_album": "PULSE",
+      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music221/v4/b3/df/b7/b3dfb7ba-715f-1f5a-5528-eb82acd5225a/888272191394_Cover.jpg/100x100bb.jpg",
+      "melon_url": "https://www.melon.com/song/detail.htm?songId=603712833",
+      "spotify_url": "https://open.spotify.com/track/4sBBMO44urIJI5QN7pNo7Q",
+      "apple_url": ""
+    },
+    "tkzYyEp4zB4": {
+      "video_id": "tkzYyEp4zB4",
+      "title": "Next Level",
+      "artist": "aespa",
+      "album": "Next Level - Single",
+      "yt_title": "Next Level",
+      "yt_artist": "aespa",
+      "yt_album": "Next Level",
+      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music125/v4/60/8d/ac/608dacc2-d6d6-462d-26f0-d693e4364751/artwork.jpg/100x100bb.jpg",
+      "apple_url": "https://music.apple.com/album/1567326687?i=1567326688",
+      "melon_url": "",
+      "spotify_url": ""
+    },
+    "pRmsP7A-DtY": {
+      "video_id": "pRmsP7A-DtY",
+      "title": "좋아해.. (바른연애 길잡이 X 죠지)",
+      "artist": "죠지",
+      "album": "좋아해.. (바른연애 길잡이 X 죠지)",
+      "yt_title": "좋아해.. (바른연애 길잡이 X 죠지)",
+      "yt_artist": "죠지(GEORGE)",
+      "yt_album": "좋아해.. (바른연애 길잡이 X 죠지)",
+      "artwork_url": "https://kkoimg.melon.co.kr/cm2/album/images/105/65/776/10565776_20210217170459_500.jpg?ca5db84dad4b6d94cc6d2536e769d51f/melon/resize/96/quality/80/optimize",
+      "melon_url": "https://www.melon.com/song/detail.htm?songId=33293837",
+      "apple_url": "",
+      "spotify_url": ""
+    },
+    "hl7_dxuytRQ": {
+      "video_id": "hl7_dxuytRQ",
+      "title": "ICONIC HEART",
+      "artist": "Hearts2Hearts",
+      "album": "ICONIC HEART",
+      "yt_title": "ICONIC HEART",
+      "yt_artist": "Hearts2Hearts",
+      "yt_album": "ICONIC HEART",
+      "spotify_url": "https://open.spotify.com/track/1j5Z0YcfGBoKoydGscerHk",
+      "artwork_url": "https://yt3.googleusercontent.com/2ig0DkAoM2I7E5RkJZrcm2VBmj2ABW26sRKGpSuck-sePqbQxUT-3MPl42Ses2Yx1gNuKL04N6cQubaA=w180-h180-l90-rj",
+      "apple_url": "",
+      "melon_url": ""
+    },
+    "HaOz1PhGXhs": {
+      "video_id": "HaOz1PhGXhs",
+      "title": "LAST DANCE",
+      "artist": "BIGBANG (빅뱅)",
+      "album": "MADE",
+      "yt_title": "LAST DANCE",
+      "yt_artist": "BIGBANG",
+      "yt_album": "MADE",
+      "artwork_url": "https://kkoimg.melon.co.kr/cm/album/images/100/22/709/10022709_500.jpg?d23864800fca0b6e0cc88ed61d5c0525/melon/resize/96/quality/80/optimize",
+      "melon_url": "https://www.melon.com/song/detail.htm?songId=30147446",
+      "apple_url": "",
+      "spotify_url": ""
+    },
+    "F2WbQwiP5vs": {
+      "video_id": "F2WbQwiP5vs",
+      "title": "Insomnia",
+      "artist": "RIIZE",
+      "album": "Insomnia - Single",
+      "yt_title": "Insomnia",
+      "yt_artist": "RIIZE",
+      "yt_album": "Insomnia",
+      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/1d/f4/c8/1df4c8fc-c737-0794-0d5a-e052d4bf1fb9/888735956874.jpg/100x100bb.jpg",
+      "melon_url": "https://www.melon.com/song/detail.htm?songId=603692202",
+      "apple_url": "",
+      "spotify_url": ""
+    },
+    "-tCUWBHihu4": {
+      "video_id": "-tCUWBHihu4",
+      "title": "이 사랑",
+      "artist": "다비치",
+      "album": "태양의 후예 OST Part.3",
+      "yt_title": "This Love",
+      "yt_artist": "Davichi",
+      "yt_album": "태양의 후예, Part 3 (Original Sound Track)",
+      "artwork_url": "https://kkoimg.melon.co.kr/cm/album/images/026/69/778/2669778_500.jpg/melon/resize/96/quality/80/optimize",
+      "melon_url": "https://www.melon.com/song/detail.htm?songId=8071102",
+      "apple_url": "",
+      "spotify_url": ""
+    },
+    "5C-UzW1FLiA": {
+      "video_id": "5C-UzW1FLiA",
+      "title": "Trip (feat. Hannah)",
+      "artist": "릴러말즈",
+      "album": "VIOLINIST",
+      "yt_title": "Trip (feat. Hannah)",
+      "yt_artist": "Leellamarz",
+      "yt_album": "Trip",
+      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music126/v4/d2/6f/40/d26f4042-607f-3cef-b70c-8426e9d13e6f/8809603548191_Cover.jpg/100x100bb.jpg",
+      "apple_url": "https://music.apple.com/album/1608880065?i=1608880079",
+      "melon_url": "",
+      "spotify_url": ""
+    },
+    "yuH4OnvoADU": {
+      "video_id": "yuH4OnvoADU",
+      "title": "떠나가요, 떠나지마요 : 시대를 초월한 마음",
+      "artist": "순순희(기태), 백예슬",
+      "album": "떠나가요, 떠나지마요 : 시대를 초월한 마음",
+      "yt_title": "떠나가요, 떠나지마요 : 시대를 초월한 마음",
+      "yt_artist": "순순희 (기태) 백예슬",
+      "yt_album": "떠나가요, 떠나지마요 : 시대를 초월한 마음",
+      "artwork_url": "https://kkoimg.melon.co.kr/cm2/album/images/133/45/046/13345046_20260422163949_500.jpg?eafdeba1cd8cf01023d9c44372f2beed/melon/resize/96/quality/80/optimize",
+      "melon_url": "https://www.melon.com/song/detail.htm?songId=601831572",
+      "apple_url": "",
+      "spotify_url": ""
+    },
+    "0ERZrciEJvE": {
+      "video_id": "0ERZrciEJvE",
+      "title": "자나깨나 (Mayday) (feat. Joy)",
+      "artist": "Crush",
+      "album": "homemade 1",
+      "yt_title": "자나깨나 (Mayday) (feat. Joy)",
+      "yt_artist": "Crush",
+      "yt_album": "homemade 1",
+      "artwork_url": "",
+      "apple_url": "",
+      "melon_url": "",
+      "spotify_url": ""
+    },
+    "PGADim6UzHE": {
+      "video_id": "PGADim6UzHE",
+      "title": "Antifreeze",
+      "artist": "검정치마",
+      "album": "201 (Special Edition)",
+      "yt_title": "Antifreeze",
+      "yt_artist": "The Black Skirts",
+      "yt_album": "201 (Special Edition)",
+      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music128/v4/59/85/0b/59850bdc-1a15-bbe8-68b2-63a11e639f22/201_cover.jpg/100x100bb.jpg",
+      "apple_url": "https://music.apple.com/album/1316404325?i=1316404636",
+      "melon_url": "https://www.melon.com/song/detail.htm?songId=2613352",
+      "spotify_url": ""
+    },
+    "N4N8nam2QbI": {
+      "video_id": "N4N8nam2QbI",
+      "title": "Flower",
+      "artist": "오반(OVAN)",
+      "album": "교회오빠",
+      "yt_title": "Flower",
+      "yt_artist": "오반(OVAN)",
+      "yt_album": "교회오빠",
+      "artwork_url": "https://kkoimg.melon.co.kr/cm2/album/images/117/32/247/11732247_20250313092931_500.jpg?5dd1d2655dae6ac9cc46dd85884095d8/melon/resize/96/quality/80/optimize",
+      "melon_url": "https://www.melon.com/song/detail.htm?songId=38635449",
+      "apple_url": "",
+      "spotify_url": ""
+    },
+    "0uXWVDGvVVM": {
+      "video_id": "0uXWVDGvVVM",
+      "title": "짧은 치마 (Miniskirt)",
+      "artist": "AOA",
+      "album": "MINISKIRT (짧은 치마)",
+      "yt_title": "짧은 치마 (Miniskirt)",
+      "yt_artist": "AOA",
+      "yt_album": "MINISKIRT (짧은 치마)",
+      "artwork_url": "https://yt3.googleusercontent.com/FOwUxOJdkzcacum5QmrFHzHG9g__erJtg3tmMUkh4n8ILRV2HYQEBn3k7IO_mV9BoLjV1HTN30Fp4c8i=w180-h180-l90-rj",
+      "apple_url": "",
+      "melon_url": "",
+      "spotify_url": ""
+    },
+    "zlZpMuiqqBY": {
+      "video_id": "zlZpMuiqqBY",
+      "title": "好きな隙間 - My Lovely Nook",
+      "artist": "AnythingBecomeMoe, Una Otomachi",
+      "album": "My Lovely Nook",
+      "yt_title": "好きな隙間 - My Lovely Nook",
+      "yt_artist": "AnythingBecomeMoe, Una Otomachi",
+      "yt_album": "My Lovely Nook",
+      "artwork_url": "https://yt3.googleusercontent.com/AYg3h0WE7V19-Na-lyC3I_mgisjl2BU2_5yfOQErQjFz5ESYzjWO9lciFD8GboOejRIplHdBaI301CpH=w180-h180-l90-rj",
+      "apple_url": "",
+      "melon_url": "",
+      "spotify_url": ""
+    },
+    "rNvli9cD9Mw": {
+      "video_id": "rNvli9cD9Mw",
+      "title": "나였으면",
+      "artist": "나윤권",
+      "album": "중독",
+      "yt_title": "나였으면",
+      "yt_artist": "나윤권",
+      "yt_album": "중독",
+      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music221/v4/23/bc/0d/23bc0d10-7d1d-935e-30ec-01b2db72f68e/8809784691747.jpg/100x100bb.jpg",
+      "melon_url": "https://www.melon.com/song/detail.htm?songId=538118",
+      "spotify_url": "https://open.spotify.com/track/7sp5iTQjB7GHXX4TKrhOaO",
+      "apple_url": ""
+    },
+    "qWqKrwpw2kY": {
+      "video_id": "qWqKrwpw2kY",
+      "title": "Must Have Love",
+      "artist": "브라운아이드걸스, SG워너비",
+      "album": "SG워너비 & 브라운아이드걸스 싱글",
+      "yt_title": "Must Have Love",
+      "yt_artist": "Brown Eyed Girls, sg WANNA BE+",
+      "yt_album": "SG워너비 & 브라운아이드걸스 싱글",
+      "artwork_url": "https://yt3.googleusercontent.com/mIXxmMMVHIExgMdXqbSdJsUd_BRnpjMUkPP4FSsytY42oyc6sF3YtQMmaIpNOasMKvebFZrrSZZHxAJzpw=w180-h180-l90-rj",
+      "apple_url": "",
+      "melon_url": "",
+      "spotify_url": ""
+    },
+    "JG6YHjbj4zQ": {
+      "video_id": "JG6YHjbj4zQ",
+      "title": "White Memories",
+      "artist": "fromis_9",
+      "album": "White Memories",
+      "yt_title": "White Memories",
+      "yt_artist": "fromis_9",
+      "yt_album": "White Memories",
+      "artwork_url": "https://yt3.googleusercontent.com/s7jisaUhTxUK3Bb_6zp43XtrwqdlFJp-uaP9xcuRknKAfNo2bizJj65Ne9thZlQAHt3e8cR-fMl_QgI=w180-h180-l90-rj",
+      "apple_url": "",
+      "melon_url": "",
+      "spotify_url": ""
+    },
+    "9PNNjwmKIVI": {
+      "video_id": "9PNNjwmKIVI",
+      "title": "A",
+      "artist": "GOT7",
+      "album": "Identify",
+      "yt_title": "A",
+      "yt_artist": "GOT7",
+      "yt_album": "Identify",
+      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music116/v4/c8/69/31/c8693142-ed51-0667-12fb-987ccb4d60eb/799975600123_Cover.jpg/100x100bb.jpg",
       "apple_url": "",
       "melon_url": "",
       "spotify_url": ""
@@ -1544,17 +2077,459 @@
       "apple_url": "",
       "spotify_url": ""
     },
-    "BY4sHNaV4WU": {
-      "video_id": "BY4sHNaV4WU",
-      "title": "눈의 꽃",
-      "artist": "박효신",
-      "album": "미안하다 사랑한다 OST",
-      "yt_title": "눈의 꽃",
-      "yt_artist": "박효신",
-      "yt_album": "미안하다 사랑한다 OST",
-      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music125/v4/c8/0d/5a/c80d5a02-7cad-d3b3-5751-02bcaecb7e0f/8809649887872.jpg/100x100bb.jpg",
-      "melon_url": "https://www.melon.com/song/detail.htm?songId=623902",
+    "0e7uplpFJdE": {
+      "video_id": "0e7uplpFJdE",
+      "title": "사랑인가 봐",
+      "artist": "멜로망스",
+      "album": "사랑인가 봐 (사내맞선 OST 스페셜 트랙)",
+      "yt_title": "사랑인가 봐",
+      "yt_artist": "멜로망스",
+      "yt_album": "사랑인가 봐 (사내맞선 OST 스페셜 트랙)",
+      "artwork_url": "https://cdnimg.melon.co.kr/cm2/album/images/108/71/162/10871162_20220217162422_500.jpg/melon/resize/120/quality/80/optimize",
+      "melon_url": "https://www.melon.com/song/detail.htm?songId=34657844",
       "apple_url": "",
+      "spotify_url": ""
+    },
+    "A8-ENEqhQjg": {
+      "video_id": "A8-ENEqhQjg",
+      "title": "모든 날, 모든 순간 (Every day, Every Moment)",
+      "artist": "폴킴",
+      "album": "'키스 먼저 할까요?' OST Part.3",
+      "yt_title": "Every Day, Every Moment (From \"Should We Kiss First?, Part 3\")",
+      "yt_artist": "Paul Kim",
+      "yt_album": "Every Day, Every Moment (From \"Should We Kiss First?, Part 3\")",
+      "artwork_url": "https://kkoimg.melon.co.kr/cm/album/images/101/49/492/10149492_500.jpg?fa24fa8eabdd1e9e13759225831e2eec/melon/resize/96/quality/80/optimize",
+      "melon_url": "https://www.melon.com/song/detail.htm?songId=30962526",
+      "apple_url": "",
+      "spotify_url": ""
+    },
+    "GWaW24LL0tM": {
+      "video_id": "GWaW24LL0tM",
+      "title": "미워",
+      "artist": "Crush",
+      "album": "wonderego",
+      "yt_title": "미워 (Ego)",
+      "yt_artist": "Crush",
+      "yt_album": "wonderego",
+      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music116/v4/6f/79/60/6f79606e-9ee5-57b8-7aef-ea01e44efe16/191953313498.jpg/100x100bb.jpg",
+      "apple_url": "https://music.apple.com/album/1715640926?i=1715640937",
+      "melon_url": "",
+      "spotify_url": ""
+    },
+    "MHCsrKA9gh8": {
+      "video_id": "MHCsrKA9gh8",
+      "title": "blue",
+      "artist": "yung kai",
+      "album": "blue",
+      "yt_title": "blue",
+      "yt_artist": "yung kai",
+      "yt_album": "blue",
+      "artwork_url": "https://yt3.googleusercontent.com/jTa7GXscGZnmzWZDYYpmvYRy_gYGZQSP_COxCY-7wDt_7HTs37Bi-O313LdKc5qs2tuIVZNv0SGf-Jue=w180-h180-l90-rj",
+      "apple_url": "",
+      "melon_url": "",
+      "spotify_url": ""
+    },
+    "dTVCk33AQEs": {
+      "video_id": "dTVCk33AQEs",
+      "title": "The Chase",
+      "artist": "Hearts2Hearts",
+      "album": "The Chase - Single",
+      "yt_title": "The Chase",
+      "yt_artist": "Hearts2Hearts",
+      "yt_album": "The Chase",
+      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/2b/0e/e8/2b0ee80e-eae3-aff6-9ca7-01cf7a830c78/888735951398.png/100x100bb.jpg",
+      "apple_url": "https://music.apple.com/album/1796402197?i=1796402200",
+      "melon_url": "",
+      "spotify_url": ""
+    },
+    "f2Pee5hnO-E": {
+      "video_id": "f2Pee5hnO-E",
+      "title": "Grown Ups",
+      "artist": "Sondia",
+      "album": "My Mister, Pt. 2 (Original Television Soundtrack)",
+      "yt_title": "Grown Ups",
+      "yt_artist": "Sondia",
+      "yt_album": "My Mister, Pt. 2 (Original Television Soundtrack)",
+      "artwork_url": "",
+      "apple_url": "",
+      "melon_url": "",
+      "spotify_url": ""
+    },
+    "BXzoYQ-3ETs": {
+      "video_id": "BXzoYQ-3ETs",
+      "title": "천상연",
+      "artist": "이창섭",
+      "album": "천상연 (웹툰 '선녀외전' X 이창섭 (LEE CHANGSUB))",
+      "yt_title": "천상연",
+      "yt_artist": "이창섭",
+      "yt_album": "천상연 (웹툰 '선녀외전' X 이창섭 (LEE CHANGSUB))",
+      "artwork_url": "https://kkoimg.melon.co.kr/cm2/album/images/114/21/941/11421941_20240220105008_500.jpg?cdfb359c895c503a708e40d10bdbada7/melon/resize/96/quality/80/optimize",
+      "melon_url": "https://www.melon.com/song/detail.htm?songId=37228861",
+      "apple_url": "",
+      "spotify_url": ""
+    },
+    "ZBFzUSdS2nI": {
+      "video_id": "ZBFzUSdS2nI",
+      "title": "BiiiG",
+      "artist": "BIGBANG (빅뱅)",
+      "album": "BiiiG",
+      "yt_title": "BiiiG",
+      "yt_artist": "BIGBANG",
+      "yt_album": "BiiiG",
+      "artwork_url": "https://kkoimg.melon.co.kr/cm2/album/images/144/63/127/14463127_20260819092848_500.jpg?c4f29d951c41970cde93c9ca539ea488/melon/resize/96/quality/80/optimize",
+      "melon_url": "https://www.melon.com/song/detail.htm?songId=602839323",
+      "spotify_url": "https://open.spotify.com/track/4pZi0VxU2C8zuxCYfEtFuL",
+      "apple_url": ""
+    },
+    "owZA_q5ZirE": {
+      "video_id": "owZA_q5ZirE",
+      "title": "Love Cell",
+      "artist": "ISEGYE IDOL",
+      "album": "Across Dimensions",
+      "yt_title": "Love Cell",
+      "yt_artist": "ISEGYE IDOL",
+      "yt_album": "Across Dimensions",
+      "artwork_url": "",
+      "apple_url": "",
+      "melon_url": "",
+      "spotify_url": ""
+    },
+    "c84VnpGFbrw": {
+      "video_id": "c84VnpGFbrw",
+      "title": "하루 하루",
+      "artist": "BIGBANG (빅뱅)",
+      "album": "Stand Up (2008 빅뱅 3rd Mini Album)",
+      "yt_title": "Haru Haru",
+      "yt_artist": "BIGBANG",
+      "yt_album": "Stand Up",
+      "artwork_url": "https://kkoimg.melon.co.kr/cm/album/images/003/92/870/392870_500.jpg/melon/resize/96/quality/80/optimize",
+      "melon_url": "https://www.melon.com/song/detail.htm?songId=1913501",
+      "apple_url": "",
+      "spotify_url": ""
+    },
+    "e7u2aPzWmU4": {
+      "video_id": "e7u2aPzWmU4",
+      "title": "クリスマスソング - Christmas Song",
+      "artist": "back number",
+      "album": "Chandelier",
+      "yt_title": "クリスマスソング - Christmas Song",
+      "yt_artist": "back number",
+      "yt_album": "Chandelier",
+      "artwork_url": "https://yt3.googleusercontent.com/Z18dZW8-1xhDJ8F1DPtstNLWZXVBAUeDTNHnUjwRaeQYqIy2cgQARu0V_tty4BPU7CzmpZc-lmFeiAT0cA=w180-h180-l90-rj",
+      "apple_url": "",
+      "melon_url": "",
+      "spotify_url": ""
+    },
+    "-6D1nhqoAyY": {
+      "video_id": "-6D1nhqoAyY",
+      "title": "이러지마 제발 (PLEASE DON’T…)",
+      "artist": "K.will",
+      "album": "The 3rd Album Part.1",
+      "yt_title": "이러지마 제발 (PLEASE DON’T…)",
+      "yt_artist": "K.will",
+      "yt_album": "The 3rd Album Part.1",
+      "artwork_url": "",
+      "apple_url": "",
+      "melon_url": "",
+      "spotify_url": ""
+    },
+    "8rMARLBfd3U": {
+      "video_id": "8rMARLBfd3U",
+      "title": "KISS KISS KISS (Feat. 선우 (THE BOYZ)) (Prod. by Hukky Shibaseki)",
+      "artist": "NOWIMYOUNG (나우아임영), Royal 44",
+      "album": "쇼미더머니 12 Episode 2",
+      "yt_title": "KISS KISS KISS (Prod. by Hukky Shibaseki) (feat. 선우 (THE BOYZ))",
+      "yt_artist": "NOWIMYOUNG (나우아임영) Royal 44",
+      "yt_album": "Show Me The Money 12 Episode 2",
+      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/f3/fc/6a/f3fc6a43-142f-daf6-e07e-f2917bd24c1e/888272178388_Cover.jpg/100x100bb.jpg",
+      "melon_url": "https://www.melon.com/song/detail.htm?songId=601587114",
+      "spotify_url": "https://open.spotify.com/track/1alWuqrk1v7xzECNR8ovRo",
+      "apple_url": "https://music.apple.com/album/1886030533?i=1886030615"
+    },
+    "ZSRzCbpIxZo": {
+      "video_id": "ZSRzCbpIxZo",
+      "title": "Snowman",
+      "artist": "Sia",
+      "album": "Everyday Is Christmas (Deluxe Edition)",
+      "yt_title": "Snowman",
+      "yt_artist": "Sia",
+      "yt_album": "Everyday Is Christmas (Deluxe Edition)",
+      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music115/v4/85/c3/21/85c32113-1c4c-571c-7602-88f568d8081c/075679861016.jpg/100x100bb.jpg",
+      "apple_url": "",
+      "melon_url": "",
+      "spotify_url": ""
+    },
+    "uGM5hvD6ku4": {
+      "video_id": "uGM5hvD6ku4",
+      "title": "MEME",
+      "artist": "RESCENE (리센느)",
+      "album": "PULSE",
+      "yt_title": "MEME",
+      "yt_artist": "RESCENE",
+      "yt_album": "PULSE",
+      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music221/v4/b3/df/b7/b3dfb7ba-715f-1f5a-5528-eb82acd5225a/888272191394_Cover.jpg/100x100bb.jpg",
+      "melon_url": "https://www.melon.com/song/detail.htm?songId=603712836",
+      "spotify_url": "https://open.spotify.com/track/4IShSHFVumlyS3jICnOFw2",
+      "apple_url": ""
+    },
+    "hfftbNrp_lw": {
+      "video_id": "hfftbNrp_lw",
+      "title": "Moonride",
+      "artist": "Hearts2Hearts (하츠투하츠)",
+      "album": "Moonride - Single",
+      "yt_title": "Moonride",
+      "yt_artist": "Hearts2Hearts",
+      "yt_album": "Moonride",
+      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music221/v4/28/81/dc/2881dcb9-7d24-dad1-7a03-cb3c3e23193b/888735956782.png/100x100bb.jpg",
+      "spotify_url": "https://open.spotify.com/track/318Irz9qyCcwS0teqsaNcg",
+      "apple_url": "",
+      "melon_url": ""
+    },
+    "zGzFymXgU8g": {
+      "video_id": "zGzFymXgU8g",
+      "title": "내사랑 내곁에",
+      "artist": "홍이삭",
+      "album": "폭싹 속았수다 OST from the Netflix Series - 3막",
+      "yt_title": "내사랑 내곁에",
+      "yt_artist": "홍이삭",
+      "yt_album": "폭싹 속았수다 OST from the Netflix Series - 3막",
+      "artwork_url": "https://kkoimg.melon.co.kr/cm2/album/images/117/46/813/11746813_20250321135438_500.jpg?b8b3b6861c72409d5d8a3cf4d8638d21/melon/resize/96/quality/80/optimize",
+      "melon_url": "https://www.melon.com/song/detail.htm?songId=38695608",
+      "apple_url": "",
+      "spotify_url": ""
+    },
+    "1hcYxBmxT3E": {
+      "video_id": "1hcYxBmxT3E",
+      "title": "BALALAIKA",
+      "artist": "9Lana",
+      "album": "BALALAIKA",
+      "yt_title": "BALALAIKA",
+      "yt_artist": "9Lana",
+      "yt_album": "BALALAIKA",
+      "artwork_url": "",
+      "apple_url": "",
+      "melon_url": "",
+      "spotify_url": ""
+    },
+    "IeXIBTMkLS4": {
+      "video_id": "IeXIBTMkLS4",
+      "title": "Bananas",
+      "artist": "LNGSHOT",
+      "album": "S.W.I.S.H. - EP",
+      "yt_title": "Bananas",
+      "yt_artist": "LNGSHOT",
+      "yt_album": "S.W.I.S.H.",
+      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/f4/db/96/f4db96a4-7283-d95b-18dd-56dccc927855/8804775413131.jpg/100x100bb.jpg",
+      "apple_url": "",
+      "melon_url": "",
+      "spotify_url": ""
+    },
+    "qxxOgqxosds": {
+      "video_id": "qxxOgqxosds",
+      "title": "Skibidi",
+      "artist": "소녀시대-효리수 (Girls' Generation-HRS)",
+      "album": "Skibidi - Single",
+      "yt_title": "Skibidi",
+      "yt_artist": "Girls' Generation-HRS",
+      "yt_album": "Skibidi",
+      "artwork_url": "https://cdnimg.melon.co.kr/cm2/album/images/144/94/370/14494370_20260828152343_500.jpg/melon/resize/120/quality/80/optimize",
+      "melon_url": "https://www.melon.com/song/detail.htm?songId=602940179",
+      "spotify_url": "https://open.spotify.com/track/2L1dsjU3R3U4SX27qIiPrq",
+      "apple_url": ""
+    },
+    "tiFpz-FxSJg": {
+      "video_id": "tiFpz-FxSJg",
+      "title": "Bye Bye My Blue",
+      "artist": "백예린",
+      "album": "Bye Bye My Blue - Single",
+      "yt_title": "Bye bye my blue",
+      "yt_artist": "Yerin Baek",
+      "yt_album": "Bye bye my blue",
+      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music116/v4/22/8b/0e/228b0e06-d60c-2ec0-71d4-4078eb04f0c5/738676856453_Cover.jpg/100x100bb.jpg",
+      "apple_url": "https://music.apple.com/album/1125890995?i=1125891115",
+      "melon_url": "",
+      "spotify_url": ""
+    },
+    "Cbs8h6nJWBc": {
+      "video_id": "Cbs8h6nJWBc",
+      "title": "Vitamin ME",
+      "artist": "프로미스나인",
+      "album": "Glow ME",
+      "yt_title": "Vitamin ME",
+      "yt_artist": "fromis_9",
+      "yt_album": "Glow ME",
+      "artwork_url": "https://cdnimg.melon.co.kr/cm2/album/images/138/16/948/13816948_20260720140607_500.jpg/melon/resize/120/quality/80/optimize",
+      "melon_url": "https://www.melon.com/song/detail.htm?songId=602540014",
+      "spotify_url": "https://open.spotify.com/track/70RQYCjVacuJgeYAmU2sXd",
+      "apple_url": ""
+    },
+    "n0GXk_T2zs8": {
+      "video_id": "n0GXk_T2zs8",
+      "title": "Training Season",
+      "artist": "Dua Lipa",
+      "album": "Radical Optimism",
+      "yt_title": "Training Season",
+      "yt_artist": "Dua Lipa",
+      "yt_album": "Radical Optimism",
+      "artwork_url": "https://yt3.googleusercontent.com/5d51ZlGjNP_Gss3Z3RKP7B98ASQ7pxvp4XI3IAQ3kniFFjgLPDPnR6_K3tYZGoMVvfJYXBtu3awwsTI=w180-h180-l90-rj",
+      "apple_url": "",
+      "melon_url": "",
+      "spotify_url": ""
+    },
+    "f7-z0FDBpZo": {
+      "video_id": "f7-z0FDBpZo",
+      "title": "GRLS",
+      "artist": "TUIDE (튜이드)",
+      "album": "The 1st EP [TUNE & PLAY]",
+      "yt_title": "GRLS",
+      "yt_artist": "TUIDE",
+      "yt_album": "TUNE & PLAY",
+      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/f2/a0/02/f2a00270-a846-b0aa-65b3-91bc94442e10/823375310600_Cover.jpg/100x100bb.jpg",
+      "melon_url": "https://www.melon.com/song/detail.htm?songId=602872574",
+      "apple_url": "",
+      "spotify_url": ""
+    },
+    "nwksfZMJXXs": {
+      "video_id": "nwksfZMJXXs",
+      "title": "달리 표현할 수 없어요",
+      "artist": "로이킴",
+      "album": "달리 표현할 수 없어요",
+      "yt_title": "달리 표현할 수 없어요",
+      "yt_artist": "로이킴",
+      "yt_album": "No Words Can Say",
+      "artwork_url": "https://kkoimg.melon.co.kr/cm2/album/images/121/76/812/12176812_20251024184132_500.jpg?05cbe527fad0f08d1b7e745d631f2673/melon/resize/96/quality/80/optimize",
+      "melon_url": "https://www.melon.com/song/detail.htm?songId=600359330",
+      "apple_url": "",
+      "spotify_url": ""
+    },
+    "driAdurvDXY": {
+      "video_id": "driAdurvDXY",
+      "title": "TiNG TiNG",
+      "artist": "UNCHILD",
+      "album": "TiNG TiNG",
+      "yt_title": "TiNG TiNG",
+      "yt_artist": "UNCHILD",
+      "yt_album": "TiNG TiNG",
+      "artwork_url": "https://yt3.googleusercontent.com/qZaZsmzgssJYZyzLCK05PQMjsyiWY3Ybl2_8rziSjPEWuXWeXwWsQfsfwLc_0kcOwwDfWzaxmgYNpsKS=w180-h180-l90-rj",
+      "apple_url": "",
+      "melon_url": "",
+      "spotify_url": ""
+    },
+    "PBp8c0qCKno": {
+      "video_id": "PBp8c0qCKno",
+      "title": "청춘만화",
+      "artist": "이무진",
+      "album": "만화 (滿花)",
+      "yt_title": "청춘만화",
+      "yt_artist": "이무진",
+      "yt_album": "만화 (滿花)",
+      "artwork_url": "https://kkoimg.melon.co.kr/cm2/album/images/116/08/521/11608521_20241004161722_500.jpg?b5d322a7503e7764ea9c459500077642/melon/resize/96/quality/80/optimize",
+      "melon_url": "https://www.melon.com/song/detail.htm?songId=38071559",
+      "apple_url": "",
+      "spotify_url": ""
+    },
+    "cPtvGVLuJYo": {
+      "video_id": "cPtvGVLuJYo",
+      "title": "헤어지지 못하는 여자, 떠나가지 못하는 남자 (feat. 정인)",
+      "artist": "리쌍(Leessang)",
+      "album": "Hexagonal",
+      "yt_title": "헤어지지 못하는 여자, 떠나가지 못하는 남자 Can't Breakup Girl, Can't Breakaway Boy (feat. 정인 Jung In)",
+      "yt_artist": "리쌍 LeeSSang",
+      "yt_album": "Hexagonal",
+      "artwork_url": "https://yt3.googleusercontent.com/A0nTQjof_ndZo2etRfs185BDhGRgKrZqOx1O4wnm8GFQhNLlLSE73nXMb6w2AkroMOjSsVtpzGamUEle=w180-h180-l90-rj",
+      "apple_url": "",
+      "melon_url": "",
+      "spotify_url": ""
+    },
+    "fsYE8vJRTj4": {
+      "video_id": "fsYE8vJRTj4",
+      "title": "기다린 만큼, 더",
+      "artist": "검정치마",
+      "album": "또 오해영 OST Part.7",
+      "yt_title": "기다린 만큼, 더",
+      "yt_artist": "검정치마",
+      "yt_album": "또 오해영 OST",
+      "artwork_url": "https://kkoimg.melon.co.kr/cm/album/images/026/90/838/2690838_500.jpg/melon/resize/96/quality/80/optimize",
+      "melon_url": "https://www.melon.com/song/detail.htm?songId=8224585",
+      "apple_url": "",
+      "spotify_url": ""
+    },
+    "R53dDlmY3wo": {
+      "video_id": "R53dDlmY3wo",
+      "title": "Baila",
+      "artist": "임영웅",
+      "album": "IM HERO 10",
+      "yt_title": "Baila",
+      "yt_artist": "Lim Young Woong",
+      "yt_album": "IM HERO 10",
+      "artwork_url": "https://i.ytimg.com/vi/-wGXnDzPovw/maxresdefault.jpg",
+      "apple_url": "",
+      "melon_url": "",
+      "spotify_url": ""
+    },
+    "RgZvGEeXI10": {
+      "video_id": "RgZvGEeXI10",
+      "title": "MOONWALK",
+      "artist": "Panda Gomm & 양홍원",
+      "album": "오보 - Single",
+      "yt_title": "MOONWALK",
+      "yt_artist": "Panda Gomm 양홍원",
+      "yt_album": "오보",
+      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/6c/e8/ea/6ce8ea42-03c6-6e58-6f4b-c432a1ccad36/8800388627842_cover.jpg/100x100bb.jpg",
+      "apple_url": "",
+      "melon_url": "https://www.melon.com/song/detail.htm?songId=603858397",
+      "spotify_url": ""
+    },
+    "e6-TxMisjh8": {
+      "video_id": "e6-TxMisjh8",
+      "title": "Flashback",
+      "artist": "엔플라잉 (N.Flying)",
+      "album": "Man on the Moon",
+      "yt_title": "Flashback",
+      "yt_artist": "N.Flying",
+      "yt_album": "Man on the Moon",
+      "artwork_url": "https://kkoimg.melon.co.kr/cm2/album/images/106/21/180/10621180_20210607140232_500.jpg?643c997c4b596d889b094a441c67ccac/melon/resize/96/quality/80/optimize",
+      "melon_url": "https://www.melon.com/song/detail.htm?songId=33548514",
+      "apple_url": "",
+      "spotify_url": ""
+    },
+    "sJlGEc-kyrU": {
+      "video_id": "sJlGEc-kyrU",
+      "title": "I Need You",
+      "artist": "허각, 지아",
+      "album": "I Need You",
+      "yt_title": "I Need You",
+      "yt_artist": "Huh Gak(허각)&Zia(지아)",
+      "yt_album": "I Need You",
+      "artwork_url": "https://yt3.googleusercontent.com/dtlN0YFUfVkNk5cMIkP8Bt9ifl3AviJd-tWi5LgL7rUEOcDns0kqkkcFRUT7T0WZM85lX6k9gXKBmSg8=w180-h180-l90-rj",
+      "apple_url": "",
+      "melon_url": "",
+      "spotify_url": ""
+    },
+    "KccAOdiy4SU": {
+      "video_id": "KccAOdiy4SU",
+      "title": "Call My Name",
+      "artist": "투어스",
+      "album": "TO US - Single",
+      "yt_title": "Call My Name",
+      "yt_artist": "TWS",
+      "yt_album": "TO US",
+      "spotify_url": "https://open.spotify.com/track/2CQhZ1HZd2GrfJKxe1aW9Z",
+      "artwork_url": "https://yt3.googleusercontent.com/cxFotWBwgO2WjeKHkKM-itwMgEdb68G0Z5y6lSG1v2uTxbzwP71Zu37BYLjXDDWTuq1bY7yluRY7QrLO=w180-h180-l90-rj",
+      "apple_url": "",
+      "melon_url": ""
+    },
+    "nTs0Gc0b6Ww": {
+      "video_id": "nTs0Gc0b6Ww",
+      "title": "SUPERSTAR",
+      "artist": "A2O, A2O SOUL",
+      "album": "SUPERSTAR",
+      "yt_title": "SUPERSTAR",
+      "yt_artist": "A2O, A2O SOUL",
+      "yt_album": "SUPERSTAR",
+      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music221/v4/3b/18/ab/3b18ab34-7d32-d62c-a1d5-c15352e3d6ab/888272192056_Cover.jpg/100x100bb.jpg",
+      "apple_url": "",
+      "melon_url": "",
       "spotify_url": ""
     },
     "2mi_9Q01MkI": {
@@ -1569,123 +2544,6 @@
       "melon_url": "https://www.melon.com/song/detail.htm?songId=603712837",
       "spotify_url": "https://open.spotify.com/track/0sxpyjVJivQJUB1dvlm4lG",
       "apple_url": ""
-    },
-    "TLftyCObb_E": {
-      "video_id": "TLftyCObb_E",
-      "title": "Blue Valentine",
-      "artist": "NMIXX",
-      "album": "Blue Valentine",
-      "yt_title": "Blue Valentine",
-      "yt_artist": "NMIXX",
-      "yt_album": "Blue Valentine",
-      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music221/v4/a7/5d/54/a75d54db-b997-d410-b6dd-25f7e766392a/8809928955148_Cover.jpg/100x100bb.jpg",
-      "melon_url": "https://www.melon.com/song/detail.htm?songId=600243411",
-      "apple_url": "",
-      "spotify_url": ""
-    },
-    "PEpWLTge234": {
-      "video_id": "PEpWLTge234",
-      "title": "Please Be Happy",
-      "artist": "임영웅",
-      "album": "IM HERO 10",
-      "yt_title": "Please Be Happy",
-      "yt_artist": "Lim Young Woong",
-      "yt_album": "IM HERO 10",
-      "artwork_url": "https://yt3.googleusercontent.com/ver3z_mWOKJkKkWopYRmrVbc59YVtLM14D5zl0sf1m-_6eDVCqPYtpI5Kv-xaCtn9cWqT12tJJLuE65ckA=w180-h180-l90-rj",
-      "apple_url": "",
-      "melon_url": "",
-      "spotify_url": ""
-    },
-    "-tCUWBHihu4": {
-      "video_id": "-tCUWBHihu4",
-      "title": "이 사랑",
-      "artist": "다비치",
-      "album": "태양의 후예 OST Part.3",
-      "yt_title": "This Love",
-      "yt_artist": "DAVICHI",
-      "yt_album": "태양의 후예, Part 3 (Original Sound Track)",
-      "artwork_url": "https://kkoimg.melon.co.kr/cm/album/images/026/69/778/2669778_500.jpg/melon/resize/96/quality/80/optimize",
-      "melon_url": "https://www.melon.com/song/detail.htm?songId=8071102",
-      "apple_url": "",
-      "spotify_url": ""
-    },
-    "Xm2c0L-Xgdg": {
-      "video_id": "Xm2c0L-Xgdg",
-      "title": "Dancing in the Dark",
-      "artist": "A2O, A2O SOUL",
-      "album": "SUPERSTAR - EP",
-      "yt_title": "Dancing in the Dark",
-      "yt_artist": "A2O, A2O SOUL",
-      "yt_album": "SUPERSTAR",
-      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music221/v4/3b/18/ab/3b18ab34-7d32-d62c-a1d5-c15352e3d6ab/888272192056_Cover.jpg/100x100bb.jpg",
-      "apple_url": "",
-      "melon_url": "",
-      "spotify_url": ""
-    },
-    "g9S18fcpNSQ": {
-      "video_id": "g9S18fcpNSQ",
-      "title": "Night Stage",
-      "artist": "이무진",
-      "album": "Night Stage",
-      "yt_title": "Night Stage",
-      "yt_artist": "LEE MU JIN",
-      "yt_album": "Night Stage",
-      "artwork_url": "https://yt3.googleusercontent.com/oEhAK5YMRQ14ywV6GBlCwSP9lciJFdJ8Vm3qftwp-oUPe7b4Q3QP_KIR-p_oDdNKq6CKf0rxlhnJf_rfOg=w180-h180-l90-rj",
-      "spotify_url": "https://open.spotify.com/track/36wx19Bof5DtHII4ETXJL5",
-      "apple_url": "",
-      "melon_url": ""
-    },
-    "nTs0Gc0b6Ww": {
-      "video_id": "nTs0Gc0b6Ww",
-      "title": "SUPERSTAR",
-      "artist": "A2O, A2O SOUL",
-      "album": "SUPERSTAR - EP",
-      "yt_title": "SUPERSTAR",
-      "yt_artist": "A2O, A2O SOUL",
-      "yt_album": "SUPERSTAR",
-      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music221/v4/3b/18/ab/3b18ab34-7d32-d62c-a1d5-c15352e3d6ab/888272192056_Cover.jpg/100x100bb.jpg",
-      "apple_url": "",
-      "melon_url": "",
-      "spotify_url": ""
-    },
-    "LP0lRsckX1A": {
-      "video_id": "LP0lRsckX1A",
-      "title": "인사",
-      "artist": "범진",
-      "album": "인사",
-      "yt_title": "인사",
-      "yt_artist": "BUMJIN",
-      "yt_album": "인사",
-      "artwork_url": "https://yt3.googleusercontent.com/15wkXs1Mndc-2cplMMNKNdJHHG6hg4Ui1nYBgcdXcpSZVUvHe1uvQxnLrSnSmTLGS_wjcR7rdxHqjnQ=w180-h180-l90-rj",
-      "apple_url": "",
-      "melon_url": "",
-      "spotify_url": "https://open.spotify.com/track/0VdwOoAKPe9aGahkpllfkH"
-    },
-    "aLUvL0mNQmY": {
-      "video_id": "aLUvL0mNQmY",
-      "title": "타임캡슐",
-      "artist": "다비치",
-      "album": "타임캡슐",
-      "yt_title": "타임캡슐",
-      "yt_artist": "다비치",
-      "yt_album": "TIME CAPSULE",
-      "artwork_url": "https://kkoimg.melon.co.kr/cm2/album/images/121/63/032/12163032_20251015164500_500.jpg?e7ae633046a20aa52afd5ff1fb86e847/melon/resize/96/quality/80/optimize",
-      "melon_url": "https://www.melon.com/song/detail.htm?songId=600299706",
-      "apple_url": "",
-      "spotify_url": ""
-    },
-    "hl7_dxuytRQ": {
-      "video_id": "hl7_dxuytRQ",
-      "title": "ICONIC HEART",
-      "artist": "Hearts2Hearts",
-      "album": "ICONIC HEART - Single",
-      "yt_title": "ICONIC HEART",
-      "yt_artist": "Hearts2Hearts",
-      "yt_album": "ICONIC HEART",
-      "artwork_url": "https://yt3.googleusercontent.com/2ig0DkAoM2I7E5RkJZrcm2VBmj2ABW26sRKGpSuck-sePqbQxUT-3MPl42Ses2Yx1gNuKL04N6cQubaA=w180-h180-l90-rj",
-      "spotify_url": "https://open.spotify.com/track/1j5Z0YcfGBoKoydGscerHk",
-      "apple_url": "",
-      "melon_url": ""
     },
     "UTOxChG5Ucc": {
       "video_id": "UTOxChG5Ucc",
@@ -1713,45 +2571,6 @@
       "apple_url": "",
       "melon_url": ""
     },
-    "fwNJdxUghcc": {
-      "video_id": "fwNJdxUghcc",
-      "title": "사랑은 봄비처럼...이별은 겨울비처럼...",
-      "artist": "임현정",
-      "album": "All That Love",
-      "yt_title": "사랑은 봄비처럼...이별은 겨울비처럼",
-      "yt_artist": "임현정 (Lim Hyun Jung)",
-      "yt_album": "A Year Out...In The Island",
-      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music/00/2f/94/mzi.crijpvtm.jpg/100x100bb.jpg",
-      "melon_url": "https://www.melon.com/song/detail.htm?songId=1121123",
-      "apple_url": "https://music.apple.com/album/345400869?i=345400888",
-      "spotify_url": ""
-    },
-    "V6TEcoNUmc8": {
-      "video_id": "V6TEcoNUmc8",
-      "title": "Ditto",
-      "artist": "NewJeans",
-      "album": "Ditto - Single",
-      "yt_title": "Ditto",
-      "yt_artist": "NewJeans",
-      "yt_album": "NewJeans 'OMG'",
-      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music112/v4/f6/29/42/f629426e-92fe-535c-cbe4-76e70850819b/196922287107_Cover.jpg/100x100bb.jpg",
-      "apple_url": "https://music.apple.com/album/1657231957?i=1657231962",
-      "melon_url": "",
-      "spotify_url": ""
-    },
-    "KccAOdiy4SU": {
-      "video_id": "KccAOdiy4SU",
-      "title": "내 이름을 불러줘",
-      "artist": "TWS",
-      "album": "TO US - Single",
-      "yt_title": "Call My Name",
-      "yt_artist": "TWS",
-      "yt_album": "TO US",
-      "artwork_url": "https://yt3.googleusercontent.com/cxFotWBwgO2WjeKHkKM-itwMgEdb68G0Z5y6lSG1v2uTxbzwP71Zu37BYLjXDDWTuq1bY7yluRY7QrLO=w180-h180-l90-rj",
-      "spotify_url": "https://open.spotify.com/track/2CQhZ1HZd2GrfJKxe1aW9Z",
-      "apple_url": "",
-      "melon_url": ""
-    },
     "4Uh-Pf02qeQ": {
       "video_id": "4Uh-Pf02qeQ",
       "title": "question mark (feat. 최자 & 자이언티)",
@@ -1765,32 +2584,6 @@
       "apple_url": "",
       "spotify_url": ""
     },
-    "8QFM8Ews68c": {
-      "video_id": "8QFM8Ews68c",
-      "title": "Lucky Girl Syndrome",
-      "artist": "아일릿",
-      "album": "SUPER REAL ME - EP",
-      "yt_title": "Lucky Girl Syndrome",
-      "yt_artist": "ILLIT",
-      "yt_album": "SUPER REAL ME",
-      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music122/v4/3e/49/1e/3e491e43-4961-21ab-2abe-37fb1c0feb40/196922879227_Cover.jpg/100x100bb.jpg",
-      "apple_url": "https://music.apple.com/album/1734500886?i=1734501146",
-      "melon_url": "",
-      "spotify_url": ""
-    },
-    "8kQH_bBMrMQ": {
-      "video_id": "8kQH_bBMrMQ",
-      "title": "숲",
-      "artist": "최유리",
-      "album": "유영 - Single",
-      "yt_title": "Forest",
-      "yt_artist": "Choi Yu Ree",
-      "yt_album": "Stroll",
-      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music112/v4/93/a7/4b/93a74b7c-69be-a9b1-1499-2d2eb0f9c3ed/191953194141.jpg/100x100bb.jpg",
-      "apple_url": "",
-      "melon_url": "",
-      "spotify_url": ""
-    },
     "2VkWaOOF4Rc": {
       "video_id": "2VkWaOOF4Rc",
       "title": "Closely Far Away",
@@ -1802,149 +2595,6 @@
       "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/9d/19/71/9d19711a-48de-9665-1959-06fae3f89122/191953137896.jpg/100x100bb.jpg",
       "melon_url": "https://www.melon.com/song/detail.htm?songId=33855085",
       "apple_url": "",
-      "spotify_url": ""
-    },
-    "tkzYyEp4zB4": {
-      "video_id": "tkzYyEp4zB4",
-      "title": "Next Level",
-      "artist": "aespa",
-      "album": "Next Level - Single",
-      "yt_title": "Next Level",
-      "yt_artist": "aespa",
-      "yt_album": "Next Level",
-      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music125/v4/60/8d/ac/608dacc2-d6d6-462d-26f0-d693e4364751/artwork.jpg/100x100bb.jpg",
-      "apple_url": "https://music.apple.com/album/1567326687?i=1567326688",
-      "melon_url": "",
-      "spotify_url": ""
-    },
-    "driAdurvDXY": {
-      "video_id": "driAdurvDXY",
-      "title": "팅팅",
-      "artist": "언차일드 (UNCHILD)",
-      "album": "TiNG TiNG",
-      "yt_title": "TiNG TiNG",
-      "yt_artist": "UNCHILD",
-      "yt_album": "TiNG TiNG",
-      "artwork_url": "https://yt3.googleusercontent.com/qZaZsmzgssJYZyzLCK05PQMjsyiWY3Ybl2_8rziSjPEWuXWeXwWsQfsfwLc_0kcOwwDfWzaxmgYNpsKS=w180-h180-l90-rj",
-      "apple_url": "",
-      "melon_url": "",
-      "spotify_url": ""
-    },
-    "5C-UzW1FLiA": {
-      "video_id": "5C-UzW1FLiA",
-      "title": "Trip (feat. Hannah)",
-      "artist": "릴러말즈",
-      "album": "VIOLINIST",
-      "yt_title": "Trip (feat. Hannah)",
-      "yt_artist": "Leellamarz",
-      "yt_album": "Trip",
-      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music126/v4/d2/6f/40/d26f4042-607f-3cef-b70c-8426e9d13e6f/8809603548191_Cover.jpg/100x100bb.jpg",
-      "apple_url": "https://music.apple.com/album/1608880065?i=1608880079",
-      "melon_url": "",
-      "spotify_url": ""
-    },
-    "8rMARLBfd3U": {
-      "video_id": "8rMARLBfd3U",
-      "title": "KISS KISS KISS (Feat. 선우 (THE BOYZ)) (Prod. by Hukky Shibaseki)",
-      "artist": "NOWIMYOUNG (나우아임영), Royal 44",
-      "album": "쇼미더머니 12 Episode 2",
-      "yt_title": "KISS KISS KISS (Prod. by Hukky Shibaseki) (feat. 선우 (THE BOYZ))",
-      "yt_artist": "NOWIMYOUNG (나우아임영) Royal 44",
-      "yt_album": "Show Me The Money 12 Episode 2",
-      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/f3/fc/6a/f3fc6a43-142f-daf6-e07e-f2917bd24c1e/888272178388_Cover.jpg/100x100bb.jpg",
-      "melon_url": "https://www.melon.com/song/detail.htm?songId=601587114",
-      "spotify_url": "https://open.spotify.com/track/1alWuqrk1v7xzECNR8ovRo",
-      "apple_url": "https://music.apple.com/album/1886030533?i=1886030615"
-    },
-    "zlZpMuiqqBY": {
-      "video_id": "zlZpMuiqqBY",
-      "title": "好きな隙間",
-      "artist": "뭐든지모에화, Una Otomachi",
-      "album": "My Lovely Nook",
-      "yt_title": "好きな隙間 - My Lovely Nook",
-      "yt_artist": "AnythingBecomeMoe Una Otomachi",
-      "yt_album": "My Lovely Nook",
-      "artwork_url": "https://yt3.googleusercontent.com/AYg3h0WE7V19-Na-lyC3I_mgisjl2BU2_5yfOQErQjFz5ESYzjWO9lciFD8GboOejRIplHdBaI301CpH=w180-h180-l90-rj",
-      "apple_url": "",
-      "melon_url": "",
-      "spotify_url": ""
-    },
-    "NwO0H2bUhSQ": {
-      "video_id": "NwO0H2bUhSQ",
-      "title": "내 머리가 나빠서",
-      "artist": "SS501",
-      "album": "꽃보다 남자 OST",
-      "yt_title": "내 머리가 나빠서",
-      "yt_artist": "SS501",
-      "yt_album": "꽃보다 남자 (Original Television Soundtrack)",
-      "artwork_url": "https://kkoimg.melon.co.kr/cm/album/images/004/63/151/463151_500.jpg/melon/resize/96/quality/80/optimize",
-      "melon_url": "https://www.melon.com/song/detail.htm?songId=2017349",
-      "apple_url": "",
-      "spotify_url": ""
-    },
-    "vjrk0_T4Jzs": {
-      "video_id": "vjrk0_T4Jzs",
-      "title": "Whenever, Wherever",
-      "artist": "로이킴",
-      "album": "MY DEMON, Pt. 2 (Original Soundtrack)",
-      "yt_title": "Whenever, Wherever",
-      "yt_artist": "Roy Kim",
-      "yt_album": "MY DEMON, Pt. 2 (Original Soundtrack)",
-      "artwork_url": "https://yt3.googleusercontent.com/LYNbqvV-TguFjFjYdN_6N05p_84Vv0piO1cCooddYaZndLhu7Eom2weQTAXHWhRrNp9FYxUN77QFKLWn=w180-h180-l90-rj",
-      "apple_url": "",
-      "melon_url": "",
-      "spotify_url": ""
-    },
-    "YJhEsDa2o8w": {
-      "video_id": "YJhEsDa2o8w",
-      "title": "Bloody Paradise",
-      "artist": "엔하이픈 (ENHYPEN)",
-      "album": "THE SIN : BLISS",
-      "yt_title": "Bloody Paradise",
-      "yt_artist": "ENHYPEN",
-      "yt_album": "THE SIN : BLISS",
-      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music221/v4/9e/f2/dc/9ef2dc16-eefd-7cad-3d74-adbd0e394991/823375232841_Cover.jpg/100x100bb.jpg",
-      "melon_url": "https://www.melon.com/song/detail.htm?songId=602858445",
-      "spotify_url": "https://open.spotify.com/track/0r2JVOjI7H1jhXzXBOorKu",
-      "apple_url": ""
-    },
-    "yuH4OnvoADU": {
-      "video_id": "yuH4OnvoADU",
-      "title": "떠나가요, 떠나지마요 : 시대를 초월한 마음",
-      "artist": "순순희(기태), 백예슬",
-      "album": "떠나가요, 떠나지마요 : 시대를 초월한 마음",
-      "yt_title": "떠나가요, 떠나지마요 : 시대를 초월한 마음",
-      "yt_artist": "순순희 (기태) 백예슬",
-      "yt_album": "떠나가요, 떠나지마요 : 시대를 초월한 마음",
-      "artwork_url": "https://kkoimg.melon.co.kr/cm2/album/images/133/45/046/13345046_20260422163949_500.jpg?eafdeba1cd8cf01023d9c44372f2beed/melon/resize/96/quality/80/optimize",
-      "melon_url": "https://www.melon.com/song/detail.htm?songId=601831572",
-      "apple_url": "",
-      "spotify_url": ""
-    },
-    "fsYE8vJRTj4": {
-      "video_id": "fsYE8vJRTj4",
-      "title": "기다린 만큼, 더",
-      "artist": "검정치마",
-      "album": "또 오해영 OST Part.7",
-      "yt_title": "기다린 만큼, 더",
-      "yt_artist": "검정치마",
-      "yt_album": "또 오해영 OST",
-      "artwork_url": "https://kkoimg.melon.co.kr/cm/album/images/026/90/838/2690838_500.jpg/melon/resize/96/quality/80/optimize",
-      "melon_url": "https://www.melon.com/song/detail.htm?songId=8224585",
-      "apple_url": "",
-      "spotify_url": ""
-    },
-    "PGADim6UzHE": {
-      "video_id": "PGADim6UzHE",
-      "title": "Antifreeze",
-      "artist": "검정치마",
-      "album": "201 (Special Edition)",
-      "yt_title": "Antifreeze",
-      "yt_artist": "The Black Skirts",
-      "yt_album": "201 (Special Edition)",
-      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music128/v4/59/85/0b/59850bdc-1a15-bbe8-68b2-63a11e639f22/201_cover.jpg/100x100bb.jpg",
-      "apple_url": "https://music.apple.com/album/1316404325?i=1316404636",
-      "melon_url": "https://www.melon.com/song/detail.htm?songId=2613352",
       "spotify_url": ""
     },
     "hmzlgMhbefo": {
@@ -1973,123 +2623,6 @@
       "apple_url": "",
       "spotify_url": ""
     },
-    "e7u2aPzWmU4": {
-      "video_id": "e7u2aPzWmU4",
-      "title": "クリスマスソング",
-      "artist": "back number",
-      "album": "Chandelier",
-      "yt_title": "クリスマスソング - Christmas Song",
-      "yt_artist": "back number",
-      "yt_album": "Chandelier",
-      "artwork_url": "https://yt3.googleusercontent.com/Z18dZW8-1xhDJ8F1DPtstNLWZXVBAUeDTNHnUjwRaeQYqIy2cgQARu0V_tty4BPU7CzmpZc-lmFeiAT0cA=w180-h180-l90-rj",
-      "apple_url": "",
-      "melon_url": "",
-      "spotify_url": ""
-    },
-    "HaOz1PhGXhs": {
-      "video_id": "HaOz1PhGXhs",
-      "title": "LAST DANCE",
-      "artist": "BIGBANG (빅뱅)",
-      "album": "MADE",
-      "yt_title": "LAST DANCE",
-      "yt_artist": "BIGBANG",
-      "yt_album": "MADE",
-      "artwork_url": "https://kkoimg.melon.co.kr/cm/album/images/100/22/709/10022709_500.jpg?d23864800fca0b6e0cc88ed61d5c0525/melon/resize/96/quality/80/optimize",
-      "melon_url": "https://www.melon.com/song/detail.htm?songId=30147446",
-      "apple_url": "",
-      "spotify_url": ""
-    },
-    "GWaW24LL0tM": {
-      "video_id": "GWaW24LL0tM",
-      "title": "미워",
-      "artist": "Crush",
-      "album": "wonderego",
-      "yt_title": "미워 (Ego)",
-      "yt_artist": "Crush",
-      "yt_album": "wonderego",
-      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music116/v4/6f/79/60/6f79606e-9ee5-57b8-7aef-ea01e44efe16/191953313498.jpg/100x100bb.jpg",
-      "apple_url": "https://music.apple.com/album/1715640926?i=1715640937",
-      "melon_url": "",
-      "spotify_url": ""
-    },
-    "VeU4N7z93BM": {
-      "video_id": "VeU4N7z93BM",
-      "title": "어른인 척 하는 중",
-      "artist": "머무르",
-      "album": "쉬었음 청년",
-      "yt_title": "어른인 척 하는 중",
-      "yt_artist": "MEOMURU",
-      "yt_album": "쉬었음 청년",
-      "artwork_url": "https://yt3.googleusercontent.com/eEGumzAwslAQZSLhxKh0T9zO15dq3-6R8Gqj1I1Yj-979H6VXzeur0HxdXHc1y-DRjhJ4IsM-TfeeMuO=w180-h180-l90-rj",
-      "apple_url": "",
-      "melon_url": "",
-      "spotify_url": ""
-    },
-    "qxxOgqxosds": {
-      "video_id": "qxxOgqxosds",
-      "title": "Skibidi",
-      "artist": "소녀시대-효리수 (Girls' Generation-HRS)",
-      "album": "Skibidi - Single",
-      "yt_title": "Skibidi",
-      "yt_artist": "Girls' Generation-HRS",
-      "yt_album": "Skibidi",
-      "artwork_url": "https://cdnimg.melon.co.kr/cm2/album/images/144/94/370/14494370_20260828152343_500.jpg/melon/resize/120/quality/80/optimize",
-      "melon_url": "https://www.melon.com/song/detail.htm?songId=602940179",
-      "spotify_url": "https://open.spotify.com/track/2L1dsjU3R3U4SX27qIiPrq",
-      "apple_url": ""
-    },
-    "F2WbQwiP5vs": {
-      "video_id": "F2WbQwiP5vs",
-      "title": "Insomnia",
-      "artist": "RIIZE",
-      "album": "Insomnia - Single",
-      "yt_title": "Insomnia",
-      "yt_artist": "RIIZE",
-      "yt_album": "Insomnia",
-      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/1d/f4/c8/1df4c8fc-c737-0794-0d5a-e052d4bf1fb9/888735956874.jpg/100x100bb.jpg",
-      "melon_url": "https://www.melon.com/song/detail.htm?songId=603692202",
-      "apple_url": "",
-      "spotify_url": ""
-    },
-    "n0GXk_T2zs8": {
-      "video_id": "n0GXk_T2zs8",
-      "title": "Training Season",
-      "artist": "Dua Lipa",
-      "album": "Radical Optimism",
-      "yt_title": "Training Season",
-      "yt_artist": "Dua Lipa",
-      "yt_album": "Radical Optimism",
-      "artwork_url": "https://yt3.googleusercontent.com/5d51ZlGjNP_Gss3Z3RKP7B98ASQ7pxvp4XI3IAQ3kniFFjgLPDPnR6_K3tYZGoMVvfJYXBtu3awwsTI=w180-h180-l90-rj",
-      "apple_url": "",
-      "melon_url": "",
-      "spotify_url": ""
-    },
-    "qWqKrwpw2kY": {
-      "video_id": "qWqKrwpw2kY",
-      "title": "Must Have Love",
-      "artist": "브라운아이드걸스, SG워너비",
-      "album": "SG워너비 & 브라운아이드걸스 싱글",
-      "yt_title": "Must Have Love",
-      "yt_artist": "Brown Eyed Girls, sg WANNA BE+",
-      "yt_album": "SG워너비 & 브라운아이드걸스 싱글",
-      "artwork_url": "https://yt3.googleusercontent.com/mIXxmMMVHIExgMdXqbSdJsUd_BRnpjMUkPP4FSsytY42oyc6sF3YtQMmaIpNOasMKvebFZrrSZZHxAJzpw=w180-h180-l90-rj",
-      "apple_url": "",
-      "melon_url": "",
-      "spotify_url": ""
-    },
-    "6POlUfjBIB4": {
-      "video_id": "6POlUfjBIB4",
-      "title": "사쿠란보",
-      "artist": "최예나",
-      "album": "J-POP REMAKE Vol.5 - Single",
-      "yt_title": "사쿠란보",
-      "yt_artist": "YENA (최예나)",
-      "yt_album": "J-POP REMAKE Vol.5",
-      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/b9/74/b5/b974b571-c61c-1a63-ebb2-4858bc51724f/FrontCoverImage_1.jpg/100x100bb.jpg",
-      "apple_url": "",
-      "melon_url": "https://www.melon.com/song/detail.htm?songId=603959665",
-      "spotify_url": ""
-    },
     "Jmr_EEDkV-U": {
       "video_id": "Jmr_EEDkV-U",
       "title": "When Spring Comes",
@@ -2099,110 +2632,6 @@
       "yt_artist": "Roy Kim",
       "yt_album": "When Spring Comes",
       "artwork_url": "https://yt3.googleusercontent.com/hOT1FfzcEvAMC1fCCskYAGHP78UqZ4zStTvycOJ-JkkhrsNJFq5K5G7g_t7Vzxw1MwTrOK7AZc_6s4b6=w180-h180-l90-rj",
-      "apple_url": "",
-      "melon_url": "",
-      "spotify_url": ""
-    },
-    "0uXWVDGvVVM": {
-      "video_id": "0uXWVDGvVVM",
-      "title": "짧은 치마",
-      "artist": "AOA",
-      "album": "MINISKIRT (짧은 치마)",
-      "yt_title": "짧은 치마 (Miniskirt)",
-      "yt_artist": "AOA",
-      "yt_album": "MINISKIRT (짧은 치마)",
-      "artwork_url": "https://yt3.googleusercontent.com/FOwUxOJdkzcacum5QmrFHzHG9g__erJtg3tmMUkh4n8ILRV2HYQEBn3k7IO_mV9BoLjV1HTN30Fp4c8i=w180-h180-l90-rj",
-      "apple_url": "",
-      "melon_url": "",
-      "spotify_url": ""
-    },
-    "rNvli9cD9Mw": {
-      "video_id": "rNvli9cD9Mw",
-      "title": "나였으면",
-      "artist": "나윤권",
-      "album": "중독",
-      "yt_title": "나였으면",
-      "yt_artist": "나윤권",
-      "yt_album": "중독",
-      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music221/v4/23/bc/0d/23bc0d10-7d1d-935e-30ec-01b2db72f68e/8809784691747.jpg/100x100bb.jpg",
-      "melon_url": "https://www.melon.com/song/detail.htm?songId=538118",
-      "spotify_url": "https://open.spotify.com/track/7sp5iTQjB7GHXX4TKrhOaO",
-      "apple_url": ""
-    },
-    "dTVCk33AQEs": {
-      "video_id": "dTVCk33AQEs",
-      "title": "The Chase",
-      "artist": "Hearts2Hearts",
-      "album": "The Chase - Single",
-      "yt_title": "The Chase",
-      "yt_artist": "Hearts2Hearts",
-      "yt_album": "The Chase",
-      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/2b/0e/e8/2b0ee80e-eae3-aff6-9ca7-01cf7a830c78/888735951398.png/100x100bb.jpg",
-      "apple_url": "https://music.apple.com/album/1796402197?i=1796402200",
-      "melon_url": "",
-      "spotify_url": ""
-    },
-    "BXzoYQ-3ETs": {
-      "video_id": "BXzoYQ-3ETs",
-      "title": "천상연",
-      "artist": "이창섭",
-      "album": "천상연 (웹툰 '선녀외전' X 이창섭 (LEE CHANGSUB))",
-      "yt_title": "천상연",
-      "yt_artist": "이창섭",
-      "yt_album": "천상연 (웹툰 '선녀외전' X 이창섭 (LEE CHANGSUB))",
-      "artwork_url": "https://kkoimg.melon.co.kr/cm2/album/images/114/21/941/11421941_20240220105008_500.jpg?cdfb359c895c503a708e40d10bdbada7/melon/resize/96/quality/80/optimize",
-      "melon_url": "https://www.melon.com/song/detail.htm?songId=37228861",
-      "apple_url": "",
-      "spotify_url": ""
-    },
-    "JG6YHjbj4zQ": {
-      "video_id": "JG6YHjbj4zQ",
-      "title": "White Memories",
-      "artist": "fromis_9(프로미스나인)",
-      "album": "White Memories",
-      "yt_title": "White Memories",
-      "yt_artist": "fromis_9",
-      "yt_album": "White Memories",
-      "artwork_url": "https://yt3.googleusercontent.com/s7jisaUhTxUK3Bb_6zp43XtrwqdlFJp-uaP9xcuRknKAfNo2bizJj65Ne9thZlQAHt3e8cR-fMl_QgI=w180-h180-l90-rj",
-      "apple_url": "",
-      "melon_url": "",
-      "spotify_url": ""
-    },
-    "ZBFzUSdS2nI": {
-      "video_id": "ZBFzUSdS2nI",
-      "title": "BiiiG",
-      "artist": "BIGBANG (빅뱅)",
-      "album": "BiiiG",
-      "yt_title": "BiiiG",
-      "yt_artist": "BIGBANG",
-      "yt_album": "BiiiG",
-      "artwork_url": "https://kkoimg.melon.co.kr/cm2/album/images/144/63/127/14463127_20260819092848_500.jpg?c4f29d951c41970cde93c9ca539ea488/melon/resize/96/quality/80/optimize",
-      "melon_url": "https://www.melon.com/song/detail.htm?songId=602839323",
-      "spotify_url": "https://open.spotify.com/track/4pZi0VxU2C8zuxCYfEtFuL",
-      "apple_url": ""
-    },
-    "tiFpz-FxSJg": {
-      "video_id": "tiFpz-FxSJg",
-      "title": "Bye Bye My Blue",
-      "artist": "백예린",
-      "album": "Bye Bye My Blue - Single",
-      "yt_title": "Bye bye my blue",
-      "yt_artist": "Yerin Baek",
-      "yt_album": "Bye bye my blue",
-      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music116/v4/22/8b/0e/228b0e06-d60c-2ec0-71d4-4078eb04f0c5/738676856453_Cover.jpg/100x100bb.jpg",
-      "apple_url": "https://music.apple.com/album/1125890995?i=1125891115",
-      "melon_url": "",
-      "spotify_url": ""
-    },
-    "MHCsrKA9gh8": {
-      "video_id": "MHCsrKA9gh8",
-      "title": "blue",
-      "artist": "yung kai",
-      "album": "blue",
-      "yt_title": "blue",
-      "yt_artist": "yung kai",
-      "yt_album": "blue",
-      "artwork_url": "https://yt3.googleusercontent.com/jTa7GXscGZnmzWZDYYpmvYRy_gYGZQSP_COxCY-7wDt_7HTs37Bi-O313LdKc5qs2tuIVZNv0SGf-Jue=w180-h180-l90-rj",
       "apple_url": "",
       "melon_url": "",
       "spotify_url": ""
@@ -2220,19 +2649,6 @@
       "melon_url": "",
       "spotify_url": ""
     },
-    "RgZvGEeXI10": {
-      "video_id": "RgZvGEeXI10",
-      "title": "MOONWALK",
-      "artist": "Panda Gomm & 양홍원",
-      "album": "오보 - Single",
-      "yt_title": "MOONWALK",
-      "yt_artist": "Panda Gomm 양홍원",
-      "yt_album": "오보",
-      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/6c/e8/ea/6ce8ea42-03c6-6e58-6f4b-c432a1ccad36/8800388627842_cover.jpg/100x100bb.jpg",
-      "apple_url": "",
-      "melon_url": "https://www.melon.com/song/detail.htm?songId=603858397",
-      "spotify_url": ""
-    },
     "Mur4L2B2lwE": {
       "video_id": "Mur4L2B2lwE",
       "title": "크리스마스니까",
@@ -2244,32 +2660,6 @@
       "melon_url": "https://www.melon.com/song/detail.htm?songId=3973781",
       "yt_album": "",
       "apple_url": "",
-      "spotify_url": ""
-    },
-    "Cbs8h6nJWBc": {
-      "video_id": "Cbs8h6nJWBc",
-      "title": "Vitamin ME",
-      "artist": "프로미스나인",
-      "album": "Glow ME",
-      "yt_title": "Vitamin ME",
-      "yt_artist": "fromis_9",
-      "yt_album": "Glow ME",
-      "artwork_url": "https://cdnimg.melon.co.kr/cm2/album/images/138/16/948/13816948_20260720140607_500.jpg/melon/resize/120/quality/80/optimize",
-      "melon_url": "https://www.melon.com/song/detail.htm?songId=602540014",
-      "spotify_url": "https://open.spotify.com/track/70RQYCjVacuJgeYAmU2sXd",
-      "apple_url": ""
-    },
-    "9PNNjwmKIVI": {
-      "video_id": "9PNNjwmKIVI",
-      "title": "A",
-      "artist": "GOT7",
-      "album": "Identify",
-      "yt_title": "A",
-      "yt_artist": "GOT7",
-      "yt_album": "Identify",
-      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music116/v4/c8/69/31/c8693142-ed51-0667-12fb-987ccb4d60eb/799975600123_Cover.jpg/100x100bb.jpg",
-      "apple_url": "",
-      "melon_url": "",
       "spotify_url": ""
     },
     "2QtEmG8uT2Y": {
@@ -2311,19 +2701,6 @@
       "apple_url": "",
       "melon_url": ""
     },
-    "dBv5ju-TGZQ": {
-      "video_id": "dBv5ju-TGZQ",
-      "title": "I Want You",
-      "artist": "엔하이픈",
-      "album": "THE SIN : PARALLEL WORLD - Single",
-      "yt_title": "I Want You",
-      "yt_artist": "ENHYPEN",
-      "yt_album": "THE SIN : PARALLEL WORLD",
-      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/26/3d/d5/263dd5d0-a22e-8f2c-a383-766220d450e7/823375532705_Cover.jpg/100x100bb.jpg",
-      "apple_url": "",
-      "melon_url": "",
-      "spotify_url": ""
-    },
     "5xJFMN1KQko": {
       "video_id": "5xJFMN1KQko",
       "title": "마치 오늘처럼",
@@ -2337,19 +2714,6 @@
       "apple_url": "",
       "spotify_url": ""
     },
-    "R53dDlmY3wo": {
-      "video_id": "R53dDlmY3wo",
-      "title": "Baila",
-      "artist": "임영웅",
-      "album": "IM HERO 10",
-      "yt_title": "Baila",
-      "yt_artist": "Lim Young Woong",
-      "yt_album": "IM HERO 10",
-      "artwork_url": "https://i.ytimg.com/vi/-wGXnDzPovw/maxresdefault.jpg",
-      "apple_url": "",
-      "melon_url": "",
-      "spotify_url": ""
-    },
     "O4ZZJ_ek2gs": {
       "video_id": "O4ZZJ_ek2gs",
       "title": "Officially Missing You",
@@ -2360,19 +2724,6 @@
       "yt_album": "Officially Missing You",
       "artwork_url": "https://kkoimg.melon.co.kr/cm/album/images/011/96/552/1196552_500.jpg/melon/resize/96/quality/80/optimize",
       "melon_url": "https://www.melon.com/song/detail.htm?songId=3170749",
-      "apple_url": "",
-      "spotify_url": ""
-    },
-    "PBp8c0qCKno": {
-      "video_id": "PBp8c0qCKno",
-      "title": "청춘만화",
-      "artist": "이무진",
-      "album": "만화 (滿花)",
-      "yt_title": "청춘만화",
-      "yt_artist": "이무진",
-      "yt_album": "만화 (滿花)",
-      "artwork_url": "https://kkoimg.melon.co.kr/cm2/album/images/116/08/521/11608521_20241004161722_500.jpg?b5d322a7503e7764ea9c459500077642/melon/resize/96/quality/80/optimize",
-      "melon_url": "https://www.melon.com/song/detail.htm?songId=38071559",
       "apple_url": "",
       "spotify_url": ""
     },
@@ -2389,19 +2740,6 @@
       "melon_url": "",
       "spotify_url": ""
     },
-    "hfftbNrp_lw": {
-      "video_id": "hfftbNrp_lw",
-      "title": "Moonride",
-      "artist": "Hearts2Hearts (하츠투하츠)",
-      "album": "Moonride - Single",
-      "yt_title": "Moonride",
-      "yt_artist": "Hearts2Hearts",
-      "yt_album": "Moonride",
-      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music221/v4/28/81/dc/2881dcb9-7d24-dad1-7a03-cb3c3e23193b/888735956782.png/100x100bb.jpg",
-      "spotify_url": "https://open.spotify.com/track/318Irz9qyCcwS0teqsaNcg",
-      "apple_url": "",
-      "melon_url": ""
-    },
     "D3tUvbqOAAY": {
       "video_id": "D3tUvbqOAAY",
       "title": "STYLE",
@@ -2411,9 +2749,9 @@
       "yt_artist": "Hearts2Hearts",
       "yt_album": "STYLE",
       "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music221/v4/05/f3/0b/05f30b30-22fb-3c21-c497-8fd8829f2004/888735952135.png/100x100bb.jpg",
+      "apple_url": "https://music.apple.com/album/1819694545?i=1819694546",
       "melon_url": "https://www.melon.com/song/detail.htm?songId=39161085",
-      "spotify_url": "https://open.spotify.com/track/5EoV2HmAlkqN1XvsIjOBZZ",
-      "apple_url": "https://music.apple.com/album/1819694545?i=1819694546"
+      "spotify_url": "https://open.spotify.com/track/5EoV2HmAlkqN1XvsIjOBZZ"
     },
     "zmD9Stm174k": {
       "video_id": "zmD9Stm174k",
@@ -2424,9 +2762,9 @@
       "yt_artist": "NMIXX",
       "yt_album": "Strange Muse",
       "artwork_url": "https://yt3.googleusercontent.com/jCp0n7ioXbw6XmPKncVFmB2u2g9IPjsxilEpT7QQfNPvhRYmx2MyaEtd86EFXobW3VVIcVM5rMSfgk0=w180-h180-l90-rj",
+      "melon_url": "https://www.melon.com/song/detail.htm?songId=603442244",
       "spotify_url": "https://open.spotify.com/track/6F0vhKF4fy9WQi39JPQnCv",
-      "apple_url": "",
-      "melon_url": "https://www.melon.com/song/detail.htm?songId=603442244"
+      "apple_url": ""
     },
     "GpsX1d-iMlY": {
       "video_id": "GpsX1d-iMlY",
@@ -2437,19 +2775,6 @@
       "yt_artist": "LE SSERAFIM",
       "yt_album": "Made My Night",
       "artwork_url": "https://yt3.googleusercontent.com/PsYJbvAdtQkONz0UrG64NGMbfBu0Q7H9voCBr3XPGMXbIeKwQ6RkZBPWWdrWF4ZAqsgYXrjBhPwR97FF=w180-h180-l90-rj",
-      "apple_url": "",
-      "melon_url": "",
-      "spotify_url": ""
-    },
-    "IeXIBTMkLS4": {
-      "video_id": "IeXIBTMkLS4",
-      "title": "Bananas",
-      "artist": "LNGSHOT",
-      "album": "S.W.I.S.H. - EP",
-      "yt_title": "Bananas",
-      "yt_artist": "LNGSHOT",
-      "yt_album": "S.W.I.S.H.",
-      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/f4/db/96/f4db96a4-7283-d95b-18dd-56dccc927855/8804775413131.jpg/100x100bb.jpg",
       "apple_url": "",
       "melon_url": "",
       "spotify_url": ""
@@ -2480,19 +2805,6 @@
       "melon_url": "",
       "spotify_url": ""
     },
-    "f7-z0FDBpZo": {
-      "video_id": "f7-z0FDBpZo",
-      "title": "GRLS",
-      "artist": "TUIDE (튜이드)",
-      "album": "The 1st EP [TUNE & PLAY]",
-      "yt_title": "GRLS",
-      "yt_artist": "TUIDE",
-      "yt_album": "TUNE & PLAY",
-      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/f2/a0/02/f2a00270-a846-b0aa-65b3-91bc94442e10/823375310600_Cover.jpg/100x100bb.jpg",
-      "melon_url": "https://www.melon.com/song/detail.htm?songId=602872574",
-      "apple_url": "",
-      "spotify_url": ""
-    },
     "op05giODUE0": {
       "video_id": "op05giODUE0",
       "title": "Runaway",
@@ -2505,19 +2817,6 @@
       "melon_url": "https://www.melon.com/song/detail.htm?songId=601719493",
       "spotify_url": "https://open.spotify.com/track/1x0mG2CyQW5mjBX17ZfTUG",
       "apple_url": ""
-    },
-    "cPtvGVLuJYo": {
-      "video_id": "cPtvGVLuJYo",
-      "title": "헤어지지 못하는 여자, 떠나가지 못하는 남자 (feat. 정인)",
-      "artist": "리쌍(Leessang)",
-      "album": "Hexagonal",
-      "yt_title": "헤어지지 못하는 여자, 떠나가지 못하는 남자 Can't Breakup Girl, Can't Breakaway Boy (feat. 정인 Jung In)",
-      "yt_artist": "Leessang",
-      "yt_album": "Hexagonal",
-      "artwork_url": "https://yt3.googleusercontent.com/A0nTQjof_ndZo2etRfs185BDhGRgKrZqOx1O4wnm8GFQhNLlLSE73nXMb6w2AkroMOjSsVtpzGamUEle=w180-h180-l90-rj",
-      "apple_url": "",
-      "melon_url": "",
-      "spotify_url": ""
     },
     "yuIB3jmC_0M": {
       "video_id": "yuIB3jmC_0M",
@@ -2571,45 +2870,6 @@
       "apple_url": "",
       "spotify_url": ""
     },
-    "fV4uM0b3vmE": {
-      "video_id": "fV4uM0b3vmE",
-      "title": "Darling",
-      "artist": "도경수(D.O.)",
-      "album": "Darling",
-      "yt_title": "Darling",
-      "yt_artist": "디오 (D.O.)",
-      "yt_album": "Darling",
-      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/9d/01/e1/9d01e1f4-c9b7-89c8-58be-caa84f4c7a34/191953593371.jpg/100x100bb.jpg",
-      "melon_url": "https://www.melon.com/song/detail.htm?songId=603882945",
-      "apple_url": "",
-      "spotify_url": ""
-    },
-    "A8-ENEqhQjg": {
-      "video_id": "A8-ENEqhQjg",
-      "title": "모든 날, 모든 순간 (Every day, Every Moment)",
-      "artist": "폴킴",
-      "album": "'키스 먼저 할까요?' OST Part.3",
-      "yt_title": "Every Day, Every Moment (From \"Should We Kiss First?, Part 3\")",
-      "yt_artist": "Paul Kim",
-      "yt_album": "Every Day, Every Moment (From \"Should We Kiss First?, Part 3\")",
-      "artwork_url": "https://kkoimg.melon.co.kr/cm/album/images/101/49/492/10149492_500.jpg?fa24fa8eabdd1e9e13759225831e2eec/melon/resize/96/quality/80/optimize",
-      "melon_url": "https://www.melon.com/song/detail.htm?songId=30962526",
-      "apple_url": "",
-      "spotify_url": ""
-    },
-    "pRmsP7A-DtY": {
-      "video_id": "pRmsP7A-DtY",
-      "title": "좋아해.. (바른연애 길잡이 X 죠지)",
-      "artist": "죠지",
-      "album": "좋아해.. (바른연애 길잡이 X 죠지)",
-      "yt_title": "좋아해.. (바른연애 길잡이 X 죠지)",
-      "yt_artist": "죠지(GEORGE)",
-      "yt_album": "좋아해.. (바른연애 길잡이 X 죠지)",
-      "artwork_url": "https://kkoimg.melon.co.kr/cm2/album/images/105/65/776/10565776_20210217170459_500.jpg?ca5db84dad4b6d94cc6d2536e769d51f/melon/resize/96/quality/80/optimize",
-      "melon_url": "https://www.melon.com/song/detail.htm?songId=33293837",
-      "apple_url": "",
-      "spotify_url": ""
-    },
     "4FSvEWTOYGY": {
       "video_id": "4FSvEWTOYGY",
       "title": "Higher Love",
@@ -2646,19 +2906,6 @@
       "artwork_url": "https://kkoimg.melon.co.kr/cm2/album/images/151/15/131/15115131_20261102175232_500.jpg?8bab7bb269dc3769e329fb7df245cec8/melon/resize/96/quality/80/optimize",
       "melon_url": "https://www.melon.com/song/detail.htm?songId=603801193",
       "yt_album": "",
-      "apple_url": "",
-      "spotify_url": ""
-    },
-    "N4N8nam2QbI": {
-      "video_id": "N4N8nam2QbI",
-      "title": "Flower",
-      "artist": "오반(OVAN)",
-      "album": "교회오빠",
-      "yt_title": "Flower",
-      "yt_artist": "오반(OVAN)",
-      "yt_album": "교회오빠",
-      "artwork_url": "https://kkoimg.melon.co.kr/cm2/album/images/117/32/247/11732247_20250313092931_500.jpg?5dd1d2655dae6ac9cc46dd85884095d8/melon/resize/96/quality/80/optimize",
-      "melon_url": "https://www.melon.com/song/detail.htm?songId=38635449",
       "apple_url": "",
       "spotify_url": ""
     },
@@ -2701,19 +2948,6 @@
       "apple_url": "",
       "spotify_url": ""
     },
-    "e6-TxMisjh8": {
-      "video_id": "e6-TxMisjh8",
-      "title": "Flashback",
-      "artist": "엔플라잉 (N.Flying)",
-      "album": "Man on the Moon",
-      "yt_title": "Flashback",
-      "yt_artist": "N.Flying",
-      "yt_album": "Man on the Moon",
-      "artwork_url": "https://kkoimg.melon.co.kr/cm2/album/images/106/21/180/10621180_20210607140232_500.jpg?643c997c4b596d889b094a441c67ccac/melon/resize/96/quality/80/optimize",
-      "melon_url": "https://www.melon.com/song/detail.htm?songId=33548514",
-      "apple_url": "",
-      "spotify_url": ""
-    },
     "2Kff0U8w-aU": {
       "video_id": "2Kff0U8w-aU",
       "title": "OMG",
@@ -2751,19 +2985,6 @@
       "artwork_url": "https://kkoimg.melon.co.kr/cm2/album/images/104/47/520/10447520_20200619123343_500.jpg?fdfc086383c4200a0a47885934bf8a7c/melon/resize/96/quality/80/optimize",
       "melon_url": "https://www.melon.com/song/detail.htm?songId=32698101",
       "apple_url": "",
-      "spotify_url": ""
-    },
-    "KYGb4thFNqk": {
-      "video_id": "KYGb4thFNqk",
-      "title": "UP",
-      "artist": "에이티즈",
-      "album": "GOLDEN HOUR : Part.6 - EP",
-      "yt_title": "UP",
-      "yt_artist": "ATEEZ",
-      "yt_album": "GOLDEN HOUR : Part.6",
-      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/1d/4c/8e/1d4c8e84-ac53-90ed-1dbe-615fdef5b8f1/196874852668.jpg/100x100bb.jpg",
-      "apple_url": "",
-      "melon_url": "",
       "spotify_url": ""
     },
     "LPhWz3_-gzk": {
@@ -2818,19 +3039,6 @@
       "apple_url": "",
       "spotify_url": ""
     },
-    "zGzFymXgU8g": {
-      "video_id": "zGzFymXgU8g",
-      "title": "내사랑 내곁에",
-      "artist": "홍이삭",
-      "album": "폭싹 속았수다 OST from the Netflix Series - 3막",
-      "yt_title": "내사랑 내곁에",
-      "yt_artist": "홍이삭",
-      "yt_album": "폭싹 속았수다 OST from the Netflix Series - 3막",
-      "artwork_url": "https://kkoimg.melon.co.kr/cm2/album/images/117/46/813/11746813_20250321135438_500.jpg?b8b3b6861c72409d5d8a3cf4d8638d21/melon/resize/96/quality/80/optimize",
-      "melon_url": "https://www.melon.com/song/detail.htm?songId=38695608",
-      "apple_url": "",
-      "spotify_url": ""
-    },
     "K4gAZmebYzI": {
       "video_id": "K4gAZmebYzI",
       "title": "가을 타나 봐",
@@ -2841,19 +3049,6 @@
       "yt_album": "가을 타나 봐",
       "artwork_url": "https://kkoimg.melon.co.kr/cm/album/images/102/05/439/10205439_500.jpg?9838c5b6788f51c2285e3d6b787726c2/melon/resize/96/quality/80/optimize",
       "melon_url": "https://www.melon.com/song/detail.htm?songId=31314144",
-      "apple_url": "",
-      "spotify_url": ""
-    },
-    "E-BvyQb7mWE": {
-      "video_id": "E-BvyQb7mWE",
-      "title": "응급실",
-      "artist": "izi",
-      "album": "쾌걸춘향 OST",
-      "yt_title": "응급실",
-      "yt_artist": "izi",
-      "yt_album": "izi 1집",
-      "artwork_url": "https://kkoimg.melon.co.kr/cm/album/images/000/48/736/48736_500.jpg/melon/resize/96/quality/80/optimize",
-      "melon_url": "https://www.melon.com/song/detail.htm?songId=686651",
       "apple_url": "",
       "spotify_url": ""
     },
@@ -3011,19 +3206,6 @@
       "artwork_url": "https://yt3.googleusercontent.com/eIR62ypK5TVj3K3lLp_cN6FcCUJiiyULwsdhPx1j5OOl4Iq6C3jGHX-pFAfx_4T7CLwalsfPAAiIPqWh=w180-h180-l90-rj",
       "apple_url": "",
       "melon_url": "",
-      "spotify_url": ""
-    },
-    "nwksfZMJXXs": {
-      "video_id": "nwksfZMJXXs",
-      "title": "달리 표현할 수 없어요",
-      "artist": "로이킴",
-      "album": "달리 표현할 수 없어요",
-      "yt_title": "달리 표현할 수 없어요",
-      "yt_artist": "로이킴",
-      "yt_album": "No Words Can Say",
-      "artwork_url": "https://kkoimg.melon.co.kr/cm2/album/images/121/76/812/12176812_20251024184132_500.jpg?05cbe527fad0f08d1b7e745d631f2673/melon/resize/96/quality/80/optimize",
-      "melon_url": "https://www.melon.com/song/detail.htm?songId=600359330",
-      "apple_url": "",
       "spotify_url": ""
     },
     "v3XAAzPOWyg": {
@@ -4416,175 +4598,6 @@
       "apple_url": "https://music.apple.com/album/1821577351?i=1821577352",
       "melon_url": "https://www.melon.com/song/detail.htm?songId=39156202",
       "spotify_url": ""
-    },
-    "zXJMieNOKmM": {
-      "video_id": "zXJMieNOKmM",
-      "title": "City Blue",
-      "artist": "Mili",
-      "album": "City Blue",
-      "yt_title": "City Blue",
-      "yt_artist": "Mili",
-      "yt_album": "City Blue",
-      "artwork_url": "",
-      "apple_url": "",
-      "melon_url": "",
-      "spotify_url": ""
-    },
-    "jFPKynsdKDc": {
-      "video_id": "jFPKynsdKDc",
-      "title": "Ripple Effect2 Remix",
-      "artist": "Swings, hyeminsong, shinjihang, YULEUM",
-      "album": "The Ship Of Theseus",
-      "yt_title": "Ripple Effect2 Remix",
-      "yt_artist": "Swings, hyeminsong, shinjihang, YULEUM",
-      "yt_album": "The Ship Of Theseus",
-      "artwork_url": "",
-      "apple_url": "",
-      "melon_url": "",
-      "spotify_url": ""
-    },
-    "C_pHfKaLSM4": {
-      "video_id": "C_pHfKaLSM4",
-      "title": "Munchkin (feat. Nochang & Jvcki Wai)",
-      "artist": "Layone",
-      "album": "Munchkin",
-      "yt_title": "Munchkin (feat. Nochang & Jvcki Wai)",
-      "yt_artist": "Layone",
-      "yt_album": "Munchkin",
-      "artwork_url": "",
-      "apple_url": "",
-      "melon_url": "",
-      "spotify_url": ""
-    },
-    "bp0eXAvaDzQ": {
-      "video_id": "bp0eXAvaDzQ",
-      "title": "Higher Than Rap",
-      "artist": "Dynamicduo",
-      "album": "Higher Than Rap",
-      "yt_title": "Higher Than Rap",
-      "yt_artist": "Dynamicduo",
-      "yt_album": "Higher Than Rap",
-      "artwork_url": "",
-      "apple_url": "",
-      "melon_url": "",
-      "spotify_url": ""
-    },
-    "0ERZrciEJvE": {
-      "video_id": "0ERZrciEJvE",
-      "title": "자나깨나 (Mayday) (feat. Joy)",
-      "artist": "Crush",
-      "album": "homemade 1",
-      "yt_title": "자나깨나 (Mayday) (feat. Joy)",
-      "yt_artist": "Crush",
-      "yt_album": "homemade 1",
-      "artwork_url": "",
-      "apple_url": "",
-      "melon_url": "",
-      "spotify_url": ""
-    },
-    "0e7uplpFJdE": {
-      "video_id": "0e7uplpFJdE",
-      "title": "사랑인가 봐",
-      "artist": "멜로망스",
-      "album": "사랑인가 봐 (사내맞선 OST 스페셜 트랙)",
-      "yt_title": "Love, Maybe",
-      "yt_artist": "MeloMance",
-      "yt_album": "Love, Maybe (A Business Proposal OST Special Track)",
-      "artwork_url": "https://cdnimg.melon.co.kr/cm2/album/images/108/71/162/10871162_20220217162422_500.jpg/melon/resize/120/quality/80/optimize",
-      "melon_url": "https://www.melon.com/song/detail.htm?songId=34657844",
-      "apple_url": "",
-      "spotify_url": ""
-    },
-    "f2Pee5hnO-E": {
-      "video_id": "f2Pee5hnO-E",
-      "title": "Grown Ups",
-      "artist": "Sondia",
-      "album": "My Mister, Pt. 2 (Original Television Soundtrack)",
-      "yt_title": "Grown Ups",
-      "yt_artist": "Sondia",
-      "yt_album": "My Mister, Pt. 2 (Original Television Soundtrack)",
-      "artwork_url": "",
-      "apple_url": "",
-      "melon_url": "",
-      "spotify_url": ""
-    },
-    "owZA_q5ZirE": {
-      "video_id": "owZA_q5ZirE",
-      "title": "Love Cell",
-      "artist": "ISEGYE IDOL",
-      "album": "Across Dimensions",
-      "yt_title": "Love Cell",
-      "yt_artist": "ISEGYE IDOL",
-      "yt_album": "Across Dimensions",
-      "artwork_url": "",
-      "apple_url": "",
-      "melon_url": "",
-      "spotify_url": ""
-    },
-    "c84VnpGFbrw": {
-      "video_id": "c84VnpGFbrw",
-      "title": "하루 하루",
-      "artist": "BIGBANG (빅뱅)",
-      "album": "Stand Up (2008 빅뱅 3rd Mini Album)",
-      "yt_title": "Haru Haru",
-      "yt_artist": "BIGBANG",
-      "yt_album": "Stand Up",
-      "artwork_url": "https://kkoimg.melon.co.kr/cm/album/images/003/92/870/392870_500.jpg/melon/resize/96/quality/80/optimize",
-      "melon_url": "https://www.melon.com/song/detail.htm?songId=1913501",
-      "apple_url": "",
-      "spotify_url": ""
-    },
-    "-6D1nhqoAyY": {
-      "video_id": "-6D1nhqoAyY",
-      "title": "이러지마 제발 (PLEASE DON’T…)",
-      "artist": "K.will",
-      "album": "The 3rd Album Part.1",
-      "yt_title": "이러지마 제발 (PLEASE DON’T…)",
-      "yt_artist": "K.will",
-      "yt_album": "The 3rd Album Part.1",
-      "artwork_url": "",
-      "apple_url": "",
-      "melon_url": "",
-      "spotify_url": ""
-    },
-    "ZSRzCbpIxZo": {
-      "video_id": "ZSRzCbpIxZo",
-      "title": "Snowman",
-      "artist": "Sia",
-      "album": "Everyday Is Christmas (Deluxe Edition)",
-      "yt_title": "Snowman",
-      "yt_artist": "Sia",
-      "yt_album": "Everyday Is Christmas (Deluxe Edition)",
-      "artwork_url": "https://is1-ssl.mzstatic.com/image/thumb/Music115/v4/85/c3/21/85c32113-1c4c-571c-7602-88f568d8081c/075679861016.jpg/100x100bb.jpg",
-      "apple_url": "",
-      "melon_url": "",
-      "spotify_url": ""
-    },
-    "1hcYxBmxT3E": {
-      "video_id": "1hcYxBmxT3E",
-      "title": "BALALAIKA",
-      "artist": "9Lana",
-      "album": "BALALAIKA",
-      "yt_title": "BALALAIKA",
-      "yt_artist": "9Lana",
-      "yt_album": "BALALAIKA",
-      "artwork_url": "",
-      "apple_url": "",
-      "melon_url": "",
-      "spotify_url": ""
-    },
-    "sJlGEc-kyrU": {
-      "video_id": "sJlGEc-kyrU",
-      "title": "I Need You",
-      "artist": "허각, 지아",
-      "album": "I Need You",
-      "yt_title": "I Need You",
-      "yt_artist": "Huh Gak(허각)&Zia(지아)",
-      "yt_album": "I Need You",
-      "artwork_url": "https://yt3.googleusercontent.com/dtlN0YFUfVkNk5cMIkP8Bt9ifl3AviJd-tWi5LgL7rUEOcDns0kqkkcFRUT7T0WZM85lX6k9gXKBmSg8=w180-h180-l90-rj",
-      "apple_url": "",
-      "melon_url": "",
-      "spotify_url": ""
     }
   },
   "rankings": {
@@ -5453,8 +5466,16 @@
         "melon_genz_rank": 65,
         "ytmusic_rank": null
       },
-      "HlT6mxxt6Ek": {
+      "ujIl_AU6B24": {
         "hype_rank": 109,
+        "hype_index": 5.77,
+        "apple_rank": null,
+        "melon_rank": null,
+        "melon_genz_rank": null,
+        "ytmusic_rank": 39
+      },
+      "HlT6mxxt6Ek": {
+        "hype_rank": 110,
         "hype_index": 5.64,
         "apple_rank": null,
         "melon_rank": null,
@@ -5462,7 +5483,7 @@
         "ytmusic_rank": 40
       },
       "dBv5ju-TGZQ": {
-        "hype_rank": 110,
+        "hype_rank": 111,
         "hype_index": 5.63,
         "apple_rank": 66,
         "melon_rank": null,
@@ -5470,7 +5491,7 @@
         "ytmusic_rank": null
       },
       "29lj9jFfJvY": {
-        "hype_rank": 111,
+        "hype_rank": 112,
         "hype_index": 5.63,
         "apple_rank": null,
         "melon_rank": 34,
@@ -5478,7 +5499,7 @@
         "ytmusic_rank": null
       },
       "7CUz7Ec7cWc": {
-        "hype_rank": 112,
+        "hype_rank": 113,
         "hype_index": 5.45,
         "apple_rank": 67,
         "melon_rank": null,
@@ -5486,7 +5507,7 @@
         "ytmusic_rank": null
       },
       "cZL7mpzVpgI": {
-        "hype_rank": 113,
+        "hype_rank": 114,
         "hype_index": 5.45,
         "apple_rank": null,
         "melon_rank": null,
@@ -5494,7 +5515,7 @@
         "ytmusic_rank": null
       },
       "fwNJdxUghcc": {
-        "hype_rank": 114,
+        "hype_rank": 115,
         "hype_index": 5.25,
         "apple_rank": null,
         "melon_rank": 99,
@@ -5502,7 +5523,7 @@
         "ytmusic_rank": 68
       },
       "IuaW6w3Mh4c": {
-        "hype_rank": 115,
+        "hype_rank": 116,
         "hype_index": 5.09,
         "apple_rank": 69,
         "melon_rank": null,
@@ -5510,7 +5531,7 @@
         "ytmusic_rank": null
       },
       "n9h7WZg1oYs": {
-        "hype_rank": 116,
+        "hype_rank": 117,
         "hype_index": 5.02,
         "apple_rank": null,
         "melon_rank": null,
@@ -5518,7 +5539,7 @@
         "ytmusic_rank": 45
       },
       "YJhEsDa2o8w": {
-        "hype_rank": 117,
+        "hype_rank": 118,
         "hype_index": 4.91,
         "apple_rank": 70,
         "melon_rank": null,
@@ -5526,7 +5547,7 @@
         "ytmusic_rank": null
       },
       "bLahVNBGdLQ": {
-        "hype_rank": 118,
+        "hype_rank": 119,
         "hype_index": 4.91,
         "apple_rank": null,
         "melon_rank": 48,
@@ -5534,7 +5555,7 @@
         "ytmusic_rank": null
       },
       "Xm2c0L-Xgdg": {
-        "hype_rank": 119,
+        "hype_rank": 120,
         "hype_index": 4.78,
         "apple_rank": null,
         "melon_rank": null,
@@ -5542,7 +5563,7 @@
         "ytmusic_rank": 47
       },
       "BY4sHNaV4WU": {
-        "hype_rank": 120,
+        "hype_rank": 121,
         "hype_index": 4.73,
         "apple_rank": null,
         "melon_rank": null,
@@ -5550,7 +5571,7 @@
         "ytmusic_rank": null
       },
       "jCKcEoZrlJQ": {
-        "hype_rank": 121,
+        "hype_rank": 122,
         "hype_index": 4.69,
         "apple_rank": 91,
         "melon_rank": 53,
@@ -5558,7 +5579,7 @@
         "ytmusic_rank": null
       },
       "LP0lRsckX1A": {
-        "hype_rank": 122,
+        "hype_rank": 123,
         "hype_index": 4.67,
         "apple_rank": null,
         "melon_rank": null,
@@ -5566,7 +5587,7 @@
         "ytmusic_rank": 48
       },
       "VeU4N7z93BM": {
-        "hype_rank": 123,
+        "hype_rank": 124,
         "hype_index": 4.55,
         "apple_rank": null,
         "melon_rank": null,
@@ -5574,7 +5595,7 @@
         "ytmusic_rank": 49
       },
       "IHIt9S2DWcQ": {
-        "hype_rank": 124,
+        "hype_rank": 125,
         "hype_index": 4.31,
         "apple_rank": null,
         "melon_rank": 67,
@@ -5582,7 +5603,7 @@
         "ytmusic_rank": 60
       },
       "E-BvyQb7mWE": {
-        "hype_rank": 125,
+        "hype_rank": 126,
         "hype_index": 4.22,
         "apple_rank": null,
         "melon_rank": null,
@@ -5590,7 +5611,7 @@
         "ytmusic_rank": null
       },
       "PEpWLTge234": {
-        "hype_rank": 126,
+        "hype_rank": 127,
         "hype_index": 4.22,
         "apple_rank": null,
         "melon_rank": null,
@@ -5598,7 +5619,7 @@
         "ytmusic_rank": 52
       },
       "jFPKynsdKDc": {
-        "hype_rank": 127,
+        "hype_rank": 128,
         "hype_index": 4.11,
         "apple_rank": null,
         "melon_rank": null,
@@ -5606,7 +5627,7 @@
         "ytmusic_rank": 53
       },
       "6POlUfjBIB4": {
-        "hype_rank": 128,
+        "hype_rank": 129,
         "hype_index": 4.1,
         "apple_rank": 86,
         "melon_rank": null,
@@ -5614,7 +5635,7 @@
         "ytmusic_rank": 78
       },
       "8QFM8Ews68c": {
-        "hype_rank": 129,
+        "hype_rank": 130,
         "hype_index": 4.05,
         "apple_rank": 75,
         "melon_rank": null,
@@ -5622,7 +5643,7 @@
         "ytmusic_rank": null
       },
       "TLftyCObb_E": {
-        "hype_rank": 130,
+        "hype_rank": 131,
         "hype_index": 4.05,
         "apple_rank": null,
         "melon_rank": 43,
@@ -5630,7 +5651,7 @@
         "ytmusic_rank": null
       },
       "8kQH_bBMrMQ": {
-        "hype_rank": 131,
+        "hype_rank": 132,
         "hype_index": 4.0,
         "apple_rank": null,
         "melon_rank": null,
@@ -5638,7 +5659,7 @@
         "ytmusic_rank": 54
       },
       "C_pHfKaLSM4": {
-        "hype_rank": 132,
+        "hype_rank": 133,
         "hype_index": 3.9,
         "apple_rank": null,
         "melon_rank": null,
@@ -5646,7 +5667,7 @@
         "ytmusic_rank": 55
       },
       "V6TEcoNUmc8": {
-        "hype_rank": 133,
+        "hype_rank": 134,
         "hype_index": 3.72,
         "apple_rank": 99,
         "melon_rank": null,
@@ -5654,7 +5675,7 @@
         "ytmusic_rank": 62
       },
       "NwO0H2bUhSQ": {
-        "hype_rank": 134,
+        "hype_rank": 135,
         "hype_index": 3.72,
         "apple_rank": null,
         "melon_rank": null,
@@ -5662,7 +5683,7 @@
         "ytmusic_rank": null
       },
       "bp0eXAvaDzQ": {
-        "hype_rank": 135,
+        "hype_rank": 136,
         "hype_index": 3.59,
         "apple_rank": null,
         "melon_rank": null,
@@ -5670,7 +5691,7 @@
         "ytmusic_rank": 58
       },
       "aLUvL0mNQmY": {
-        "hype_rank": 136,
+        "hype_rank": 137,
         "hype_index": 3.56,
         "apple_rank": null,
         "melon_rank": 28,
@@ -5678,7 +5699,7 @@
         "ytmusic_rank": null
       },
       "vjrk0_T4Jzs": {
-        "hype_rank": 137,
+        "hype_rank": 138,
         "hype_index": 3.49,
         "apple_rank": null,
         "melon_rank": null,
@@ -5686,7 +5707,7 @@
         "ytmusic_rank": 59
       },
       "V_kzqTam8lQ": {
-        "hype_rank": 138,
+        "hype_rank": 139,
         "hype_index": 3.29,
         "apple_rank": null,
         "melon_rank": 49,
@@ -5694,7 +5715,7 @@
         "ytmusic_rank": 61
       },
       "tkzYyEp4zB4": {
-        "hype_rank": 139,
+        "hype_rank": 140,
         "hype_index": 3.24,
         "apple_rank": 80,
         "melon_rank": null,
@@ -5702,7 +5723,7 @@
         "ytmusic_rank": null
       },
       "pRmsP7A-DtY": {
-        "hype_rank": 140,
+        "hype_rank": 141,
         "hype_index": 3.24,
         "apple_rank": null,
         "melon_rank": null,
@@ -5710,7 +5731,7 @@
         "ytmusic_rank": null
       },
       "hl7_dxuytRQ": {
-        "hype_rank": 141,
+        "hype_rank": 142,
         "hype_index": 3.1,
         "apple_rank": null,
         "melon_rank": null,
@@ -5718,7 +5739,7 @@
         "ytmusic_rank": 63
       },
       "HaOz1PhGXhs": {
-        "hype_rank": 142,
+        "hype_rank": 143,
         "hype_index": 3.0,
         "apple_rank": null,
         "melon_rank": null,
@@ -5726,7 +5747,7 @@
         "ytmusic_rank": 64
       },
       "F2WbQwiP5vs": {
-        "hype_rank": 143,
+        "hype_rank": 144,
         "hype_index": 2.93,
         "apple_rank": 82,
         "melon_rank": 95,
@@ -5734,7 +5755,7 @@
         "ytmusic_rank": null
       },
       "-tCUWBHihu4": {
-        "hype_rank": 144,
+        "hype_rank": 145,
         "hype_index": 2.91,
         "apple_rank": null,
         "melon_rank": null,
@@ -5742,7 +5763,7 @@
         "ytmusic_rank": 65
       },
       "5C-UzW1FLiA": {
-        "hype_rank": 145,
+        "hype_rank": 146,
         "hype_index": 2.77,
         "apple_rank": 83,
         "melon_rank": null,
@@ -5750,7 +5771,7 @@
         "ytmusic_rank": null
       },
       "yuH4OnvoADU": {
-        "hype_rank": 146,
+        "hype_rank": 147,
         "hype_index": 2.77,
         "apple_rank": null,
         "melon_rank": null,
@@ -5758,7 +5779,7 @@
         "ytmusic_rank": null
       },
       "0ERZrciEJvE": {
-        "hype_rank": 147,
+        "hype_rank": 148,
         "hype_index": 2.72,
         "apple_rank": null,
         "melon_rank": null,
@@ -5766,7 +5787,7 @@
         "ytmusic_rank": 67
       },
       "PGADim6UzHE": {
-        "hype_rank": 148,
+        "hype_rank": 149,
         "hype_index": 2.47,
         "apple_rank": 85,
         "melon_rank": null,
@@ -5774,7 +5795,7 @@
         "ytmusic_rank": null
       },
       "N4N8nam2QbI": {
-        "hype_rank": 149,
+        "hype_rank": 150,
         "hype_index": 2.47,
         "apple_rank": null,
         "melon_rank": null,
@@ -5782,7 +5803,7 @@
         "ytmusic_rank": null
       },
       "0uXWVDGvVVM": {
-        "hype_rank": 150,
+        "hype_rank": 151,
         "hype_index": 2.45,
         "apple_rank": null,
         "melon_rank": null,
@@ -5790,7 +5811,7 @@
         "ytmusic_rank": 70
       },
       "zlZpMuiqqBY": {
-        "hype_rank": 151,
+        "hype_rank": 152,
         "hype_index": 2.37,
         "apple_rank": null,
         "melon_rank": null,
@@ -5798,7 +5819,7 @@
         "ytmusic_rank": 71
       },
       "rNvli9cD9Mw": {
-        "hype_rank": 152,
+        "hype_rank": 153,
         "hype_index": 2.32,
         "apple_rank": null,
         "melon_rank": null,
@@ -5806,7 +5827,7 @@
         "ytmusic_rank": null
       },
       "qWqKrwpw2kY": {
-        "hype_rank": 153,
+        "hype_rank": 154,
         "hype_index": 2.28,
         "apple_rank": null,
         "melon_rank": null,
@@ -5814,7 +5835,7 @@
         "ytmusic_rank": 72
       },
       "JG6YHjbj4zQ": {
-        "hype_rank": 154,
+        "hype_rank": 155,
         "hype_index": 2.19,
         "apple_rank": null,
         "melon_rank": null,
@@ -5822,7 +5843,7 @@
         "ytmusic_rank": 73
       },
       "9PNNjwmKIVI": {
-        "hype_rank": 155,
+        "hype_rank": 156,
         "hype_index": 2.18,
         "apple_rank": 87,
         "melon_rank": null,
@@ -5830,7 +5851,7 @@
         "ytmusic_rank": null
       },
       "dYnU0DZ_iQc": {
-        "hype_rank": 156,
+        "hype_rank": 157,
         "hype_index": 2.18,
         "apple_rank": null,
         "melon_rank": null,
@@ -5838,7 +5859,7 @@
         "ytmusic_rank": null
       },
       "0e7uplpFJdE": {
-        "hype_rank": 157,
+        "hype_rank": 158,
         "hype_index": 2.03,
         "apple_rank": null,
         "melon_rank": 65,
@@ -5846,7 +5867,7 @@
         "ytmusic_rank": 75
       },
       "A8-ENEqhQjg": {
-        "hype_rank": 158,
+        "hype_rank": 159,
         "hype_index": 1.89,
         "apple_rank": null,
         "melon_rank": 40,
@@ -5854,7 +5875,7 @@
         "ytmusic_rank": null
       },
       "GWaW24LL0tM": {
-        "hype_rank": 159,
+        "hype_rank": 160,
         "hype_index": 1.86,
         "apple_rank": 92,
         "melon_rank": null,
@@ -5862,7 +5883,7 @@
         "ytmusic_rank": 97
       },
       "MHCsrKA9gh8": {
-        "hype_rank": 160,
+        "hype_rank": 161,
         "hype_index": 1.86,
         "apple_rank": null,
         "melon_rank": null,
@@ -5870,7 +5891,7 @@
         "ytmusic_rank": 77
       },
       "dTVCk33AQEs": {
-        "hype_rank": 161,
+        "hype_rank": 162,
         "hype_index": 1.74,
         "apple_rank": 90,
         "melon_rank": null,
@@ -5878,7 +5899,7 @@
         "ytmusic_rank": null
       },
       "f2Pee5hnO-E": {
-        "hype_rank": 162,
+        "hype_rank": 163,
         "hype_index": 1.7,
         "apple_rank": null,
         "melon_rank": null,
@@ -5886,7 +5907,7 @@
         "ytmusic_rank": 79
       },
       "BXzoYQ-3ETs": {
-        "hype_rank": 163,
+        "hype_rank": 164,
         "hype_index": 1.6,
         "apple_rank": null,
         "melon_rank": 37,
@@ -5894,7 +5915,7 @@
         "ytmusic_rank": null
       },
       "ZBFzUSdS2nI": {
-        "hype_rank": 164,
+        "hype_rank": 165,
         "hype_index": 1.58,
         "apple_rank": null,
         "melon_rank": 35,
@@ -5902,7 +5923,7 @@
         "ytmusic_rank": 95
       },
       "owZA_q5ZirE": {
-        "hype_rank": 165,
+        "hype_rank": 166,
         "hype_index": 1.54,
         "apple_rank": null,
         "melon_rank": null,
@@ -5910,7 +5931,7 @@
         "ytmusic_rank": 81
       },
       "c84VnpGFbrw": {
-        "hype_rank": 166,
+        "hype_rank": 167,
         "hype_index": 1.46,
         "apple_rank": null,
         "melon_rank": null,
@@ -5918,7 +5939,7 @@
         "ytmusic_rank": null
       },
       "e7u2aPzWmU4": {
-        "hype_rank": 167,
+        "hype_rank": 168,
         "hype_index": 1.46,
         "apple_rank": null,
         "melon_rank": null,
@@ -5926,7 +5947,7 @@
         "ytmusic_rank": 82
       },
       "-6D1nhqoAyY": {
-        "hype_rank": 168,
+        "hype_rank": 169,
         "hype_index": 1.39,
         "apple_rank": null,
         "melon_rank": null,
@@ -5934,7 +5955,7 @@
         "ytmusic_rank": 83
       },
       "8rMARLBfd3U": {
-        "hype_rank": 169,
+        "hype_rank": 170,
         "hype_index": 1.33,
         "apple_rank": null,
         "melon_rank": null,
@@ -5942,7 +5963,7 @@
         "ytmusic_rank": null
       },
       "ZSRzCbpIxZo": {
-        "hype_rank": 170,
+        "hype_rank": 171,
         "hype_index": 1.31,
         "apple_rank": null,
         "melon_rank": null,
@@ -5950,7 +5971,7 @@
         "ytmusic_rank": 84
       },
       "uGM5hvD6ku4": {
-        "hype_rank": 171,
+        "hype_rank": 172,
         "hype_index": 1.24,
         "apple_rank": null,
         "melon_rank": 62,
@@ -5958,7 +5979,7 @@
         "ytmusic_rank": 85
       },
       "hfftbNrp_lw": {
-        "hype_rank": 172,
+        "hype_rank": 173,
         "hype_index": 1.19,
         "apple_rank": 94,
         "melon_rank": null,
@@ -5966,7 +5987,7 @@
         "ytmusic_rank": null
       },
       "zGzFymXgU8g": {
-        "hype_rank": 173,
+        "hype_rank": 174,
         "hype_index": 1.19,
         "apple_rank": null,
         "melon_rank": null,
@@ -5974,7 +5995,7 @@
         "ytmusic_rank": null
       },
       "1hcYxBmxT3E": {
-        "hype_rank": 174,
+        "hype_rank": 175,
         "hype_index": 1.16,
         "apple_rank": null,
         "melon_rank": null,
@@ -5982,7 +6003,7 @@
         "ytmusic_rank": 86
       },
       "IeXIBTMkLS4": {
-        "hype_rank": 175,
+        "hype_rank": 176,
         "hype_index": 1.05,
         "apple_rank": 95,
         "melon_rank": null,
@@ -5990,7 +6011,7 @@
         "ytmusic_rank": null
       },
       "qxxOgqxosds": {
-        "hype_rank": 176,
+        "hype_rank": 177,
         "hype_index": 0.94,
         "apple_rank": null,
         "melon_rank": 80,
@@ -5998,7 +6019,7 @@
         "ytmusic_rank": 89
       },
       "tiFpz-FxSJg": {
-        "hype_rank": 177,
+        "hype_rank": 178,
         "hype_index": 0.92,
         "apple_rank": 96,
         "melon_rank": null,
@@ -6006,7 +6027,7 @@
         "ytmusic_rank": null
       },
       "Cbs8h6nJWBc": {
-        "hype_rank": 178,
+        "hype_rank": 179,
         "hype_index": 0.87,
         "apple_rank": null,
         "melon_rank": null,
@@ -6014,7 +6035,7 @@
         "ytmusic_rank": 90
       },
       "n0GXk_T2zs8": {
-        "hype_rank": 179,
+        "hype_rank": 180,
         "hype_index": 0.8,
         "apple_rank": null,
         "melon_rank": null,
@@ -6022,7 +6043,7 @@
         "ytmusic_rank": 91
       },
       "f7-z0FDBpZo": {
-        "hype_rank": 180,
+        "hype_rank": 181,
         "hype_index": 0.79,
         "apple_rank": 97,
         "melon_rank": null,
@@ -6030,7 +6051,7 @@
         "ytmusic_rank": null
       },
       "nwksfZMJXXs": {
-        "hype_rank": 181,
+        "hype_rank": 182,
         "hype_index": 0.79,
         "apple_rank": null,
         "melon_rank": null,
@@ -6038,7 +6059,7 @@
         "ytmusic_rank": null
       },
       "driAdurvDXY": {
-        "hype_rank": 182,
+        "hype_rank": 183,
         "hype_index": 0.73,
         "apple_rank": null,
         "melon_rank": null,
@@ -6046,7 +6067,7 @@
         "ytmusic_rank": 92
       },
       "PBp8c0qCKno": {
-        "hype_rank": 183,
+        "hype_rank": 184,
         "hype_index": 0.66,
         "apple_rank": null,
         "melon_rank": 50,
@@ -6054,7 +6075,7 @@
         "ytmusic_rank": null
       },
       "cPtvGVLuJYo": {
-        "hype_rank": 184,
+        "hype_rank": 185,
         "hype_index": 0.66,
         "apple_rank": null,
         "melon_rank": null,
@@ -6062,7 +6083,7 @@
         "ytmusic_rank": 93
       },
       "fsYE8vJRTj4": {
-        "hype_rank": 185,
+        "hype_rank": 186,
         "hype_index": 0.53,
         "apple_rank": null,
         "melon_rank": null,
@@ -6070,7 +6091,7 @@
         "ytmusic_rank": null
       },
       "R53dDlmY3wo": {
-        "hype_rank": 186,
+        "hype_rank": 187,
         "hype_index": 0.46,
         "apple_rank": null,
         "melon_rank": null,
@@ -6078,7 +6099,7 @@
         "ytmusic_rank": 96
       },
       "RgZvGEeXI10": {
-        "hype_rank": 187,
+        "hype_rank": 188,
         "hype_index": 0.4,
         "apple_rank": 100,
         "melon_rank": null,
@@ -6086,7 +6107,7 @@
         "ytmusic_rank": null
       },
       "e6-TxMisjh8": {
-        "hype_rank": 188,
+        "hype_rank": 189,
         "hype_index": 0.4,
         "apple_rank": null,
         "melon_rank": null,
@@ -6094,7 +6115,7 @@
         "ytmusic_rank": null
       },
       "sJlGEc-kyrU": {
-        "hype_rank": 189,
+        "hype_rank": 190,
         "hype_index": 0.33,
         "apple_rank": null,
         "melon_rank": null,
@@ -6102,7 +6123,7 @@
         "ytmusic_rank": 98
       },
       "KccAOdiy4SU": {
-        "hype_rank": 190,
+        "hype_rank": 191,
         "hype_index": 0.26,
         "apple_rank": null,
         "melon_rank": null,
@@ -6110,7 +6131,7 @@
         "ytmusic_rank": 99
       },
       "nTs0Gc0b6Ww": {
-        "hype_rank": 191,
+        "hype_rank": 192,
         "hype_index": 0.2,
         "apple_rank": null,
         "melon_rank": null,
