@@ -1,0 +1,26 @@
+name: Melon weekly chart browser comparison
+
+on:
+  push:
+    branches: [codex/melon-weekly-browser-check]
+
+permissions:
+  contents: read
+
+jobs:
+  compare:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 6
+    container:
+      image: mcr.microsoft.com/playwright/python:v1.59.0-noble
+      options: --init
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: python -m pip install -r requirements.txt
+      - name: Read the weekly chart with requests and WebKit
+        run: python tests/probe_melon_weekly.py
