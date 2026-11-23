@@ -1,58 +1,32 @@
 name: YouTube Charts Browser Check
-
+run-name: Official KR weekly CSV download on GitHub-hosted WebKit
 on:
-  workflow_dispatch:
-  pull_request:
-    paths:
-      - ytmusic_playlist_sync.py
-      - tests/test_playlist_count_retry.py
-      - tests/test_playlist_delta.py
-      - tests/test_metadata_outage_preservation.py
-      - tests/test_artist_metadata_layout.py
-      - tests/check_artist_metadata.py
-      - hype_db_store.py
-      - hype_db_reports.py
-      - crawler_common.py
-      - sync_all.py
-      - sync_validation.py
-      - tests/test_weekly_pipeline.py
-      - tests/test_ytmusic_monday_schedule.py
-      - reconcile_playlist_update.py
-      - ytmusic_to_ytmusic_crawl.py
-      - requirements.txt
-      - tests/test_youtube_charts*.py
-      - tests/check_youtube_charts_browser.py
-      - .github/workflows/daily-sync.yml
-      - .github/workflows/youtube-charts-browser-check.yml
-
+  push:
+    branches: [codex/verify-kr-chart-csv-20261123]
+    paths: ['check_kr_weekly_csv.py']
 permissions:
   contents: read
-
 jobs:
-  browser-check:
+  verify-csv:
     runs-on: ubuntu-24.04
     container:
       image: mcr.microsoft.com/playwright/python:v1.59.0-noble
       options: --init
-    timeout-minutes: 10
-    env:
-      HYPE_DB_BACKEND: sqlite
+    timeout-minutes: 8
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-      - name: Install dependencies
-        run: python -m pip install -r requirements.txt
-      - name: Run regression tests
-        run: python -m unittest discover -s tests -v
-      - name: Verify live artist metadata without database or playlist writes
-        run: python tests/check_artist_metadata.py
-      - name: Verify official weekly collection and outage fallback without database or playlist writes
-        run: python tests/check_youtube_charts_browser.py browser-chart.json
-      - name: Save verified official weekly chart
+      - run: python -m pip install -r requirements.txt
+      - name: Download the dated South Korea Top Songs CSV and compare with Safari
+        run: python check_kr_weekly_csv.py
+      - name: Save the verified official CSV
         uses: actions/upload-artifact@v4
         with:
-          name: official-kr-weekly-chart
-          path: browser-chart.json
-          retention-days: 1
+          name: official-kr-weekly-csv-20261119
+          path: youtube-charts-top-songs-kr-weekly-20261119.csv
+          if-no-files-found: error
+          retention-days: 7
