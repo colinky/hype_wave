@@ -1,0 +1,52 @@
+name: Recover Melon daily charts for 2026-11-21
+on:
+  push:
+    branches: [codex/melon-backfill-20261121]
+concurrency:
+  group: daily-unified-music-sync
+  cancel-in-progress: false
+permissions:
+  contents: read
+jobs:
+  recover:
+    if: github.event.created
+    runs-on: ubuntu-24.04
+    timeout-minutes: 65
+    container:
+      image: mcr.microsoft.com/playwright/python:v1.59.0-noble
+      options: --init
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: python -m pip install -r requirements.txt
+      - name: Collect and verify the three official November 21 source pages
+        id: sources
+        run: python recover_melon_nov21.py collect
+      - name: Prepare playlist credentials
+        id: auth
+        env:
+          YTMUSIC_BROWSER_JSON: ${{ secrets.YTMUSIC_BROWSER_JSON }}
+        run: |
+          umask 077
+          test -n "$YTMUSIC_BROWSER_JSON"
+          printf '%s' "$YTMUSIC_BROWSER_JSON" > "$RUNNER_TEMP/melon-yt-auth.json"
+      - name: Store and publish Melon daily
+        env: &production
+          HYPE_DB_BACKEND: aiven
+          AIVEN_DB_URI: ${{ secrets.AIVEN_DB_URI }}
+          AIVEN_DB_HOST: ${{ secrets.AIVEN_DB_HOST }}
+          AIVEN_DB_CA_CERTIFICATE: ${{ secrets.AIVEN_DB_CA_CERTIFICATE }}
+          YTMUSIC_AUTH_FILE: ${{ runner.temp }}/melon-yt-auth.json
+          HYPE_DEFER_HISTORY_EXPORT: "1"
+        run: python recover_melon_nov21.py Top-100-Daily
+      - name: Store both generation charts and publish their combined playlist
+        if: ${{ !cancelled() && steps.sources.outcome == 'success' && steps.auth.outcome == 'success' }}
+        env: *production
+        run: python recover_melon_nov21.py Gen-Z-Daily
+      - name: Remove temporary credentials
+        if: always()
+        run: rm -f "$RUNNER_TEMP/melon-yt-auth.json"
