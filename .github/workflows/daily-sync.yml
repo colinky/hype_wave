@@ -3,9 +3,9 @@ name: Daily Unified Music Sync
 on:
   workflow_dispatch:
   schedule:
-    # Daily at 07:05 UTC (16:05 KST); sync_all uses UTC scheduling weekdays.
+    # Daily at 07:17 UTC (16:17 KST); sync_all uses UTC scheduling weekdays.
     # YouTube collects on UTC Monday, with one Tuesday recovery for a missing chart.
-    - cron: "5 7 * * *"
+    - cron: "17 7 * * *"
 
 concurrency:
   group: daily-unified-music-sync
